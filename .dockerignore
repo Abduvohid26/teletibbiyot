@@ -107,7 +107,7 @@ tmp-*
 backups
 docker-data
 uploads
-storage
+/storage
 *.sql
 *.sql.gz
 
