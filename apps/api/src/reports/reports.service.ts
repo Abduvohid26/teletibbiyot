@@ -6,6 +6,7 @@ import { AccessControlService, AuthUser } from '../common/access-control.service
 import { UserRole } from '@prisma/client';
 import { BRAND } from '@ishifo/shared';
 import { FieldCryptoService } from '../common/field-crypto.service';
+import PDFDocument from 'pdfkit';
 
 @Injectable()
 export class ReportsService {
@@ -27,16 +28,6 @@ export class ReportsService {
     return consultation;
   }
 
-  private escapeHtml(value: string | null | undefined): string {
-    if (!value) return '—';
-    return value
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
-
   async generateReport(consultationId: string, user: AuthUser) {
     await this.assertAccess(consultationId, user);
 
@@ -56,37 +47,27 @@ export class ReportsService {
 
     const fd = consultation.finalDiagnosis;
     const p = this.crypto.unprotectPatient(consultation.patient as Record<string, unknown>) as typeof consultation.patient;
-    const html = `<!DOCTYPE html>
-<html lang="uz"><head><meta charset="utf-8"><title>${this.escapeHtml(BRAND.name)} hisobot</title>
-<style>body{font-family:Inter,sans-serif;max-width:800px;margin:40px auto;padding:20px;color:#0f172a}
-h1{color:#2563eb}h2{border-bottom:2px solid #e2e8f0;padding-bottom:8px;margin-top:24px}
-table{width:100%;border-collapse:collapse}td,th{padding:8px;border:1px solid #e2e8f0;text-align:left}
-.footer{margin-top:40px;font-size:12px;color:#64748b}</style></head><body>
-<h1>${this.escapeHtml(BRAND.name)} — Konsultatsiya hisoboti</h1>
-<p><strong>Sana:</strong> ${new Date().toLocaleString('uz-UZ')}</p>
-<h2>Bemor</h2>
-<table><tr><th>F.I.Sh.</th><td>${this.escapeHtml(p.fullName)}</td></tr>
-<tr><th>Telefon</th><td>${this.escapeHtml(p.phone)}</td></tr>
-<tr><th>Tug'ilgan sana</th><td>${this.escapeHtml(p.birthDate.toISOString().slice(0, 10))}</td></tr>
-<tr><th>UT muassasa</th><td>${this.escapeHtml(consultation.utFacility.name)} (${this.escapeHtml(consultation.utFacility.code)})</td></tr></table>
-<h2>Klinik ma'lumotlar</h2>
-<p><strong>Shikoyatlar:</strong> ${this.escapeHtml(consultation.clinicalRecord?.complaints)}</p>
-<h2>AI tahlil xulosasi</h2>
-<p>${this.escapeHtml(consultation.aiAnalysis?.summary)}</p>
-<h2>Yakuniy tashxis (shifokor)</h2>
-<table><tr><th>Tashxis</th><td>${this.escapeHtml(fd.diagnosis)}</td></tr>
-<tr><th>ICD-10</th><td>${this.escapeHtml(fd.icd10Code)}</td></tr>
-<tr><th>Tavsiyalar</th><td>${this.escapeHtml(fd.recommendations)}</td></tr>
-<tr><th>Retsept</th><td>${this.escapeHtml(fd.prescription)}</td></tr>
-<tr><th>Shifokor</th><td>${this.escapeHtml(consultation.mtDoctor?.fullName)}</td></tr></table>
-<div class="footer"><p>${this.escapeHtml(BRAND.name)} platformasi — ${this.escapeHtml(BRAND.supporter)}</p>
-<p>Patent: ${this.escapeHtml(BRAND.patent)} · ${this.escapeHtml(BRAND.license)} · ${this.escapeHtml(BRAND.certification)}</p>
-<p>Bu hujjat AI yordamida tayyorlangan. Yakuniy qaror shifokor mas'uliyatida.</p></div>
-</body></html>`;
 
-    const fileName = `hisobot-${consultationId.slice(0, 8)}.html`;
+    const pdfBuffer = await this.buildPdfBuffer({
+      brandName: BRAND.name,
+      supporter: BRAND.supporter,
+      patientName: p.fullName,
+      patientPhone: p.phone,
+      birthDate: p.birthDate.toISOString().slice(0, 10),
+      facilityName: consultation.utFacility.name,
+      facilityCode: consultation.utFacility.code,
+      complaints: consultation.clinicalRecord?.complaints,
+      aiSummary: consultation.aiAnalysis?.summary,
+      diagnosis: fd.diagnosis,
+      icd10Code: fd.icd10Code,
+      recommendations: fd.recommendations,
+      prescription: fd.prescription,
+      doctorName: consultation.mtDoctor?.fullName,
+    });
+
+    const fileName = `hisobot-${consultationId.slice(0, 8)}.pdf`;
     const fileKey = `reports/${consultationId}/${fileName}`;
-    await this.storage.uploadBuffer(fileKey, Buffer.from(html, 'utf-8'), 'text/html');
+    await this.storage.uploadBuffer(fileKey, pdfBuffer, 'application/pdf');
 
     const report = await this.prisma.consultationReport.upsert({
       where: { consultationId },
@@ -124,5 +105,63 @@ table{width:100%;border-collapse:collapse}td,th{padding:8px;border:1px solid #e2
     });
 
     return this.storage.getPresignedUrl(report.fileKey);
+  }
+
+  private buildPdfBuffer(data: {
+    brandName: string;
+    supporter: string;
+    patientName: string;
+    patientPhone: string | null;
+    birthDate: string;
+    facilityName: string;
+    facilityCode: string;
+    complaints?: string | null;
+    aiSummary?: string | null;
+    diagnosis: string;
+    icd10Code: string;
+    recommendations?: string | null;
+    prescription?: string | null;
+    doctorName?: string | null;
+  }): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      const doc = new PDFDocument({ margin: 50, size: 'A4' });
+      const chunks: Buffer[] = [];
+      doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      doc.fontSize(18).fillColor('#2563eb').text(`${data.brandName} — Konsultatsiya hisoboti`);
+      doc.moveDown(0.5);
+      doc.fontSize(10).fillColor('#64748b').text(`Sana: ${new Date().toLocaleString('uz-UZ')}`);
+      doc.moveDown();
+
+      doc.fontSize(13).fillColor('#0f172a').text('Bemor', { underline: true });
+      doc.fontSize(11).text(`F.I.Sh.: ${data.patientName}`);
+      doc.text(`Telefon: ${data.patientPhone || '—'}`);
+      doc.text(`Tug'ilgan sana: ${data.birthDate}`);
+      doc.text(`UT muassasa: ${data.facilityName} (${data.facilityCode})`);
+      doc.moveDown();
+
+      doc.fontSize(13).text('Klinik ma\'lumotlar', { underline: true });
+      doc.fontSize(11).text(`Shikoyatlar: ${data.complaints || '—'}`, { width: 500 });
+      doc.moveDown();
+
+      doc.fontSize(13).text('AI tahlil xulosasi', { underline: true });
+      doc.fontSize(11).text(data.aiSummary || '—', { width: 500 });
+      doc.moveDown();
+
+      doc.fontSize(13).text('Yakuniy tashxis (shifokor)', { underline: true });
+      doc.fontSize(11).text(`Tashxis: ${data.diagnosis}`);
+      doc.text(`ICD-10: ${data.icd10Code}`);
+      doc.text(`Tavsiyalar: ${data.recommendations || '—'}`, { width: 500 });
+      doc.text(`Retsept: ${data.prescription || '—'}`, { width: 500 });
+      doc.text(`Shifokor: ${data.doctorName || '—'}`);
+      doc.moveDown();
+
+      doc.fontSize(9).fillColor('#64748b')
+        .text(`${data.brandName} — ${data.supporter}. Yakuniy qaror shifokor mas'uliyatida.`);
+
+      doc.end();
+    });
   }
 }

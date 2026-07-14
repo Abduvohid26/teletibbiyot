@@ -48,7 +48,7 @@ export function defineIntegrationsApi(client: HttpClient) {
     },
 
     getDicomViewerUrl(attachmentId: string) {
-      return client.request<{ url: string | null; fileName: string; viewerHint?: string }>(
+      return client.request<{ url: string | null; fileName: string; fileType?: string; viewerHint?: string }>(
         `/integrations/dicom/attachment/${attachmentId}/view`,
       );
     },

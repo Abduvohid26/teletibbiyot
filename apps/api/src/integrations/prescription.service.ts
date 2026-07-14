@@ -95,11 +95,13 @@ export class PrescriptionService {
   private parsePrescriptionText(text: string | null | undefined) {
     if (!text?.trim()) return [];
     return text.split('\n').filter(Boolean).map((line) => {
-      const parts = line.split('—').map((p) => p.trim());
+      const parts = line.split(/\s*[—|]\s*/).map((p) => p.trim());
+      const freqDuration = parts[1]?.split(',') ?? [];
       return {
         name: parts[0] || line,
-        dosage: parts[1] || '',
-        duration: parts[2] || '',
+        dosage: freqDuration[0] || parts[1] || '',
+        duration: freqDuration[1]?.trim() || parts[2] || '',
+        instructions: parts.slice(3).join(' ') || undefined,
       };
     });
   }

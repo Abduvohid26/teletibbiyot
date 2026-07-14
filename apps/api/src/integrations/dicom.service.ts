@@ -60,7 +60,7 @@ export class DicomService {
       fileName: attachment.fileName,
       fileType: attachment.fileType,
       viewerHint: this.isDicomLike(attachment.fileName, attachment.fileType)
-        ? 'OHIF yoki Cornerstone DICOM viewer bilan oching'
+        ? 'Ichki DICOM viewer — /dashboard/dicom/view'
         : 'Rasm viewer',
     };
   }

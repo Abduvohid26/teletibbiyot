@@ -218,19 +218,19 @@ export function VideoConsultation({
 
         {!observeMode && showPtz && (
           <div className="absolute bottom-16 right-28 bg-black/70 rounded-lg p-2 z-10">
-            <p className="text-[9px] text-white/70 text-center col-span-3 mb-1">PTZ (kelgusida)</p>
-            <div className="grid grid-cols-3 gap-1 opacity-50 pointer-events-none">
+            <p className="text-[9px] text-white/70 text-center col-span-3 mb-1">PTZ boshqaruv</p>
+            <div className="grid grid-cols-3 gap-1">
             <div />
-            <button type="button" disabled className="p-1.5 text-white rounded"><ChevronUp size={16} /></button>
+            <button type="button" onClick={() => sendPtz('up')} className="p-1.5 text-white hover:bg-white/20 rounded" aria-label="Yuqoriga"><ChevronUp size={16} /></button>
             <div />
-            <button type="button" disabled className="p-1.5 text-white rounded"><ChevronLeft size={16} /></button>
+            <button type="button" onClick={() => sendPtz('left')} className="p-1.5 text-white hover:bg-white/20 rounded" aria-label="Chapga"><ChevronLeft size={16} /></button>
             <span className="p-1.5 text-white text-xs text-center">PTZ</span>
-            <button type="button" disabled className="p-1.5 text-white rounded"><ChevronRight size={16} /></button>
+            <button type="button" onClick={() => sendPtz('right')} className="p-1.5 text-white hover:bg-white/20 rounded" aria-label="O'ngga"><ChevronRight size={16} /></button>
             <div />
-            <button type="button" disabled className="p-1.5 text-white rounded"><ChevronDown size={16} /></button>
+            <button type="button" onClick={() => sendPtz('down')} className="p-1.5 text-white hover:bg-white/20 rounded" aria-label="Pastga"><ChevronDown size={16} /></button>
             <div />
-            <button type="button" disabled className="p-1.5 text-white rounded"><ZoomIn size={16} /></button>
-            <button type="button" disabled className="p-1.5 text-white rounded"><ZoomOut size={16} /></button>
+            <button type="button" onClick={() => sendPtz('zoom-in')} className="p-1.5 text-white hover:bg-white/20 rounded" aria-label="Yaqinlashtirish"><ZoomIn size={16} /></button>
+            <button type="button" onClick={() => sendPtz('zoom-out')} className="p-1.5 text-white hover:bg-white/20 rounded" aria-label="Uzoqlashtirish"><ZoomOut size={16} /></button>
             </div>
           </div>
         )}

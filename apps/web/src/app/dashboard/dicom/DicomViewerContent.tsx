@@ -7,8 +7,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { api, Consultation } from '@/lib/api';
 import { ROLES_MT_DASHBOARD, ROLES_UT } from '@/lib/roles';
-import { Scan, ExternalLink, FileImage } from 'lucide-react';
-import { toast } from '@/lib/toast';
+import { Scan, FileImage } from 'lucide-react';
 
 interface DicomStudy {
   id: string;
@@ -49,17 +48,8 @@ export default function DicomViewerContent() {
       .finally(() => setLoading(false));
   }, [authLoading, user, consultationId]);
 
-  const openViewer = async (attachmentId: string) => {
-    try {
-      const { url, viewerHint } = await api.getDicomViewerUrl(attachmentId);
-      if (url) {
-        window.open(url, '_blank', 'noopener,noreferrer');
-      } else {
-        toast(viewerHint || 'Fayl havolasi mavjud emas', 'info');
-      }
-    } catch (err) {
-      toast(err instanceof Error ? err.message : 'Ko\'rish xatosi', 'error');
-    }
+  const openViewer = (attachmentId: string) => {
+    router.push(`/dashboard/dicom/view?attachmentId=${encodeURIComponent(attachmentId)}`);
   };
 
   return (
@@ -127,7 +117,7 @@ export default function DicomViewerContent() {
                 onClick={() => openViewer(s.id)}
                 className="btn-secondary !text-xs inline-flex items-center gap-1 shrink-0"
               >
-                <ExternalLink size={14} /> Ko&apos;rish
+                <FileImage size={14} /> Ko&apos;rish
               </button>
             </li>
           ))}

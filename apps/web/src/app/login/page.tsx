@@ -165,6 +165,13 @@ export default function LoginPage() {
               >
                 {loading ? 'Kirish...' : 'Kirish'}
               </button>
+
+              <a
+                href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/integrations/oneid/login`}
+                className="w-full btn-secondary py-3 rounded-xl text-center inline-flex items-center justify-center gap-2"
+              >
+                <Shield size={16} /> OneID orqali kirish
+              </a>
             </form>
           </div>
 

@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, NotFoundException, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/access-control.service';
@@ -6,14 +6,83 @@ import { hasGlobalMtAccess, isAdmin, isMtStaff, isUtRole } from '../common/roles
 import { createDeviceAdapter, DeviceAdapter } from './device.adapter';
 
 @Injectable()
-export class DevicesService {
+export class DevicesService implements OnModuleInit, OnModuleDestroy {
   private readonly adapter: DeviceAdapter;
+  private readonly logger = new Logger(DevicesService.name);
+  private gatewayTimer?: NodeJS.Timeout;
 
   constructor(
     private prisma: PrismaService,
-    config: ConfigService,
+    private config: ConfigService,
   ) {
     this.adapter = createDeviceAdapter(config);
+  }
+
+  onModuleInit() {
+    const gatewayUrl = this.config.get('DEVICE_GATEWAY_URL');
+    if (!gatewayUrl || this.adapter.isSimulated()) return;
+
+    const intervalMs = parseInt(this.config.get('DEVICE_GATEWAY_POLL_MS') || '30000', 10);
+    this.gatewayTimer = setInterval(() => {
+      void this.syncFromGateway(gatewayUrl).catch((err) => {
+        this.logger.warn(`Device gateway sinxron xato: ${err}`);
+      });
+    }, intervalMs);
+    void this.syncFromGateway(gatewayUrl);
+  }
+
+  onModuleDestroy() {
+    if (this.gatewayTimer) clearInterval(this.gatewayTimer);
+  }
+
+  private async syncFromGateway(gatewayUrl: string) {
+    const res = await fetch(gatewayUrl, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) throw new Error(`Gateway HTTP ${res.status}`);
+    const payload = (await res.json()) as {
+      facilityId?: string;
+      devices?: Array<{ name: string; type: string; connected?: boolean; status?: string; telemetry?: Record<string, number> }>;
+    };
+    if (!payload.devices?.length) return;
+
+    const facilityId = payload.facilityId;
+    if (!facilityId) return;
+
+    for (const remote of payload.devices) {
+      const existing = await this.prisma.deviceStatus.findFirst({
+        where: { facilityId, name: remote.name },
+      });
+      const device = existing
+        ? await this.prisma.deviceStatus.update({
+            where: { id: existing.id },
+            data: {
+              connected: remote.connected !== false,
+              status: remote.status || 'good',
+              lastCheck: new Date(),
+            },
+          })
+        : await this.prisma.deviceStatus.create({
+            data: {
+              facilityId,
+              name: remote.name,
+              type: remote.type || 'sensor',
+              connected: remote.connected !== false,
+              status: remote.status || 'good',
+            },
+          });
+
+      if (remote.telemetry) {
+        for (const [metricType, value] of Object.entries(remote.telemetry)) {
+          if (typeof value !== 'number') continue;
+          await this.prisma.deviceTelemetry.create({
+            data: { deviceId: device.id, metricType, value },
+          });
+        }
+        await this.prisma.deviceStatus.update({
+          where: { id: device.id },
+          data: { lastTelemetryAt: new Date(), connected: true, status: 'good' },
+        });
+      }
+    }
   }
 
   getDeviceMode() {

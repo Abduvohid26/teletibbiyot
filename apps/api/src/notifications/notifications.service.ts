@@ -138,12 +138,15 @@ export class NotificationsService {
   }
 
   async sendPush(userId: string, title: string, body: string) {
+    await this.createInApp(userId, title, body).catch(() => undefined);
+
     const provider = this.config.get('PUSH_PROVIDER') || 'mock';
     if (provider === 'mock') {
-      this.logger.debug(`[PUSH mock] User: ${userId} | ${title}`);
-      return false;
+      this.logger.debug(`[PUSH] In-app yuborildi: ${userId} | ${title}`);
+      return true;
     }
-    this.logger.log(`[PUSH ${provider}] User: ${userId}`);
+
+    this.logger.log(`[PUSH ${provider}] User: ${userId} | ${title}`);
     return true;
   }
 

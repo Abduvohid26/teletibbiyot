@@ -42,7 +42,7 @@ export function CompleteDiagnosisModal({
   }, []);
 
   const applyTemplate = (t: PrescriptionTemplate) => {
-    const rx = t.medications.map((m) => `${m.name} ${m.dose} — ${m.frequency}, ${m.duration}`).join('\n');
+    const rx = t.medications.map((m) => `${m.name} ${m.dose} | ${m.frequency}, ${m.duration}`).join('\n');
     setForm((prev) => ({
       ...prev,
       icd10Code: t.icd10Code || prev.icd10Code,
@@ -61,10 +61,12 @@ export function CompleteDiagnosisModal({
       if (form.prescription?.trim()) {
         try {
           const rx = await api.submitPrescription(consultationId);
-          if ((rx as { stub?: boolean })?.stub) {
-            toast('Retsept integratsiyasi hali ulanmagan — ma\'lumot saqlandi', 'info');
-          } else {
+          if (rx.status === 'stub') {
+            toast(rx.message || 'Retsept integratsiyasi hali ulanmagan — ma\'lumot saqlandi', 'info');
+          } else if (rx.status === 'submitted') {
             toast('Retsept milliy reyestrga yuborildi', 'success');
+          } else {
+            toast('Retsept ma\'lumoti saqlandi', 'success');
           }
         } catch {
           toast('Retsept yuborishda xatolik — konsultatsiya yakunlandi', 'error');

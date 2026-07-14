@@ -1,6 +1,7 @@
 import { UT_CAMERA_FEEDS } from './video-config';
 import type { MediaPreferences } from './media-preferences';
 import { getAudioConstraints, getUtVideoConstraints, acquireUserMedia } from './webrtc-quality';
+import { getUtCrop, initUtPtzCrops } from './ut-ptz-state';
 
 type CaptureMap = Map<string, MediaStream>;
 
@@ -72,11 +73,13 @@ export async function captureUtCameraStreams(prefs: MediaPreferences): Promise<C
       ? { w: 640, h: 360, fps: 15 }
       : { w: 960, h: 540, fps: 24 };
 
+  initUtPtzCrops();
+
   for (const feed of UT_CAMERA_FEEDS) {
     if (!streams.has(feed.id)) {
       streams.set(
         feed.id,
-        createVirtualFeed(primary, feed.crop ?? { x: 0, y: 0, w: 1, h: 1 }, virtualSize),
+        createVirtualFeed(primary, feed.id, virtualSize),
       );
       usedVirtual.push(feed.label);
     }
@@ -99,7 +102,7 @@ export async function captureUtCameraStreams(prefs: MediaPreferences): Promise<C
 
 function createVirtualFeed(
   source: MediaStream,
-  crop: { x: number; y: number; w: number; h: number },
+  feedId: string,
   size: { w: number; h: number; fps: number },
 ): MediaStream {
   const video = document.createElement('video');
@@ -116,6 +119,7 @@ function createVirtualFeed(
   let raf = 0;
   const draw = () => {
     if (ctx && video.readyState >= 2) {
+      const crop = getUtCrop(feedId);
       const vw = video.videoWidth;
       const vh = video.videoHeight;
       ctx.drawImage(

@@ -356,7 +356,9 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (!this.isInRoom(client.id, data.roomId, client)) return;
     const participant = this.rooms.get(data.roomId)?.find((p) => p.socketId === client.id);
     if (!participant || !canPerformClinicalMtActions(participant.role)) return;
-    client.to(data.roomId).emit('ptz-control', data);
+    const allowed = ['up', 'down', 'left', 'right', 'zoom-in', 'zoom-out'];
+    if (!allowed.includes(data.action)) return;
+    client.to(data.roomId).emit('ptz-control', { ...data, action: data.action });
   }
 
   @SubscribeMessage('chat-message')

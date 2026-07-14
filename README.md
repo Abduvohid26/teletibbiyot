@@ -6,7 +6,7 @@ O'zbekiston va xalqaro miqyosda uzoq masofadagi tibbiyot muassasalari (UT) va ma
 | Parametr | Qiymat |
 |----------|--------|
 | Versiya | 1.2.0 |
-| Holat | Pilotga tayyor |
+| Holat | Production-ready (`.env` sozlash bilan) |
 | Til | O'zbek (lotin) |
 | Monorepo | npm workspaces |
 
@@ -40,14 +40,14 @@ iShifo — uzoq masofadagi tibbiyot muassasalaridagi bemorlarga markaziy mutaxas
 
 ### Asosiy imkoniyatlar
 
-- Real vaqt video-audio konsultatsiya (WebRTC + Socket.IO)
-- 5 bosqichli UT wizard — bemor qabul, orqaga qaytish, PINFL validatsiya
+- Real vaqt video-audio konsultatsiya (WebRTC + Socket.IO + PTZ boshqaruv)
+- 5 bosqichli UT wizard — bemor qabul, orqaga qaytish, PINFL validatsiya, offline navbat
 - AI dastlabki tahlil: differensial tashxis, xavf darajasi, tavsiyalar
 - Vital ko'rsatkichlar paneli (EKG, puls, qon bosimi, SpO2, harorat)
 - Konsultatsiya navbati, yakuniy tashxis, xabarlar, uchrashuvlar
 - RBAC, MFA (TOTP), audit jurnali
-- Fayl biriktirish (PDF, JPG, DICOM — MinIO orqali)
-- OneID, retsept, DICOM integratsiya adapterlari
+- Fayl biriktirish (PDF, JPG, DICOM — MinIO + ichki DICOM viewer)
+- OneID login, retsept integratsiyasi, qurilma gateway (real rejim)
 - Prometheus + Grafana monitoring
 
 ---
@@ -298,7 +298,9 @@ Seed (`npm run db:seed`) dan keyin:
 |-----|-------|-----------------|
 | MT Shifokor | `doctor@ishifo.uz` | `password123` |
 | UT Operator | `operator@ishifo.uz` | `password123` |
+| MT Manager | `manager@ishifo.uz` | `password123` |
 | Admin | `admin@ishifo.uz` | `password123` |
+| Auditor | `auditor@ishifo.uz` | `password123` |
 
 Parol `.env` dagi `SEED_PASSWORD` orqali o'zgartiriladi.
 
@@ -308,6 +310,7 @@ Parol `.env` dagi `SEED_PASSWORD` orqali o'zgartiriladi.
 | `MT_DOCTOR` | Navbat, video, tashxis, AI tahlil |
 | `ADMIN` | Foydalanuvchilar, audit, sozlamalar |
 | `AUDITOR` | Faqat audit jurnali |
+| `MT_MANAGER` | SLA/KPI panel (`/dashboard/manager`) |
 
 ---
 
@@ -332,6 +335,9 @@ Parol `.env` dagi `SEED_PASSWORD` orqali o'zgartiriladi.
 | `/dashboard/settings` | MT | Sozlamalar (MFA) |
 | `/admin` | Admin | Boshqaruv paneli |
 | `/admin/audit` | Admin/Auditor | Audit jurnali |
+| `/dashboard/manager` | MT Manager | SLA/KPI |
+| `/dashboard/incidents` | Klinik xodim | Incident hisobot |
+| `/dashboard/dicom/view` | MT/UT | Ichki DICOM/rasm viewer |
 
 ---
 
@@ -362,7 +368,7 @@ curl http://localhost:3001/api/health/ready
 npm run test:unit
 ```
 
-Hozirgi testlar: `pinfl.util.spec.ts`, `patient-search.util.spec.ts`, health va boshqalar.
+Hozirgi testlar: `pinfl`, `patient-search`, `field-crypto`, `health.controller`, va boshqalar (30+ unit test).
 
 ### E2E testlar (Playwright)
 

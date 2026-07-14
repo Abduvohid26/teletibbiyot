@@ -7,6 +7,7 @@ import { useVideoRoom } from '@/hooks/use-video-room';
 import { VideoTile } from '@/components/video/VideoTile';
 import { ConnectionQualityBadge } from '@/components/video/ConnectionQualityBadge';
 import { MediaSettingsLink } from '@/components/video/MediaDevicePanel';
+import { applyUtPtzAction, isPtzAction } from '@/lib/ut-ptz-state';
 
 interface UtVideoPanelViewProps {
   video: ReturnType<typeof useVideoRoom>;
@@ -55,6 +56,9 @@ export function UtVideoPanelView({
         up: 'Yuqoriga', down: 'Pastga', left: 'Chapga', right: "O'ngga",
         'zoom-in': 'Yaqinlashtirish', 'zoom-out': 'Uzoqlashtirish',
       };
+      if (isPtzAction(detail.action)) {
+        applyUtPtzAction(detail.action, 'close');
+      }
       setPtzHint(`Shifokor PTZ: ${labels[detail.action] ?? detail.action}`);
     };
     window.addEventListener('ut-ptz-control', onPtz);
