@@ -131,7 +131,7 @@ tmp-*.ts
 .eslintcache
 .stylelintcache
 
-# Local uploads (dev)
+# Local uploads (dev) — faqat root papka, API src/storage emas
 uploads/
-storage/
+/storage/
 tz/
