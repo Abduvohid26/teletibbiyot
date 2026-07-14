@@ -1,0 +1,151 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { X, Download, Loader2, ZoomIn } from 'lucide-react';
+import { api, Attachment } from '@/lib/api';
+import { cn } from '@/lib/utils';
+
+interface AttachmentViewerProps {
+  attachment: Attachment | null;
+  previewUrl?: string;
+  onClose: () => void;
+}
+
+export function AttachmentViewer({ attachment, previewUrl, onClose }: AttachmentViewerProps) {
+  const [url, setUrl] = useState(previewUrl || '');
+  const [loading, setLoading] = useState(!previewUrl && !!attachment);
+
+  useEffect(() => {
+    if (previewUrl) {
+      setUrl(previewUrl);
+      setLoading(false);
+      return;
+    }
+    if (!attachment) return;
+
+    setLoading(true);
+    api
+      .getAttachmentDownload(attachment.id)
+      .then((res) => setUrl(res.url))
+      .catch(() => setUrl(''))
+      .finally(() => setLoading(false));
+  }, [attachment, previewUrl]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  if (!attachment && !previewUrl) return null;
+
+  const fileName = attachment?.fileName || 'Ko\'rish';
+  const fileType = attachment?.fileType || '';
+  const isImage = fileType.startsWith('image/') || /\.(jpe?g|png|gif|webp|bmp|tiff?|heic)$/i.test(fileName);
+  const isPdf = fileType === 'application/pdf' || fileName.toLowerCase().endsWith('.pdf');
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="relative w-full max-w-5xl max-h-[92vh] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 shrink-0">
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-slate-900 truncate">{fileName}</p>
+            {attachment?.aiSummary && (
+              <p className="text-xs text-violet-600 truncate mt-0.5">AI: {attachment.aiSummary}</p>
+            )}
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            {url && (
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                download={fileName}
+                className="p-2 rounded-lg text-slate-500 hover:bg-slate-100"
+                title="Yuklab olish"
+              >
+                <Download size={18} />
+              </a>
+            )}
+            <button type="button" onClick={onClose} className="p-2 rounded-lg text-slate-500 hover:bg-slate-100">
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-auto bg-slate-50 flex items-center justify-center p-4">
+          {loading ? (
+            <Loader2 className="animate-spin text-brand-500" size={32} />
+          ) : !url ? (
+            <p className="text-sm text-slate-500">Faylni yuklab bo&apos;lmadi</p>
+          ) : isImage ? (
+            <img
+              src={url}
+              alt={fileName}
+              className="max-w-full max-h-[75vh] object-contain rounded-lg shadow-md"
+            />
+          ) : isPdf ? (
+            <iframe src={url} title={fileName} className="w-full h-[75vh] rounded-lg border border-slate-200 bg-white" />
+          ) : (
+            <div className="text-center py-12">
+              <ZoomIn className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <p className="text-sm text-slate-600 mb-4">Ushbu format brauzerda ko&apos;rinmaydi</p>
+              <a href={url} target="_blank" rel="noopener noreferrer" className="btn-primary">
+                Yuklab olish
+              </a>
+            </div>
+          )}
+        </div>
+
+        {attachment?.aiFindings && typeof attachment.aiFindings === 'object' && (
+          <AiFindingsBar findings={attachment.aiFindings as Record<string, unknown>} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AiFindingsBar({ findings }: { findings: Record<string, unknown> }) {
+  const abnormalities = (findings.abnormalities as string[]) || [];
+  const recs = (findings.recommendations as string[]) || [];
+  if (!abnormalities.length && !recs.length) return null;
+
+  return (
+    <div className="shrink-0 border-t border-slate-100 px-4 py-3 bg-violet-50/50 text-xs space-y-1 max-h-28 overflow-y-auto">
+      {abnormalities.length > 0 && (
+        <p><span className="font-semibold text-red-700">Anomaliyalar:</span> {abnormalities.join('; ')}</p>
+      )}
+      {recs.length > 0 && (
+        <p><span className="font-semibold text-brand-700">Tavsiyalar:</span> {recs.join('; ')}</p>
+      )}
+    </div>
+  );
+}
+
+export function AiStatusBadge({ status, mock }: { status?: string; mock?: boolean }) {
+  const styles: Record<string, string> = {
+    PENDING: 'bg-slate-100 text-slate-600',
+    PROCESSING: 'bg-amber-50 text-amber-700',
+    DONE: mock ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-700',
+    FAILED: 'bg-red-50 text-red-700',
+    SKIPPED: 'bg-slate-100 text-slate-500',
+  };
+  const labels: Record<string, string> = {
+    PENDING: 'Kutilmoqda',
+    PROCESSING: 'AI tahlil...',
+    DONE: mock ? 'AI mock tahlil' : 'AI tahlil ✓',
+    FAILED: 'Xatolik',
+    SKIPPED: 'O\'tkazildi',
+  };
+  const s = status || 'PENDING';
+  return (
+    <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded-full', styles[s] || styles.PENDING)}>
+      {labels[s] || s}
+    </span>
+  );
+}

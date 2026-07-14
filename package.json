@@ -1,0 +1,45 @@
+{
+  "name": "ishifo",
+  "version": "1.2.0",
+  "private": true,
+  "description": "FJSTI — iShifo masofaviy tibbiyot platformasi",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:web": "npm run dev --workspace=@ishifo/web",
+    "dev:api": "npm run start:dev --workspace=@ishifo/api",
+    "build": "npm run build --workspaces",
+    "start:prod": "npm run start:prod --workspace=@ishifo/api",
+    "postinstall": "npm run build --workspace=@ishifo/shared && npm run prisma:generate --workspace=@ishifo/api",
+    "lint": "npm run lint --workspace=@ishifo/web",
+    "typecheck": "npm run build --workspace=@ishifo/api && npm run build --workspace=@ishifo/web",
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:unit": "npm run test:unit --workspace=@ishifo/api",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install chromium",
+    "test:all": "bash scripts/test-all.sh",
+    "db:migrate": "npm run prisma:migrate --workspace=@ishifo/api",
+    "db:migrate:deploy": "npm run prisma:migrate:deploy --workspace=@ishifo/api",
+    "db:seed": "npm run prisma:seed --workspace=@ishifo/api",
+    "db:bootstrap": "npm run prisma:bootstrap --workspace=@ishifo/api",
+    "db:studio": "npm run prisma:studio --workspace=@ishifo/api",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:app:up": "docker compose --profile app up -d --build",
+    "docker:app:down": "docker compose --profile app down",
+    "docker:prod:up": "docker compose --profile prod up -d --build",
+    "docker:prod:down": "docker compose --profile prod down",
+    "docker:monitoring:up": "docker compose --profile monitoring up -d",
+    "docker:monitoring:down": "docker compose --profile monitoring down",
+    "ssl:generate": "sh scripts/generate-ssl.sh",
+    "wait-on": "wait-on"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.51.0",
+    "concurrently": "^9.1.2",
+    "wait-on": "^8.0.3"
+  }
+}

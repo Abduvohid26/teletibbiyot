@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: iShifo
+    orgId: 1
+    folder: iShifo
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/provisioning/dashboards-json

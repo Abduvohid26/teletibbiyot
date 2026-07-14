@@ -1,0 +1,126 @@
+# ═══════════════════════════════════════════════════════
+# Git & VCS
+# ═══════════════════════════════════════════════════════
+.git
+.gitignore
+.gitattributes
+.github
+
+# ═══════════════════════════════════════════════════════
+# Dependencies (Docker ichida npm ci qilinadi)
+# ═══════════════════════════════════════════════════════
+node_modules
+**/node_modules
+.pnp
+.pnp.js
+.yarn
+
+# ═══════════════════════════════════════════════════════
+# Build cache (Docker ichida qayta build)
+# ═══════════════════════════════════════════════════════
+.next
+**/.next
+out
+**/out
+dist
+**/dist
+build
+**/build
+*.tsbuildinfo
+.turbo
+.swc
+.vercel
+
+# ═══════════════════════════════════════════════════════
+# Environment & secrets
+# ═══════════════════════════════════════════════════════
+.env
+.env.*
+**/.env
+**/.env.local
+**/.env.production
+**/.env.development
+
+# SSL / kalitlar
+infra/nginx/ssl
+**/*.pem
+**/*.key
+**/*.crt
+**/*.p12
+
+# ═══════════════════════════════════════════════════════
+# Tests & E2E (image build uchun kerak emas)
+# ═══════════════════════════════════════════════════════
+e2e
+**/e2e
+coverage
+.nyc_output
+test-results
+playwright-report
+blob-report
+playwright/.cache
+**/*.spec.ts
+**/*.spec.tsx
+**/*.test.ts
+**/*.test.tsx
+jest.config.*
+playwright.config.*
+
+# ═══════════════════════════════════════════════════════
+# Docs (README qoldiriladi — image metadata uchun)
+# ═══════════════════════════════════════════════════════
+docs
+*.md
+!README.md
+
+# ═══════════════════════════════════════════════════════
+# IDE / Cursor / local tooling
+# ═══════════════════════════════════════════════════════
+.cursor
+.vscode
+.idea
+*.iml
+agent-transcripts
+terminals
+mcps
+.editorconfig
+
+# ═══════════════════════════════════════════════════════
+# Logs, OS, temp
+# ═══════════════════════════════════════════════════════
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+.DS_Store
+Thumbs.db
+Desktop.ini
+tmp-*
+*.tmp
+*.temp
+.cache
+.eslintcache
+
+# ═══════════════════════════════════════════════════════
+# Docker / backup / runtime data
+# ═══════════════════════════════════════════════════════
+backups
+docker-data
+uploads
+storage
+*.sql
+*.sql.gz
+
+# Compose fayllar image ichida kerak emas
+docker-compose*.yml
+Dockerfile*
+!apps/api/Dockerfile
+!apps/web/Dockerfile
+
+# Monitoring / nginx config mount qilinadi, build contextga kerak emas
+infra/prometheus
+infra/grafana
+infra/nginx
+
+# Scripts (build uchun kerak emas)
+scripts

@@ -1,0 +1,136 @@
+# ═══════════════════════════════════════════════════════
+# Dependencies
+# ═══════════════════════════════════════════════════════
+node_modules/
+.pnp
+.pnp.js
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# ═══════════════════════════════════════════════════════
+# Build outputs
+# ═══════════════════════════════════════════════════════
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+.turbo/
+.vercel/
+.swc/
+
+# NestJS
+apps/api/dist/
+
+# Next.js
+apps/web/.next/
+apps/web/out/
+
+# Shared package — src ichida compile bo'lmasin
+packages/shared/dist/
+packages/shared/src/*.js
+packages/shared/src/*.d.ts
+packages/shared/src/*.js.map
+
+# ═══════════════════════════════════════════════════════
+# Environment & secrets (faqat .env.example commit qilinadi)
+# ═══════════════════════════════════════════════════════
+.env
+.env.*
+!.env.example
+
+# SSL / sertifikatlar
+infra/nginx/ssl/*.pem
+infra/nginx/ssl/*.key
+infra/nginx/ssl/*.crt
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# ═══════════════════════════════════════════════════════
+# Logs & runtime
+# ═══════════════════════════════════════════════════════
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# ═══════════════════════════════════════════════════════
+# OS & editor
+# ═══════════════════════════════════════════════════════
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# Cursor / AI (local session)
+.cursor/
+agent-transcripts/
+terminals/
+mcps/
+
+# ═══════════════════════════════════════════════════════
+# Tests & coverage
+# ═══════════════════════════════════════════════════════
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+e2e/.auth/
+*.lcov
+
+# ═══════════════════════════════════════════════════════
+# Docker / infra data (konteyner volume & backup)
+# ═══════════════════════════════════════════════════════
+backups/
+*.sql
+*.sql.gz
+docker-data/
+
+# ═══════════════════════════════════════════════════════
+# Prisma
+# ═══════════════════════════════════════════════════════
+apps/api/prisma/*.db
+apps/api/prisma/*.db-journal
+
+# ═══════════════════════════════════════════════════════
+# Misc / debug
+# ═══════════════════════════════════════════════════════
+tmp-*.js
+tmp-*.ts
+*.tmp
+*.temp
+.cache/
+.eslintcache
+.stylelintcache
+
+# Local uploads (dev)
+uploads/
+storage/

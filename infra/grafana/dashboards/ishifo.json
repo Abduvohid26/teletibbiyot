@@ -1,0 +1,62 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "id": 1,
+      "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "API Up",
+      "type": "stat",
+      "targets": [{ "expr": "ishifo_up", "legendFormat": "up" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "id": 2,
+      "title": "Database Up",
+      "type": "stat",
+      "targets": [{ "expr": "ishifo_db_up" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "id": 3,
+      "title": "Navbatdagi konsultatsiyalar",
+      "type": "timeseries",
+      "targets": [{ "expr": "ishifo_consultations_queued", "legendFormat": "queued" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "id": 4,
+      "title": "Jarayondagi konsultatsiyalar",
+      "type": "timeseries",
+      "targets": [{ "expr": "ishifo_consultations_active", "legendFormat": "active" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 12 },
+      "id": 5,
+      "title": "HTTP so'rovlar",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "ishifo_http_requests_total", "legendFormat": "requests" },
+        { "expr": "ishifo_http_errors_total", "legendFormat": "5xx errors" }
+      ]
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["ishifo", "telemedicine"],
+  "time": { "from": "now-6h", "to": "now" },
+  "title": "iShifo Platform",
+  "uid": "ishifo-main",
+  "version": 1
+}

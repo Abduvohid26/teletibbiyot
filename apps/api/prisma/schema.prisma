@@ -1,0 +1,842 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+
+
+datasource db {
+
+  provider = "postgresql"
+
+  url      = env("DATABASE_URL")
+
+}
+
+
+
+enum UserRole {
+
+  UT_OPERATOR
+
+  MT_DOCTOR
+
+  MT_MANAGER
+
+  ADMIN
+
+  AUDITOR
+
+}
+
+
+
+enum FacilityType {
+
+  UT
+
+  MT
+
+}
+
+
+
+enum ConsultationStatus {
+
+  QUEUED
+
+  IN_PROGRESS
+
+  COMPLETED
+
+  CANCELLED
+
+}
+
+
+
+enum TriageLevel {
+
+  LOW
+
+  MEDIUM
+
+  HIGH
+
+  EMERGENCY
+
+}
+
+
+
+enum Gender {
+
+  MALE
+
+  FEMALE
+
+}
+
+
+
+enum AiAnalysisStepStatus {
+
+  PENDING
+
+  IN_PROGRESS
+
+  DONE
+
+}
+
+
+
+enum SecondOpinionStatus {
+
+  PENDING
+
+  ACCEPTED
+
+  REJECTED
+
+  COMPLETED
+
+}
+
+
+
+enum EscalationLevel {
+
+  NONE
+
+  SENIOR_REVIEW
+
+  EMERGENCY
+
+}
+
+
+
+enum RecordingStatus {
+
+  PENDING
+
+  RECORDING
+
+  COMPLETED
+
+  FAILED
+
+}
+
+
+
+enum NotificationChannel {
+
+  IN_APP
+
+  EMAIL
+
+  SMS
+
+  PUSH
+
+}
+
+
+
+enum AppointmentStatus {
+
+  SCHEDULED
+
+  COMPLETED
+
+  CANCELLED
+
+  NO_SHOW
+
+}
+
+
+
+model Facility {
+
+  id        String       @id @default(uuid())
+
+  name      String
+
+  code      String       @unique
+
+  type      FacilityType
+
+  address   String
+
+  region    String?
+
+  district  String?
+
+  phone     String?
+
+  createdAt DateTime     @default(now())
+
+  updatedAt DateTime     @updatedAt
+
+
+
+  users         User[]
+
+  consultations Consultation[] @relation("UtFacility")
+
+  devices       DeviceStatus[]
+
+  appointments  Appointment[]
+
+}
+
+
+
+model User {
+
+  id           String    @id @default(uuid())
+
+  email        String    @unique
+
+  passwordHash String
+
+  fullName     String
+
+  role         UserRole
+
+  facilityId   String?
+
+  facility     Facility? @relation(fields: [facilityId], references: [id])
+
+  mfaSecret    String?
+
+  mfaEnabled   Boolean   @default(false)
+
+  isActive     Boolean   @default(true)
+
+  tokenVersion Int       @default(0)
+
+  specialty    String?
+
+  phone        String?
+
+  createdAt    DateTime  @default(now())
+
+  updatedAt    DateTime  @updatedAt
+
+
+
+  consultationsAsDoctor Consultation[]     @relation("MtDoctor")
+
+  finalDiagnoses        FinalDiagnosis[]
+
+  aiFeedbacks           AiFeedback[]
+
+  auditLogs             AuditLog[]
+
+  notifications         Notification[]
+
+  confirmedAiSteps      AiAnalysisStep[]   @relation("AiStepConfirmer")
+
+  secondOpinionsRequested SecondOpinion[]  @relation("SecondOpinionRequester")
+
+  secondOpinionsAssigned  SecondOpinion[]  @relation("SecondOpinionAssignee")
+
+  consultationMessages    ConsultationMessage[]
+
+  appointmentsAsDoctor    Appointment[]      @relation("AppointmentDoctor")
+
+  appointmentsCreated     Appointment[]      @relation("AppointmentCreator")
+
+}
+
+
+
+model Patient {
+
+  id               String   @id @default(uuid())
+
+  fullName         String
+
+  passportNumber   String?
+
+  pinfl            String?  @unique
+
+  birthDate        DateTime
+
+  gender           Gender
+
+  region           String
+
+  district         String
+
+  address          String?
+
+  phone            String
+
+  emergencyContact String?
+
+  createdAt        DateTime @default(now())
+
+  updatedAt        DateTime @updatedAt
+
+
+
+  consultations Consultation[]
+
+  appointments  Appointment[]
+
+}
+
+
+
+model Consultation {
+
+  id                 String             @id @default(uuid())
+
+  patientId          String
+
+  patient            Patient            @relation(fields: [patientId], references: [id])
+
+  utId               String
+
+  utFacility         Facility           @relation("UtFacility", fields: [utId], references: [id])
+
+  mtDoctorId         String?
+
+  mtDoctor           User?              @relation("MtDoctor", fields: [mtDoctorId], references: [id])
+
+  status             ConsultationStatus @default(QUEUED)
+
+  triageLevel        TriageLevel?
+
+  escalationLevel    EscalationLevel    @default(NONE)
+
+  escalatedAt        DateTime?
+
+  checklistCompleted Boolean            @default(false)
+
+  checklistData      Json               @default("[]")
+
+  consentGiven       Boolean            @default(false)
+
+  clientRequestId    String?            @unique
+
+  priority           Int                @default(0)
+
+  triageNotes        String?
+
+  clinicalNotes      String?
+
+  followUpDate       DateTime?
+
+  startedAt          DateTime?
+
+  completedAt        DateTime?
+
+  createdAt          DateTime           @default(now())
+
+  updatedAt          DateTime           @updatedAt
+
+
+
+  clinicalRecord   ClinicalRecord?
+
+  aiAnalysis       AiAnalysis?
+
+  finalDiagnosis   FinalDiagnosis?
+
+  attachments      Attachment[]
+
+  aiAnalysisSteps  AiAnalysisStep[]
+
+  sessionRecording SessionRecording?
+
+  consultationReport ConsultationReport?
+
+  secondOpinions   SecondOpinion[]
+
+  notifications    Notification[]
+
+  messages         ConsultationMessage[]
+
+  appointments     Appointment[]
+
+}
+
+
+
+model ClinicalRecord {
+
+  id             String       @id @default(uuid())
+
+  consultationId String       @unique
+
+  consultation   Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+
+  complaints     String
+
+  anamnesisMorbi String
+
+  anamnesisVitae String
+
+  medications    String?
+
+  allergies      String?
+
+  weight         Float?
+
+  height         Float?
+
+  bmi            Float?
+
+  vitalSigns     Json         @default("{}")
+
+  familyHistory  String?
+
+  socialHistory  String?
+
+  labResults     String?
+
+  createdAt      DateTime     @default(now())
+
+  updatedAt      DateTime     @updatedAt
+
+}
+
+
+
+model AiAnalysis {
+
+  id              String       @id @default(uuid())
+
+  consultationId  String       @unique
+
+  consultation    Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+
+  summary         String
+
+  diagnoses       Json
+
+  triageLevel     TriageLevel
+
+  recommendations Json
+
+  redFlags        Json         @default("[]")
+
+  modelVersion    String       @default("gpt-4o-mini")
+
+  rawResponse     Json?
+
+  createdAt       DateTime     @default(now())
+
+
+
+  feedbacks AiFeedback[]
+
+}
+
+
+
+model AiAnalysisStep {
+
+  id              String               @id @default(uuid())
+
+  consultationId  String
+
+  consultation    Consultation         @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+
+  step            String
+
+  label           String
+
+  status          AiAnalysisStepStatus @default(PENDING)
+
+  order           Int
+
+  completedAt     DateTime?
+
+  doctorConfirmed Boolean              @default(false)
+
+  confirmedById   String?
+
+  confirmedBy     User?                @relation("AiStepConfirmer", fields: [confirmedById], references: [id])
+
+  confirmedAt     DateTime?
+
+  doctorNotes     String?
+
+}
+
+
+
+model FinalDiagnosis {
+
+  id              String       @id @default(uuid())
+
+  consultationId  String       @unique
+
+  consultation    Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+
+  mtDoctorId      String
+
+  mtDoctor        User         @relation(fields: [mtDoctorId], references: [id])
+
+  diagnosis       String
+
+  icd10Code       String
+
+  recommendations String
+
+  prescription    String?
+
+  notes           String?
+
+  createdAt       DateTime     @default(now())
+
+}
+
+
+
+model AiFeedback {
+
+  id           String     @id @default(uuid())
+
+  aiAnalysisId String
+
+  aiAnalysis   AiAnalysis @relation(fields: [aiAnalysisId], references: [id], onDelete: Cascade)
+
+  userId       String
+
+  user         User       @relation(fields: [userId], references: [id])
+
+  rating       String
+
+  comment      String?
+
+  createdAt    DateTime   @default(now())
+
+}
+
+
+
+model Attachment {
+
+  id               String       @id @default(uuid())
+
+  consultationId   String
+
+  consultation     Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+
+  fileName         String
+
+  fileType         String
+
+  fileUrl          String
+
+  fileSize         Int?
+
+  uploadedById     String?
+
+  aiAnalysisStatus String       @default("PENDING")
+
+  aiSummary        String?
+
+  aiFindings       Json?
+
+  analyzedAt       DateTime?
+
+  uploadedAt       DateTime     @default(now())
+
+
+
+  @@index([consultationId])
+
+}
+
+
+
+model SessionRecording {
+
+  id             String          @id @default(uuid())
+
+  consultationId String          @unique
+
+  consultation   Consultation    @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+
+  status         RecordingStatus @default(PENDING)
+
+  videoUrl       String?
+
+  fileKey        String?
+
+  mimeType       String?
+
+  duration       Int?
+
+  consentGiven   Boolean         @default(false)
+
+  startedAt      DateTime?
+
+  endedAt        DateTime?
+
+  createdAt      DateTime        @default(now())
+
+}
+
+
+
+model ConsultationReport {
+
+  id             String       @id @default(uuid())
+
+  consultationId String       @unique
+
+  consultation   Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+
+  fileKey        String
+
+  fileName       String
+
+  generatedAt    DateTime     @default(now())
+
+  generatedById  String?
+
+}
+
+
+
+model SecondOpinion {
+
+  id               String              @id @default(uuid())
+
+  consultationId   String
+
+  consultation     Consultation        @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+
+  requestedById    String
+
+  requestedBy      User                @relation("SecondOpinionRequester", fields: [requestedById], references: [id])
+
+  assignedDoctorId String?
+
+  assignedDoctor   User?               @relation("SecondOpinionAssignee", fields: [assignedDoctorId], references: [id])
+
+  status           SecondOpinionStatus @default(PENDING)
+
+  question         String
+
+  response         String?
+
+  createdAt        DateTime            @default(now())
+
+  respondedAt      DateTime?
+
+}
+
+
+
+model Notification {
+
+  id             String              @id @default(uuid())
+
+  userId         String
+
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  channel        NotificationChannel @default(IN_APP)
+
+  title          String
+
+  body           String
+
+  entityType     String?
+
+  entityId       String?
+
+  consultationId String?
+
+  consultation   Consultation?       @relation(fields: [consultationId], references: [id], onDelete: SetNull)
+
+  read           Boolean             @default(false)
+
+  createdAt      DateTime            @default(now())
+
+}
+
+
+
+model AuditLog {
+
+  id        String   @id @default(uuid())
+
+  userId    String?
+
+  user      User?    @relation(fields: [userId], references: [id])
+
+  action    String
+
+  entity    String
+
+  entityId  String?
+
+  details   Json?
+
+  ipAddress String?
+
+  createdAt DateTime @default(now())
+
+}
+
+
+
+model DeviceStatus {
+
+  id              String   @id @default(uuid())
+
+  facilityId      String
+
+  facility        Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  name            String
+
+  type            String
+
+  serialNumber    String?
+
+  connected       Boolean  @default(false)
+
+  status          String   @default("good")
+
+  lastCheck       DateTime @default(now())
+
+  lastTelemetryAt DateTime?
+
+
+
+  telemetry DeviceTelemetry[]
+
+}
+
+
+
+model DeviceTelemetry {
+
+  id         String       @id @default(uuid())
+
+  deviceId   String
+
+  device     DeviceStatus @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  metricType String
+
+  value      Float
+
+  unit       String?
+
+  raw        Json?
+
+  recordedAt DateTime     @default(now())
+
+}
+
+
+
+model ConsultationMessage {
+
+  id             String       @id @default(uuid())
+
+  consultationId String
+
+  consultation   Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+
+  senderId       String
+
+  sender         User         @relation(fields: [senderId], references: [id])
+
+  senderRole     UserRole
+
+  message        String
+
+  createdAt      DateTime     @default(now())
+
+
+
+  @@index([consultationId])
+
+  @@index([createdAt])
+
+}
+
+
+
+model Appointment {
+
+  id             String            @id @default(uuid())
+
+  patientId      String
+
+  patient        Patient           @relation(fields: [patientId], references: [id])
+
+  consultationId String?
+
+  consultation   Consultation?     @relation(fields: [consultationId], references: [id], onDelete: SetNull)
+
+  facilityId     String
+
+  facility       Facility          @relation(fields: [facilityId], references: [id])
+
+  doctorId       String?
+
+  doctor         User?             @relation("AppointmentDoctor", fields: [doctorId], references: [id])
+
+  scheduledAt    DateTime
+
+  status         AppointmentStatus @default(SCHEDULED)
+
+  notes          String?
+
+  createdById    String
+
+  createdBy      User              @relation("AppointmentCreator", fields: [createdById], references: [id])
+
+  createdAt      DateTime          @default(now())
+
+  updatedAt      DateTime          @updatedAt
+
+
+
+  @@index([scheduledAt])
+
+  @@index([patientId])
+
+  @@index([status])
+
+}
+
+
+
+model PrescriptionTemplate {
+
+  id           String   @id @default(uuid())
+
+  name         String
+
+  icd10Code    String?
+
+  medications  Json
+
+  instructions String
+
+  isActive     Boolean  @default(true)
+
+  createdAt    DateTime @default(now())
+
+  updatedAt    DateTime @updatedAt
+
+}
+
+
