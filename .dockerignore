@@ -110,8 +110,8 @@ uploads
 /storage
 !apps/api/src/storage
 !apps/api/src/storage/**
-*.sql
-*.sql.gz
+backups/**/*.sql
+backups/**/*.sql.gz
 
 # Compose fayllar image ichida kerak emas
 docker-compose*.yml

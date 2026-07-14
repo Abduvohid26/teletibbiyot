@@ -110,8 +110,8 @@ e2e/.auth/
 # Docker / infra data (konteyner volume & backup)
 # ═══════════════════════════════════════════════════════
 backups/
-*.sql
-*.sql.gz
+backups/**/*.sql
+backups/**/*.sql.gz
 docker-data/
 
 # ═══════════════════════════════════════════════════════
@@ -119,6 +119,7 @@ docker-data/
 # ═══════════════════════════════════════════════════════
 apps/api/prisma/*.db
 apps/api/prisma/*.db-journal
+# migration.sql fayllar gitda saqlanadi (yuqorida global *.sql yo'q)
 
 # ═══════════════════════════════════════════════════════
 # Misc / debug
