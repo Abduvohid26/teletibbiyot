@@ -134,3 +134,4 @@ tmp-*.ts
 # Local uploads (dev)
 uploads/
 storage/
+tz/

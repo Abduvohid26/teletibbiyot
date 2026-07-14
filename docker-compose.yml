@@ -26,7 +26,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER}']
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
       interval: 5s
       timeout: 5s
       retries: 5
@@ -49,7 +49,12 @@ services:
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
+      test: >
+        sh -c 'if [ -n "$$REDIS_PASSWORD" ]; then
+          redis-cli -a "$$REDIS_PASSWORD" ping | grep -q PONG;
+        else
+          redis-cli ping | grep -q PONG;
+        fi'
       interval: 5s
       timeout: 3s
       retries: 5
@@ -83,12 +88,16 @@ services:
     <<: *env
     image: coturn/coturn:latest
     container_name: ishifo-turn
-    command: >
-      -n --log-file=stdout
-      --realm=${TURN_REALM}
-      --user=${TURN_USERNAME}:${TURN_PASSWORD}
-      --listening-port=3478
-      --min-port=49152 --max-port=49200
+    command:
+      - -n
+      - --log-file=stdout
+      - --realm=${TURN_REALM}
+      - --lt-cred-mech
+      - --user=${TURN_USERNAME}:${TURN_PASSWORD}
+      - --listening-port=3478
+      - --listening-ip=0.0.0.0
+      - --min-port=49152
+      - --max-port=49200
     ports:
       - '3478:3478'
       - '3478:3478/udp'
@@ -101,14 +110,16 @@ services:
     image: coturn/coturn:4.6.2
     container_name: ishifo-coturn
     profiles: [prod]
-    command: >
-      -n --log-file=stdout
-      --listening-port=3478
-      --fingerprint
-      --lt-cred-mech
-      --user=${TURN_USERNAME}:${TURN_PASSWORD}
-      --realm=${TURN_REALM}
-      --no-cli
+    command:
+      - -n
+      - --log-file=stdout
+      - --listening-port=3478
+      - --listening-ip=0.0.0.0
+      - --fingerprint
+      - --lt-cred-mech
+      - --user=${TURN_USERNAME}:${TURN_PASSWORD}
+      - --realm=${TURN_REALM}
+      - --no-cli
     ports:
       - '3478:3478/udp'
       - '3478:3478/tcp'
