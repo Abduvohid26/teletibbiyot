@@ -72,7 +72,6 @@ export function AttachmentManager({
         }
         return [detail.attachment!, ...prev];
       });
-      onChange?.();
     };
 
     const onUploaded = (e: Event) => mergeAttachment((e as CustomEvent).detail);

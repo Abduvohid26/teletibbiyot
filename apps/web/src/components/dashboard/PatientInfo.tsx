@@ -116,7 +116,7 @@ export function PatientInfo({ patient, clinicalRecord, consultationId, compact }
           <div className="min-w-0">
             <h4 className={cn('font-bold text-slate-900 truncate', compact ? 'text-sm' : 'text-[15px]')}>{patient.fullName}</h4>
             <p className="text-[10px] text-slate-500 mt-0.5">
-              {age} yosh · {formatGender(patient.gender)}
+              {age != null ? `${age} yosh` : 'Yosh ko\'rsatilmagan'} · {formatGender(patient.gender)}
               {compact && patient.phone ? ` · ${patient.phone}` : ''}
             </p>
           </div>

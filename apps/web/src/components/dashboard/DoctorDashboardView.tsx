@@ -24,6 +24,7 @@ interface DoctorDashboardViewProps {
   documentsConsultationId?: string;
   error: string;
   onReload: () => void;
+  onRefresh?: () => void;
   onStartConsultation: (id: string) => void;
   onQuickAction: (action: string) => void;
   showComplete: boolean;
@@ -47,6 +48,7 @@ export function DoctorDashboardView({
   documentsConsultationId,
   error,
   onReload,
+  onRefresh,
   onStartConsultation,
   onQuickAction,
   showComplete,
@@ -57,6 +59,11 @@ export function DoctorDashboardView({
   onShowAttachments,
 }: DoctorDashboardViewProps) {
   const queuedPatients = queue.filter((c) => c.status === 'QUEUED');
+  const passiveRefresh = onRefresh ?? onReload;
+  const activeConsultationId = selectedConsultationId ?? consultation?.id;
+  const activeConsultation =
+    (activeConsultationId && myInProgress.find((c) => c.id === activeConsultationId))
+    || consultation;
 
   return (
     <DoctorShell
@@ -86,7 +93,7 @@ export function DoctorDashboardView({
         )}
 
         <ConsultationSwitcher
-          activeId={selectedConsultationId ?? consultation?.id}
+          activeId={activeConsultationId}
           myInProgress={myInProgress}
           queued={queuedPatients}
           onSelect={(id) => onSelectConsultation?.(id)}
@@ -97,19 +104,19 @@ export function DoctorDashboardView({
         <div className="doctor-main-grid">
           <div className="doctor-video-col">
             <VideoConsultation
-              key={consultation?.id ?? 'none'}
-              facilityCode={consultation?.utFacility?.code}
-              consultationId={consultation?.id}
-              onEndCall={onReload}
+              key={activeConsultationId ?? 'none'}
+              facilityCode={activeConsultation?.utFacility?.code ?? consultation?.utFacility?.code}
+              consultationId={activeConsultationId}
+              onEndCall={passiveRefresh}
               compact
             />
           </div>
           <div className="doctor-side-col">
             <div className="doctor-patient-col">
               <PatientInfo
-                patient={consultation?.patient}
-                clinicalRecord={consultation?.clinicalRecord}
-                consultationId={consultation?.id}
+                patient={activeConsultation?.patient ?? consultation?.patient}
+                clinicalRecord={activeConsultation?.clinicalRecord ?? consultation?.clinicalRecord}
+                consultationId={activeConsultationId}
                 compact
               />
             </div>
@@ -139,14 +146,13 @@ export function DoctorDashboardView({
                 allowUpload={false}
                 compact
                 className="flex-1 min-h-0 px-1"
-                onChange={onReload}
               />
             </div>
             <div className="doctor-ai-col">
               <AiAnalysisPanel
-                analysis={consultation?.aiAnalysis}
-                consultationId={consultation?.id}
-                onRefresh={onReload}
+                analysis={activeConsultation?.aiAnalysis ?? consultation?.aiAnalysis}
+                consultationId={activeConsultationId}
+                onRefresh={passiveRefresh}
                 compact
               />
             </div>
@@ -158,15 +164,15 @@ export function DoctorDashboardView({
             queue={queue}
             consultationId={documentsConsultationId}
             consultationStartedAt={consultation?.startedAt}
-            aiSteps={consultation?.aiAnalysisSteps}
-            aiAnalysis={consultation?.aiAnalysis}
+            aiSteps={activeConsultation?.aiAnalysisSteps ?? consultation?.aiAnalysisSteps}
+            aiAnalysis={activeConsultation?.aiAnalysis ?? consultation?.aiAnalysis}
             devices={devices}
             canStartConsultation
             canConfirmAi
             compact
             showPatientDocuments
-            onDocumentsChange={onReload}
-            onAiConfirmed={onReload}
+            onDocumentsChange={passiveRefresh}
+            onAiConfirmed={passiveRefresh}
             onStartConsultation={onStartConsultation}
             onQuickAction={onQuickAction}
           />

@@ -24,6 +24,7 @@ export default function DashboardPage() {
           documentsConsultationId={dash.documentsConsultationId}
           error={dash.error}
           onReload={dash.reload}
+          onRefresh={dash.refresh}
           onStartConsultation={dash.startConsultation}
           onQuickAction={dash.handleQuickAction}
           showComplete={dash.showComplete}

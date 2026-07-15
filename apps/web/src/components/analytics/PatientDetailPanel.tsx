@@ -51,7 +51,7 @@ export function PatientDetailPanel({ patientId, onClose }: PatientDetailPanelPro
               <div>
                 <h3 className="text-xl font-bold text-slate-900">{patient.fullName}</h3>
                 <p className="text-sm text-slate-500 mt-0.5">
-                  {calculateAge(patient.birthDate)} yosh · {formatGender(patient.gender)}
+                  {calculateAge(patient.birthDate) ?? '—'} yosh · {formatGender(patient.gender)}
                 </p>
                 <p className="text-xs text-brand-600 font-medium mt-1">
                   {patient._count?.consultations ?? patient.consultations.length} ta konsultatsiya

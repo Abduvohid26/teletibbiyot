@@ -125,7 +125,7 @@ function PatientsContent() {
                           <ChevronRight size={16} className="text-slate-300 group-hover:text-brand-500 shrink-0" />
                         </div>
                         <p className="text-sm text-slate-500 mt-0.5">
-                          {calculateAge(p.birthDate)} yosh · {formatGender(p.gender)}
+                          {calculateAge(p.birthDate) ?? '—'} yosh · {formatGender(p.gender)}
                         </p>
                         {p._count && (
                           <span className="inline-block mt-1 text-[10px] font-semibold bg-brand-50 text-brand-700 px-2 py-0.5 rounded-full">

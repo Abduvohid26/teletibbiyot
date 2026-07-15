@@ -27,6 +27,9 @@ export function useDoctorDashboard() {
   const [showSecondOpinion, setShowSecondOpinion] = useState(false);
   const [showAttachments, setShowAttachments] = useState(false);
 
+  const selectedConsultationIdRef = useRef(selectedConsultationId);
+  selectedConsultationIdRef.current = selectedConsultationId;
+
   const isDoctor = isMtDoctor(user?.role || '') || user?.role === UserRole.ADMIN;
 
   useEffect(() => {
@@ -36,10 +39,20 @@ export function useDoctorDashboard() {
     }
   }, [user, loading, router]);
 
-  const reload = useCallback(async (preferredId?: string | null) => {
+  const reloadingRef = useRef(false);
+  const pendingPreferredIdRef = useRef<string | null | undefined>(undefined);
+
+  const executeReload = useCallback(async (preferredId?: string | null) => {
     if (!user) return;
-    setError('');
-    const activeId = preferredId !== undefined ? preferredId : selectedConsultationId;
+
+    if (reloadingRef.current) {
+      pendingPreferredIdRef.current = preferredId;
+      return;
+    }
+
+    reloadingRef.current = true;
+    const activeId = preferredId !== undefined ? preferredId : selectedConsultationIdRef.current;
+
     try {
       const data = await loadDashboardSnapshot({
         isDoctor,
@@ -47,34 +60,43 @@ export function useDoctorDashboard() {
         activeConsultationId: activeId,
       });
       setSnapshot(data);
-      if (data.consultation?.id) {
+      setError('');
+
+      if (preferredId !== undefined) {
+        setSelectedConsultationId(data.consultation?.id ?? null);
+      } else if (!selectedConsultationIdRef.current && data.consultation?.id) {
         setSelectedConsultationId(data.consultation.id);
-      } else if (activeId) {
-        setSelectedConsultationId(null);
       }
     } catch (err) {
       setError(toUserMessage(err, 'Ma\'lumotlarni yuklashda xatolik'));
+    } finally {
+      reloadingRef.current = false;
+      const pending = pendingPreferredIdRef.current;
+      pendingPreferredIdRef.current = undefined;
+      if (pending !== undefined) {
+        void executeReload(pending);
+      }
     }
-  }, [user, isDoctor, observedId, selectedConsultationId]);
+  }, [user, isDoctor, observedId]);
 
-  const reloadRef = useRef(reload);
-  reloadRef.current = reload;
+  const executeReloadRef = useRef(executeReload);
+  executeReloadRef.current = executeReload;
 
-  const scheduleReload = useDebouncedCallback((preferredId?: string | null) => {
-    void reloadRef.current(preferredId);
-  }, 800);
+  const refresh = useDebouncedCallback((preferredId?: string | null) => {
+    void executeReloadRef.current(preferredId);
+  }, 1200);
 
   useEffect(() => {
     if (!user) return;
-    void reload();
-  }, [user, isDoctor, observedId]);
+    void executeReload();
+  }, [user, isDoctor, observedId, executeReload]);
 
   useEffect(() => {
     if (!user || !isDoctor) return;
-    const onFocus = () => void reload();
+    const onFocus = () => void executeReload();
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
-  }, [user, isDoctor, reload]);
+  }, [user, isDoctor, executeReload]);
 
   const queue = snapshot?.queue ?? [];
   const consultation = snapshot?.consultation ?? null;
@@ -93,30 +115,37 @@ export function useDoctorDashboard() {
   useConsultationRealtime(
     realtimeIds,
     {
-      onConsultationQueued: () => scheduleReload(),
+      onConsultationQueued: () => refresh(),
       onAttachmentUploaded: (_attachment, cid) => {
         if (documentsConsultationId === cid || consultation?.id === cid) {
           setSnapshot((prev) =>
             prev ? { ...prev, attachmentCount: prev.attachmentCount + 1 } : prev,
           );
         }
-        scheduleReload();
+        refresh();
       },
-      onAttachmentAnalyzed: () => scheduleReload(),
-      onAiUpdated: () => scheduleReload(),
+      onAttachmentAnalyzed: () => refresh(),
+      onAiUpdated: () => refresh(),
       onConsultationStarted: (payload) => {
         if (payload.consultationId) {
           setSelectedConsultationId(payload.consultationId);
         }
-        scheduleReload();
+        void executeReload(payload.consultationId);
       },
       onConsultationCompleted: () => {
         setSelectedConsultationId(null);
-        scheduleReload();
+        void executeReload(null);
       },
-      onTriageUpdated: () => scheduleReload(),
-      onPriorityUpdated: () => scheduleReload(),
-      onDeviceStatusUpdated: () => scheduleReload(),
+      onTriageUpdated: () => refresh(),
+      onPriorityUpdated: () => refresh(),
+      onDeviceStatusUpdated: (facilityId) => {
+        const currentFacilityId =
+          consultation?.utFacility?.id ?? queuedPatients[0]?.utFacility?.id;
+        if (!facilityId || facilityId !== currentFacilityId) return;
+        void api.getDevices(facilityId).then((devices) => {
+          setSnapshot((prev) => (prev ? { ...prev, devices } : prev));
+        }).catch(() => refresh());
+      },
     },
     {
       notifyToasts: isMtStaff(user?.role || '') || user?.role === UserRole.ADMIN,
@@ -126,19 +155,19 @@ export function useDoctorDashboard() {
 
   const selectConsultation = useCallback((id: string) => {
     setSelectedConsultationId(id);
-    void reload(id);
-  }, [reload]);
+    void executeReload(id);
+  }, [executeReload]);
 
   const startConsultation = useCallback(async (id: string) => {
     setError('');
     try {
       await api.startConsultation(id);
       setSelectedConsultationId(id);
-      await reload(id);
+      await executeReload(id);
     } catch (err) {
       setError(toUserMessage(err, 'Konsultatsiyani boshlashda xatolik'));
     }
-  }, [reload]);
+  }, [executeReload]);
 
   const handleQuickAction = useCallback((action: string) => {
     if (action === 'create-report' && consultation) setShowComplete(true);
@@ -154,7 +183,8 @@ export function useDoctorDashboard() {
     retryAuth,
     isDoctor,
     error,
-    reload,
+    reload: executeReload,
+    refresh,
     snapshot,
     consultation,
     queue,
