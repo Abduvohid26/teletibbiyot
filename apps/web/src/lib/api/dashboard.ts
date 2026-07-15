@@ -18,6 +18,10 @@ export function defineDashboardApi(client: HttpClient) {
       return client.request<Consultation | null>(`/dashboard/ut-active-consultation${q}`);
     },
 
+    getUtInProgressConsultations() {
+      return client.request<Consultation[]>('/dashboard/ut-in-progress-consultations');
+    },
+
     getInProgressConsultations() {
       return client.request<Consultation[]>('/dashboard/in-progress-consultations');
     },

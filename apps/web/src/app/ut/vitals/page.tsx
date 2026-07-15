@@ -8,7 +8,9 @@ import { useAuth } from '@/lib/auth-context';
 import { UserRole, isUtRole } from '@ishifo/shared';
 import { getRoleHomePath } from '@/lib/auth-utils';
 import { api, Consultation } from '@/lib/api';
+import { UT_ACTIVE_CONSULTATION_KEY } from '@/lib/api/constants';
 import { UtConsultationSession } from '@/components/video/UtConsultationSession';
+import { ConsultationSwitcher } from '@/components/dashboard/ConsultationSwitcher';
 import { AttachmentManager } from '@/components/attachments/AttachmentManager';
 import { useConsultationRealtime } from '@/hooks/use-consultation-realtime';
 import { formatStatus } from '@/lib/utils';
@@ -18,6 +20,7 @@ export default function UtVitalsPage() {
   const { user, logout, loading } = useAuth();
   const router = useRouter();
   const [consultation, setConsultation] = useState<Consultation | null>(null);
+  const [inProgressList, setInProgressList] = useState<Consultation[]>([]);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -25,18 +28,37 @@ export default function UtVitalsPage() {
     if (user && !isUtRole(user.role)) router.replace(getRoleHomePath(user.role));
   }, [user, loading, router]);
 
-  const load = () => {
+  const refreshInProgress = () => {
+    api.getUtInProgressConsultations().then(setInProgressList).catch(() => setInProgressList([]));
+  };
+
+  const load = (preferredId?: string) => {
     const preferred =
-      typeof window !== 'undefined'
-        ? sessionStorage.getItem('ishifo_ut_active_consultation') || undefined
-        : undefined;
+      preferredId
+      || (typeof window !== 'undefined'
+        ? sessionStorage.getItem(UT_ACTIVE_CONSULTATION_KEY) || undefined
+        : undefined);
     api
       .getUtActiveConsultation(preferred)
       .then((c) => {
         setConsultation(c);
         if (c?.id && typeof window !== 'undefined') {
-          sessionStorage.setItem('ishifo_ut_active_consultation', c.id);
+          sessionStorage.setItem(UT_ACTIVE_CONSULTATION_KEY, c.id);
         }
+        refreshInProgress();
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : 'Xatolik'));
+  };
+
+  const switchToConsultation = (consultationId: string) => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(UT_ACTIVE_CONSULTATION_KEY, consultationId);
+    }
+    api
+      .getUtActiveConsultation(consultationId)
+      .then((c) => {
+        setConsultation(c);
+        refreshInProgress();
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Xatolik'));
   };
@@ -50,7 +72,13 @@ export default function UtVitalsPage() {
     consultation?.id ? [consultation.id] : [],
     {
       onConsultationQueued: () => load(),
-      onConsultationStarted: () => load(),
+      onConsultationStarted: (payload) => {
+        if (payload.consultationId) {
+          switchToConsultation(payload.consultationId);
+          return;
+        }
+        load();
+      },
       onAttachmentAnalyzed: () => load(),
       onAiUpdated: () => load(),
     },
@@ -59,10 +87,14 @@ export default function UtVitalsPage() {
 
   useEffect(() => {
     const onStarted = (e: Event) => {
-      const detail = (e as CustomEvent<{ doctorName?: string }>).detail;
+      const detail = (e as CustomEvent<{ consultationId?: string; doctorName?: string }>).detail;
       const name = detail?.doctorName || 'Shifokor';
       toast(`${name} konsultatsiyani boshladi — video ulanishni kuting`, 'success');
-      load();
+      if (detail?.consultationId) {
+        switchToConsultation(detail.consultationId);
+      } else {
+        load();
+      }
     };
     window.addEventListener('consultation-started', onStarted);
     return () => window.removeEventListener('consultation-started', onStarted);
@@ -125,7 +157,17 @@ export default function UtVitalsPage() {
               <span className={`status-badge ${status?.className}`}>{status?.label}</span>
             </div>
 
-            <UtConsultationSession consultation={consultation} />
+            {inProgressList.length > 1 && (
+              <ConsultationSwitcher
+                activeId={consultation.id}
+                myInProgress={inProgressList}
+                queued={[]}
+                onSelect={switchToConsultation}
+                onStart={switchToConsultation}
+              />
+            )}
+
+            <UtConsultationSession key={consultation.id} consultation={consultation} />
 
             <AttachmentManager
               consultationId={consultation.id}

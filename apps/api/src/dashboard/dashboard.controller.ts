@@ -44,6 +44,14 @@ export class DashboardController {
     return this.dashboardService.getUtActiveConsultation(req.user.facilityId, preferredId);
   }
 
+  @Get('ut-in-progress-consultations')
+  @Roles(...ROLES_UT)
+  getUtInProgressConsultations(
+    @Request() req: { user: { facilityId: string | null } },
+  ) {
+    return this.dashboardService.getUtInProgressConsultations(req.user.facilityId);
+  }
+
   @Get('in-progress-consultations')
   @Roles(...ROLES_MT_STAFF, ...ROLES_ADMIN)
   getInProgressConsultations(@Request() req: { user: AuthUser }) {

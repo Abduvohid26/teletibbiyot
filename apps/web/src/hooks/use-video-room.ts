@@ -131,6 +131,19 @@ export function useVideoRoom({
         return;
       }
 
+      if (role === 'mt') {
+        for (const _feedId of UT_CAMERA_ORDER) {
+          pc.addTransceiver('video', { direction: 'recvonly' });
+        }
+        pc.addTransceiver('audio', { direction: 'recvonly' });
+        const docStream = localStreamsRef.current.get(MT_DOCTOR_STREAM_ID);
+        if (docStream) {
+          docStream.getVideoTracks().forEach((track) => pc.addTrack(track, docStream));
+          docStream.getAudioTracks().forEach((track) => pc.addTrack(track, docStream));
+        }
+        return;
+      }
+
       const addedAudio = new Set<string>();
       localStreamsRef.current.forEach((stream, key) => {
         if (key === 'ut-audio') {
@@ -235,8 +248,26 @@ export function useVideoRoom({
 
       makingOfferRef.current.set(remoteSocketId, true);
       try {
+        const existing = pcsRef.current.get(remoteSocketId);
+        if (
+          existing
+          && (
+            existing.signalingState === 'have-local-offer'
+            || existing.connectionState === 'failed'
+            || existing.connectionState === 'disconnected'
+            || existing.connectionState === 'closed'
+          )
+        ) {
+          existing.close();
+          pcsRef.current.delete(remoteSocketId);
+          remoteVideoCountRef.current.delete(remoteSocketId);
+          socketToCamerasRef.current.delete(remoteSocketId);
+        }
+
         const pc = createPeerConnection(remoteSocketId);
-        if (pc.signalingState === 'have-local-offer') return;
+        if (pc.signalingState === 'have-local-offer') {
+          await pc.setLocalDescription({ type: 'rollback' } as RTCSessionDescriptionInit);
+        }
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
         socket.emit('offer', {
@@ -451,6 +482,32 @@ export function useVideoRoom({
     flushPendingOffers();
     flushPendingIncomingOffers();
   }, [flushPendingIncomingOffers, flushPendingOffers, mediaReady, roomJoined]);
+
+  useEffect(() => {
+    if (!enabled || !consultationId || !roomJoined || !mediaReady || !isOfferer) return;
+
+    const timer = setTimeout(() => {
+      const hasUtVideo = UT_CAMERA_ORDER.some((id) => {
+        const stream = remoteCameras[id];
+        return !!stream?.getVideoTracks().some((t) => t.readyState === 'live');
+      });
+      if (hasUtVideo || knownParticipantsRef.current.size === 0) return;
+      knownParticipantsRef.current.forEach((socketId) => {
+        pendingOfferTargetsRef.current.add(socketId);
+      });
+      flushPendingOffers();
+    }, 4000);
+
+    return () => clearTimeout(timer);
+  }, [
+    consultationId,
+    enabled,
+    flushPendingOffers,
+    isOfferer,
+    mediaReady,
+    remoteCameras,
+    roomJoined,
+  ]);
 
   useEffect(() => {
     const socket = socketRef.current;

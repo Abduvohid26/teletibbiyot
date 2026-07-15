@@ -157,6 +157,24 @@ export class DashboardService {
     return queued ? this.crypto.unprotectConsultation(queued) : null;
   }
 
+  async getUtInProgressConsultations(facilityId: string | null) {
+    if (!facilityId) return [];
+
+    const rows = await this.prisma.consultation.findMany({
+      where: {
+        utId: facilityId,
+        status: ConsultationStatus.IN_PROGRESS,
+      },
+      include: {
+        patient: true,
+        utFacility: true,
+        mtDoctor: { select: { id: true, fullName: true } },
+      },
+      orderBy: { startedAt: 'desc' },
+    });
+    return this.crypto.unprotectConsultations(rows);
+  }
+
   async getInProgressConsultations(user: AuthUser) {
     const rows = await this.prisma.consultation.findMany({
       where: this.mergeScope(user, { status: ConsultationStatus.IN_PROGRESS }),
