@@ -1,131 +1,43 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Stethoscope, LogOut, Activity, UserPlus, Radio } from 'lucide-react';
+import { Stethoscope, Radio } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { isUtRole } from '@ishifo/shared';
 import { getRoleHomePath } from '@/lib/auth-utils';
-import { api, Consultation } from '@/lib/api';
-import { UT_ACTIVE_CONSULTATION_KEY } from '@/lib/api/constants';
+import { UtShell } from '@/components/ut/UtShell';
+import { UtPatientSwitcher } from '@/components/ut/UtPatientSwitcher';
 import { UtConsultationSession } from '@/components/video/UtConsultationSession';
-import { ConsultationSwitcher } from '@/components/dashboard/ConsultationSwitcher';
 import { AttachmentManager } from '@/components/attachments/AttachmentManager';
-import { UtSessionStatusBanner } from '@/components/ut/UtSessionStatusBanner';
-import { useConsultationRealtime } from '@/hooks/use-consultation-realtime';
+import { useUtSessions } from '@/hooks/use-ut-sessions';
 import { toast } from '@/lib/toast';
 
 export default function UtVitalsPage() {
-  const { user, logout, loading } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
-  const [consultation, setConsultation] = useState<Consultation | null>(null);
-  const [sessions, setSessions] = useState<Consultation[]>([]);
-  const [error, setError] = useState('');
-  const [liveBanner, setLiveBanner] = useState<{ doctorName?: string } | null>(null);
-
-  const inProgressList = useMemo(
-    () => sessions.filter((c) => c.status === 'IN_PROGRESS'),
-    [sessions],
-  );
-  const queuedList = useMemo(
-    () => sessions.filter((c) => c.status === 'QUEUED'),
-    [sessions],
-  );
+  const {
+    consultation,
+    sessions,
+    inProgressList,
+    error,
+    liveBanner,
+    setLiveBanner,
+    switchToConsultation,
+  } = useUtSessions(!!user && isUtRole(user?.role || ''));
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
     if (user && !isUtRole(user.role)) router.replace(getRoleHomePath(user.role));
   }, [user, loading, router]);
 
-  const refreshSessions = () => {
-    api.getUtSessionConsultations().then(setSessions).catch(() => setSessions([]));
-  };
-
-  const load = (preferredId?: string) => {
-    const preferred =
-      preferredId
-      || (typeof window !== 'undefined'
-        ? sessionStorage.getItem(UT_ACTIVE_CONSULTATION_KEY) || undefined
-        : undefined);
-    api
-      .getUtActiveConsultation(preferred)
-      .then((c) => {
-        setConsultation(c);
-        if (c?.id && typeof window !== 'undefined') {
-          sessionStorage.setItem(UT_ACTIVE_CONSULTATION_KEY, c.id);
-        }
-        refreshSessions();
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : 'Xatolik'));
-  };
-
-  const switchToConsultation = (consultationId: string) => {
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem(UT_ACTIVE_CONSULTATION_KEY, consultationId);
-    }
-    api
-      .getUtActiveConsultation(consultationId)
-      .then((c) => {
-        setConsultation(c);
-        refreshSessions();
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : 'Xatolik'));
-  };
-
-  useEffect(() => {
-    if (!user) return;
-    load();
-  }, [user]);
-
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (!window.location.search.includes('submitted=1')) return;
-    toast('Bemor navbatga qo\'shildi — shifokor qabul qilguncha kuting', 'success');
+    toast('Bemor navbatga qo\'shildi', 'success');
     router.replace('/ut/vitals', { scroll: false });
   }, [router]);
-
-  const realtimeIds = useMemo(
-    () => sessions.map((c) => c.id).slice(0, 12),
-    [sessions],
-  );
-
-  useConsultationRealtime(
-    realtimeIds,
-    {
-      onConsultationQueued: () => load(),
-      onConsultationStarted: (payload) => {
-        const name = payload.doctorName || 'Shifokor';
-        setLiveBanner({ doctorName: name });
-        toast(`${name} jonli efirni boshladi`, 'success');
-        if (payload.consultationId) {
-          switchToConsultation(payload.consultationId);
-        } else {
-          load();
-        }
-      },
-      onConsultationCompleted: () => load(),
-      onAttachmentAnalyzed: () => load(),
-      onAiUpdated: () => load(),
-    },
-    { staffFeed: true, notifyToasts: true },
-  );
-
-  useEffect(() => {
-    const onStarted = (e: Event) => {
-      const detail = (e as CustomEvent<{ consultationId?: string; doctorName?: string }>).detail;
-      const name = detail?.doctorName || 'Shifokor';
-      setLiveBanner({ doctorName: name });
-      toast(`${name} jonli efirni boshladi`, 'success');
-      if (detail?.consultationId) {
-        switchToConsultation(detail.consultationId);
-      } else {
-        load();
-      }
-    };
-    window.addEventListener('consultation-started', onStarted);
-    return () => window.removeEventListener('consultation-started', onStarted);
-  }, []);
 
   if (loading || !user) {
     return (
@@ -136,82 +48,75 @@ export default function UtVitalsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-surface flex flex-col">
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-3 sm:px-4 py-2">
-        <div className="max-w-6xl mx-auto flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-brand-600 flex items-center justify-center shrink-0">
-              <Radio size={15} className="text-white" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="font-bold text-slate-900 text-sm truncate">Jonli efir</h1>
-              <p className="text-[11px] text-slate-500 truncate">{user.facility?.name}</p>
-            </div>
-          </div>
+    <UtShell
+      sessionCount={sessions.length}
+      liveCount={inProgressList.length}
+      headerExtra={
+        sessions.length > 0 ? (
+          <UtPatientSwitcher
+            activeId={consultation?.id}
+            sessions={sessions}
+            onSelect={switchToConsultation}
+          />
+        ) : null
+      }
+    >
+      <div className="h-full max-w-6xl mx-auto flex flex-col min-h-0 p-2 sm:p-3 gap-2">
+        {error && (
+          <div className="shrink-0 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg px-3 py-2">{error}</div>
+        )}
 
-          {sessions.length > 0 && (
-            <ConsultationSwitcher
-              variant="inline"
-              activeId={consultation?.id}
-              myInProgress={inProgressList}
-              queued={queuedList}
-              onSelect={switchToConsultation}
-              onStart={switchToConsultation}
-              queuedActionLabel="Ko'rish"
-            />
-          )}
-
-          <div className="flex items-center gap-1.5 shrink-0">
-            <Link href="/ut" className="btn-secondary !py-1.5 !text-xs inline-flex items-center gap-1">
-              <UserPlus size={13} /> Yangi bemor
-            </Link>
-            <button type="button" onClick={logout} className="btn-ghost !p-1.5 text-red-500" aria-label="Chiqish">
-              <LogOut size={14} />
+        {liveBanner && (
+          <div className="shrink-0 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 flex items-center justify-between gap-2 animate-fade-in">
+            <div className="flex items-center gap-2 min-w-0">
+              <Radio size={16} className="text-emerald-600 animate-pulse shrink-0" />
+              <p className="text-sm font-semibold text-emerald-900 truncate">
+                Jonli efir boshlandi{liveBanner.doctorName ? ` — ${liveBanner.doctorName}` : ''}
+              </p>
+            </div>
+            <button type="button" onClick={() => setLiveBanner(null)} className="text-xs text-emerald-700 font-semibold shrink-0">
+              OK
             </button>
           </div>
-        </div>
-      </header>
-
-      <main className="flex-1 max-w-6xl w-full mx-auto p-3 sm:p-4 space-y-3">
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl p-3">{error}</div>
         )}
-
-        <UtSessionStatusBanner
-          consultation={consultation}
-          sessionCount={sessions.length}
-          liveJustStarted={!!liveBanner}
-          doctorName={liveBanner?.doctorName}
-          onDismissLive={() => setLiveBanner(null)}
-        />
 
         {!consultation ? (
-          <div className="panel p-8 text-center">
-            <Activity className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-            <h2 className="font-semibold text-slate-800 mb-2">Hozircha faol bemor yo&apos;q</h2>
-            <p className="text-sm text-slate-500 mb-5 max-w-sm mx-auto">
-              Avval bemor ma&apos;lumotlarini kiriting. Yuborilgandan keyin shu yerda video va vital uzatiladi.
+          <div className="flex-1 panel flex flex-col items-center justify-center p-6 text-center">
+            <Stethoscope className="w-10 h-10 text-slate-300 mb-2" />
+            <h2 className="font-semibold text-slate-800 mb-1">Faol bemor yo&apos;q</h2>
+            <p className="text-xs text-slate-500 mb-4 max-w-xs">
+              Bemor ma&apos;lumotlarini kiriting yoki ro&apos;yxatdan tanlang
             </p>
-            <Link href="/ut" className="gradient-btn inline-flex items-center gap-2">
-              <Stethoscope size={16} /> Bemor ma&apos;lumotlari
-            </Link>
+            <div className="flex gap-2">
+              <Link href="/ut" className="gradient-btn !text-xs !py-2">Qabul qilish</Link>
+              <Link href="/ut/patients" className="btn-secondary !text-xs !py-2">Bemorlar</Link>
+            </div>
           </div>
         ) : (
-          <>
-            <UtConsultationSession
-              key={consultation.id}
-              consultation={consultation}
-              patientName={consultation.patient.fullName}
-            />
-
-            <AttachmentManager
-              consultationId={consultation.id}
-              allowUpload
-              onChange={() => load(consultation.id)}
-            />
-          </>
+          <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <UtConsultationSession
+                key={consultation.id}
+                consultation={consultation}
+                patientName={consultation.patient.fullName}
+              />
+            </div>
+            <details className="shrink-0 panel !rounded-lg overflow-hidden group">
+              <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 list-none flex items-center justify-between">
+                Hujjatlar
+                <span className="text-[10px] font-normal text-slate-400 group-open:hidden">Ko&apos;rish</span>
+              </summary>
+              <div className="border-t border-slate-100 max-h-40 overflow-y-auto">
+                <AttachmentManager
+                  consultationId={consultation.id}
+                  allowUpload
+                  onChange={() => void switchToConsultation(consultation.id)}
+                />
+              </div>
+            </details>
+          </div>
         )}
-      </main>
-    </div>
+      </div>
+    </UtShell>
   );
 }

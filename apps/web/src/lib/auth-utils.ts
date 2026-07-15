@@ -138,6 +138,8 @@ export async function validateSession(token: string): Promise<{ role: string } |
 const ROLE_PREFIXES: Record<string, string[]> = {
   [UserRole.UT_OPERATOR]: [
     '/ut',
+    '/ut/patients',
+    '/ut/vitals',
     '/dashboard/appointments',
     '/dashboard/devices',
     '/dashboard/settings',

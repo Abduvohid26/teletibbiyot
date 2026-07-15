@@ -3,7 +3,7 @@
 import { useEffect, useState, isValidElement, cloneElement } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Stethoscope, Send, CheckCircle2, LogOut, Upload, Activity,
+  Stethoscope, Send, CheckCircle2, Upload, Activity,
   User, HeartPulse, FlaskConical, ScanLine, FileText,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -20,7 +20,7 @@ import {
 } from '@/lib/offline-sync';
 import { AuthLoadingScreen } from '@/components/auth/AuthLoadingScreen';
 import { UtIntakeSection, UtIntakeSubCard } from '@/components/ut/UtIntakeSection';
-import { UtIntakeActiveHint } from '@/components/ut/UtSessionStatusBanner';
+import { UtShell } from '@/components/ut/UtShell';
 import { useConsultationRealtime } from '@/hooks/use-consultation-realtime';
 import { toast } from '@/lib/toast';
 import { isUtRole, type ChecklistItem } from '@ishifo/shared';
@@ -74,7 +74,7 @@ function emptyVitals() {
 }
 
 export default function UTClientPage() {
-  const { user, logout, loading } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -352,52 +352,33 @@ export default function UTClientPage() {
   }
 
   return (
-    <div className="ut-intake-shell">
-      <header className="shrink-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-2.5 lg:px-3 py-1.5">
-        <div className="flex items-center gap-2.5 justify-between min-h-[2.375rem]">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-8 h-8 rounded-lg gradient-btn flex items-center justify-center shrink-0">
-              <Stethoscope className="w-4 h-4 text-white" />
-            </div>
-            <div className="min-w-0 leading-tight">
-              <h1 className="font-bold text-slate-900 text-sm truncate">
-                Yangi klinik holat
-              </h1>
-              <p className="text-[11px] text-slate-500 truncate">{user?.facility?.name}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1.5 shrink-0">
-            <label className="hidden md:flex items-center gap-1.5 cursor-pointer max-w-[160px] lg:max-w-[200px]">
-              <input
-                type="checkbox"
-                checked={consentAccepted}
-                onChange={(e) => setConsentAccepted(e.target.checked)}
-                className="rounded border-slate-300 text-brand-600 shrink-0 scale-90"
-              />
-              <span className="text-[11px] text-slate-600 leading-tight truncate">Rozilik berildi</span>
-            </label>
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={submitting || !consentAccepted}
-              className="gradient-btn !py-1.5 !px-3.5 !text-xs disabled:opacity-50 flex items-center gap-1 shrink-0"
-            >
-              <Send size={14} />
-              {submitting ? '...' : 'Tahlilni boshlash'}
-            </button>
-            <Link href="/ut/vitals" className="btn-secondary !py-1.5 !px-2.5 !text-xs inline-flex items-center gap-1">
-              <Activity size={13} /> Jonli efir
-            </Link>
-            <button type="button" onClick={logout} className="btn-ghost !p-1.5 text-red-500" aria-label="Chiqish">
-              <LogOut size={14} />
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="ut-intake-main">
-        <UtIntakeActiveHint sessionCount={sessionCount} liveCount={liveCount} />
+    <UtShell
+      sessionCount={sessionCount}
+      liveCount={liveCount}
+      headerExtra={(
+        <>
+          <label className="hidden md:flex items-center gap-1.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={consentAccepted}
+              onChange={(e) => setConsentAccepted(e.target.checked)}
+              className="rounded border-slate-300 text-brand-600 scale-90"
+            />
+            <span className="text-[11px] text-slate-600">Rozilik</span>
+          </label>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={submitting || !consentAccepted}
+            className="gradient-btn !py-1.5 !px-3.5 !text-xs disabled:opacity-50 flex items-center gap-1 shrink-0"
+          >
+            <Send size={14} />
+            {submitting ? '...' : 'Yuborish'}
+          </button>
+        </>
+      )}
+    >
+      <div className="ut-intake-main h-full max-w-6xl mx-auto w-full">
         {offlineNotice && (
           <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-0.5 mb-1 truncate">{offlineNotice}</p>
         )}
@@ -575,8 +556,8 @@ export default function UTClientPage() {
             </label>
           </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </UtShell>
   );
 }
 

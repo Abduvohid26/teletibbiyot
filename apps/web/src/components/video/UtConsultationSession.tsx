@@ -26,20 +26,25 @@ export function UtConsultationSession({ consultation, patientName }: UtConsultat
       {video.preflightPending && (
         <VideoPreflightModal role="ut" onConfirm={video.confirmPreflight} onCancel={video.cancelPreflight} />
       )}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-        <UtVideoPanelView
-          video={video}
-          doctorName={consultation.mtDoctor?.fullName}
-          consultationStatus={consultation.status}
-          patientName={patientName ?? consultation.patient.fullName}
-        />
-        {!video.preflightPending && (
-          <CameraVitalsMonitor
-            consultationId={consultation.id}
-            patientName={consultation.patient.fullName}
-            initialVitals={vitals as Record<string, number>}
-            sharedVideoStream={video.vitalsStream}
+      <div className="h-full min-h-0 grid grid-cols-1 lg:grid-cols-2 gap-2 lg:gap-3 items-stretch">
+        <div className="min-h-0 flex flex-col">
+          <UtVideoPanelView
+            video={video}
+            doctorName={consultation.mtDoctor?.fullName}
+            consultationStatus={consultation.status}
+            patientName={patientName ?? consultation.patient.fullName}
           />
+        </div>
+        {!video.preflightPending && (
+          <div className="min-h-0 flex flex-col lg:min-h-0">
+            <CameraVitalsMonitor
+              consultationId={consultation.id}
+              patientName={patientName ?? consultation.patient.fullName}
+              initialVitals={vitals as Record<string, number>}
+              sharedVideoStream={video.vitalsStream}
+              compact
+            />
+          </div>
         )}
       </div>
     </>

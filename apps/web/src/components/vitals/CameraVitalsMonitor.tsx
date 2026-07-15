@@ -12,6 +12,7 @@ interface CameraVitalsMonitorProps {
   initialVitals?: Record<string, number>;
   /** Video panel bilan umumiy kamera oqimi (close feed) */
   sharedVideoStream?: MediaStream | null;
+  compact?: boolean;
 }
 
 export function CameraVitalsMonitor({
@@ -19,6 +20,7 @@ export function CameraVitalsMonitor({
   patientName,
   initialVitals = {},
   sharedVideoStream,
+  compact = false,
 }: CameraVitalsMonitorProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -140,27 +142,21 @@ export function CameraVitalsMonitor({
   useEffect(() => () => stopCamera(), []);
 
   return (
-    <div className="panel overflow-hidden">
-      <div className="panel-header">
-        <Radio size={16} className={connected ? 'text-emerald-500' : 'text-slate-400'} />
-        <span className="panel-title">Kamera — jonli vital</span>
+    <div className={cn('panel overflow-hidden h-full flex flex-col', compact && '!rounded-xl')}>
+      <div className="panel-header !py-2">
+        <Radio size={15} className={connected ? 'text-emerald-500' : 'text-slate-400'} />
+        <span className="panel-title !text-sm">Jonli vital</span>
         {connected && (
-          <span className="ml-auto live-badge !text-[10px] !py-0.5">
+          <span className="ml-auto live-badge !text-[9px] !py-0.5">
             <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
             ULANGAN
           </span>
         )}
       </div>
 
-      <div className="panel-body space-y-4">
-        {patientName && (
-          <p className="text-sm text-slate-600">
-            Bemor: <span className="font-semibold text-slate-900">{patientName}</span>
-          </p>
-        )}
-
+      <div className={cn('panel-body flex-1 min-h-0 overflow-y-auto', compact ? 'space-y-2.5 !p-3' : 'space-y-4')}>
         {error && (
-          <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 rounded-lg p-3">
+          <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 rounded-lg p-2.5">
             <AlertCircle size={14} />
             {error}
           </div>
@@ -169,52 +165,59 @@ export function CameraVitalsMonitor({
         {sharedVideoStream ? (
           <>
             <video ref={videoRef} muted playsInline className="hidden" aria-hidden />
-            <div className="text-xs text-brand-800 bg-brand-50 border border-brand-100 rounded-xl px-3 py-2.5 leading-relaxed">
-              Vital tahlil yuqoridagi <strong>Bemor yaqindan</strong> kamera oqimidan olinadi. Yuzni kadr markaziga joylashtiring.
+            <div className="text-[11px] text-brand-800 bg-brand-50 border border-brand-100 rounded-lg px-2.5 py-2 leading-relaxed">
+              Vital tahlil <strong>Bemor yaqindan</strong> kameradan olinadi.
               {signalQuality > 0 && (
-                <span className="block mt-1 text-brand-600">Signal: {Math.round(signalQuality * 100)}%</span>
+                <span className="ml-1 text-brand-600">Signal: {Math.round(signalQuality * 100)}%</span>
               )}
             </div>
           </>
         ) : (
-          <div className="relative aspect-video bg-slate-900 rounded-xl overflow-hidden ring-1 ring-slate-800 max-h-64">
-            <video ref={videoRef} muted playsInline className="w-full h-full object-cover mirror" />
-            {!camOn && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 gap-2">
-                <VideoOff size={32} />
-                <p className="text-xs">Kamera o&apos;chirilgan</p>
-              </div>
+          <>
+            {!compact && patientName && (
+              <p className="text-sm text-slate-600">
+                Bemor: <span className="font-semibold text-slate-900">{patientName}</span>
+              </p>
             )}
-            {camOn && (
-              <>
-                <div className="absolute top-2 left-2 right-2 text-center">
-                  <span className="inline-block bg-black/50 text-white text-[10px] px-2 py-1 rounded-md">
-                    Bemor yuzini kadr markaziga joylashtiring
-                  </span>
+            <div className="relative aspect-video bg-slate-900 rounded-xl overflow-hidden ring-1 ring-slate-800 max-h-64">
+              <video ref={videoRef} muted playsInline className="w-full h-full object-cover mirror" />
+              {!camOn && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 gap-2">
+                  <VideoOff size={32} />
+                  <p className="text-xs">Kamera o&apos;chirilgan</p>
                 </div>
-                <div className="absolute inset-4 pointer-events-none border border-emerald-400/50 rounded-lg" />
-                {signalQuality > 0 && (
-                  <div className="absolute bottom-2 right-2 text-[10px] text-emerald-300 bg-black/50 px-2 py-1 rounded">
-                    Signal: {Math.round(signalQuality * 100)}%
+              )}
+              {camOn && (
+                <>
+                  <div className="absolute top-2 left-2 right-2 text-center">
+                    <span className="inline-block bg-black/50 text-white text-[10px] px-2 py-1 rounded-md">
+                      Bemor yuzini kadr markaziga joylashtiring
+                    </span>
                   </div>
-                )}
-              </>
-            )}
-          </div>
+                  <div className="absolute inset-4 pointer-events-none border border-emerald-400/50 rounded-lg" />
+                  {signalQuality > 0 && (
+                    <div className="absolute bottom-2 right-2 text-[10px] text-emerald-300 bg-black/50 px-2 py-1 rounded">
+                      Signal: {Math.round(signalQuality * 100)}%
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </>
         )}
         <canvas ref={canvasRef} className="hidden" />
 
-        <div className="grid grid-cols-2 gap-2">
-          <VitalInput label="SpO2 (%)" value={reading.spo2} onChange={(v) => setReading((p) => ({ ...p, spo2: v, source: 'device' }))} />
-          <VitalInput label="Harorat (°C)" value={reading.temperature} step={0.1} onChange={(v) => setReading((p) => ({ ...p, temperature: v, source: 'device' }))} />
-          <VitalInput label="Qon bosimi (sys)" value={reading.bloodPressureSystolic} onChange={(v) => setReading((p) => ({ ...p, bloodPressureSystolic: v, source: 'device' }))} />
-          <VitalInput label="Qon bosimi (dia)" value={reading.bloodPressureDiastolic} onChange={(v) => setReading((p) => ({ ...p, bloodPressureDiastolic: v, source: 'device' }))} />
+        <div className="grid grid-cols-2 gap-1.5">
+          <VitalInput label="SpO2 (%)" value={reading.spo2} onChange={(v) => setReading((p) => ({ ...p, spo2: v, source: 'device' }))} compact={compact} />
+          <VitalInput label="Harorat (°C)" value={reading.temperature} step={0.1} onChange={(v) => setReading((p) => ({ ...p, temperature: v, source: 'device' }))} compact={compact} />
+          <VitalInput label="Qon bosimi (sys)" value={reading.bloodPressureSystolic} onChange={(v) => setReading((p) => ({ ...p, bloodPressureSystolic: v, source: 'device' }))} compact={compact} />
+          <VitalInput label="Qon bosimi (dia)" value={reading.bloodPressureDiastolic} onChange={(v) => setReading((p) => ({ ...p, bloodPressureDiastolic: v, source: 'device' }))} compact={compact} />
         </div>
 
-        <div className="grid grid-cols-3 gap-2 p-3 rounded-xl bg-slate-900 text-white">
-          <LiveStat icon={Heart} label="Puls" value={reading.heartRate} unit="bpm" color="text-red-400" live={!!reading.heartRate} />
-          <LiveStat icon={Activity} label="Nafas" value={reading.respiratoryRate} unit="/min" color="text-cyan-400" live={!!reading.respiratoryRate} />
-          <LiveStat icon={Activity} label="SpO2" value={reading.spo2} unit="%" color="text-blue-400" live={!!reading.spo2} />
+        <div className={cn('grid grid-cols-3 gap-1.5 rounded-xl bg-slate-900 text-white', compact ? 'p-2' : 'p-3')}>
+          <LiveStat icon={Heart} label="Puls" value={reading.heartRate} unit="bpm" color="text-red-400" live={!!reading.heartRate} compact={compact} />
+          <LiveStat icon={Activity} label="Nafas" value={reading.respiratoryRate} unit="/min" color="text-cyan-400" live={!!reading.respiratoryRate} compact={compact} />
+          <LiveStat icon={Activity} label="SpO2" value={reading.spo2} unit="%" color="text-blue-400" live={!!reading.spo2} compact={compact} />
         </div>
 
         {!sharedVideoStream && (
@@ -232,25 +235,25 @@ export function CameraVitalsMonitor({
   );
 }
 
-function VitalInput({ label, value, onChange, step = 1 }: { label: string; value?: number; onChange: (v: number | undefined) => void; step?: number }) {
+function VitalInput({ label, value, onChange, step = 1, compact }: { label: string; value?: number; onChange: (v: number | undefined) => void; step?: number; compact?: boolean }) {
   return (
     <div>
-      <label className="text-[10px] text-slate-500 font-medium">{label}</label>
-      <input type="number" step={step} className="form-input !py-1.5 !text-sm mt-0.5" value={value ?? ''} onChange={(e) => onChange(e.target.value ? Number(e.target.value) : undefined)} placeholder="—" />
+      <label className={cn('text-slate-500 font-medium', compact ? 'text-[9px]' : 'text-[10px]')}>{label}</label>
+      <input type="number" step={step} className={cn('form-input w-full mt-0.5', compact ? '!py-1 !text-xs' : '!py-1.5 !text-sm')} value={value ?? ''} onChange={(e) => onChange(e.target.value ? Number(e.target.value) : undefined)} placeholder="—" />
     </div>
   );
 }
 
-function LiveStat({ icon: Icon, label, value, unit, color, live }: { icon: React.ElementType; label: string; value?: number; unit: string; color: string; live: boolean }) {
+function LiveStat({ icon: Icon, label, value, unit, color, live, compact }: { icon: React.ElementType; label: string; value?: number; unit: string; color: string; live: boolean; compact?: boolean }) {
   return (
     <div className="text-center">
-      <Icon size={14} className={cn('mx-auto mb-1', color)} />
-      <p className="text-[10px] text-slate-400">{label}</p>
-      <p className="text-lg font-bold leading-none mt-0.5">
+      <Icon size={compact ? 12 : 14} className={cn('mx-auto mb-0.5', color)} />
+      <p className={cn('text-slate-400', compact ? 'text-[9px]' : 'text-[10px]')}>{label}</p>
+      <p className={cn('font-bold leading-none mt-0.5', compact ? 'text-base' : 'text-lg')}>
         {value ?? '—'}
-        {value != null && <span className="text-[10px] font-normal text-slate-500 ml-0.5">{unit}</span>}
+        {value != null && <span className="text-[9px] font-normal text-slate-500 ml-0.5">{unit}</span>}
       </p>
-      {live && <span className="text-[9px] text-emerald-400">JONLI</span>}
+      {live && <span className="text-[8px] text-emerald-400">JONLI</span>}
     </div>
   );
 }
