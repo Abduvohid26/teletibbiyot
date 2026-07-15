@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { AuthProvider } from '@/lib/auth-context';
-import { MfaRequiredGate } from '@/components/auth/MfaRequiredGate';
 import { OfflineBootstrap } from '@/components/OfflineBootstrap';
 import { ToastProvider } from '@/components/ui/ToastProvider';
 import { BRAND } from '@ishifo/shared';
@@ -18,7 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <OfflineBootstrap />
         <ToastProvider>
           <AuthProvider>
-            <MfaRequiredGate>{children}</MfaRequiredGate>
+            {children}
           </AuthProvider>
         </ToastProvider>
       </body>

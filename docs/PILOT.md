@@ -26,7 +26,6 @@ cd apps/api && ENCRYPTION_KEY=... DATABASE_URL=... npx ts-node prisma/encrypt-ex
 | `OPENAI_API_KEY` | AI tahlil uchun (mock o'chirilgan) |
 | `TURN_PUBLIC_URL` / `TURN_PASSWORD` | Rural NAT uchun WebRTC (brauzer ulanadigan manzil) |
 | `METRICS_BEARER_TOKEN` | Prometheus `/api/metrics` himoyasi |
-| `MFA_REQUIRED_ROLES` | Production MFA majburiy rollar (default: ADMIN,MT_DOCTOR) |
 | `ENCRYPTION_KEY` | PINFL/telefon shifrlash (kamida 32 belgi) |
 | `S3_*` | Fayl saqlash (MinIO yoki AWS S3) |
 | `CORS_ORIGINS` | Production domen(lar) |

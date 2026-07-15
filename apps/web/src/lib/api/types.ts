@@ -4,8 +4,6 @@ export interface User {
   fullName: string;
   role: string;
   facility?: { id: string; name: string; code: string; type: string };
-  mfaEnabled: boolean;
-  requiresMfaSetup?: boolean;
   isActive?: boolean;
 }
 

@@ -103,7 +103,6 @@ SMTP_FROM=noreply@ishifo.uz
 - [ ] `SHOW_DEV_CREDENTIALS=false`
 - [ ] Haqiqiy SSL sertifikat
 - [ ] Firewall: faqat 80, 443 ochiq
-- [ ] Admin MFA yoqilgan
 - [ ] Kunlik PostgreSQL backup
 
 ## 10. Muammolarni bartaraf etish

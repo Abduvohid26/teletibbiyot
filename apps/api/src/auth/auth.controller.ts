@@ -5,7 +5,6 @@ import { Response, Request as ExpressRequest } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
-import { EnableMfaDto } from '../common/dto/common.dto';
 import { JwtAuthGuard } from './guards/auth.guard';
 import { resolveAuthCookieOptions } from '../common/auth-cookie.util';
 import { jwtExpiresInMs } from '../common/jwt-cookie.util';
@@ -68,39 +67,12 @@ export class AuthController {
     res.clearCookie('token', this.cookieOptions());
     return this.authService.invalidateSessions(req.user.id, expressReq.ip);
   }
+
   @Get('me')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Joriy foydalanuvchi ma\'lumotlari' })
-  getMe(@Request() req: { user: { role: string; mfaEnabled?: boolean } }) {
-    const user = req.user;
-    return {
-      ...user,
-      requiresMfaSetup: this.authService.isMfaRequiredForRole(user.role) && !user.mfaEnabled,
-    };
-  }
-
-  @Post('mfa/setup')
-  @UseGuards(JwtAuthGuard)
-  @Throttle({ default: { limit: 10, ttl: 60000 } })
-  @ApiBearerAuth()
-  setupMfa(@Request() req: { user: { id: string } }) {
-    return this.authService.setupMfa(req.user.id);
-  }
-
-  @Post('mfa/enable')
-  @UseGuards(JwtAuthGuard)
-  @Throttle({ default: { limit: 10, ttl: 60000 } })
-  @ApiBearerAuth()
-  enableMfa(@Request() req: { user: { id: string } }, @Body() dto: EnableMfaDto) {
-    return this.authService.enableMfa(req.user.id, dto.code);
-  }
-
-  @Post('mfa/disable')
-  @UseGuards(JwtAuthGuard)
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
-  @ApiBearerAuth()
-  disableMfa(@Request() req: { user: { id: string } }, @Body() dto: EnableMfaDto) {
-    return this.authService.disableMfa(req.user.id, dto.code);
+  getMe(@Request() req: { user: Record<string, unknown> }) {
+    return req.user;
   }
 }

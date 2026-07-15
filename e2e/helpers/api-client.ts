@@ -3,7 +3,6 @@ export const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:300
 export interface LoginResult {
   accessToken?: string;
   user?: { id: string; email: string; role: string; facilityId?: string | null };
-  requiresMfa?: boolean;
 }
 
 export class ApiTestClient {

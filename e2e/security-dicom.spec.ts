@@ -60,11 +60,11 @@ test.describe('Video health API', () => {
   });
 });
 
-test.describe('Settings MFA', () => {
+test.describe('Settings', () => {
   test('settings page loads for doctor', async ({ page }) => {
     test.setTimeout(90000);
     await loginAs(page, 'doctor@ishifo.uz', DEFAULT_PASSWORD, /\/dashboard/);
     await page.goto('/dashboard/settings');
-    await expect(page.getByText(/Ikki bosqichli autentifikatsiya/i)).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/Profil ma'lumotlari/i)).toBeVisible({ timeout: 15000 });
   });
 });

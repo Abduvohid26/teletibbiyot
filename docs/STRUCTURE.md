@@ -44,7 +44,7 @@ apps/api/
 │   ├── main.ts                    # Kirish nuqtasi
 │   ├── app.module.ts              # Root modul
 │   │
-│   ├── auth/                      # JWT, MFA, login
+│   ├── auth/                      # JWT, login
 │   ├── users/                     # Foydalanuvchilar CRUD
 │   ├── patients/                  # Bemorlar
 │   ├── consultations/             # Konsultatsiya hayot sikli

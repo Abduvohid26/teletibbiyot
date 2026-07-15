@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Stethoscope, Eye, EyeOff, Shield, Activity } from 'lucide-react';
+import { Stethoscope, Eye, EyeOff, Shield, Activity, Lock } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { getRoleHomePath } from '@/lib/auth-utils';
 import { BrandName } from '@/components/brand/BrandName';
@@ -13,8 +13,6 @@ import { FormField } from '@/components/ui/FormField';
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [mfaCode, setMfaCode] = useState('');
-  const [requiresMfa, setRequiresMfa] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,17 +24,7 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const result = await login(email, password, mfaCode || undefined);
-      if (result.requiresMfa) {
-        setRequiresMfa(true);
-        return;
-      }
-
-      if (result.requiresMfaSetup) {
-        window.location.href = '/dashboard/settings?mfa=required';
-        return;
-      }
-
+      const result = await login(email, password);
       const role = result.user?.role || user?.role;
       if (!role) {
         setError('Kirish muvaffaqiyatsiz. Qayta urinib ko\'ring.');
@@ -80,7 +68,7 @@ export default function LoginPage() {
 
           <div className="mt-10 grid grid-cols-2 gap-4 max-w-md">
             <FeaturePill icon={Activity} text="Real vaqt video" />
-            <FeaturePill icon={Shield} text="Xavfsiz MFA" />
+            <FeaturePill icon={Lock} text="Xavfsiz kirish" />
           </div>
         </div>
 
@@ -140,23 +128,6 @@ export default function LoginPage() {
                   </button>
                 </div>
               </FormField>
-
-              {requiresMfa && (
-                <FormField id="login-mfa" label="MFA kodi" required hint="6 xonali kod">
-                  <input
-                    id="login-mfa"
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                    value={mfaCode}
-                    onChange={(e) => setMfaCode(e.target.value)}
-                    required
-                    maxLength={6}
-                    className="input tracking-widest text-center font-mono"
-                    placeholder="000000"
-                  />
-                </FormField>
-              )}
 
               <button
                 type="submit"

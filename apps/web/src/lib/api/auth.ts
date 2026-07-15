@@ -3,27 +3,18 @@ import type { User } from './types';
 
 export function defineAuthApi(client: HttpClient) {
   return {
-    login(email: string, password: string, mfaCode?: string) {
+    login(email: string, password: string) {
       return client.request<{
         accessToken?: string;
-        requiresMfa?: boolean;
-        requiresMfaSetup?: boolean;
         user?: User;
       }>('/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ email, password, mfaCode }),
+        body: JSON.stringify({ email, password }),
       });
     },
 
     logout() {
       return client.request<{ success: boolean }>('/auth/logout', { method: 'POST' });
-    },
-
-    disableMfa(code: string) {
-      return client.request<{ success: boolean }>('/auth/mfa/disable', {
-        method: 'POST',
-        body: JSON.stringify({ code }),
-      });
     },
 
     getMe() {
@@ -36,14 +27,6 @@ export function defineAuthApi(client: HttpClient) {
       } catch {
         return null;
       }
-    },
-
-    setupMfa() {
-      return client.request<{ secret: string; qrCode: string }>('/auth/mfa/setup', { method: 'POST' });
-    },
-
-    enableMfa(code: string) {
-      return client.request('/auth/mfa/enable', { method: 'POST', body: JSON.stringify({ code }) });
     },
   };
 }

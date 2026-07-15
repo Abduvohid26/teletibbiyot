@@ -51,14 +51,6 @@ export class AiChatDto {
   question: string;
 }
 
-export class EnableMfaDto {
-  @ApiProperty()
-  @IsString()
-  @Min(6)
-  @MaxLength(8)
-  code: string;
-}
-
 export class ResetPasswordDto {
   @ApiProperty()
   @IsString()

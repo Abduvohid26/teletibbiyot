@@ -39,8 +39,6 @@ export class UsersService {
 
         isActive: true,
 
-        mfaEnabled: true,
-
         facility: true,
 
         createdAt: true,

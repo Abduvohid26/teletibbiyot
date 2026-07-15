@@ -45,7 +45,7 @@ iShifo — uzoq masofadagi tibbiyot muassasalaridagi bemorlarga markaziy mutaxas
 - AI dastlabki tahlil: differensial tashxis, xavf darajasi, tavsiyalar
 - Vital ko'rsatkichlar paneli (EKG, puls, qon bosimi, SpO2, harorat)
 - Konsultatsiya navbati, yakuniy tashxis, xabarlar, uchrashuvlar
-- RBAC, MFA (TOTP), audit jurnali
+- RBAC, audit jurnali
 - Fayl biriktirish (PDF, JPG, DICOM — MinIO + ichki DICOM viewer)
 - OneID login, retsept integratsiyasi, qurilma gateway (real rejim)
 - Prometheus + Grafana monitoring
@@ -219,7 +219,7 @@ Shablon: [`.env.example`](.env.example)
 |-------|----------------|
 | Docker portlar | `POSTGRES_PUBLISH`, `API_PUBLISH`, `WEB_PUBLISH`, `MINIO_PUBLISH`, ... |
 | Database | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DATABASE_URL`, `DATABASE_URL_DOCKER` |
-| Auth | `JWT_SECRET`, `JWT_EXPIRES_IN`, `COOKIE_SECURE`, `MFA_REQUIRED_ROLES` |
+| Auth | `JWT_SECRET`, `JWT_EXPIRES_IN`, `COOKIE_SECURE` |
 | AI | `OPENAI_API_KEY`, `OPENAI_MODEL` |
 | S3/MinIO | `S3_*`, `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD` |
 | Frontend | `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_TURN_*`, `WEB_APP_URL` |
@@ -332,7 +332,7 @@ Parol `.env` dagi `SEED_PASSWORD` orqali o'zgartiriladi.
 | `/dashboard/appointments` | MT | Uchrashuvlar |
 | `/dashboard/recordings` | MT | Video yozuvlar |
 | `/dashboard/reports` | MT | Hisobotlar |
-| `/dashboard/settings` | MT | Sozlamalar (MFA) |
+| `/dashboard/settings` | MT | Sozlamalar |
 | `/admin` | Admin | Boshqaruv paneli |
 | `/admin/audit` | Admin/Auditor | Audit jurnali |
 | `/dashboard/manager` | MT Manager | SLA/KPI |
@@ -406,7 +406,6 @@ Qo'llanmalar:
 ## Xavfsizlik
 
 - JWT httpOnly cookie + RBAC middleware
-- MFA (TOTP) — `ADMIN`, `MT_DOCTOR` rollari uchun
 - Helmet, CORS, rate limiting (Throttler)
 - Bemor ma'lumotlari field-level encryption (`ENCRYPTION_KEY`)
 - Audit jurnal — barcha muhim amallar

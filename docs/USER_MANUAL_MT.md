@@ -23,9 +23,6 @@
 - Triage **EMERGENCY** — SMS/email ogohlantirish (sozlangan bo'lsa)
 - **Eskalatsiya** — katta shifokor yoki favqulodda rejim
 
-## MFA (tavsiya)
-- **Sozlamalar** → MFA yoqish — xavfsizlik uchun
-
 ## Manager / Admin
 - MT Manager: SLA/KPI paneli
 - Admin: foydalanuvchilar, audit, retention
