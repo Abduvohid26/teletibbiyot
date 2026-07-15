@@ -1,4 +1,5 @@
 import { Controller, Get, Patch, Param, Query, UseGuards, Request } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 
@@ -11,6 +12,8 @@ import { JwtAuthGuard } from '../auth/guards/auth.guard';
 @ApiTags('Notifications')
 
 @Controller('notifications')
+
+@SkipThrottle()
 
 @UseGuards(JwtAuthGuard)
 

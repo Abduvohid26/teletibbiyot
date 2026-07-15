@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useDebouncedCallback } from '@/hooks/use-debounce';
 import { useRouter } from 'next/navigation';
 import { UserRole, canAccessMtDashboard, isMtDoctor, isMtStaff } from '@ishifo/shared';
 import { getRoleHomePath } from '@/lib/auth-utils';
@@ -56,6 +57,13 @@ export function useDoctorDashboard() {
     }
   }, [user, isDoctor, observedId, selectedConsultationId]);
 
+  const reloadRef = useRef(reload);
+  reloadRef.current = reload;
+
+  const scheduleReload = useDebouncedCallback((preferredId?: string | null) => {
+    void reloadRef.current(preferredId);
+  }, 800);
+
   useEffect(() => {
     if (!user) return;
     void reload();
@@ -85,30 +93,30 @@ export function useDoctorDashboard() {
   useConsultationRealtime(
     realtimeIds,
     {
-      onConsultationQueued: () => void reload(),
+      onConsultationQueued: () => scheduleReload(),
       onAttachmentUploaded: (_attachment, cid) => {
         if (documentsConsultationId === cid || consultation?.id === cid) {
           setSnapshot((prev) =>
             prev ? { ...prev, attachmentCount: prev.attachmentCount + 1 } : prev,
           );
         }
-        void reload();
+        scheduleReload();
       },
-      onAttachmentAnalyzed: () => void reload(),
-      onAiUpdated: () => void reload(),
+      onAttachmentAnalyzed: () => scheduleReload(),
+      onAiUpdated: () => scheduleReload(),
       onConsultationStarted: (payload) => {
         if (payload.consultationId) {
           setSelectedConsultationId(payload.consultationId);
         }
-        void reload();
+        scheduleReload();
       },
       onConsultationCompleted: () => {
         setSelectedConsultationId(null);
-        void reload();
+        scheduleReload();
       },
-      onTriageUpdated: () => void reload(),
-      onPriorityUpdated: () => void reload(),
-      onDeviceStatusUpdated: () => void reload(),
+      onTriageUpdated: () => scheduleReload(),
+      onPriorityUpdated: () => scheduleReload(),
+      onDeviceStatusUpdated: () => scheduleReload(),
     },
     {
       notifyToasts: isMtStaff(user?.role || '') || user?.role === UserRole.ADMIN,

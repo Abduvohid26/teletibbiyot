@@ -150,6 +150,10 @@ export class HttpClient {
       throw new Error(message);
     }
 
+    if (res.status === 429) {
+      throw new Error('So\'rovlar juda ko\'p — biroz kutib qayta urinib ko\'ring');
+    }
+
     if (!res.ok) {
       const err = await res.json().catch(() => ({ message: 'Xatolik yuz berdi' }));
       const msg = err.message;

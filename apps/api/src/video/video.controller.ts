@@ -1,4 +1,5 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guard';
@@ -9,6 +10,7 @@ import { resolvePublicTurnUrl } from '../common/turn-url.util';
 
 @ApiTags('Video')
 @Controller('video')
+@SkipThrottle()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class VideoController {

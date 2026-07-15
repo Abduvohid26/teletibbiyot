@@ -11,6 +11,7 @@ import {
   Query,
   Res,
 } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { Response } from 'express';
 import { ConsultationsService } from './consultations.service';
@@ -58,6 +59,7 @@ export class ConsultationsController {
   }
 
   @Get('queue')
+  @SkipThrottle()
   @Roles(...ROLES_MT_STAFF, ...ROLES_ADMIN)
   @ApiOperation({ summary: 'Navbatdagi konsultatsiyalar' })
   getQueue(@Request() req: { user: AuthUser }) {

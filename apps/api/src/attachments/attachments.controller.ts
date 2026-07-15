@@ -10,6 +10,7 @@ import {
   BadRequestException,
   Req,
 } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
 import { AttachmentsService } from './attachments.service';
@@ -42,6 +43,7 @@ export class AttachmentsController {
   }
 
   @Get('consultation/:consultationId')
+  @SkipThrottle()
   @Roles(...ROLES_CLINICAL_ADMIN)
   list(
     @Param('consultationId') consultationId: string,
@@ -60,6 +62,7 @@ export class AttachmentsController {
   }
 
   @Get(':id/download')
+  @SkipThrottle()
   @Roles(...ROLES_CLINICAL_ADMIN)
   download(
     @Param('id') id: string,

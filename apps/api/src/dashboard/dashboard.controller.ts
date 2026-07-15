@@ -1,4 +1,5 @@
 import { Controller, Get, Query, UseGuards, Request } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { DashboardService } from './dashboard.service';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guard';
@@ -13,6 +14,7 @@ import {
 
 @ApiTags('Dashboard')
 @Controller('dashboard')
+@SkipThrottle()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class DashboardController {

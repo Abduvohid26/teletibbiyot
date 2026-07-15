@@ -1,4 +1,5 @@
 import { Controller, Get, Patch, Post, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { DevicesService } from './devices.service';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guard';
@@ -32,6 +33,7 @@ class TelemetryDto {
 
 @ApiTags('Devices')
 @Controller('devices')
+@SkipThrottle()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class DevicesController {

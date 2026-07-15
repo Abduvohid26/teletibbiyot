@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Param, UseGuards, Body, UseInterceptors, UploadedFile, BadRequestException, Request, Query } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes } from '@nestjs/swagger';
 import { RecordingsService } from './recordings.service';
@@ -9,6 +10,7 @@ import { ROLES_ADMIN, ROLES_CLINICAL_ADMIN, ROLES_MT_STAFF } from '../common/rol
 
 @ApiTags('Recordings')
 @Controller('recordings')
+@SkipThrottle()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class RecordingsController {
