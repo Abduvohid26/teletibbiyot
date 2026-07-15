@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, Clock, Play, User, Video } from 'lucide-react';
 import { Consultation } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -29,7 +30,9 @@ export function ConsultationSwitcher({
   variant = 'header',
 }: ConsultationSwitcherProps) {
   const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
+  const [menuStyle, setMenuStyle] = useState<{ top: number; left: number; width: number } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const active =
     myInProgress.find((c) => c.id === activeId)
@@ -37,6 +40,8 @@ export function ConsultationSwitcher({
     ?? null;
 
   const hasMenu = myInProgress.length > 0 || queued.length > 0;
+  const canSwitch = myInProgress.length > 1 || queued.length > 0;
+
   const summary = useMemo(() => {
     const parts: string[] = [];
     if (myInProgress.length) parts.push(`${myInProgress.length} jarayon`);
@@ -44,10 +49,37 @@ export function ConsultationSwitcher({
     return parts.join(' · ');
   }, [myInProgress.length, queued.length]);
 
+  const updateMenuPosition = useCallback(() => {
+    const el = triggerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const width = variant === 'header'
+      ? Math.min(Math.max(rect.width, 280), 320)
+      : rect.width;
+    setMenuStyle({
+      top: rect.bottom + 6,
+      left: Math.min(rect.left, window.innerWidth - width - 8),
+      width,
+    });
+  }, [variant]);
+
+  useEffect(() => {
+    if (!open) return;
+    updateMenuPosition();
+    window.addEventListener('resize', updateMenuPosition);
+    window.addEventListener('scroll', updateMenuPosition, true);
+    return () => {
+      window.removeEventListener('resize', updateMenuPosition);
+      window.removeEventListener('scroll', updateMenuPosition, true);
+    };
+  }, [open, updateMenuPosition]);
+
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false);
@@ -64,47 +96,22 @@ export function ConsultationSwitcher({
 
   const isHeader = variant === 'header';
 
-  return (
-    <div ref={rootRef} className={cn('relative', isHeader ? 'shrink-0' : 'w-full max-w-md')}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-haspopup="listbox"
-        className={cn(
-          'flex items-center gap-2 rounded-xl border transition-all text-left',
-          isHeader
-            ? 'h-9 max-w-[220px] sm:max-w-[260px] px-2.5 bg-white/90 border-slate-200 hover:border-brand-300 hover:bg-brand-50/50 shadow-sm'
-            : 'w-full px-3 py-2.5 bg-white border-slate-200 hover:border-brand-300',
-        )}
-      >
-        <div className="w-7 h-7 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center shrink-0">
-          <User size={14} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide leading-none">
-            Faol bemor
-          </p>
-          <p className="text-xs font-bold text-slate-900 truncate leading-tight mt-0.5">
-            {active ? labelFor(active) : 'Tanlang'}
-          </p>
-        </div>
-        <ChevronDown
-          size={14}
-          className={cn('text-slate-400 shrink-0 transition-transform', open && 'rotate-180')}
-        />
-      </button>
-
-      {open && (
+  const menu = open && menuStyle && typeof document !== 'undefined'
+    ? createPortal(
         <div
+          ref={menuRef}
           role="listbox"
-          className={cn(
-            'absolute z-50 mt-1.5 rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden',
-            isHeader ? 'left-0 w-[min(100vw-2rem,320px)]' : 'left-0 right-0',
-          )}
+          style={{
+            position: 'fixed',
+            top: menuStyle.top,
+            left: menuStyle.left,
+            width: menuStyle.width,
+            zIndex: 9999,
+          }}
+          className="rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden max-h-[min(70vh,420px)] overflow-y-auto"
         >
           {summary && (
-            <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 text-[10px] font-medium text-slate-500">
+            <div className="px-3 py-2 bg-slate-50 border-b border-slate-100 text-[10px] font-medium text-slate-500 sticky top-0">
               {summary}
             </div>
           )}
@@ -120,7 +127,9 @@ export function ConsultationSwitcher({
                   type="button"
                   role="option"
                   aria-selected={activeId === c.id}
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     onSelect(c.id);
                     setOpen(false);
                   }}
@@ -149,7 +158,9 @@ export function ConsultationSwitcher({
                 <button
                   key={c.id}
                   type="button"
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     onStart(c.id);
                     setOpen(false);
                   }}
@@ -166,8 +177,52 @@ export function ConsultationSwitcher({
               )}
             </div>
           )}
+        </div>,
+        document.body,
+      )
+    : null;
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => {
+          if (!canSwitch) return;
+          setOpen((v) => !v);
+        }}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        disabled={!canSwitch}
+        className={cn(
+          'flex items-center gap-2 rounded-xl border transition-all text-left',
+          isHeader
+            ? 'h-9 max-w-[220px] sm:max-w-[260px] px-2.5 bg-white/90 border-slate-200 shadow-sm'
+            : 'w-full max-w-md px-3 py-2.5 bg-white border-slate-200',
+          canSwitch
+            ? 'hover:border-brand-300 hover:bg-brand-50/50 cursor-pointer'
+            : 'cursor-default opacity-90',
+        )}
+      >
+        <div className="w-7 h-7 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center shrink-0">
+          <User size={14} />
         </div>
-      )}
-    </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide leading-none">
+            Faol bemor
+          </p>
+          <p className="text-xs font-bold text-slate-900 truncate leading-tight mt-0.5">
+            {active ? labelFor(active) : 'Tanlang'}
+          </p>
+        </div>
+        {canSwitch && (
+          <ChevronDown
+            size={14}
+            className={cn('text-slate-400 shrink-0 transition-transform', open && 'rotate-180')}
+          />
+        )}
+      </button>
+      {menu}
+    </>
   );
 }

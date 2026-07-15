@@ -29,7 +29,14 @@ export async function loadDashboardSnapshot(params: {
   const observerConsultation = !isDoctor
     ? inProgress.find((c) => c.id === observedId) ?? inProgress[0] ?? null
     : null;
-  const consultation = isDoctor ? active : observerConsultation;
+  const consultation = isDoctor
+    ? (
+      active
+      ?? (activeConsultationId
+        ? inProgress.find((c) => c.id === activeConsultationId) ?? null
+        : null)
+    )
+    : observerConsultation;
 
   const queued = queue.filter((c) => c.status === 'QUEUED');
   const facilityId = consultation?.utFacility?.id ?? queued[0]?.utFacility?.id;

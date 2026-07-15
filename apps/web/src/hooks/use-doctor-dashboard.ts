@@ -63,7 +63,11 @@ export function useDoctorDashboard() {
       setError('');
 
       if (preferredId !== undefined) {
-        setSelectedConsultationId(data.consultation?.id ?? null);
+        const resolved =
+          data.consultation?.id
+          ?? data.inProgressList.find((c) => c.id === preferredId)?.id
+          ?? preferredId;
+        setSelectedConsultationId(resolved);
       } else if (!selectedConsultationIdRef.current && data.consultation?.id) {
         setSelectedConsultationId(data.consultation.id);
       }
@@ -102,10 +106,11 @@ export function useDoctorDashboard() {
   const consultation = snapshot?.consultation ?? null;
   const queuedPatients = useMemo(() => queue.filter((c) => c.status === 'QUEUED'), [queue]);
   const myInProgress = useMemo(
-    () => (snapshot?.inProgressList ?? []).filter((c) => c.mtDoctor?.id === user?.id),
-    [snapshot?.inProgressList, user?.id],
+    () => snapshot?.inProgressList ?? [],
+    [snapshot?.inProgressList],
   );
-  const documentsConsultationId = consultation?.id ?? queuedPatients[0]?.id;
+  const documentsConsultationId =
+    selectedConsultationId ?? consultation?.id ?? queuedPatients[0]?.id;
 
   const realtimeIds = useMemo(
     () => collectRealtimeConsultationIds(consultation, queue),
@@ -155,6 +160,12 @@ export function useDoctorDashboard() {
 
   const selectConsultation = useCallback((id: string) => {
     setSelectedConsultationId(id);
+    setSnapshot((prev) => {
+      if (!prev) return prev;
+      const picked = prev.inProgressList.find((c) => c.id === id);
+      if (!picked) return prev;
+      return { ...prev, consultation: picked };
+    });
     void executeReload(id);
   }, [executeReload]);
 

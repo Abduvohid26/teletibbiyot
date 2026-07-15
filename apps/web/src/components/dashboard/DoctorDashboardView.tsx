@@ -68,7 +68,7 @@ export function DoctorDashboardView({
     <DoctorShell
       stats={stats}
       queueCount={queuedPatients.length}
-      showComplete={!!consultation}
+      showComplete={!!activeConsultation}
       onComplete={() => onShowComplete(true)}
       onStartNext={
         queuedPatients.length > 0
@@ -157,8 +157,8 @@ export function DoctorDashboardView({
         <div className="doctor-bottom-row">
           <BottomPanels
             queue={queue}
-            consultationId={documentsConsultationId}
-            consultationStartedAt={consultation?.startedAt}
+            consultationId={activeConsultationId}
+            consultationStartedAt={activeConsultation?.startedAt ?? consultation?.startedAt}
             aiSteps={activeConsultation?.aiAnalysisSteps ?? consultation?.aiAnalysisSteps}
             aiAnalysis={activeConsultation?.aiAnalysis ?? consultation?.aiAnalysis}
             devices={devices}
@@ -174,13 +174,13 @@ export function DoctorDashboardView({
         </div>
       </div>
 
-      {showComplete && consultation && (
+      {showComplete && activeConsultation && (
         <CompleteDiagnosisModal
-          consultationId={consultation.id}
-          aiDiagnosis={consultation.aiAnalysis?.diagnoses?.[0]?.name}
-          aiIcd10={consultation.aiAnalysis?.diagnoses?.[0]?.icd10Code}
+          consultationId={activeConsultation.id}
+          aiDiagnosis={activeConsultation.aiAnalysis?.diagnoses?.[0]?.name}
+          aiIcd10={activeConsultation.aiAnalysis?.diagnoses?.[0]?.icd10Code}
           unconfirmedAiSteps={
-            consultation.aiAnalysisSteps?.filter(
+            activeConsultation.aiAnalysisSteps?.filter(
               (s) => s.status === 'DONE' && s.step !== 'DATA_COLLECTION' && !s.doctorConfirmed,
             ).length ?? 0
           }
