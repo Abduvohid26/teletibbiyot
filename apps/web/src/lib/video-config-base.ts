@@ -50,4 +50,5 @@ export const UT_CAMERA_FEEDS: CameraFeed[] = [
 
 export const MT_DOCTOR_STREAM_ID = 'mt-doctor';
 
-export const UT_CAMERA_ORDER = UT_CAMERA_FEEDS.map((f) => f.id);
+/** WebRTC track tartibi — birinchi oqim bemor kamerasi (close) */
+export const UT_CAMERA_ORDER = ['close', 'main', 'room', 'equipment'] as const;

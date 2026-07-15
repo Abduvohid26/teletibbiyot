@@ -30,7 +30,7 @@ export function VideoConsultation({
   observeMode = false,
   compact = false,
 }: VideoConsultationProps) {
-  const [activeCamera, setActiveCamera] = useState('main');
+  const [activeCamera, setActiveCamera] = useState('close');
   const [showPtz, setShowPtz] = useState(false);
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
 
@@ -81,6 +81,16 @@ export function VideoConsultation({
     el.muted = !speakerOn;
     void el.play().catch(() => undefined);
   }, [remoteAudio, speakerOn]);
+
+  useEffect(() => {
+    const hasActive = (id: string) => {
+      const stream = remoteCameras[id];
+      return !!stream?.getVideoTracks().some((t) => t.readyState === 'live' && t.enabled);
+    };
+    if (hasActive(activeCamera)) return;
+    const fallback = UT_CAMERA_FEEDS.find((feed) => hasActive(feed.id));
+    if (fallback) setActiveCamera(fallback.id);
+  }, [remoteCameras, activeCamera]);
 
   if (!consultationId) {
     return (

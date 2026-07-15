@@ -69,6 +69,22 @@ export function useVideoRoom({
   const qualityPresetRef = useRef<VideoQualityPreset>(prefsRef.current.qualityPreset);
   const setupStartedRef = useRef(false);
   const preflightConfirmedRef = useRef(false);
+  const placeholderTracksRef = useRef<Map<string, MediaStreamTrack>>(new Map());
+
+  const getPlaceholderTrack = useCallback((feedId: string) => {
+    const cached = placeholderTracksRef.current.get(feedId);
+    if (cached && cached.readyState === 'live') return cached;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 2;
+    canvas.height = 2;
+    const ctx = canvas.getContext('2d');
+    ctx?.fillRect(0, 0, 2, 2);
+    const track = canvas.captureStream(1).getVideoTracks()[0];
+    track.enabled = false;
+    placeholderTracksRef.current.set(feedId, track);
+    return track;
+  }, []);
 
   const [iceReady, setIceReady] = useState(false);
   const [mediaReady, setMediaReady] = useState(false);
@@ -121,8 +137,13 @@ export function useVideoRoom({
       if (role === 'ut') {
         for (const feedId of UT_CAMERA_ORDER) {
           const stream = localStreamsRef.current.get(feedId);
-          if (!stream) continue;
-          stream.getVideoTracks().forEach((track) => pc.addTrack(track, stream));
+          const liveTrack = stream?.getVideoTracks().find((t) => t.readyState === 'live');
+          if (liveTrack) {
+            pc.addTrack(liveTrack, stream!);
+          } else {
+            const placeholder = getPlaceholderTrack(feedId);
+            pc.addTrack(placeholder, new MediaStream([placeholder]));
+          }
         }
         const audioStream = localStreamsRef.current.get('ut-audio');
         if (audioStream) {
@@ -155,7 +176,7 @@ export function useVideoRoom({
         stream.getVideoTracks().forEach((track) => pc.addTrack(track, stream));
       });
     },
-    [role],
+    [getPlaceholderTrack, role],
   );
 
   const flushIceCandidates = useCallback(async (socketId: string) => {
@@ -205,6 +226,8 @@ export function useVideoRoom({
           return;
         }
 
+        if (!event.track.enabled) return;
+
         if (role === 'mt' || role === 'observe') {
           const index = remoteVideoCountRef.current.get(remoteSocketId) ?? 0;
           const cameraId = UT_CAMERA_ORDER[index] ?? `cam-${index}`;
@@ -233,7 +256,7 @@ export function useVideoRoom({
       void flushIceCandidates(remoteSocketId);
       return pc;
     },
-    [addLocalTracks, consultationId, flushIceCandidates, role, socketRef, updateRemoteCamera],
+    [addLocalTracks, consultationId, flushIceCandidates, getPlaceholderTrack, role, socketRef, updateRemoteCamera],
   );
 
   const makeOffer = useCallback(

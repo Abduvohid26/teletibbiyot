@@ -1,11 +1,8 @@
-import { UT_CAMERA_FEEDS } from './video-config';
+import { UT_CAMERA_FEEDS, UT_CAMERA_ORDER } from './video-config';
 import type { MediaPreferences } from './media-preferences';
 import { getAudioConstraints, getUtVideoConstraints, acquireUserMedia } from './webrtc-quality';
-import { getUtCrop, initUtPtzCrops } from './ut-ptz-state';
 
 type CaptureMap = Map<string, MediaStream>;
-
-type StreamWithCleanup = MediaStream & { _destroyVirtual?: () => void };
 
 export interface CaptureResult {
   streams: CaptureMap;
@@ -14,10 +11,24 @@ export interface CaptureResult {
   audioMissing: boolean;
 }
 
-/** UT tomonda 4 ta kamera oqimini tayyorlaydi — saqlangan mapping va sifat profili bilan */
+async function openCamera(
+  prefs: MediaPreferences,
+  deviceId: string,
+): Promise<MediaStream | null> {
+  try {
+    return await acquireUserMedia(
+      { video: getUtVideoConstraints(prefs, deviceId), audio: false },
+      { video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
+    );
+  } catch {
+    return null;
+  }
+}
+
+/** UT tomonda faqat biriktirilgan/jismoniy kameralardan oqim — bemor barcha 4 ta oynada takrorlanmaydi */
 export async function captureUtCameraStreams(prefs: MediaPreferences): Promise<CaptureResult> {
   const streams: CaptureMap = new Map();
-  const usedVirtual: string[] = [];
+  const usedDeviceIds = new Set<string>();
 
   const devices = await navigator.mediaDevices.enumerateDevices();
   const hasLabels = devices.some((d) => d.label && d.label.length > 0);
@@ -27,62 +38,41 @@ export async function captureUtCameraStreams(prefs: MediaPreferences): Promise<C
     }).catch(() => undefined);
   }
 
-  const refreshedDevices = await navigator.mediaDevices.enumerateDevices();
-  const videoInputs = refreshedDevices.filter((d) => d.kind === 'videoinput');
-
-  let primary: MediaStream | null = null;
-  const usedDeviceIds = new Set<string>();
+  const videoInputs = (await navigator.mediaDevices.enumerateDevices()).filter(
+    (d) => d.kind === 'videoinput',
+  );
 
   for (const feed of UT_CAMERA_FEEDS) {
-    const mappedId = prefs.utCameraMapping[feed.id];
-    const device = mappedId
-      ? videoInputs.find((d) => d.deviceId === mappedId)
-      : videoInputs.find((d) => !usedDeviceIds.has(d.deviceId));
+    const mappedId = prefs.utCameraMapping[feed.id]?.trim();
+    if (!mappedId || usedDeviceIds.has(mappedId)) continue;
+    const device = videoInputs.find((d) => d.deviceId === mappedId);
+    if (!device) continue;
 
-    if (device?.deviceId) {
-      try {
-        const stream = await acquireUserMedia(
-          { video: getUtVideoConstraints(prefs, device.deviceId), audio: false },
-          { video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
-        );
-        streams.set(feed.id, stream);
-        usedDeviceIds.add(device.deviceId);
-        if (!primary) primary = stream;
-        continue;
-      } catch {
-        /* virtual fallback */
-      }
+    const stream = await openCamera(prefs, device.deviceId);
+    if (stream) {
+      streams.set(feed.id, stream);
+      usedDeviceIds.add(device.deviceId);
     }
   }
 
-  if (!primary) {
-    try {
-      primary = await acquireUserMedia(
-        { video: getUtVideoConstraints(prefs, videoInputs[0]?.deviceId), audio: false },
-        { video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
-      );
-    } catch {
-      throw new Error('Hech qanday kamera topilmadi yoki ruxsat berilmadi');
+  const availableDevices = videoInputs.filter((d) => d.deviceId && !usedDeviceIds.has(d.deviceId));
+  let nextDevice = 0;
+
+  for (const feedId of UT_CAMERA_ORDER) {
+    if (streams.has(feedId)) continue;
+    const device = availableDevices[nextDevice];
+    if (!device?.deviceId) break;
+
+    const stream = await openCamera(prefs, device.deviceId);
+    if (stream) {
+      streams.set(feedId, stream);
+      usedDeviceIds.add(device.deviceId);
     }
+    nextDevice += 1;
   }
 
-  const preset = prefs.qualityPreset;
-  const virtualSize = preset === 'high'
-    ? { w: 1280, h: 720, fps: 30 }
-    : preset === 'low'
-      ? { w: 640, h: 360, fps: 15 }
-      : { w: 960, h: 540, fps: 24 };
-
-  initUtPtzCrops();
-
-  for (const feed of UT_CAMERA_FEEDS) {
-    if (!streams.has(feed.id)) {
-      streams.set(
-        feed.id,
-        createVirtualFeed(primary, feed.id, virtualSize),
-      );
-      usedVirtual.push(feed.label);
-    }
+  if (streams.size === 0) {
+    throw new Error('Hech qanday kamera topilmadi yoki ruxsat berilmadi');
   }
 
   let audioStream: MediaStream | null = null;
@@ -97,61 +87,11 @@ export async function captureUtCameraStreams(prefs: MediaPreferences): Promise<C
     audioMissing = true;
   }
 
-  return { streams, audioStream, usedVirtual, audioMissing };
-}
-
-function createVirtualFeed(
-  source: MediaStream,
-  feedId: string,
-  size: { w: number; h: number; fps: number },
-): MediaStream {
-  const video = document.createElement('video');
-  video.srcObject = source;
-  video.muted = true;
-  video.playsInline = true;
-  void video.play();
-
-  const canvas = document.createElement('canvas');
-  canvas.width = size.w;
-  canvas.height = size.h;
-  const ctx = canvas.getContext('2d');
-
-  let raf = 0;
-  const draw = () => {
-    if (ctx && video.readyState >= 2) {
-      const crop = getUtCrop(feedId);
-      const vw = video.videoWidth;
-      const vh = video.videoHeight;
-      ctx.drawImage(
-        video,
-        vw * crop.x,
-        vh * crop.y,
-        vw * crop.w,
-        vh * crop.h,
-        0,
-        0,
-        canvas.width,
-        canvas.height,
-      );
-    }
-    raf = requestAnimationFrame(draw);
-  };
-  draw();
-
-  const out = canvas.captureStream(size.fps) as StreamWithCleanup;
-  const destroy = () => {
-    cancelAnimationFrame(raf);
-    video.pause();
-    video.srcObject = null;
-  };
-  out.getVideoTracks()[0]?.addEventListener('ended', destroy);
-  out._destroyVirtual = destroy;
-  return out;
+  return { streams, audioStream, usedVirtual: [], audioMissing };
 }
 
 export function stopAllStreams(streams: CaptureMap) {
   streams.forEach((stream) => {
-    (stream as StreamWithCleanup)._destroyVirtual?.();
     stream.getTracks().forEach((t) => t.stop());
   });
 }

@@ -131,6 +131,9 @@ export function MediaDevicePanel({ role = 'mt', compact, onPrefsChange }: MediaD
       {role === 'ut' && (
         <div className="space-y-2">
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">UT kameralar biriktirish</p>
+          <p className="text-[11px] text-slate-500 leading-relaxed">
+            &quot;Bemor yaqindan&quot; — bemor ko&apos;rinishi. Qolganlar — xona va qurilmalar uchun alohida kamera.
+          </p>
           {UT_CAMERA_FEEDS.map((feed) => (
             <DeviceSelect
               key={feed.id}
