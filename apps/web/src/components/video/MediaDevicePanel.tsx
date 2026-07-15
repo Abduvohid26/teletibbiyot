@@ -70,7 +70,7 @@ export function MediaDevicePanel({ role = 'mt', compact, onPrefsChange }: MediaD
   };
 
   return (
-    <div className={cn('space-y-4', compact && 'space-y-3')}>
+    <div className={cn('space-y-4', compact && 'space-y-2')}>
       {permissionGranted === false && (
         <div className="flex items-start gap-2 text-sm text-amber-700 bg-amber-50 rounded-xl p-3">
           <AlertTriangle size={16} className="shrink-0 mt-0.5" />
@@ -117,6 +117,7 @@ export function MediaDevicePanel({ role = 'mt', compact, onPrefsChange }: MediaD
             icon={Video}
             value={prefs.videoDeviceId}
             devices={videoInputs}
+            compact={compact}
             onChange={(id) => updatePrefs({ videoDeviceId: id })}
           />
           <DeviceSelect
@@ -124,42 +125,50 @@ export function MediaDevicePanel({ role = 'mt', compact, onPrefsChange }: MediaD
             icon={Mic}
             value={prefs.audioDeviceId}
             devices={audioInputs}
+            compact={compact}
             onChange={(id) => updatePrefs({ audioDeviceId: id })}
           />
         </div>
       )}
 
       {role === 'ut' && (
-        <div className="space-y-2">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">UT kameralar biriktirish</p>
-          <p className="text-[11px] text-slate-500 leading-relaxed">
-            &quot;Bemor yaqindan&quot; — bemor ko&apos;rinishi. Qolganlar — xona va qurilmalar uchun alohida kamera.
+        <div className={cn(compact ? 'space-y-1.5' : 'space-y-2')}>
+          <p className={cn('font-semibold text-slate-500 uppercase tracking-wide', compact ? 'text-[10px]' : 'text-xs')}>
+            UT kameralar biriktirish
           </p>
-          {UT_CAMERA_FEEDS.map((feed) => (
-            <DeviceSelect
-              key={feed.id}
-              label={feed.label}
-              icon={Video}
-              value={prefs.utCameraMapping[feed.id] || ''}
-              devices={videoInputs}
-              onChange={(id) => {
-                const mapping = { ...prefs.utCameraMapping, [feed.id]: id };
-                updatePrefs({ utCameraMapping: mapping });
-              }}
-            />
-          ))}
+          {!compact && (
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              &quot;Bemor yaqindan&quot; — bemor ko&apos;rinishi. Qolganlar — xona va qurilmalar uchun alohida kamera.
+            </p>
+          )}
+          <div className={cn('grid gap-2', compact ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2')}>
+            {UT_CAMERA_FEEDS.map((feed) => (
+              <DeviceSelect
+                key={feed.id}
+                label={feed.label}
+                icon={Video}
+                value={prefs.utCameraMapping[feed.id] || ''}
+                devices={videoInputs}
+                compact={compact}
+                onChange={(id) => {
+                  const mapping = { ...prefs.utCameraMapping, [feed.id]: id };
+                  updatePrefs({ utCameraMapping: mapping });
+                }}
+              />
+            ))}
+          </div>
         </div>
       )}
 
-      <div className="flex flex-wrap gap-3 text-sm">
-        <Toggle label="Shovqinni bostirish" checked={prefs.noiseSuppression} onChange={(v) => updatePrefs({ noiseSuppression: v })} />
-        <Toggle label="Echo bekor qilish" checked={prefs.echoCancellation} onChange={(v) => updatePrefs({ echoCancellation: v })} />
-        <Toggle label="Avto balandlik" checked={prefs.autoGainControl} onChange={(v) => updatePrefs({ autoGainControl: v })} />
-        <Toggle label="Konsultatsiya oldidan tekshiruv" checked={prefs.preflightEnabled} onChange={(v) => updatePrefs({ preflightEnabled: v })} />
+      <div className={cn(compact ? 'grid grid-cols-2 gap-x-2 gap-y-1.5' : 'flex flex-wrap gap-3 text-sm')}>
+        <Toggle label="Shovqinni bostirish" checked={prefs.noiseSuppression} onChange={(v) => updatePrefs({ noiseSuppression: v })} compact={compact} />
+        <Toggle label="Echo bekor qilish" checked={prefs.echoCancellation} onChange={(v) => updatePrefs({ echoCancellation: v })} compact={compact} />
+        <Toggle label="Avto balandlik" checked={prefs.autoGainControl} onChange={(v) => updatePrefs({ autoGainControl: v })} compact={compact} />
+        <Toggle label="Konsultatsiya oldidan tekshiruv" checked={prefs.preflightEnabled} onChange={(v) => updatePrefs({ preflightEnabled: v })} compact={compact} />
       </div>
 
       <div className="rounded-xl border border-slate-200 overflow-hidden bg-slate-950">
-        <div className={cn('relative aspect-video', compact ? 'max-h-28' : 'max-h-48')}>
+        <div className={cn('relative w-full', compact ? 'h-24' : 'aspect-video max-h-48')}>
           <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover mirror" />
           {!testStream && (
             <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-xs">
@@ -167,22 +176,22 @@ export function MediaDevicePanel({ role = 'mt', compact, onPrefsChange }: MediaD
             </div>
           )}
         </div>
-        <div className="flex items-center justify-between gap-2 p-3 bg-slate-50 border-t border-slate-200">
+        <div className={cn('flex items-center justify-between gap-2 bg-slate-50 border-t border-slate-200', compact ? 'p-2' : 'p-3')}>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={runTest} className="btn-primary !py-1.5 !text-xs">
+            <button type="button" onClick={runTest} className={cn('btn-primary', compact ? '!py-1 !px-2 !text-[10px]' : '!py-1.5 !text-xs')}>
               Tekshirish
             </button>
-            <button type="button" onClick={() => refresh(true)} className="btn-secondary !py-1.5 !text-xs">
-              <RefreshCw size={12} /> Yangilash
+            <button type="button" onClick={() => refresh(true)} className={cn('btn-secondary', compact ? '!py-1 !px-2 !text-[10px]' : '!py-1.5 !text-xs')}>
+              <RefreshCw size={compact ? 10 : 12} /> Yangilash
             </button>
           </div>
           {testStatus === 'ok' && (
-            <span className="flex items-center gap-1 text-xs text-emerald-600 font-medium">
-              <CheckCircle2 size={14} /> Tayyor
+            <span className={cn('flex items-center gap-1 text-emerald-600 font-medium', compact ? 'text-[10px]' : 'text-xs')}>
+              <CheckCircle2 size={compact ? 12 : 14} /> Tayyor
             </span>
           )}
           {testStatus === 'fail' && (
-            <span className="text-xs text-red-600 font-medium">Xatolik — qurilmani tekshiring</span>
+            <span className={cn('text-red-600 font-medium', compact ? 'text-[10px]' : 'text-xs')}>Xatolik — qurilmani tekshiring</span>
           )}
         </div>
       </div>
@@ -196,20 +205,22 @@ function DeviceSelect({
   value,
   devices,
   onChange,
+  compact,
 }: {
   label: string;
   icon: React.ElementType;
   value: string;
   devices: { deviceId: string; label: string }[];
   onChange: (id: string) => void;
+  compact?: boolean;
 }) {
   return (
-    <div>
-      <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600 mb-1">
-        <Icon size={12} /> {label}
+    <div className="min-w-0">
+      <label className={cn('flex items-center gap-1.5 font-medium text-slate-600 mb-0.5 truncate', compact ? 'text-[10px]' : 'text-xs mb-1')}>
+        <Icon size={compact ? 10 : 12} className="shrink-0" /> {label}
       </label>
       <select
-        className="input !py-2 !text-sm w-full"
+        className={cn('input w-full', compact ? '!py-1.5 !px-2 !text-[11px]' : '!py-2 !text-sm')}
         value={value}
         onChange={(e) => onChange(e.target.value)}
       >
@@ -226,20 +237,22 @@ function Toggle({
   label,
   checked,
   onChange,
+  compact,
 }: {
   label: string;
   checked: boolean;
   onChange: (v: boolean) => void;
+  compact?: boolean;
 }) {
   return (
-    <label className="flex items-center gap-2 cursor-pointer select-none">
+    <label className={cn('flex items-center gap-1.5 cursor-pointer select-none min-w-0', compact && 'text-[10px]')}>
       <input
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+        className={cn('rounded border-slate-300 text-brand-600 focus:ring-brand-500 shrink-0', compact && 'scale-90')}
       />
-      <span className="text-slate-600">{label}</span>
+      <span className="text-slate-600 leading-tight">{label}</span>
     </label>
   );
 }

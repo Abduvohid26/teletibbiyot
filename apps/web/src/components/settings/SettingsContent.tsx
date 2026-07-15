@@ -54,7 +54,7 @@ export function SettingsContent({ user, videoRole, compact, className }: Setting
             <User size={15} className="text-brand-600" />
             <span className="panel-title !text-xs">Profil</span>
           </div>
-          <div className="panel-body !p-3 space-y-0 text-xs">
+          <div className="panel-body !p-3 grid grid-cols-2 gap-x-2 gap-y-0 text-xs">
             <InfoRow label="Ism" value={user.fullName} compact />
             <InfoRow label="Email" value={user.email} compact />
             <InfoRow label="Rol" value={user.role} compact />
@@ -67,12 +67,12 @@ export function SettingsContent({ user, videoRole, compact, className }: Setting
             <Video size={15} className="text-violet-600" />
             <span className="panel-title !text-xs">Video va ovoz</span>
           </div>
-          <div className="ut-settings-panel-body !p-3">
-            <p className="text-[11px] text-slate-500 mb-3 leading-relaxed">
+          <div className="ut-settings-panel-body !p-2.5">
+            <p className="text-[10px] text-slate-500 mb-2 leading-snug">
               Kamera, mikrofon va video sifatini konsultatsiyadan oldin sozlang.
             </p>
             <MediaDevicePanel role={videoRole} compact onPrefsChange={() => clearIceCache()} />
-            <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+            <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5 text-[11px] text-slate-600 min-w-0">
                 <Wifi size={14} className="shrink-0" />
                 <span className="truncate">TURN / WebRTC tekshiruvi</span>
@@ -148,13 +148,27 @@ function InfoRow({
   icon?: React.ElementType;
   compact?: boolean;
 }) {
+  if (compact) {
+    return (
+      <div className="flex flex-col gap-0.5 min-w-0 border-b border-slate-50 last:border-0 py-1">
+        <span className="text-slate-500 flex items-center gap-1 text-[10px]">
+          {Icon && <Icon size={10} />}
+          {label}
+        </span>
+        <span className="font-medium text-slate-800 truncate text-[11px]">
+          {value || '—'}
+        </span>
+      </div>
+    );
+  }
+
   return (
-    <div className={cn('flex items-center justify-between border-b border-slate-50 last:border-0', compact ? 'py-1.5' : 'py-2')}>
-      <span className={cn('text-slate-500 flex items-center gap-1.5', compact && 'text-[11px]')}>
-        {Icon && <Icon size={compact ? 12 : 14} />}
+    <div className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+      <span className="text-slate-500 flex items-center gap-1.5">
+        {Icon && <Icon size={14} />}
         {label}
       </span>
-      <span className={cn('font-medium text-slate-800 text-right truncate ml-2', compact ? 'text-[11px]' : 'text-sm')}>
+      <span className="font-medium text-slate-800 text-right truncate ml-2 text-sm">
         {value || '—'}
       </span>
     </div>
