@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Mic, MicOff, Video, VideoOff, PhoneOff, MoreHorizontal,
   ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Eye, Volume2, VolumeX, AlertTriangle,
+  LayoutGrid,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useVideoRoom, VideoRole } from '@/hooks/use-video-room';
@@ -21,6 +22,18 @@ interface VideoConsultationProps {
   onEndCall?: () => void;
   observeMode?: boolean;
   compact?: boolean;
+}
+
+const ALL_CAMERAS_VIEW = 'all';
+
+function shortFeedLabel(feed: (typeof UT_CAMERA_FEEDS)[number]) {
+  if (feed.id === 'close') return 'Bemor';
+  if (feed.id === 'equipment') return 'Qurilmalar';
+  return feed.label.split(' ')[0];
+}
+
+function isStreamLive(stream: MediaStream | null | undefined) {
+  return !!stream?.getVideoTracks().some((t) => t.readyState === 'live' && t.enabled);
 }
 
 export function VideoConsultation({
@@ -83,10 +96,8 @@ export function VideoConsultation({
   }, [remoteAudio, speakerOn]);
 
   useEffect(() => {
-    const hasActive = (id: string) => {
-      const stream = remoteCameras[id];
-      return !!stream?.getVideoTracks().some((t) => t.readyState === 'live' && t.enabled);
-    };
+    if (activeCamera === ALL_CAMERAS_VIEW) return;
+    const hasActive = (id: string) => isStreamLive(remoteCameras[id]);
     if (hasActive(activeCamera)) return;
     const fallback = UT_CAMERA_FEEDS.find((feed) => hasActive(feed.id));
     if (fallback) setActiveCamera(fallback.id);
@@ -114,9 +125,11 @@ export function VideoConsultation({
     );
   }
 
+  const isAllView = activeCamera === ALL_CAMERAS_VIEW;
   const activeFeed = UT_CAMERA_FEEDS.find((f) => f.id === activeCamera) ?? UT_CAMERA_FEEDS[0];
-  const mainStream = remoteCameras[activeCamera] ?? remoteCameras.main ?? null;
+  const mainStream = isAllView ? null : (remoteCameras[activeCamera] ?? remoteCameras.main ?? null);
   const connectedCount = utCameraStreams.filter((c) => c.active).length;
+  const liveCount = UT_CAMERA_FEEDS.filter((f) => isStreamLive(remoteCameras[f.id])).length;
 
   const handleEndCall = () => {
     endCall();
@@ -134,14 +147,50 @@ export function VideoConsultation({
         compact ? 'm-1.5 mb-0' : 'm-3 mb-0',
         !compact && 'min-h-[260px]',
       )}>
-        <VideoTile
-          stream={mainStream}
-          muted
-          className="absolute inset-0 w-full h-full"
-          placeholder={`${activeFeed.label} — UT kamera kutmoqda`}
-          live={!!mainStream}
-          resolution={connectionStats.resolution}
-        />
+        {isAllView ? (
+          <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-0.5 p-0.5 bg-slate-950">
+            {UT_CAMERA_FEEDS.map((feed) => {
+              const stream = remoteCameras[feed.id] ?? null;
+              const live = isStreamLive(stream);
+              return (
+                <button
+                  key={feed.id}
+                  type="button"
+                  onClick={() => {
+                    setActiveCamera(feed.id);
+                    if (feed.ptz && !observeMode) setShowPtz(true);
+                  }}
+                  className="relative min-h-0 min-w-0 rounded-md overflow-hidden ring-1 ring-white/10 hover:ring-brand-400/60 transition-shadow"
+                >
+                  <VideoTile
+                    stream={stream}
+                    muted
+                    className="absolute inset-0 w-full h-full [&_video]:object-cover"
+                    placeholder={feed.label}
+                    live={live}
+                  />
+                  <span className="absolute top-1 left-1 bg-black/60 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded pointer-events-none">
+                    {shortFeedLabel(feed)}
+                  </span>
+                  {!live && (
+                    <span className="absolute inset-0 flex items-center justify-center bg-slate-900/40 pointer-events-none">
+                      <VideoOff className="w-5 h-5 text-slate-500" />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <VideoTile
+            stream={mainStream}
+            muted
+            className="absolute inset-0 w-full h-full"
+            placeholder={`${activeFeed.label} — UT kamera kutmoqda`}
+            live={!!mainStream}
+            resolution={connectionStats.resolution}
+          />
+        )}
         {remoteAudio && (
           <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
         )}
@@ -167,7 +216,7 @@ export function VideoConsultation({
               {facilityCode}
             </span>
             <span className="bg-black/40 text-white/80 text-[10px] px-2 py-0.5 rounded-md">
-              {connectedCount}/4 kamera
+              {isAllView ? `${liveCount}/4 kamera` : `${connectedCount}/4 kamera`}
             </span>
             {connected && (
               <ConnectionQualityBadge
@@ -226,7 +275,7 @@ export function VideoConsultation({
           </div>
         )}
 
-        {!observeMode && showPtz && (
+        {!observeMode && showPtz && !isAllView && (
           <div className="absolute bottom-16 right-28 bg-black/70 rounded-lg p-2 z-10">
             <p className="text-[9px] text-white/70 text-center col-span-3 mb-1">PTZ boshqaruv</p>
             <div className="grid grid-cols-3 gap-1">
@@ -247,7 +296,7 @@ export function VideoConsultation({
       </div>
 
       {!compact && (
-      <div className="grid grid-cols-4 gap-2 px-3 pt-3 shrink-0">
+      <div className="grid grid-cols-5 gap-1.5 px-3 pt-3 shrink-0">
         {UT_CAMERA_FEEDS.map((feed) => {
           const stream = remoteCameras[feed.id] ?? null;
           return (
@@ -262,11 +311,16 @@ export function VideoConsultation({
             >
               <VideoTile stream={stream} muted className="w-full h-full" placeholder={feed.label} live={!!stream} />
               <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] px-1.5 py-0.5 truncate pointer-events-none">
-                {feed.label}
+                {shortFeedLabel(feed)}
               </span>
             </button>
           );
         })}
+        <AllCamerasButton
+          active={isAllView}
+          liveCount={liveCount}
+          onClick={() => setActiveCamera(ALL_CAMERAS_VIEW)}
+        />
       </div>
       )}
 
@@ -274,17 +328,20 @@ export function VideoConsultation({
         <div className="flex gap-1.5 px-1.5 pt-1.5 shrink-0 overflow-x-auto">
           {UT_CAMERA_FEEDS.map((feed) => {
             const stream = remoteCameras[feed.id] ?? null;
-            const live = !!stream?.getVideoTracks().some((t) => t.readyState === 'live' && t.enabled);
+            const live = isStreamLive(stream);
             return (
               <button
                 key={feed.id}
                 type="button"
                 title={feed.label}
-                onClick={() => setActiveCamera(feed.id)}
+                onClick={() => {
+                  setActiveCamera(feed.id);
+                  if (feed.ptz && !observeMode) setShowPtz(true);
+                }}
                 className={cn(
                   'relative flex flex-col shrink-0 rounded-lg overflow-hidden border-2 transition-all w-[4.5rem]',
                   activeCamera === feed.id ? 'border-brand-500 ring-1 ring-brand-200' : 'border-slate-200',
-                  feed.id === 'close' && 'ring-brand-300/50',
+                  feed.id === 'close' && activeCamera !== feed.id && 'ring-brand-300/50',
                 )}
               >
                 <div className="relative w-full h-9">
@@ -294,11 +351,17 @@ export function VideoConsultation({
                   'text-[8px] font-semibold px-1 py-0.5 truncate text-center',
                   live ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500',
                 )}>
-                  {feed.id === 'close' ? 'Bemor' : feed.label.split(' ')[0]}
+                  {shortFeedLabel(feed)}
                 </span>
               </button>
             );
           })}
+          <AllCamerasButton
+            active={isAllView}
+            liveCount={liveCount}
+            compact
+            onClick={() => setActiveCamera(ALL_CAMERAS_VIEW)}
+          />
         </div>
       )}
 
@@ -330,6 +393,66 @@ export function VideoConsultation({
       </div>
     </div>
     </>
+  );
+}
+
+function AllCamerasButton({
+  active,
+  liveCount,
+  compact,
+  onClick,
+}: {
+  active: boolean;
+  liveCount: number;
+  compact?: boolean;
+  onClick: () => void;
+}) {
+  if (compact) {
+    return (
+      <button
+        type="button"
+        title="Hammasi — 4 ta kamera bir vaqtda"
+        onClick={onClick}
+        className={cn(
+          'relative flex flex-col shrink-0 rounded-lg overflow-hidden border-2 transition-all w-[4.5rem]',
+          active ? 'border-brand-500 ring-1 ring-brand-200' : 'border-slate-200',
+        )}
+      >
+        <div className="relative w-full h-9 bg-slate-900 grid grid-cols-2 grid-rows-2 gap-px p-0.5">
+          {[0, 1, 2, 3].map((i) => (
+            <span key={i} className={cn('rounded-[1px]', i < liveCount ? 'bg-emerald-500/80' : 'bg-slate-700')} />
+          ))}
+        </div>
+        <span className={cn(
+          'text-[8px] font-semibold px-1 py-0.5 truncate text-center',
+          active ? 'bg-brand-600 text-white' : liveCount > 0 ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-500',
+        )}>
+          Hammasi
+        </span>
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      title="Hammasi — 4 ta kamera bir vaqtda"
+      onClick={onClick}
+      className={cn(
+        'relative aspect-video rounded-lg overflow-hidden border-2 transition-all bg-slate-900',
+        active ? 'border-blue-500 ring-2 ring-blue-200' : 'border-transparent hover:border-slate-300',
+      )}
+    >
+      <div className="absolute inset-1 grid grid-cols-2 grid-rows-2 gap-0.5">
+        {[0, 1, 2, 3].map((i) => (
+          <span key={i} className={cn('rounded-sm', i < liveCount ? 'bg-emerald-500/70' : 'bg-slate-700')} />
+        ))}
+      </div>
+      <LayoutGrid size={14} className="absolute top-1.5 right-1.5 text-white/40" />
+      <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] px-1.5 py-0.5 truncate pointer-events-none">
+        Hammasi
+      </span>
+    </button>
   );
 }
 
