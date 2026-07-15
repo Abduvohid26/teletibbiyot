@@ -44,14 +44,6 @@ async function main() {
   console.log(`Bekor qilindi: ${cancelled.count} faol demo konsultatsiya`);
 
   for (const patient of demoPatients) {
-    const remaining = await prisma.consultation.count({
-      where: {
-        patientId: patient.id,
-        status: { in: [ConsultationStatus.QUEUED, ConsultationStatus.IN_PROGRESS] },
-      },
-    });
-    if (remaining > 0) continue;
-
     const hasHistory = await prisma.consultation.count({
       where: { patientId: patient.id, status: ConsultationStatus.COMPLETED },
     });
@@ -60,8 +52,16 @@ async function main() {
       continue;
     }
 
+    const appointments = await prisma.appointment.deleteMany({
+      where: { patientId: patient.id },
+    });
+    const consultations = await prisma.consultation.deleteMany({
+      where: { patientId: patient.id },
+    });
     await prisma.patient.delete({ where: { id: patient.id } });
-    console.log(`  O'chirildi: ${patient.fullName}`);
+    console.log(
+      `  O'chirildi: ${patient.fullName} (${consultations.count} konsultatsiya, ${appointments.count} navbat)`,
+    );
   }
 
   console.log('Demo tozalash yakunlandi.');
