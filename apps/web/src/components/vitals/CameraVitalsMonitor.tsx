@@ -177,6 +177,10 @@ export function CameraVitalsMonitor({
               )}
             </p>
           </>
+        ) : compact ? (
+          <p className="text-[10px] text-brand-800 bg-brand-50 border border-brand-100 rounded-lg px-2.5 py-2 leading-relaxed">
+            Kamerani o&apos;ngdagi <strong>Video uzatish</strong> panelidagi kamera tugmasi orqali yoqing — vital avtomatik olinadi.
+          </p>
         ) : (
           <>
             {!compact && patientName && (
@@ -213,10 +217,10 @@ export function CameraVitalsMonitor({
         <canvas ref={canvasRef} className="hidden" />
 
         <div className="grid grid-cols-2 gap-2">
-          <VitalInput label="SpO2 (%)" value={reading.spo2} onChange={(v) => setReading((p) => ({ ...p, spo2: v, source: 'device' }))} compact={compact} />
-          <VitalInput label="Harorat (°C)" value={reading.temperature} step={0.1} onChange={(v) => setReading((p) => ({ ...p, temperature: v, source: 'device' }))} compact={compact} />
-          <VitalInput label="Qon bosimi (sys)" value={reading.bloodPressureSystolic} onChange={(v) => setReading((p) => ({ ...p, bloodPressureSystolic: v, source: 'device' }))} compact={compact} />
-          <VitalInput label="Qon bosimi (dia)" value={reading.bloodPressureDiastolic} onChange={(v) => setReading((p) => ({ ...p, bloodPressureDiastolic: v, source: 'device' }))} compact={compact} />
+          <VitalInput label="SpO2 (%)" value={reading.spo2} onChange={(v) => setReading((p) => ({ ...p, spo2: v, source: 'device' }))} compact={compact} placeholder="98" />
+          <VitalInput label="Harorat (°C)" value={reading.temperature} step={0.1} onChange={(v) => setReading((p) => ({ ...p, temperature: v, source: 'device' }))} compact={compact} placeholder="36.6" />
+          <VitalInput label="Qon bosimi (sys)" value={reading.bloodPressureSystolic} onChange={(v) => setReading((p) => ({ ...p, bloodPressureSystolic: v, source: 'device' }))} compact={compact} placeholder="120" />
+          <VitalInput label="Qon bosimi (dia)" value={reading.bloodPressureDiastolic} onChange={(v) => setReading((p) => ({ ...p, bloodPressureDiastolic: v, source: 'device' }))} compact={compact} placeholder="80" />
         </div>
 
         <div className={cn(
@@ -228,7 +232,7 @@ export function CameraVitalsMonitor({
           <LiveStat icon={Activity} label="SpO2" value={reading.spo2} unit="%" color="text-sky-400" live={!!reading.spo2} compact={compact} />
         </div>
 
-        {!sharedVideoStream && (
+        {!sharedVideoStream && !compact && (
           <button
             type="button"
             onClick={camOn ? stopCamera : startCamera}
@@ -243,11 +247,11 @@ export function CameraVitalsMonitor({
   );
 }
 
-function VitalInput({ label, value, onChange, step = 1, compact }: { label: string; value?: number; onChange: (v: number | undefined) => void; step?: number; compact?: boolean }) {
+function VitalInput({ label, value, onChange, step = 1, compact, placeholder = '—' }: { label: string; value?: number; onChange: (v: number | undefined) => void; step?: number; compact?: boolean; placeholder?: string }) {
   return (
     <div className="rounded-lg border border-slate-100 bg-slate-50/80 px-2 py-1.5">
       <label className={cn('text-slate-500 font-medium block', compact ? 'text-[9px]' : 'text-[10px]')}>{label}</label>
-      <input type="number" step={step} className={cn('form-input w-full !bg-white !border-slate-200 mt-0.5', compact ? '!py-1 !text-sm !font-semibold' : '!py-1.5 !text-sm')} value={value ?? ''} onChange={(e) => onChange(e.target.value ? Number(e.target.value) : undefined)} placeholder="—" />
+      <input type="number" step={step} className={cn('form-input w-full !bg-white !border-slate-200 mt-0.5 placeholder:text-slate-400', compact ? '!py-1 !text-sm !font-semibold' : '!py-1.5 !text-sm')} value={value ?? ''} onChange={(e) => onChange(e.target.value ? Number(e.target.value) : undefined)} placeholder={placeholder} />
     </div>
   );
 }

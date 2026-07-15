@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { LogOut, UserPlus, Stethoscope } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import { LogOut, UserPlus, Stethoscope, Settings } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { UtNavTabs } from '@/components/ut/UtNavTabs';
 import { cn } from '@/lib/utils';
@@ -45,6 +46,8 @@ export function UtShell({
   headerExtra,
 }: UtShellProps) {
   const { user, logout } = useAuth();
+  const pathname = usePathname();
+  const settingsActive = pathname.startsWith('/dashboard/settings');
 
   return (
     <div className="ut-shell">
@@ -74,6 +77,16 @@ export function UtShell({
         <div className="flex items-center gap-1.5 shrink-0">
           <SessionPills sessionCount={sessionCount} liveCount={liveCount} />
           {headerExtra}
+          <Link
+            href="/dashboard/settings#video-audio"
+            className={cn(
+              'btn-secondary !py-1.5 !px-2.5 !text-[11px] inline-flex items-center gap-1 shadow-sm',
+              settingsActive && 'ring-1 ring-brand-300 bg-brand-50 text-brand-700',
+            )}
+          >
+            <Settings size={13} />
+            <span className="hidden sm:inline">Sozlamalar</span>
+          </Link>
           <Link
             href="/ut"
             className="btn-secondary !py-1.5 !px-2.5 !text-[11px] inline-flex items-center gap-1 shadow-sm"

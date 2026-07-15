@@ -34,6 +34,7 @@ function PanelShell({
   children,
   compact,
   className,
+  headerExtra,
 }: {
   icon: React.ElementType;
   title: string;
@@ -41,12 +42,14 @@ function PanelShell({
   children: React.ReactNode;
   compact?: boolean;
   className?: string;
+  headerExtra?: React.ReactNode;
 }) {
   return (
     <div className={cn('glass-panel h-full flex flex-col min-h-0 overflow-hidden', compact && '!rounded-xl', className)}>
       <div className={cn('glass-header shrink-0', compact ? 'py-1 px-2' : 'py-2.5 px-3')}>
         <Icon size={compact ? 12 : 14} className={iconColor} />
-        <span className={cn('panel-title', compact ? 'text-[10px]' : 'text-xs')}>{title}</span>
+        <span className={cn('panel-title flex-1', compact ? 'text-[10px]' : 'text-xs')}>{title}</span>
+        {headerExtra}
       </div>
       <div className={cn('flex-1 min-h-0 overflow-y-auto overflow-x-hidden', compact ? 'px-1.5 py-1' : 'panel-body pt-2 pb-3')}>
         {children}
@@ -60,60 +63,73 @@ export function ConsultationQueue({
   onStartConsultation,
   canStartConsultation = false,
   compact,
+  className,
 }: {
   queue: Consultation[];
   onStartConsultation?: (id: string) => void;
   canStartConsultation?: boolean;
   compact?: boolean;
+  className?: string;
 }) {
   const queued = queue.filter((c) => c.status === 'QUEUED');
 
   return (
-    <PanelShell icon={ListOrdered} title="Navbat" iconColor="text-brand-600" compact={compact}>
-      <div className={cn('space-y-1', compact ? '' : 'space-y-1.5')}>
+    <PanelShell
+      icon={ListOrdered}
+      title={`Navbat${queued.length > 0 ? ` (${queued.length})` : ''}`}
+      iconColor="text-brand-600"
+      compact={compact}
+      className={cn(queued.length > 0 && 'ring-2 ring-amber-300/80', className)}
+      headerExtra={
+        queued.length > 0 ? (
+          <span className="text-[9px] font-bold bg-amber-500 text-white px-1.5 py-0.5 rounded-full shrink-0">
+            {queued.length} kutilmoqda
+          </span>
+        ) : null
+      }
+    >
+      <div className={cn('space-y-1.5', compact ? '' : 'space-y-2')}>
         {queued.map((c) => {
           const status = formatStatus(c.status);
           return (
             <div
               key={c.id}
               className={cn(
-                'flex items-center justify-between rounded-lg transition-all duration-200 group gap-1 glass-preview-card !p-1.5',
-                compact ? 'text-[10px]' : 'text-xs',
+                'flex items-center justify-between rounded-lg transition-all duration-200 gap-2 bg-white/80 border border-slate-200/80 hover:border-brand-300 hover:shadow-sm',
+                compact ? 'p-2 text-[10px]' : 'p-2.5 text-xs',
               )}
             >
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="font-bold text-brand-700 bg-brand-50/80 px-1.5 py-0.5 rounded-md text-[10px] shrink-0">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <span className="font-bold text-brand-700 bg-brand-50 px-2 py-0.5 rounded-md text-[10px] shrink-0">
                   {c.utFacility.code}
                 </span>
-                <span className="text-slate-600 truncate group-hover:text-slate-900">
-                  {c.patient.fullName.split(' ')[0]}
-                </span>
+                <div className="min-w-0">
+                  <p className="font-semibold text-slate-800 truncate">{c.patient.fullName}</p>
+                  {!compact && c.patient.phone && (
+                    <p className="text-[9px] text-slate-500 truncate">{c.patient.phone}</p>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 {canStartConsultation && c.status === 'QUEUED' && onStartConsultation && (
                   <button
                     type="button"
                     onClick={() => onStartConsultation(c.id)}
-                    className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm"
+                    className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm whitespace-nowrap"
                   >
                     Boshlash
                   </button>
                 )}
-                <span className={cn('status-badge', status.className)}>{status.label}</span>
+                <span className={cn('status-badge !text-[9px]', status.className)}>{status.label}</span>
               </div>
             </div>
           );
         })}
         {queued.length === 0 && (
-          <div className="space-y-1.5 py-1">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="glass-preview-card flex items-center gap-2 opacity-60">
-                <div className="w-8 h-4 shimmer-line !h-3 rounded-md" />
-                <div className="flex-1 shimmer-line !h-3" />
-                <div className="w-12 shimmer-line !h-3 rounded-full" />
-              </div>
-            ))}
-            <p className="text-[10px] text-slate-400 text-center pt-1">Navbat bo&apos;sh — yangi bemor kutilmoqda</p>
+          <div className="py-3 text-center">
+            <Clock size={20} className="mx-auto text-slate-300 mb-1.5" />
+            <p className="text-[10px] text-slate-500 font-medium">Navbat bo&apos;sh</p>
+            <p className="text-[9px] text-slate-400 mt-0.5">Yangi bemor kutilmoqda</p>
           </div>
         )}
       </div>
@@ -328,6 +344,7 @@ export function BottomPanels({
           onStartConsultation={onStartConsultation}
           canStartConsultation={canStartConsultation}
           compact={compact}
+          className="col-span-2"
         />
         <AiProcessSteps
           steps={aiSteps}
@@ -339,7 +356,7 @@ export function BottomPanels({
         <AiReportSummary analysis={aiAnalysis} compact={compact} />
         <DeviceStatusPanel devices={devices} compact={compact} />
         <SessionStatusPanel compact={compact} hasConsultation={!!consultationId} startedAt={consultationStartedAt} />
-        <div className="min-h-0 overflow-hidden col-span-2">
+        <div className="min-h-0 overflow-hidden">
           <PanelShell icon={MessageSquare} title="Chat arxiv" iconColor="text-violet-500" compact={compact}>
             <ChatTranscript consultationId={consultationId} compact={compact} />
           </PanelShell>
@@ -356,6 +373,7 @@ export function BottomPanels({
         onStartConsultation={onStartConsultation}
         canStartConsultation={canStartConsultation}
         compact={compact}
+        className="col-span-2"
       />
       <AiProcessSteps
         steps={aiSteps}

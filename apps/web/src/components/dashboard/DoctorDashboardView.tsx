@@ -116,11 +116,11 @@ export function DoctorDashboardView({
               />
             </div>
             <div className="doctor-docs-col glass-panel overflow-hidden flex flex-col min-h-0">
-              <div className="shrink-0 glass-header py-1.5 px-2.5 flex items-center justify-between gap-2">
-                <span className="text-[10px] font-semibold text-slate-700 uppercase tracking-wide">
-                  Bemor hujjatlari
+              <div className="shrink-0 glass-header py-1 px-2 flex items-center justify-between gap-1">
+                <span className="text-[10px] font-semibold text-slate-700 uppercase tracking-wide truncate">
+                  Hujjatlar
                 </span>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 shrink-0">
                   {documentsConsultationId && (
                     <a
                       href={`/dashboard/dicom?consultationId=${documentsConsultationId}`}
@@ -140,7 +140,7 @@ export function DoctorDashboardView({
                 consultationId={documentsConsultationId}
                 allowUpload={false}
                 compact
-                className="flex-1 min-h-0 px-1"
+                className="flex-1 min-h-0 px-1.5 pb-1"
               />
             </div>
             <div className="doctor-ai-col">

@@ -143,10 +143,14 @@ export function VideoConsultation({
       )}
     <div className="glass-panel h-full flex flex-col p-0 overflow-hidden min-h-0">
       <div className={cn(
-        'relative flex-1 glass-video-bg rounded-t-xl overflow-hidden ring-1 ring-white/10 min-h-0',
-        compact ? 'm-1.5 mb-0' : 'm-3 mb-0',
-        !compact && 'min-h-[260px]',
+        'flex-1 min-h-0 flex flex-col items-center',
+        compact && 'px-1.5 pt-1.5',
       )}>
+        <div className={cn(
+          'relative flex-1 glass-video-bg rounded-xl overflow-hidden ring-1 ring-white/10 min-h-0 min-w-0',
+          compact ? 'w-[70%] max-w-full mb-0' : 'w-full m-3 mb-0',
+          !compact && 'min-h-[260px]',
+        )}>
         {isAllView ? (
           <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-0.5 p-0.5 bg-slate-950">
             {UT_CAMERA_FEEDS.map((feed) => {
@@ -293,6 +297,7 @@ export function VideoConsultation({
             </div>
           </div>
         )}
+      </div>
       </div>
 
       {!compact && (

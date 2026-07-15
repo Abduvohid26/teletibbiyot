@@ -6,7 +6,6 @@ import { cn } from '@/lib/utils';
 import { useVideoRoom } from '@/hooks/use-video-room';
 import { VideoTile } from '@/components/video/VideoTile';
 import { ConnectionQualityBadge } from '@/components/video/ConnectionQualityBadge';
-import { MediaSettingsLink } from '@/components/video/MediaDevicePanel';
 import { applyUtPtzAction, isPtzAction } from '@/lib/ut-ptz-state';
 import { UT_CAMERA_FEEDS } from '@/lib/video-config';
 
@@ -83,6 +82,7 @@ export function UtVideoPanelView({
   const streamFor = (id: string) => utCameraStreams.find((c) => c.id === id);
   const closeCam = streamFor('close');
   const activeCount = utCameraStreams.filter((c) => c.active).length;
+  const activeThumbFeeds = THUMB_FEEDS.filter((feed) => !!streamFor(feed.id)?.active);
 
   useEffect(() => {
     const el = remoteAudioRef.current;
@@ -158,8 +158,8 @@ export function UtVideoPanelView({
           </div>
         )}
 
-        {/* Asosiy layout: chapda bemor, o‘ngda 3 ta kichik kamera */}
-        <div className="flex flex-row gap-2 items-stretch flex-1 min-h-[200px]">
+        {/* Asosiy kamera + faol qo'shimcha kameralar */}
+        <div className="flex flex-col gap-2 flex-1 min-h-[200px]">
           <div className="relative flex-1 min-w-0 rounded-xl overflow-hidden bg-slate-950 ring-2 ring-brand-500 min-h-[180px]">
             <VideoTile
               stream={closeCam?.stream ?? null}
@@ -189,20 +189,22 @@ export function UtVideoPanelView({
             )}
           </div>
 
-          <div className="flex flex-col gap-1.5 w-[72px] sm:w-[96px] shrink-0 justify-between">
-            {THUMB_FEEDS.map((feed) => {
-              const cam = streamFor(feed.id);
-              return (
-                <CameraThumb
-                  key={feed.id}
-                  label={feed.label.replace(' ko\'rinishi', '').replace(" ko'rinishi", '')}
-                  stream={cam?.stream ?? null}
-                  active={!!cam?.active}
-                  className="w-full flex-1 min-h-0 aspect-auto"
-                />
-              );
-            })}
-          </div>
+          {activeThumbFeeds.length > 0 && (
+            <div className="flex gap-1.5 shrink-0 overflow-x-auto pb-0.5">
+              {activeThumbFeeds.map((feed) => {
+                const cam = streamFor(feed.id);
+                return (
+                  <CameraThumb
+                    key={feed.id}
+                    label={feed.label.replace(' ko\'rinishi', '').replace(" ko'rinishi", '')}
+                    stream={cam?.stream ?? null}
+                    active={!!cam?.active}
+                    className="w-20 h-14"
+                  />
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {ptzHint && (
@@ -216,7 +218,6 @@ export function UtVideoPanelView({
           <ControlBtn active={micOn} onClick={toggleMic} icon={micOn ? Mic : MicOff} label="Mic" short />
           <ControlBtn active={speakerOn} onClick={toggleSpeaker} icon={speakerOn ? Volume2 : VolumeX} label="Ovoz" short />
           <ControlBtn active={camOn} onClick={toggleCam} icon={camOn ? Video : VideoOff} label="Kamera" short />
-          <MediaSettingsLink />
         </div>
 
         {qualityLabel && (

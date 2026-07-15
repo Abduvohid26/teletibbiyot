@@ -31,9 +31,9 @@ import { getRoleHomePath } from '@/lib/auth-utils';
 import { validatePinfl, normalizePinfl } from '@/lib/pinfl';
 import { isValidUzPhone, normalizeUzPhone } from '@/lib/phone';
 
-const IN = 'form-input !py-1 !px-2 !text-xs !min-h-[1.875rem] leading-snug';
-const TA = 'form-input !py-1 !px-2 !text-xs !min-h-0 !h-[2.375rem] resize-none leading-snug';
-const TA_SM = 'form-input !py-1 !px-2 !text-xs !min-h-0 !h-8 resize-none leading-snug';
+const IN = 'form-input !py-1 !px-2 !text-xs !min-h-[1.875rem] leading-snug placeholder:text-slate-400 placeholder:font-normal';
+const TA = 'form-input !py-1 !px-2 !text-xs !min-h-0 !h-[2.375rem] resize-none leading-snug placeholder:text-slate-400 placeholder:font-normal';
+const TA_SM = 'form-input !py-1 !px-2 !text-xs !min-h-0 !h-8 resize-none leading-snug placeholder:text-slate-400 placeholder:font-normal';
 
 function emptyPatientData() {
   return {
@@ -383,11 +383,11 @@ export default function UTClientPage() {
             <div className="grid grid-cols-2 gap-x-1.5 gap-y-0.5 h-full content-start">
               <div className="col-span-2">
                 <FormField label="F.I.Sh." required dense>
-                  <input className={IN} value={patientData.fullName} onChange={(e) => setPatientData({ ...patientData, fullName: e.target.value })} />
+                  <input className={IN} value={patientData.fullName} onChange={(e) => setPatientData({ ...patientData, fullName: e.target.value })} placeholder="Masalan: Aliyev Vali Valijon o'g'li" />
                 </FormField>
               </div>
               <FormField label="Passport" dense>
-                <input className={IN} value={patientData.passportNumber} onChange={(e) => setPatientData({ ...patientData, passportNumber: e.target.value })} />
+                <input className={IN} value={patientData.passportNumber} onChange={(e) => setPatientData({ ...patientData, passportNumber: e.target.value })} placeholder="AA 1234567" />
               </FormField>
               <FormField label="PINFL" dense>
                 <input
@@ -410,10 +410,10 @@ export default function UTClientPage() {
                 </select>
               </FormField>
               <FormField label="Viloyat" required dense>
-                <input className={IN} value={patientData.region} onChange={(e) => setPatientData({ ...patientData, region: e.target.value })} />
+                <input className={IN} value={patientData.region} onChange={(e) => setPatientData({ ...patientData, region: e.target.value })} placeholder="Toshkent viloyati" />
               </FormField>
               <FormField label="Tuman" required dense>
-                <input className={IN} value={patientData.district} onChange={(e) => setPatientData({ ...patientData, district: e.target.value })} />
+                <input className={IN} value={patientData.district} onChange={(e) => setPatientData({ ...patientData, district: e.target.value })} placeholder="Chilonzor tumani" />
               </FormField>
               <FormField label="Telefon" required dense>
                 <input
@@ -430,11 +430,11 @@ export default function UTClientPage() {
                 />
               </FormField>
               <FormField label="Favq. aloqa" dense>
-                <input className={IN} value={patientData.emergencyContact} onChange={(e) => setPatientData({ ...patientData, emergencyContact: e.target.value })} />
+                <input className={IN} value={patientData.emergencyContact} onChange={(e) => setPatientData({ ...patientData, emergencyContact: e.target.value })} placeholder="+998 90 000 00 00" />
               </FormField>
               <div className="col-span-2">
                 <FormField label="Manzil" dense>
-                  <input className={IN} value={patientData.address} onChange={(e) => setPatientData({ ...patientData, address: e.target.value })} />
+                  <input className={IN} value={patientData.address} onChange={(e) => setPatientData({ ...patientData, address: e.target.value })} placeholder="Ko'cha, uy raqami" />
                 </FormField>
               </div>
             </div>
@@ -450,20 +450,20 @@ export default function UTClientPage() {
             <div className="grid grid-cols-2 gap-x-1.5 gap-y-0.5 h-full content-start">
               <div className="col-span-2">
                 <FormField label="Shikoyatlar" required dense>
-                  <textarea className={TA} value={clinicalData.complaints} onChange={(e) => setClinicalData({ ...clinicalData, complaints: e.target.value })} />
+                  <textarea className={TA} value={clinicalData.complaints} onChange={(e) => setClinicalData({ ...clinicalData, complaints: e.target.value })} placeholder="Bemor shikoyatlarini kiriting..." />
                 </FormField>
               </div>
               <FormField label="Anamnez morbi" required dense>
-                <textarea className={TA} value={clinicalData.anamnesisMorbi} onChange={(e) => setClinicalData({ ...clinicalData, anamnesisMorbi: e.target.value })} />
+                <textarea className={TA} value={clinicalData.anamnesisMorbi} onChange={(e) => setClinicalData({ ...clinicalData, anamnesisMorbi: e.target.value })} placeholder="Kasallik tarixi..." />
               </FormField>
               <FormField label="Anamnez vitae" required dense>
-                <textarea className={TA} value={clinicalData.anamnesisVitae} onChange={(e) => setClinicalData({ ...clinicalData, anamnesisVitae: e.target.value })} />
+                <textarea className={TA} value={clinicalData.anamnesisVitae} onChange={(e) => setClinicalData({ ...clinicalData, anamnesisVitae: e.target.value })} placeholder="Hayot tarixi..." />
               </FormField>
               <FormField label="Dorilar" dense>
-                <textarea className={TA_SM} value={clinicalData.medications} onChange={(e) => setClinicalData({ ...clinicalData, medications: e.target.value })} />
+                <textarea className={TA_SM} value={clinicalData.medications} onChange={(e) => setClinicalData({ ...clinicalData, medications: e.target.value })} placeholder="Qabul qilinayotgan dorilar" />
               </FormField>
               <FormField label="Allergiya" dense>
-                <textarea className={TA_SM} value={clinicalData.allergies} onChange={(e) => setClinicalData({ ...clinicalData, allergies: e.target.value })} />
+                <textarea className={TA_SM} value={clinicalData.allergies} onChange={(e) => setClinicalData({ ...clinicalData, allergies: e.target.value })} placeholder="Ma'lum allergiyalar yo'q" />
               </FormField>
             </div>
           </UtIntakeSection>
@@ -476,14 +476,14 @@ export default function UTClientPage() {
             className="ut-intake-vital"
           >
             <div className="grid grid-cols-4 gap-x-1 gap-y-0.5 h-full content-start">
-              <FormField label="Vazn" dense><input type="number" className={IN} value={clinicalData.weight} onChange={(e) => setClinicalData({ ...clinicalData, weight: e.target.value })} /></FormField>
-              <FormField label="Bo'y" dense><input type="number" className={IN} value={clinicalData.height} onChange={(e) => setClinicalData({ ...clinicalData, height: e.target.value })} /></FormField>
-              <FormField label="Harorat" dense><input type="number" step="0.1" className={IN} value={vitals.temperature} onChange={(e) => setVitals({ ...vitals, temperature: e.target.value })} /></FormField>
-              <FormField label="Puls" dense><input type="number" className={IN} value={vitals.heartRate} onChange={(e) => setVitals({ ...vitals, heartRate: e.target.value })} /></FormField>
-              <FormField label="Q/B sys" dense><input type="number" className={IN} value={vitals.bloodPressureSystolic} onChange={(e) => setVitals({ ...vitals, bloodPressureSystolic: e.target.value })} /></FormField>
-              <FormField label="Q/B dia" dense><input type="number" className={IN} value={vitals.bloodPressureDiastolic} onChange={(e) => setVitals({ ...vitals, bloodPressureDiastolic: e.target.value })} /></FormField>
-              <FormField label="SpO2" dense><input type="number" className={IN} value={vitals.spo2} onChange={(e) => setVitals({ ...vitals, spo2: e.target.value })} /></FormField>
-              <FormField label="Nafas" dense><input type="number" className={IN} value={vitals.respiratoryRate} onChange={(e) => setVitals({ ...vitals, respiratoryRate: e.target.value })} /></FormField>
+              <FormField label="Vazn" dense><input type="number" className={IN} value={clinicalData.weight} onChange={(e) => setClinicalData({ ...clinicalData, weight: e.target.value })} placeholder="70" /></FormField>
+              <FormField label="Bo'y" dense><input type="number" className={IN} value={clinicalData.height} onChange={(e) => setClinicalData({ ...clinicalData, height: e.target.value })} placeholder="170" /></FormField>
+              <FormField label="Harorat" dense><input type="number" step="0.1" className={IN} value={vitals.temperature} onChange={(e) => setVitals({ ...vitals, temperature: e.target.value })} placeholder="36.6" /></FormField>
+              <FormField label="Puls" dense><input type="number" className={IN} value={vitals.heartRate} onChange={(e) => setVitals({ ...vitals, heartRate: e.target.value })} placeholder="72" /></FormField>
+              <FormField label="Q/B sys" dense><input type="number" className={IN} value={vitals.bloodPressureSystolic} onChange={(e) => setVitals({ ...vitals, bloodPressureSystolic: e.target.value })} placeholder="120" /></FormField>
+              <FormField label="Q/B dia" dense><input type="number" className={IN} value={vitals.bloodPressureDiastolic} onChange={(e) => setVitals({ ...vitals, bloodPressureDiastolic: e.target.value })} placeholder="80" /></FormField>
+              <FormField label="SpO2" dense><input type="number" className={IN} value={vitals.spo2} onChange={(e) => setVitals({ ...vitals, spo2: e.target.value })} placeholder="98" /></FormField>
+              <FormField label="Nafas" dense><input type="number" className={IN} value={vitals.respiratoryRate} onChange={(e) => setVitals({ ...vitals, respiratoryRate: e.target.value })} placeholder="16" /></FormField>
             </div>
           </UtIntakeSection>
 
@@ -511,11 +511,11 @@ export default function UTClientPage() {
               </UtIntakeSubCard>
 
               <UtIntakeSubCard title="Oilaviy" icon={User} accent="amber" className="min-h-0">
-                <textarea className={TA_SM} value={clinicalData.familyHistory} onChange={(e) => setClinicalData({ ...clinicalData, familyHistory: e.target.value })} />
+                <textarea className={TA_SM} value={clinicalData.familyHistory} onChange={(e) => setClinicalData({ ...clinicalData, familyHistory: e.target.value })} placeholder="Oilaviy anamnez..." />
               </UtIntakeSubCard>
 
               <UtIntakeSubCard title="Ijtimoiy" icon={User} accent="blue" className="min-h-0">
-                <textarea className={TA_SM} value={clinicalData.socialHistory} onChange={(e) => setClinicalData({ ...clinicalData, socialHistory: e.target.value })} />
+                <textarea className={TA_SM} value={clinicalData.socialHistory} onChange={(e) => setClinicalData({ ...clinicalData, socialHistory: e.target.value })} placeholder="Kasbi, yashash sharoiti..." />
               </UtIntakeSubCard>
             </div>
           </UtIntakeSection>

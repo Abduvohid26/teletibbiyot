@@ -299,7 +299,7 @@ body {
   .doctor-workspace {
     @apply flex-1 min-h-0 min-w-0 p-1.5 lg:p-2 gap-1.5 overflow-hidden relative z-10;
     display: grid;
-    grid-template-rows: minmax(0, 1fr) clamp(12rem, 32vh, 18rem);
+    grid-template-rows: minmax(0, 1fr) clamp(13rem, 30vh, 19rem);
   }
 
   .doctor-main-grid {
@@ -307,24 +307,28 @@ body {
   }
 
   .doctor-video-col {
-    @apply col-span-12 lg:col-span-7 min-h-0 overflow-hidden;
+    @apply col-span-12 lg:col-span-5 min-h-0 overflow-hidden flex flex-col;
   }
 
   .doctor-side-col {
-    @apply col-span-12 lg:col-span-5 grid min-h-0 overflow-hidden gap-1.5;
-    grid-template-rows: minmax(0, 0.75fr) minmax(0, 0.85fr) minmax(0, 1fr);
-  }
-
-  .doctor-docs-col {
-    @apply min-h-0 overflow-hidden;
+    @apply col-span-12 lg:col-span-7 grid min-h-0 overflow-hidden gap-1.5;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1.05fr) minmax(0, 1fr);
   }
 
   .doctor-patient-col {
     @apply min-h-0 overflow-hidden;
+    grid-column: 1 / -1;
+  }
+
+  .doctor-docs-col {
+    @apply min-h-0 overflow-hidden;
+    grid-column: 1;
   }
 
   .doctor-ai-col {
     @apply min-h-0 overflow-hidden;
+    grid-column: 2;
   }
 
   .doctor-bottom-row {

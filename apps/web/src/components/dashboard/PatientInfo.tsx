@@ -154,8 +154,8 @@ export function PatientInfo({ patient, clinicalRecord, consultationId, compact }
           </div>
           )}
 
-          <div className="grid grid-cols-2 gap-1.5">
-            <VitalCard icon={Heart} label="Yurak urishi" value={vitals.heartRate ? `${vitals.heartRate}` : '—'} unit="bpm" accent="red" live={isLive && liveVitals?.heartRate != null} />
+          <div className="grid grid-cols-2 gap-1">
+            <VitalCard icon={Heart} label="Puls" value={vitals.heartRate ? `${vitals.heartRate}` : '—'} unit="bpm" accent="red" live={isLive && liveVitals?.heartRate != null} compact={compact} />
             <VitalCard
               icon={Activity}
               label="Qon bosimi"
@@ -163,9 +163,10 @@ export function PatientInfo({ patient, clinicalRecord, consultationId, compact }
               unit="mmHg"
               accent="blue"
               live={isLive && liveVitals?.bloodPressureSystolic != null}
+              compact={compact}
             />
-            <VitalCard icon={Droplets} label="SpO2" value={vitals.spo2 ? `${vitals.spo2}` : '—'} unit="%" accent="cyan" live={isLive && liveVitals?.spo2 != null} />
-            <VitalCard icon={Thermometer} label="Harorat" value={vitals.temperature ? `${vitals.temperature}` : '—'} unit="°C" accent="orange" live={isLive && liveVitals?.temperature != null} />
+            <VitalCard icon={Droplets} label="SpO2" value={vitals.spo2 ? `${vitals.spo2}` : '—'} unit="%" accent="cyan" live={isLive && liveVitals?.spo2 != null} compact={compact} />
+            <VitalCard icon={Thermometer} label="Harorat" value={vitals.temperature ? `${vitals.temperature}` : '—'} unit="°C" accent="orange" live={isLive && liveVitals?.temperature != null} compact={compact} />
           </div>
 
           {vitals.respiratoryRate != null && !compact && (
@@ -205,6 +206,7 @@ function VitalCard({
   unit,
   accent,
   live,
+  compact,
 }: {
   icon: React.ElementType;
   label: string;
@@ -212,6 +214,7 @@ function VitalCard({
   unit: string;
   accent: 'red' | 'blue' | 'cyan' | 'orange';
   live?: boolean;
+  compact?: boolean;
 }) {
   const accents = {
     red: 'from-red-50 border-red-100 text-red-600',
@@ -221,17 +224,17 @@ function VitalCard({
   };
 
   return (
-    <div className={cn('vital-card bg-gradient-to-br border relative', accents[accent], live && 'ring-2 ring-emerald-400/50')}>
+    <div className={cn('vital-card bg-gradient-to-br border relative', accents[accent], live && 'ring-2 ring-emerald-400/50', compact && '!p-1.5')}>
       {live && (
         <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
       )}
-      <div className="flex items-center gap-1 mb-1.5">
-        <Icon size={12} />
-        <span className="text-[10px] font-medium text-slate-500">{label}</span>
+      <div className="flex items-center gap-1 mb-0.5">
+        <Icon size={compact ? 10 : 12} />
+        <span className={cn('font-medium text-slate-500', compact ? 'text-[8px]' : 'text-[10px]')}>{label}</span>
       </div>
-      <p className="text-lg font-bold text-slate-900 leading-none">
+      <p className={cn('font-bold text-slate-900 leading-none', compact ? 'text-sm' : 'text-lg')}>
         {value}
-        {value !== '—' && <span className="text-[10px] font-normal text-slate-400 ml-1">{unit}</span>}
+        {value !== '—' && <span className={cn('font-normal text-slate-400 ml-0.5', compact ? 'text-[8px]' : 'text-[10px]')}>{unit}</span>}
       </p>
     </div>
   );
