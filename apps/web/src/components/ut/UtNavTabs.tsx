@@ -54,7 +54,7 @@ export function UtNavTabs({ sessionCount = 0, liveCount = 0, className, compact 
   return (
     <nav
       className={cn(
-        'flex items-center gap-1 p-1 rounded-xl bg-white/70 backdrop-blur-md border border-slate-200/70 shadow-sm',
+        'flex items-center gap-0.5 p-0.5 rounded-xl bg-white/45 backdrop-blur-md border border-white/55 shadow-sm',
         className,
       )}
       aria-label="UT navigatsiya"
@@ -77,8 +77,8 @@ export function UtNavTabs({ sessionCount = 0, liveCount = 0, className, compact 
               'relative flex items-center gap-2 rounded-lg font-semibold transition-all duration-200',
               compact ? 'px-2.5 py-1.5 text-[11px]' : 'px-3 py-2 text-xs',
               active
-                ? 'bg-white text-brand-700 shadow-sm ring-1 ring-brand-200/80'
-                : 'text-slate-500 hover:text-slate-800 hover:bg-white/60',
+                ? 'bg-white/90 text-brand-700 shadow-sm ring-1 ring-brand-200/70'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-white/50',
             )}
           >
             <Icon size={compact ? 14 : 15} className={cn('shrink-0', active && 'text-brand-600')} />

@@ -21,8 +21,7 @@ import {
 import { AuthLoadingScreen } from '@/components/auth/AuthLoadingScreen';
 import { UtIntakeSection, UtIntakeSubCard } from '@/components/ut/UtIntakeSection';
 import { UtIntakeVitalsPanel } from '@/components/ut/UtIntakeVitalsPanel';
-import { UtIntakeActiveHint } from '@/components/ut/UtSessionStatusBanner';
-import { UtShell, UtPageHead } from '@/components/ut/UtShell';
+import { UtShell } from '@/components/ut/UtShell';
 import { UtPatientSwitcher } from '@/components/ut/UtPatientSwitcher';
 import { useUtSessions } from '@/hooks/use-ut-sessions';
 import { useConsultationRealtime } from '@/hooks/use-consultation-realtime';
@@ -32,9 +31,9 @@ import { getRoleHomePath } from '@/lib/auth-utils';
 import { validatePinfl, normalizePinfl } from '@/lib/pinfl';
 import { isValidUzPhone, normalizeUzPhone } from '@/lib/phone';
 
-const IN = 'input !py-2 !px-3 !text-sm !min-h-[2.5rem] !bg-white/90 leading-snug placeholder:text-slate-400 placeholder:font-normal';
-const TA = 'input !py-2 !px-3 !text-sm !min-h-0 !h-[2.875rem] !bg-white/90 resize-none leading-snug placeholder:text-slate-400 placeholder:font-normal';
-const TA_SM = 'input !py-2 !px-3 !text-sm !min-h-0 !h-[2.5rem] !bg-white/90 resize-none leading-snug placeholder:text-slate-400 placeholder:font-normal';
+const IN = 'input ut-glass-input !py-2 !px-3 !text-sm !min-h-[2.5rem] leading-snug placeholder:text-slate-400 placeholder:font-normal';
+const TA = 'input ut-glass-input !py-2 !px-3 !text-sm !min-h-0 !h-[2.875rem] resize-none leading-snug placeholder:text-slate-400 placeholder:font-normal';
+const TA_SM = 'input ut-glass-input !py-2 !px-3 !text-sm !min-h-0 !h-[2.5rem] resize-none leading-snug placeholder:text-slate-400 placeholder:font-normal';
 
 function emptyPatientData() {
   return {
@@ -370,13 +369,8 @@ export default function UTClientPage() {
       }
     >
       <div className="ut-page">
-        <UtPageHead
-          title="Bemor qabul"
-          subtitle="Ma'lumotlarni to'ldiring va markaz shifokoriga yuboring"
-        />
-        <UtIntakeActiveHint sessionCount={sessions.length} liveCount={inProgressList.length} />
         {offlineNotice && (
-          <div className="shrink-0 alert-warning !py-1.5 !px-3 !text-xs mb-2 truncate">{offlineNotice}</div>
+          <div className="shrink-0 ut-glass-banner ut-glass-banner-warn !py-1.5 !px-3 !text-xs mb-2 truncate">{offlineNotice}</div>
         )}
 
         <div className="ut-intake-grid flex-1 min-h-0">

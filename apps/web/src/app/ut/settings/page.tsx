@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { isUtRole } from '@ishifo/shared';
 import { getRoleHomePath } from '@/lib/auth-utils';
-import { UtShell, UtPageHead } from '@/components/ut/UtShell';
+import { UtShell } from '@/components/ut/UtShell';
 import { UtPatientSwitcher } from '@/components/ut/UtPatientSwitcher';
 import { SettingsContent } from '@/components/settings/SettingsContent';
 import { useUtSessions } from '@/hooks/use-ut-sessions';
@@ -37,6 +37,8 @@ export default function UtSettingsPage() {
     <UtShell
       sessionCount={sessions.length}
       liveCount={inProgressList.length}
+      pageTitle="Sozlamalar"
+      pageSubtitle="Profil va video sozlamalari"
       headerExtra={
         sessions.length > 0 ? (
           <UtPatientSwitcher
@@ -49,10 +51,6 @@ export default function UtSettingsPage() {
       }
     >
       <div className="ut-page">
-        <UtPageHead
-          title="Sozlamalar"
-          subtitle="Profil va video sozlamalari"
-        />
         <SettingsContent user={user} videoRole="ut" compact />
       </div>
     </UtShell>

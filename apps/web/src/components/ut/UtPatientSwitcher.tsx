@@ -71,9 +71,9 @@ export function UtPatientSwitcher({ activeId, sessions, onSelect, className }: U
         <div
           ref={menuRef}
           style={{ position: 'fixed', top: menuStyle.top, left: menuStyle.left, width: menuStyle.width, zIndex: 9999 }}
-          className="rounded-xl border border-slate-200 bg-white shadow-xl overflow-hidden max-h-[min(70vh,400px)] overflow-y-auto"
+          className="rounded-xl border border-white/60 bg-white/70 backdrop-blur-xl shadow-xl overflow-hidden max-h-[min(70vh,400px)] overflow-y-auto"
         >
-          <div className="px-3 py-2 bg-slate-50 border-b text-[10px] font-medium text-slate-500">
+          <div className="px-3 py-2 border-b border-white/50 text-[10px] font-medium text-slate-500 bg-white/40">
             {sessions.length} ta bemor · {live.length} jonli · {queued.length} navbat
           </div>
 
@@ -104,7 +104,8 @@ export function UtPatientSwitcher({ activeId, sessions, onSelect, className }: U
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          'flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left shadow-sm hover:border-brand-300 hover:bg-brand-50/30 transition-all min-w-[200px] max-w-[320px]',
+          'flex items-center gap-2 rounded-xl border border-white/60 bg-white/55 backdrop-blur-md px-3 py-2 text-left hover:bg-white/70 hover:border-white/75 transition-all min-w-[200px] max-w-[320px]',
+          'shadow-sm',
           className,
         )}
       >

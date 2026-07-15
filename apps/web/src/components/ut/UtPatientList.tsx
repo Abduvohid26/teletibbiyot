@@ -63,15 +63,15 @@ export function UtPatientList({
   };
 
   const tabs: { id: Filter; label: string; icon: React.ElementType; count: number; tone: string }[] = [
-    { id: 'all', label: 'Hammasi', icon: Stethoscope, count: counts.all, tone: 'bg-slate-100 text-slate-700' },
-    { id: 'live', label: 'Jonli', icon: Radio, count: counts.live, tone: 'bg-emerald-100 text-emerald-700' },
-    { id: 'queued', label: 'Navbat', icon: Clock, count: counts.queued, tone: 'bg-amber-100 text-amber-800' },
+    { id: 'all', label: 'Hammasi', icon: Stethoscope, count: counts.all, tone: 'text-slate-600' },
+    { id: 'live', label: 'Jonli', icon: Radio, count: counts.live, tone: 'text-emerald-600' },
+    { id: 'queued', label: 'Navbat', icon: Clock, count: counts.queued, tone: 'text-amber-700' },
   ];
 
   if (sessions.length === 0) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4 p-4 text-center min-h-0">
-        <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center">
+        <div className="ut-glass-empty">
           <Stethoscope className="w-7 h-7 text-slate-300" />
         </div>
         <div>
@@ -88,7 +88,6 @@ export function UtPatientList({
 
   return (
     <div className="flex flex-col flex-1 min-h-0 gap-2 overflow-hidden">
-      {/* Stat kartochkalar */}
       <div className="grid grid-cols-3 gap-2 shrink-0">
         {tabs.map(({ id, label, icon: Icon, count, tone }) => (
           <button
@@ -96,14 +95,12 @@ export function UtPatientList({
             type="button"
             onClick={() => setFilter(id)}
             className={cn(
-              'rounded-xl border px-2 py-2 text-left transition-all',
-              filter === id
-                ? 'border-brand-300 bg-white shadow-sm ring-1 ring-brand-200/60'
-                : 'border-slate-200/80 bg-white/80 hover:border-slate-300',
+              'rounded-xl px-2 py-2 text-left transition-all',
+              filter === id ? 'ut-glass-card ut-glass-card-active' : 'ut-glass-card-interactive',
             )}
           >
             <div className="flex items-center justify-between gap-1">
-              <Icon size={14} className={filter === id ? 'text-brand-600' : 'text-slate-400'} />
+              <Icon size={14} className={filter === id ? 'text-brand-600' : tone} />
               <span className={cn('text-lg font-bold leading-none', filter === id ? 'text-brand-700' : 'text-slate-800')}>
                 {count}
               </span>
@@ -113,7 +110,6 @@ export function UtPatientList({
         ))}
       </div>
 
-      {/* Qidiruv */}
       <div className="relative shrink-0">
         <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
         <input
@@ -121,11 +117,10 @@ export function UtPatientList({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Ism, telefon yoki PINFL bo'yicha qidirish..."
-          className="form-input !py-2 !pl-8 !text-xs w-full !bg-white"
+          className="form-input ut-glass-input !py-2 !pl-8 !text-xs w-full"
         />
       </div>
 
-      {/* Ro'yxat — ichida scroll yo'q, grid */}
       <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-2 gap-1.5 content-start overflow-hidden auto-rows-min">
         {filtered.length === 0 ? (
           <p className="col-span-full text-xs text-slate-500 text-center py-6">Natija topilmadi</p>
@@ -140,16 +135,14 @@ export function UtPatientList({
                 type="button"
                 onClick={() => handleSelect(c.id)}
                 className={cn(
-                  'w-full rounded-xl border px-3 py-2 flex items-center gap-2.5 text-left transition-all',
-                  isActive
-                    ? 'border-brand-400 bg-brand-50/80 ring-1 ring-brand-300 shadow-sm'
-                    : 'border-slate-200/80 bg-white hover:border-slate-300 hover:shadow-sm',
+                  'w-full px-3 py-2 flex items-center gap-2.5 text-left transition-all',
+                  isActive ? 'ut-glass-card ut-glass-card-active' : 'ut-glass-card-interactive',
                 )}
               >
                 <div
                   className={cn(
-                    'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold',
-                    isLive ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800',
+                    'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold backdrop-blur-sm',
+                    isLive ? 'bg-emerald-100/80 text-emerald-700 ring-1 ring-emerald-200/60' : 'bg-amber-100/80 text-amber-800 ring-1 ring-amber-200/60',
                   )}
                 >
                   {c.patient.fullName.charAt(0)}

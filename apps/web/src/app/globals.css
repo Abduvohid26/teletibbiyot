@@ -352,13 +352,30 @@ body {
   }
 
   .ut-shell-header {
-    @apply shrink-0 z-30 flex items-center gap-2 px-3 lg:px-4 py-2.5;
-    @apply bg-white/85 backdrop-blur-md border-b border-slate-200/80;
-    box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+    @apply shrink-0 z-30 flex flex-col;
+    @apply bg-white/60 backdrop-blur-xl border-b border-white/50;
+    box-shadow: 0 1px 3px rgb(15 23 42 / 0.05), inset 0 1px 0 rgb(255 255 255 / 0.7);
+  }
+
+  .ut-shell-header-main {
+    @apply flex items-center gap-2 px-3 lg:px-4 py-2 min-h-[3rem];
+  }
+
+  .ut-shell-brand {
+    @apply flex items-center gap-2 min-w-0 shrink-0;
+  }
+
+  .ut-shell-actions {
+    @apply flex items-center gap-1.5 shrink-0;
+  }
+
+  .ut-shell-pagebar {
+    @apply flex items-center justify-between gap-3 px-3 lg:px-4 py-1.5 border-t border-white/40;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0.2) 100%);
   }
 
   .ut-shell-main {
-    @apply relative z-10 flex-1 min-h-0 overflow-hidden px-3 py-2 lg:px-4 lg:py-3;
+    @apply relative z-10 flex-1 min-h-0 overflow-hidden px-3 py-2 lg:px-4 lg:py-2.5;
   }
 
   .ut-page {
@@ -366,7 +383,71 @@ body {
   }
 
   .ut-page-head {
-    @apply flex items-center justify-between gap-3 mb-2.5 pb-2.5 border-b border-slate-200/70;
+    @apply flex items-center justify-between gap-3 mb-2 px-3 py-1.5 rounded-xl;
+    @apply bg-white/45 backdrop-blur-md border border-white/55;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.04), inset 0 1px 0 rgb(255 255 255 / 0.6);
+  }
+
+  .ut-glass-card {
+    @apply rounded-xl border border-white/60 bg-white/50 backdrop-blur-md;
+    box-shadow: 0 1px 3px rgb(15 23 42 / 0.04), inset 0 1px 0 rgb(255 255 255 / 0.55);
+  }
+
+  .ut-glass-card-active {
+    @apply border-brand-300/80 bg-white/75 ring-1 ring-brand-200/60;
+    box-shadow: 0 2px 8px rgb(99 102 241 / 0.08), inset 0 1px 0 rgb(255 255 255 / 0.7);
+  }
+
+  .ut-glass-card-interactive {
+    @apply ut-glass-card transition-all duration-200;
+  }
+
+  .ut-glass-card-interactive:hover {
+    @apply bg-white/70 border-white/75;
+    box-shadow: 0 2px 6px rgb(15 23 42 / 0.06), inset 0 1px 0 rgb(255 255 255 / 0.65);
+  }
+
+  .ut-glass-input {
+    @apply w-full rounded-xl border border-white/60 bg-white/55 backdrop-blur-md;
+    box-shadow: inset 0 1px 2px rgb(15 23 42 / 0.04);
+  }
+
+  .ut-glass-btn {
+    @apply inline-flex items-center justify-center gap-1.5 font-semibold rounded-xl transition-all;
+    @apply border border-white/60 bg-white/55 backdrop-blur-md text-slate-700;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.04), inset 0 1px 0 rgb(255 255 255 / 0.6);
+  }
+
+  .ut-glass-btn:hover {
+    @apply bg-white/75 border-white/75 text-slate-900;
+  }
+
+  .ut-glass-pills {
+    @apply rounded-full;
+  }
+
+  .ut-glass-empty {
+    @apply w-14 h-14 rounded-2xl flex items-center justify-center;
+    @apply bg-white/50 backdrop-blur-md border border-white/60;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.6);
+  }
+
+  .ut-glass-banner {
+    @apply rounded-xl border px-3 py-2 flex items-center justify-between gap-2 backdrop-blur-md;
+    box-shadow: 0 1px 3px rgb(15 23 42 / 0.04), inset 0 1px 0 rgb(255 255 255 / 0.5);
+  }
+
+  .ut-glass-banner-live {
+    @apply ut-glass-banner border-emerald-300/70 bg-emerald-50/75;
+  }
+
+  .ut-glass-banner-warn {
+    @apply ut-glass-banner border-amber-300/70 bg-amber-50/75;
+  }
+
+  .ut-glass-details {
+    @apply rounded-xl border border-white/60 bg-white/45 backdrop-blur-md overflow-hidden;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.04), inset 0 1px 0 rgb(255 255 255 / 0.55);
   }
 
   .ut-settings-grid {
@@ -402,8 +483,14 @@ body {
   }
 
   .ut-quick-nav-btn {
-    @apply relative flex flex-col items-center gap-1 p-4 rounded-xl border border-slate-200/80 bg-white;
-    @apply hover:border-brand-300 hover:shadow-md hover:bg-brand-50/30 transition-all text-center;
+    @apply relative flex flex-col items-center gap-1 p-4 rounded-xl text-center transition-all duration-200;
+    @apply border border-white/60 bg-white/50 backdrop-blur-md;
+    box-shadow: 0 1px 3px rgb(15 23 42 / 0.04), inset 0 1px 0 rgb(255 255 255 / 0.55);
+  }
+
+  .ut-quick-nav-btn:hover {
+    @apply border-brand-300/70 bg-white/70;
+    box-shadow: 0 4px 12px rgb(99 102 241 / 0.1), inset 0 1px 0 rgb(255 255 255 / 0.65);
   }
 
   .ut-intake-shell {

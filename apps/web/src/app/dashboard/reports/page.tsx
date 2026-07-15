@@ -29,7 +29,7 @@ import { ROLES_MT_DASHBOARD, ROLES_UT } from '@/lib/roles';
 import { isMtStaff, isUtRole, UserRole } from '@ishifo/shared';
 import { useFilterOptions } from '@/hooks/use-filter-options';
 import { safeAsync } from '@/lib/errors';
-import { UtShell, UtPageHead } from '@/components/ut/UtShell';
+import { UtShell } from '@/components/ut/UtShell';
 import { cn } from '@/lib/utils';
 
 export default function ReportsPage() {
@@ -280,9 +280,8 @@ export default function ReportsPage() {
 
   if (isUt) {
     return (
-      <UtShell>
+      <UtShell pageTitle="Analitika" pageSubtitle="UT bo'yicha statistika va hisobotlar">
         <div className="ut-page overflow-y-auto">
-          <UtPageHead title="Analitika" subtitle="UT bo'yicha statistika va hisobotlar" />
           {pageBody}
         </div>
       </UtShell>
