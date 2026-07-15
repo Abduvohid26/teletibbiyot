@@ -91,7 +91,7 @@ export function UtShell({
         </div>
       </header>
 
-      <main className={cn('ut-shell-main')}>{children}</main>
+      <main className="ut-shell-main">{children}</main>
     </div>
   );
 }
