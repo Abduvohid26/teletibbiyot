@@ -66,11 +66,11 @@ export function UtIntakeSection({
         className,
       )}
     >
-      <div className={cn('px-2 py-1 flex items-center gap-1.5 border-b shrink-0', styles.header)}>
-        <Icon size={14} className={styles.icon} aria-hidden />
-        <h2 className="text-xs font-bold tracking-tight truncate">{title}</h2>
+      <div className={cn('px-3 py-2 flex items-center gap-2 border-b shrink-0', styles.header)}>
+        <Icon size={16} className={styles.icon} aria-hidden />
+        <h2 className="text-sm font-bold tracking-tight truncate">{title}</h2>
       </div>
-      <div className="p-2 space-y-1 flex-1 min-h-0 overflow-hidden">{children}</div>
+      <div className="p-3 space-y-1.5 flex-1 min-h-0 overflow-hidden">{children}</div>
     </section>
   );
 }
@@ -92,11 +92,11 @@ export function UtIntakeSubCard({
 
   return (
     <div className={cn('rounded-xl border border-slate-200 overflow-hidden bg-white', className)}>
-      <div className={cn('px-2 py-1 flex items-center gap-1.5 border-b text-[10px] font-bold', styles.header)}>
-        <Icon size={12} className={styles.icon} aria-hidden />
+      <div className={cn('px-2.5 py-1.5 flex items-center gap-2 border-b text-xs font-bold', styles.header)}>
+        <Icon size={14} className={styles.icon} aria-hidden />
         {title}
       </div>
-      <div className="p-2 min-h-0 overflow-hidden">{children}</div>
+      <div className="p-2.5 min-h-0 overflow-hidden">{children}</div>
     </div>
   );
 }

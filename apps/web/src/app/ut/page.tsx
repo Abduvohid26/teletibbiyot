@@ -24,10 +24,11 @@ import { toast } from '@/lib/toast';
 import { isUtRole, type ChecklistItem } from '@ishifo/shared';
 import { getRoleHomePath } from '@/lib/auth-utils';
 import { validatePinfl } from '@/lib/pinfl';
+import { isValidUzPhone, normalizeUzPhone } from '@/lib/phone';
 
-const IN = 'form-input !py-0.5 !px-2 !text-[11px] !min-h-[1.625rem] leading-tight';
-const TA = 'form-input !py-0.5 !px-2 !text-[11px] !min-h-0 !h-9 resize-none leading-tight';
-const TA_SM = 'form-input !py-0.5 !px-2 !text-[11px] !min-h-0 !h-8 resize-none leading-tight';
+const IN = 'form-input !py-1.5 !px-2.5 !text-sm !min-h-[2.125rem] leading-snug';
+const TA = 'form-input !py-1.5 !px-2.5 !text-sm !min-h-0 !h-[2.75rem] resize-none leading-snug';
+const TA_SM = 'form-input !py-1 !px-2.5 !text-sm !min-h-0 !h-[2.35rem] resize-none leading-snug';
 
 function emptyPatientData() {
   return {
@@ -149,7 +150,9 @@ export default function UTClientPage() {
     if (!patientData.birthDate) return 'Tug\'ilgan sana kiritilishi shart';
     if (!patientData.region.trim()) return 'Viloyat tanlanishi shart';
     if (!patientData.district.trim()) return 'Tuman kiritilishi shart';
-    if (!/^\+998\d{9}$/.test(patientData.phone)) return 'Telefon +998XXXXXXXXX formatida bo\'lishi kerak';
+    if (!isValidUzPhone(patientData.phone)) {
+      return 'Telefon: +998 XX XXX XX XX yoki 9 ta raqam kiriting';
+    }
     if (patientData.pinfl) {
       const pinflCheck = validatePinfl(patientData.pinfl);
       if (!pinflCheck.valid) return pinflCheck.error ?? 'PINFL noto\'g\'ri';
@@ -206,7 +209,7 @@ export default function UTClientPage() {
       gender: patientData.gender,
       region: patientData.region.trim(),
       district: patientData.district.trim(),
-      phone: patientData.phone.trim(),
+      phone: normalizeUzPhone(patientData.phone.trim()),
       ...(patientData.passportNumber.trim() && { passportNumber: patientData.passportNumber.trim() }),
       ...(patientData.pinfl.trim() && { pinfl: patientData.pinfl.trim() }),
       ...(patientData.address.trim() && { address: patientData.address.trim() }),
@@ -334,37 +337,37 @@ export default function UTClientPage() {
 
   return (
     <div className="ut-intake-shell">
-      <header className="shrink-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-2 lg:px-3 py-1.5">
-        <div className="flex items-center gap-2 justify-between min-h-[2.25rem]">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-8 h-8 rounded-lg gradient-btn flex items-center justify-center shrink-0">
+      <header className="shrink-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-3 lg:px-4 py-2">
+        <div className="flex items-center gap-3 justify-between min-h-[2.75rem]">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-9 h-9 rounded-lg gradient-btn flex items-center justify-center shrink-0">
               <Stethoscope className="w-4 h-4 text-white" />
             </div>
             <div className="min-w-0 leading-tight">
-              <h1 className="font-bold text-slate-900 text-sm truncate">
+              <h1 className="font-bold text-slate-900 text-base truncate">
                 Yangi klinik holat
               </h1>
-              <p className="text-[10px] text-slate-500 truncate">{user?.facility?.name}</p>
+              <p className="text-xs text-slate-500 truncate">{user?.facility?.name}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
-            <label className="hidden md:flex items-center gap-1.5 cursor-pointer max-w-[140px] lg:max-w-[200px]">
+          <div className="flex items-center gap-2 shrink-0">
+            <label className="hidden md:flex items-center gap-2 cursor-pointer max-w-[180px] lg:max-w-[220px]">
               <input
                 type="checkbox"
                 checked={consentAccepted}
                 onChange={(e) => setConsentAccepted(e.target.checked)}
                 className="rounded border-slate-300 text-brand-600 shrink-0"
               />
-              <span className="text-[10px] text-slate-600 leading-tight truncate">Rozilik berildi</span>
+              <span className="text-xs text-slate-600 leading-tight truncate">Rozilik berildi</span>
             </label>
             <button
               type="button"
               onClick={handleSubmit}
               disabled={submitting || !consentAccepted}
-              className="gradient-btn !py-1.5 !px-3 !text-xs disabled:opacity-50 flex items-center gap-1 shrink-0"
+              className="gradient-btn !py-2 !px-4 !text-sm disabled:opacity-50 flex items-center gap-1.5 shrink-0"
             >
-              <Send size={13} />
+              <Send size={15} />
               {submitting ? '...' : 'Tahlilni boshlash'}
             </button>
             <Link href="/ut/vitals" className="btn-secondary !py-1 !px-2 !text-[10px] hidden sm:inline-flex">
@@ -390,7 +393,7 @@ export default function UTClientPage() {
             accent="blue"
             className="ut-intake-shaxsiy"
           >
-            <div className="grid grid-cols-2 gap-x-1.5 gap-y-0.5 h-full content-start">
+            <div className="grid grid-cols-2 gap-x-2 gap-y-1 h-full content-start">
               <div className="col-span-2">
                 <FormField label="F.I.Sh." required dense>
                   <input className={IN} value={patientData.fullName} onChange={(e) => setPatientData({ ...patientData, fullName: e.target.value })} />
@@ -418,7 +421,18 @@ export default function UTClientPage() {
                 <input className={IN} value={patientData.district} onChange={(e) => setPatientData({ ...patientData, district: e.target.value })} />
               </FormField>
               <FormField label="Telefon" required dense>
-                <input className={IN} value={patientData.phone} onChange={(e) => setPatientData({ ...patientData, phone: e.target.value })} placeholder="+998..." />
+                <input
+                  className={IN}
+                  value={patientData.phone}
+                  onChange={(e) => setPatientData({ ...patientData, phone: e.target.value })}
+                  onBlur={(e) => {
+                    const normalized = normalizeUzPhone(e.target.value);
+                    if (isValidUzPhone(normalized)) {
+                      setPatientData((p) => ({ ...p, phone: normalized }));
+                    }
+                  }}
+                  placeholder="+998 90 123 45 67"
+                />
               </FormField>
               <FormField label="Favq. aloqa" dense>
                 <input className={IN} value={patientData.emergencyContact} onChange={(e) => setPatientData({ ...patientData, emergencyContact: e.target.value })} />
@@ -438,7 +452,7 @@ export default function UTClientPage() {
             accent="purple"
             className="ut-intake-klinik"
           >
-            <div className="grid grid-cols-2 gap-x-1.5 gap-y-0.5 h-full content-start">
+            <div className="grid grid-cols-2 gap-x-2 gap-y-1 h-full content-start">
               <div className="col-span-2">
                 <FormField label="Shikoyatlar" required dense>
                   <textarea className={TA} value={clinicalData.complaints} onChange={(e) => setClinicalData({ ...clinicalData, complaints: e.target.value })} />
@@ -466,7 +480,7 @@ export default function UTClientPage() {
             accent="violet"
             className="ut-intake-vital"
           >
-            <div className="grid grid-cols-4 gap-x-1 gap-y-0.5 h-full content-start">
+            <div className="grid grid-cols-4 gap-x-1.5 gap-y-1 h-full content-start">
               <FormField label="Vazn" dense><input type="number" className={IN} value={clinicalData.weight} onChange={(e) => setClinicalData({ ...clinicalData, weight: e.target.value })} /></FormField>
               <FormField label="Bo'y" dense><input type="number" className={IN} value={clinicalData.height} onChange={(e) => setClinicalData({ ...clinicalData, height: e.target.value })} /></FormField>
               <FormField label="Harorat" dense><input type="number" step="0.1" className={IN} value={vitals.temperature} onChange={(e) => setVitals({ ...vitals, temperature: e.target.value })} /></FormField>
@@ -487,13 +501,13 @@ export default function UTClientPage() {
           >
             <div className="grid grid-cols-4 gap-1.5 h-full min-h-0">
               <UtIntakeSubCard title="Diagnostika" icon={ScanLine} accent="teal" className="min-h-0 flex flex-col">
-                <label className="flex-1 border border-dashed border-slate-200 rounded-lg p-1.5 text-center text-slate-400 hover:border-teal-300 cursor-pointer flex flex-col items-center justify-center gap-0.5 min-h-[4.5rem]">
-                  <Upload className="w-4 h-4 text-slate-300" />
-                  <span className="text-[9px] leading-tight">Fayl yuklash</span>
+                <label className="flex-1 border border-dashed border-slate-200 rounded-lg p-2 text-center text-slate-400 hover:border-teal-300 cursor-pointer flex flex-col items-center justify-center gap-1 min-h-[5.5rem]">
+                  <Upload className="w-5 h-5 text-slate-300" />
+                  <span className="text-[11px] leading-tight">Fayl yuklash</span>
                   <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.bmp,.tiff,.tif,.heic,.dcm,.dicom,image/*,application/pdf" className="hidden" onChange={handleFileSelect} />
                 </label>
                 {files.length > 0 && (
-                  <p className="text-[9px] text-teal-700 mt-1 truncate">{files.length} ta fayl tanlandi</p>
+                  <p className="text-[11px] text-teal-700 mt-1 truncate">{files.length} ta fayl tanlandi</p>
                 )}
               </UtIntakeSubCard>
 
@@ -511,11 +525,11 @@ export default function UTClientPage() {
             </div>
           </UtIntakeSection>
 
-          <div className="ut-intake-footer panel !rounded-lg px-2 py-1 flex items-center gap-2 min-h-0 overflow-hidden">
-            <p className="text-[9px] font-bold text-slate-500 uppercase shrink-0 hidden sm:block">Protokol</p>
-            <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-x-2 gap-y-0 min-w-0">
+          <div className="ut-intake-footer panel !rounded-lg px-3 py-2 flex items-center gap-2 min-h-0 overflow-hidden">
+            <p className="text-[10px] font-bold text-slate-500 uppercase shrink-0 hidden sm:block">Protokol</p>
+            <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-x-2 gap-y-0.5 min-w-0">
               {checklist.map((item) => (
-                <label key={item.id} className="flex items-center gap-1 text-[9px] text-slate-600 min-w-0">
+                <label key={item.id} className="flex items-center gap-1 text-[10px] text-slate-600 min-w-0">
                   <input
                     type="checkbox"
                     checked={item.checked}
@@ -570,7 +584,7 @@ function FormField({
         })
       : children;
 
-  const labelClass = dense ? 'label !text-[10px] !mb-0 !leading-tight' : 'label !text-[11px] !mb-1';
+  const labelClass = dense ? 'label !text-xs !mb-0.5 !leading-snug' : 'label !text-sm !mb-1';
 
   return (
     <div>

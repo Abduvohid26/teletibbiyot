@@ -6,6 +6,14 @@ import { Gender } from '@prisma/client';
 const emptyToUndefined = ({ value }: { value: unknown }) =>
   value === '' || value === null || value === undefined ? undefined : value;
 
+const normalizePhone = ({ value }: { value: unknown }) => {
+  if (typeof value !== 'string') return value;
+  const digits = value.replace(/\D/g, '');
+  if (digits.startsWith('998') && digits.length === 12) return `+${digits}`;
+  if (digits.length === 9) return `+998${digits}`;
+  return value.trim();
+};
+
 export class CreatePatientDto {
   @ApiProperty()
   @IsString()
@@ -48,6 +56,7 @@ export class CreatePatientDto {
   address?: string;
 
   @ApiProperty({ example: '+998901234567' })
+  @Transform(normalizePhone)
   @IsString()
   @Matches(/^\+998\d{9}$/, { message: 'Telefon +998XXXXXXXXX formatida bo\'lishi kerak' })
   phone: string;
