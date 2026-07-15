@@ -11,6 +11,7 @@ import { useVideoRoom, VideoRole } from '@/hooks/use-video-room';
 import { useSessionRecording } from '@/hooks/use-session-recording';
 import { buildRecordingStream } from '@/lib/recording-stream';
 import { UT_CAMERA_FEEDS } from '@/lib/video-config';
+import { countLiveUtCameraStreams, isUtStreamLive, mapUniqueUtCameraStreams } from '@/lib/ut-camera-streams';
 import { VideoTile } from '@/components/video/VideoTile';
 import { ConnectionQualityBadge } from '@/components/video/ConnectionQualityBadge';
 import { VideoPreflightModal } from '@/components/video/VideoPreflightModal';
@@ -33,7 +34,7 @@ function shortFeedLabel(feed: (typeof UT_CAMERA_FEEDS)[number]) {
 }
 
 function isStreamLive(stream: MediaStream | null | undefined) {
-  return !!stream?.getVideoTracks().some((t) => t.readyState === 'live' && t.enabled);
+  return isUtStreamLive(stream);
 }
 
 export function VideoConsultation({
@@ -77,8 +78,13 @@ export function VideoConsultation({
     onCallEnded: onEndCall,
   });
 
+  const uniqueCameraStreams = mapUniqueUtCameraStreams(remoteCameras);
+
   const recordStream = connected
-    ? buildRecordingStream(remoteCameras.main ?? localPreview, remoteAudio)
+    ? buildRecordingStream(
+        uniqueCameraStreams.close ?? uniqueCameraStreams.main ?? localPreview,
+        remoteAudio,
+      )
     : null;
 
   const { recording, uploading, skipped, error: recordingError } = useSessionRecording({
@@ -97,11 +103,11 @@ export function VideoConsultation({
 
   useEffect(() => {
     if (activeCamera === ALL_CAMERAS_VIEW) return;
-    const hasActive = (id: string) => isStreamLive(remoteCameras[id]);
+    const hasActive = (id: string) => isStreamLive(uniqueCameraStreams[id]);
     if (hasActive(activeCamera)) return;
     const fallback = UT_CAMERA_FEEDS.find((feed) => hasActive(feed.id));
     if (fallback) setActiveCamera(fallback.id);
-  }, [remoteCameras, activeCamera]);
+  }, [uniqueCameraStreams, activeCamera]);
 
   if (!consultationId) {
     return (
@@ -127,9 +133,11 @@ export function VideoConsultation({
 
   const isAllView = activeCamera === ALL_CAMERAS_VIEW;
   const activeFeed = UT_CAMERA_FEEDS.find((f) => f.id === activeCamera) ?? UT_CAMERA_FEEDS[0];
-  const mainStream = isAllView ? null : (remoteCameras[activeCamera] ?? remoteCameras.main ?? null);
+  const mainStream = isAllView
+    ? null
+    : (uniqueCameraStreams[activeCamera] ?? uniqueCameraStreams.close ?? uniqueCameraStreams.main ?? null);
   const connectedCount = utCameraStreams.filter((c) => c.active).length;
-  const liveCount = UT_CAMERA_FEEDS.filter((f) => isStreamLive(remoteCameras[f.id])).length;
+  const liveCount = countLiveUtCameraStreams(remoteCameras);
 
   const handleEndCall = () => {
     endCall();
@@ -154,7 +162,7 @@ export function VideoConsultation({
         {isAllView ? (
           <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-0.5 p-0.5 bg-slate-950">
             {UT_CAMERA_FEEDS.map((feed) => {
-              const stream = remoteCameras[feed.id] ?? null;
+              const stream = uniqueCameraStreams[feed.id] ?? null;
               const live = isStreamLive(stream);
               return (
                 <button
@@ -303,7 +311,7 @@ export function VideoConsultation({
       {!compact && (
       <div className="grid grid-cols-5 gap-1.5 px-3 pt-3 shrink-0">
         {UT_CAMERA_FEEDS.map((feed) => {
-          const stream = remoteCameras[feed.id] ?? null;
+          const stream = uniqueCameraStreams[feed.id] ?? null;
           return (
             <button
               key={feed.id}
@@ -332,7 +340,7 @@ export function VideoConsultation({
       {compact && (
         <div className="flex gap-1.5 px-1.5 pt-1.5 shrink-0 overflow-x-auto">
           {UT_CAMERA_FEEDS.map((feed) => {
-            const stream = remoteCameras[feed.id] ?? null;
+            const stream = uniqueCameraStreams[feed.id] ?? null;
             const live = isStreamLive(stream);
             return (
               <button

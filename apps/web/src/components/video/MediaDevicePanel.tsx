@@ -136,11 +136,9 @@ export function MediaDevicePanel({ role = 'mt', compact, onPrefsChange }: MediaD
           <p className={cn('font-semibold text-slate-500 uppercase tracking-wide', compact ? 'text-[10px]' : 'text-xs')}>
             UT kameralar biriktirish
           </p>
-          {!compact && (
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              &quot;Bemor yaqindan&quot; — bemor ko&apos;rinishi. Qolganlar — xona va qurilmalar uchun alohida kamera.
-            </p>
-          )}
+          <p className="text-[11px] text-slate-500 leading-relaxed">
+            &quot;Bemor yaqindan&quot; — bemor ko&apos;rinishi. &quot;Qurilmalar&quot; — patient monitor ekrani uchun kamera.
+          </p>
           <div className={cn('grid gap-2', compact ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2')}>
             {UT_CAMERA_FEEDS.map((feed) => (
               <DeviceSelect

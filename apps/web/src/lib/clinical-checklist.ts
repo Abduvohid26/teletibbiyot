@@ -17,6 +17,8 @@ export function autoCheckFromForm(
     consent: boolean;
     complaints: string;
     vitals: Record<string, string>;
+    weight?: string;
+    height?: string;
     allergies: string;
     hasAttachments: boolean;
     pinfl?: string;
@@ -32,7 +34,12 @@ export function autoCheckFromForm(
       case 'complaints':
         return { ...item, checked: !!data.complaints.trim() };
       case 'vitals':
-        return { ...item, checked: Object.values(data.vitals).some((v) => v.trim()) };
+        return {
+          ...item,
+          checked:
+            !!(data.weight?.trim() && data.height?.trim())
+            || Object.values(data.vitals).some((v) => v.trim()),
+        };
       case 'allergies':
         return { ...item, checked: true };
       case 'attachments':

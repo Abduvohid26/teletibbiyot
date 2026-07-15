@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { captureUtCameraStreams, stopAllStreams } from '@/lib/ut-camera-capture';
+import { isUtStreamLive, mapUniqueUtCameraStreams } from '@/lib/ut-camera-streams';
 import { useSharedVideoSocket } from '@/hooks/use-shared-video-socket';
 import { useWebRtcStats } from '@/hooks/use-webrtc-stats';
 import {
@@ -58,7 +59,7 @@ export function useVideoRoom({
 
   const pcsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const localStreamsRef = useRef<Map<string, MediaStream>>(new Map());
-  const remoteVideoCountRef = useRef<Map<string, number>>(new Map());
+  const remoteTrackIdsRef = useRef<Map<string, Set<string>>>(new Map());
   const socketToCamerasRef = useRef<Map<string, string[]>>(new Map());
   const makingOfferRef = useRef<Map<string, boolean>>(new Map());
   const pendingOfferTargetsRef = useRef<Set<string>>(new Set());
@@ -69,22 +70,6 @@ export function useVideoRoom({
   const qualityPresetRef = useRef<VideoQualityPreset>(prefsRef.current.qualityPreset);
   const setupStartedRef = useRef(false);
   const preflightConfirmedRef = useRef(false);
-  const placeholderTracksRef = useRef<Map<string, MediaStreamTrack>>(new Map());
-
-  const getPlaceholderTrack = useCallback((feedId: string) => {
-    const cached = placeholderTracksRef.current.get(feedId);
-    if (cached && cached.readyState === 'live') return cached;
-
-    const canvas = document.createElement('canvas');
-    canvas.width = 2;
-    canvas.height = 2;
-    const ctx = canvas.getContext('2d');
-    ctx?.fillRect(0, 0, 2, 2);
-    const track = canvas.captureStream(1).getVideoTracks()[0];
-    track.enabled = false;
-    placeholderTracksRef.current.set(feedId, track);
-    return track;
-  }, []);
 
   const [iceReady, setIceReady] = useState(false);
   const [mediaReady, setMediaReady] = useState(false);
@@ -137,12 +122,9 @@ export function useVideoRoom({
       if (role === 'ut') {
         for (const feedId of UT_CAMERA_ORDER) {
           const stream = localStreamsRef.current.get(feedId);
-          const liveTrack = stream?.getVideoTracks().find((t) => t.readyState === 'live');
+          const liveTrack = stream?.getVideoTracks().find((t) => t.readyState === 'live' && t.enabled);
           if (liveTrack) {
             pc.addTrack(liveTrack, stream!);
-          } else {
-            const placeholder = getPlaceholderTrack(feedId);
-            pc.addTrack(placeholder, new MediaStream([placeholder]));
           }
         }
         const audioStream = localStreamsRef.current.get('ut-audio');
@@ -176,7 +158,7 @@ export function useVideoRoom({
         stream.getVideoTracks().forEach((track) => pc.addTrack(track, stream));
       });
     },
-    [getPlaceholderTrack, role],
+    [role],
   );
 
   const flushIceCandidates = useCallback(async (socketId: string) => {
@@ -205,7 +187,7 @@ export function useVideoRoom({
 
       const pc = new RTCPeerConnection({ iceServers: getIceServers() });
       pcsRef.current.set(remoteSocketId, pc);
-      remoteVideoCountRef.current.set(remoteSocketId, 0);
+      remoteTrackIdsRef.current.set(remoteSocketId, new Set());
 
       pc.onicecandidate = (event) => {
         const socket = socketRef.current;
@@ -226,13 +208,18 @@ export function useVideoRoom({
           return;
         }
 
-        if (!event.track.enabled) return;
+        if (!event.track.enabled || event.track.readyState !== 'live') return;
 
         if (role === 'mt' || role === 'observe') {
-          const index = remoteVideoCountRef.current.get(remoteSocketId) ?? 0;
-          const cameraId = UT_CAMERA_ORDER[index] ?? `cam-${index}`;
-          remoteVideoCountRef.current.set(remoteSocketId, index + 1);
+          const trackIds = remoteTrackIdsRef.current.get(remoteSocketId) ?? new Set<string>();
+          if (trackIds.has(event.track.id)) return;
+          trackIds.add(event.track.id);
+          remoteTrackIdsRef.current.set(remoteSocketId, trackIds);
+
           const mapped = socketToCamerasRef.current.get(remoteSocketId) ?? [];
+          const cameraId = UT_CAMERA_ORDER.find((id) => !mapped.includes(id));
+          if (!cameraId) return;
+
           mapped.push(cameraId);
           socketToCamerasRef.current.set(remoteSocketId, mapped);
           updateRemoteCamera(cameraId, stream);
@@ -256,7 +243,7 @@ export function useVideoRoom({
       void flushIceCandidates(remoteSocketId);
       return pc;
     },
-    [addLocalTracks, consultationId, flushIceCandidates, getPlaceholderTrack, role, socketRef, updateRemoteCamera],
+    [addLocalTracks, consultationId, flushIceCandidates, role, socketRef, updateRemoteCamera],
   );
 
   const makeOffer = useCallback(
@@ -283,7 +270,7 @@ export function useVideoRoom({
         ) {
           existing.close();
           pcsRef.current.delete(remoteSocketId);
-          remoteVideoCountRef.current.delete(remoteSocketId);
+          remoteTrackIdsRef.current.delete(remoteSocketId);
           socketToCamerasRef.current.delete(remoteSocketId);
         }
 
@@ -433,8 +420,9 @@ export function useVideoRoom({
         setAudioMissing(micMissing);
         const main = streams.get('main') ?? streams.values().next().value ?? null;
         const close = streams.get('close') ?? main;
+        const monitor = streams.get('equipment') ?? streams.get('room') ?? close;
         setLocalPreview(main);
-        setVitalsStream(close);
+        setVitalsStream(monitor);
         if (usedVirtual.length) {
           setVirtualCameraWarning(usedVirtual);
         }
@@ -581,7 +569,7 @@ export function useVideoRoom({
         pc.close();
         pcsRef.current.delete(data.socketId);
       }
-      remoteVideoCountRef.current.delete(data.socketId);
+      remoteTrackIdsRef.current.delete(data.socketId);
       makingOfferRef.current.delete(data.socketId);
       knownParticipantsRef.current.delete(data.socketId);
       pendingIceCandidatesRef.current.delete(data.socketId);
@@ -603,7 +591,7 @@ export function useVideoRoom({
     const onReconnect = () => {
       pcsRef.current.forEach((pc) => pc.close());
       pcsRef.current.clear();
-      remoteVideoCountRef.current.clear();
+      remoteTrackIdsRef.current.clear();
       socketToCamerasRef.current.clear();
       makingOfferRef.current.clear();
       pendingIceCandidatesRef.current.clear();
@@ -765,12 +753,13 @@ export function useVideoRoom({
     flushPendingOffers();
   }, [flushPendingOffers, setupLocalMedia]);
 
+  const uniqueRemoteStreams = role === 'ut' ? null : mapUniqueUtCameraStreams(remoteCameras);
   const utCameraStreams: CameraStreamView[] = UT_CAMERA_FEEDS.map((feed) => {
     const stream =
       role === 'ut'
         ? (localCameraFeeds[feed.id] ?? null)
-        : (remoteCameras[feed.id] ?? null);
-    const active = !!stream?.getVideoTracks().some((t) => t.readyState === 'live' && t.enabled);
+        : (uniqueRemoteStreams?.[feed.id] ?? null);
+    const active = isUtStreamLive(stream);
     return {
       id: feed.id,
       label: feed.label,

@@ -20,6 +20,7 @@ import {
 } from '@/lib/offline-sync';
 import { AuthLoadingScreen } from '@/components/auth/AuthLoadingScreen';
 import { UtIntakeSection, UtIntakeSubCard } from '@/components/ut/UtIntakeSection';
+import { UtIntakeVitalsPanel } from '@/components/ut/UtIntakeVitalsPanel';
 import { UtIntakeActiveHint } from '@/components/ut/UtSessionStatusBanner';
 import { UtShell } from '@/components/ut/UtShell';
 import { UtPatientSwitcher } from '@/components/ut/UtPatientSwitcher';
@@ -207,6 +208,8 @@ export default function UTClientPage() {
       consent: consentAccepted,
       complaints: clinicalData.complaints,
       vitals,
+      weight: clinicalData.weight,
+      height: clinicalData.height,
       allergies: clinicalData.allergies,
       hasAttachments: files.length > 0,
       pinfl: patientData.pinfl,
@@ -475,16 +478,12 @@ export default function UTClientPage() {
             accent="violet"
             className="ut-intake-vital"
           >
-            <div className="grid grid-cols-4 gap-x-1 gap-y-0.5 h-full content-start">
-              <FormField label="Vazn" dense><input type="number" className={IN} value={clinicalData.weight} onChange={(e) => setClinicalData({ ...clinicalData, weight: e.target.value })} placeholder="70" /></FormField>
-              <FormField label="Bo'y" dense><input type="number" className={IN} value={clinicalData.height} onChange={(e) => setClinicalData({ ...clinicalData, height: e.target.value })} placeholder="170" /></FormField>
-              <FormField label="Harorat" dense><input type="number" step="0.1" className={IN} value={vitals.temperature} onChange={(e) => setVitals({ ...vitals, temperature: e.target.value })} placeholder="36.6" /></FormField>
-              <FormField label="Puls" dense><input type="number" className={IN} value={vitals.heartRate} onChange={(e) => setVitals({ ...vitals, heartRate: e.target.value })} placeholder="72" /></FormField>
-              <FormField label="Q/B sys" dense><input type="number" className={IN} value={vitals.bloodPressureSystolic} onChange={(e) => setVitals({ ...vitals, bloodPressureSystolic: e.target.value })} placeholder="120" /></FormField>
-              <FormField label="Q/B dia" dense><input type="number" className={IN} value={vitals.bloodPressureDiastolic} onChange={(e) => setVitals({ ...vitals, bloodPressureDiastolic: e.target.value })} placeholder="80" /></FormField>
-              <FormField label="SpO2" dense><input type="number" className={IN} value={vitals.spo2} onChange={(e) => setVitals({ ...vitals, spo2: e.target.value })} placeholder="98" /></FormField>
-              <FormField label="Nafas" dense><input type="number" className={IN} value={vitals.respiratoryRate} onChange={(e) => setVitals({ ...vitals, respiratoryRate: e.target.value })} placeholder="16" /></FormField>
-            </div>
+            <UtIntakeVitalsPanel
+              weight={clinicalData.weight}
+              height={clinicalData.height}
+              onWeightChange={(value) => setClinicalData({ ...clinicalData, weight: value })}
+              onHeightChange={(value) => setClinicalData({ ...clinicalData, height: value })}
+            />
           </UtIntakeSection>
 
           <UtIntakeSection

@@ -10,8 +10,10 @@ interface CameraVitalsMonitorProps {
   consultationId: string;
   patientName?: string;
   initialVitals?: Record<string, number>;
-  /** Video panel bilan umumiy kamera oqimi (close feed) */
+  /** Patient monitor yoki umumiy kamera oqimi */
   sharedVideoStream?: MediaStream | null;
+  /** Monitor ekraniga qaratilgan kamera — qo'lda kiritish yo'q */
+  monitorMode?: boolean;
   compact?: boolean;
 }
 
@@ -20,6 +22,7 @@ export function CameraVitalsMonitor({
   patientName,
   initialVitals = {},
   sharedVideoStream,
+  monitorMode = false,
   compact = false,
 }: CameraVitalsMonitorProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -87,6 +90,7 @@ export function CameraVitalsMonitor({
   }, [sharedVideoStream]);
 
   const analyzeFrame = useCallback(() => {
+    if (monitorMode) return;
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas || video.readyState < 2) return;
@@ -113,7 +117,7 @@ export function CameraVitalsMonitor({
       };
     });
     setSignalQuality(result.confidence);
-  }, []);
+  }, [monitorMode]);
 
   useEffect(() => {
     if (!camOn) return;
@@ -145,7 +149,9 @@ export function CameraVitalsMonitor({
     <div className={cn('panel overflow-hidden h-full flex flex-col', compact && '!rounded-xl')}>
       <div className="panel-header !py-2 shrink-0">
         <Radio size={15} className={connected ? 'text-emerald-500' : 'text-slate-400'} />
-        <span className="panel-title !text-sm flex-1">Jonli vital</span>
+        <span className="panel-title !text-sm flex-1">
+          {monitorMode ? 'Patient monitor' : 'Jonli vital'}
+        </span>
         <span className={cn(
           'shrink-0 ml-auto text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide',
           connected ? 'live-badge !py-0.5' : 'bg-slate-100 text-slate-400',
@@ -169,11 +175,25 @@ export function CameraVitalsMonitor({
 
         {sharedVideoStream ? (
           <>
-            <video ref={videoRef} muted playsInline className="hidden" aria-hidden />
-            <p className="text-[10px] text-slate-500 bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5">
-              Vital tahlil o&apos;ngdagi <strong className="text-slate-700">Bemor yaqindan</strong> kameradan olinadi
-              {signalQuality > 0 && (
-                <span className="text-emerald-600 font-semibold ml-1">· {Math.round(signalQuality * 100)}%</span>
+            <div className="relative aspect-video bg-slate-950 rounded-lg overflow-hidden ring-1 ring-slate-800 max-h-36 shrink-0">
+              <video ref={videoRef} muted playsInline className="w-full h-full object-cover" />
+              <span className="absolute top-1.5 left-1.5 bg-black/60 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded">
+                {monitorMode ? 'Monitor kamerasi' : 'Kamera'}
+              </span>
+            </div>
+            <p className="text-[10px] text-slate-600 bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 leading-relaxed">
+              {monitorMode ? (
+                <>
+                  Vital ko&apos;rsatkichlar <strong className="text-slate-800">patient monitor</strong> ekranidan kamerada ko&apos;rinadi.
+                  Qo&apos;lda kiritish shart emas — shifokor ham jonli efirda ko&apos;radi.
+                </>
+              ) : (
+                <>
+                  Vital tahlil <strong className="text-slate-700">Bemor yaqindan</strong> kameradan olinadi
+                  {signalQuality > 0 && (
+                    <span className="text-emerald-600 font-semibold ml-1">· {Math.round(signalQuality * 100)}%</span>
+                  )}
+                </>
               )}
             </p>
           </>
@@ -216,21 +236,29 @@ export function CameraVitalsMonitor({
         )}
         <canvas ref={canvasRef} className="hidden" />
 
-        <div className="grid grid-cols-2 gap-2">
-          <VitalInput label="SpO2 (%)" value={reading.spo2} onChange={(v) => setReading((p) => ({ ...p, spo2: v, source: 'device' }))} compact={compact} placeholder="98" />
-          <VitalInput label="Harorat (°C)" value={reading.temperature} step={0.1} onChange={(v) => setReading((p) => ({ ...p, temperature: v, source: 'device' }))} compact={compact} placeholder="36.6" />
-          <VitalInput label="Qon bosimi (sys)" value={reading.bloodPressureSystolic} onChange={(v) => setReading((p) => ({ ...p, bloodPressureSystolic: v, source: 'device' }))} compact={compact} placeholder="120" />
-          <VitalInput label="Qon bosimi (dia)" value={reading.bloodPressureDiastolic} onChange={(v) => setReading((p) => ({ ...p, bloodPressureDiastolic: v, source: 'device' }))} compact={compact} placeholder="80" />
-        </div>
+        {!monitorMode && (
+          <div className="grid grid-cols-2 gap-2">
+            <VitalInput label="SpO2 (%)" value={reading.spo2} onChange={(v) => setReading((p) => ({ ...p, spo2: v, source: 'device' }))} compact={compact} placeholder="98" />
+            <VitalInput label="Harorat (°C)" value={reading.temperature} step={0.1} onChange={(v) => setReading((p) => ({ ...p, temperature: v, source: 'device' }))} compact={compact} placeholder="36.6" />
+            <VitalInput label="Qon bosimi (sys)" value={reading.bloodPressureSystolic} onChange={(v) => setReading((p) => ({ ...p, bloodPressureSystolic: v, source: 'device' }))} compact={compact} placeholder="120" />
+            <VitalInput label="Qon bosimi (dia)" value={reading.bloodPressureDiastolic} onChange={(v) => setReading((p) => ({ ...p, bloodPressureDiastolic: v, source: 'device' }))} compact={compact} placeholder="80" />
+          </div>
+        )}
 
         <div className={cn(
           'mt-auto grid grid-cols-3 gap-2 rounded-xl bg-gradient-to-br from-slate-900 to-slate-800 text-white ring-1 ring-slate-700/50',
           compact ? 'p-2.5' : 'p-3',
         )}>
-          <LiveStat icon={Heart} label="Puls" value={reading.heartRate} unit="bpm" color="text-red-400" live={!!reading.heartRate} compact={compact} />
-          <LiveStat icon={Activity} label="Nafas" value={reading.respiratoryRate} unit="/min" color="text-cyan-400" live={!!reading.respiratoryRate} compact={compact} />
-          <LiveStat icon={Activity} label="SpO2" value={reading.spo2} unit="%" color="text-sky-400" live={!!reading.spo2} compact={compact} />
+          <LiveStat icon={Heart} label="Puls" value={reading.heartRate} unit="bpm" color="text-red-400" live={!!reading.heartRate && !monitorMode} compact={compact} />
+          <LiveStat icon={Activity} label="Nafas" value={reading.respiratoryRate} unit="/min" color="text-cyan-400" live={!!reading.respiratoryRate && !monitorMode} compact={compact} />
+          <LiveStat icon={Activity} label="SpO2" value={reading.spo2} unit="%" color="text-sky-400" live={!!reading.spo2 && !monitorMode} compact={compact} />
         </div>
+
+        {monitorMode && (
+          <p className="text-[9px] text-slate-400 text-center leading-snug">
+            Puls, bosim, harorat — monitor ekranida. Avtomatik o&apos;qish keyingi bosqichda qo&apos;shiladi.
+          </p>
+        )}
 
         {!sharedVideoStream && !compact && (
           <button

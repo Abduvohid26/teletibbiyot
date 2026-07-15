@@ -20,6 +20,11 @@ export function UtConsultationSession({ consultation, patientName }: UtConsultat
   });
 
   const vitals = consultation.clinicalRecord?.vitalSigns || {};
+  const monitorStream =
+    video.localCameraFeeds?.equipment
+    ?? video.localCameraFeeds?.room
+    ?? video.vitalsStream
+    ?? null;
 
   return (
     <>
@@ -33,7 +38,8 @@ export function UtConsultationSession({ consultation, patientName }: UtConsultat
               consultationId={consultation.id}
               patientName={patientName ?? consultation.patient.fullName}
               initialVitals={vitals as Record<string, number>}
-              sharedVideoStream={video.vitalsStream}
+              sharedVideoStream={monitorStream}
+              monitorMode
               compact
             />
           </div>
