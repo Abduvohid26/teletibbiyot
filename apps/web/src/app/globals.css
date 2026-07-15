@@ -335,6 +335,80 @@ body {
     @apply flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden p-4 lg:p-6 pb-8 animate-fade-in;
   }
 
+  /* UT intake — bitta ekranda, scrollsiz */
+  .ut-intake-shell {
+    @apply h-dvh overflow-hidden flex flex-col bg-surface;
+  }
+
+  .ut-intake-main {
+    @apply flex-1 min-h-0 overflow-hidden px-1.5 py-1 lg:px-2 lg:py-1.5;
+  }
+
+  .ut-intake-grid {
+    display: grid;
+    height: 100%;
+    gap: 0.375rem;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) auto;
+  }
+
+  .ut-intake-shaxsiy {
+    grid-column: 1 / 4;
+    grid-row: 1 / 3;
+  }
+
+  .ut-intake-klinik {
+    grid-column: 4 / 9;
+    grid-row: 1 / 2;
+  }
+
+  .ut-intake-vital {
+    grid-column: 9 / 13;
+    grid-row: 1 / 2;
+  }
+
+  .ut-intake-tekshiruv {
+    grid-column: 4 / 13;
+    grid-row: 2 / 3;
+  }
+
+  .ut-intake-footer {
+    grid-column: 1 / 13;
+    grid-row: 3 / 4;
+  }
+
+  @media (max-width: 1023px) {
+    .ut-intake-grid {
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: repeat(4, minmax(0, 1fr)) auto;
+    }
+
+    .ut-intake-shaxsiy {
+      grid-column: 1 / 2;
+      grid-row: 1 / 3;
+    }
+
+    .ut-intake-klinik {
+      grid-column: 2 / 3;
+      grid-row: 1 / 2;
+    }
+
+    .ut-intake-vital {
+      grid-column: 2 / 3;
+      grid-row: 2 / 3;
+    }
+
+    .ut-intake-tekshiruv {
+      grid-column: 1 / 3;
+      grid-row: 3 / 4;
+    }
+
+    .ut-intake-footer {
+      grid-column: 1 / 3;
+      grid-row: 4 / 5;
+    }
+  }
+
   .card {
     @apply bg-white rounded-2xl border border-slate-200/80 shadow-card transition-shadow duration-200;
   }
