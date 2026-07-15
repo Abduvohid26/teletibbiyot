@@ -362,6 +362,26 @@ body {
     @apply flex items-center justify-between gap-2 mb-2 pb-2 border-b border-slate-200/60;
   }
 
+  .ut-settings-grid {
+    @apply flex-1 min-h-0 grid gap-2 overflow-hidden;
+    grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
+  }
+
+  .ut-settings-panel {
+    @apply panel overflow-hidden flex flex-col min-h-0 h-full;
+  }
+
+  .ut-settings-panel-body {
+    @apply panel-body flex-1 min-h-0 overflow-y-auto;
+  }
+
+  @media (max-width: 900px) {
+    .ut-settings-grid {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+  }
+
   .ut-pill {
     @apply inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full;
   }

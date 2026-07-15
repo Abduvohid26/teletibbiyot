@@ -89,21 +89,22 @@ export function MediaDevicePanel({ role = 'mt', compact, onPrefsChange }: MediaD
 
       <div>
         <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Video sifati</label>
-        <div className={cn('grid gap-2 mt-2', compact ? 'grid-cols-1' : 'grid-cols-3')}>
+        <div className={cn('grid gap-2 mt-2', compact ? 'grid-cols-3' : 'grid-cols-3')}>
           {(Object.keys(QUALITY_PROFILES) as VideoQualityPreset[]).map((key) => (
             <button
               key={key}
               type="button"
               onClick={() => updatePrefs({ qualityPreset: key })}
               className={cn(
-                'text-left rounded-xl border p-3 transition-all',
+                'text-left rounded-xl border transition-all',
+                compact ? 'p-2' : 'p-3',
                 prefs.qualityPreset === key
                   ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-200'
                   : 'border-slate-200 hover:border-slate-300 bg-white',
               )}
             >
-              <p className="text-sm font-semibold text-slate-800">{QUALITY_PROFILES[key].label}</p>
-              <p className="text-[11px] text-slate-500 mt-0.5">{QUALITY_PROFILES[key].description}</p>
+              <p className={cn('font-semibold text-slate-800', compact ? 'text-[11px]' : 'text-sm')}>{QUALITY_PROFILES[key].label}</p>
+              <p className={cn('text-slate-500 mt-0.5', compact ? 'text-[9px] leading-tight' : 'text-[11px]')}>{QUALITY_PROFILES[key].description}</p>
             </button>
           ))}
         </div>
@@ -158,7 +159,7 @@ export function MediaDevicePanel({ role = 'mt', compact, onPrefsChange }: MediaD
       </div>
 
       <div className="rounded-xl border border-slate-200 overflow-hidden bg-slate-950">
-        <div className="relative aspect-video max-h-48">
+        <div className={cn('relative aspect-video', compact ? 'max-h-28' : 'max-h-48')}>
           <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover mirror" />
           {!testStream && (
             <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-xs">
@@ -246,7 +247,7 @@ function Toggle({
 export function MediaSettingsLink({ className }: { className?: string }) {
   return (
     <Link
-      href="/dashboard/settings#video-audio"
+      href="/ut/settings#video-audio"
       className={cn('inline-flex items-center gap-1 text-xs text-brand-600 hover:underline font-medium', className)}
     >
       <Settings2 size={12} /> Video sozlamalari

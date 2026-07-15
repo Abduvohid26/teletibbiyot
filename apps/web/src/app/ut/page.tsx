@@ -31,9 +31,9 @@ import { getRoleHomePath } from '@/lib/auth-utils';
 import { validatePinfl, normalizePinfl } from '@/lib/pinfl';
 import { isValidUzPhone, normalizeUzPhone } from '@/lib/phone';
 
-const IN = 'form-input !py-1 !px-2 !text-xs !min-h-[1.875rem] leading-snug placeholder:text-slate-400 placeholder:font-normal';
-const TA = 'form-input !py-1 !px-2 !text-xs !min-h-0 !h-[2.375rem] resize-none leading-snug placeholder:text-slate-400 placeholder:font-normal';
-const TA_SM = 'form-input !py-1 !px-2 !text-xs !min-h-0 !h-8 resize-none leading-snug placeholder:text-slate-400 placeholder:font-normal';
+const IN = 'form-input !py-1 !px-2 !text-[13px] !min-h-[2.0625rem] leading-snug placeholder:text-slate-400 placeholder:font-normal';
+const TA = 'form-input !py-1 !px-2 !text-[13px] !min-h-0 !h-[2.6125rem] resize-none leading-snug placeholder:text-slate-400 placeholder:font-normal';
+const TA_SM = 'form-input !py-1 !px-2 !text-[13px] !min-h-0 !h-[2.2rem] resize-none leading-snug placeholder:text-slate-400 placeholder:font-normal';
 
 function emptyPatientData() {
   return {
@@ -369,7 +369,7 @@ export default function UTClientPage() {
       <div className="ut-page">
         <UtIntakeActiveHint sessionCount={sessions.length} liveCount={inProgressList.length} />
         {offlineNotice && (
-          <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-0.5 mb-1 truncate shrink-0">{offlineNotice}</p>
+          <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-0.5 mb-1 truncate shrink-0">{offlineNotice}</p>
         )}
 
         <div className="ut-intake-grid flex-1 min-h-0">
@@ -498,11 +498,11 @@ export default function UTClientPage() {
               <UtIntakeSubCard title="Diagnostika" icon={ScanLine} accent="teal" className="min-h-0 flex flex-col">
                 <label className="flex-1 border border-dashed border-slate-200 rounded-lg p-1.5 text-center text-slate-400 hover:border-teal-300 cursor-pointer flex flex-col items-center justify-center gap-0.5 min-h-[4.75rem]">
                   <Upload className="w-4 h-4 text-slate-300" />
-                  <span className="text-[10px] leading-tight">Fayl yuklash</span>
+                  <span className="text-[11px] leading-tight">Fayl yuklash</span>
                   <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.bmp,.tiff,.tif,.heic,.dcm,.dicom,image/*,application/pdf" className="hidden" onChange={handleFileSelect} />
                 </label>
                 {files.length > 0 && (
-                  <p className="text-[10px] text-teal-700 mt-0.5 truncate">{files.length} ta fayl tanlandi</p>
+                  <p className="text-[11px] text-teal-700 mt-0.5 truncate">{files.length} ta fayl tanlandi</p>
                 )}
               </UtIntakeSubCard>
 
@@ -521,10 +521,10 @@ export default function UTClientPage() {
           </UtIntakeSection>
 
           <div className="ut-intake-footer panel !rounded-lg px-2.5 py-1.5 flex items-center gap-2 min-h-0 overflow-hidden">
-            <p className="text-[9px] font-bold text-slate-500 uppercase shrink-0 hidden sm:block">Protokol</p>
+            <p className="text-[10px] font-bold text-slate-500 uppercase shrink-0 hidden sm:block">Protokol</p>
             <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-x-1.5 gap-y-0 min-w-0">
               {checklist.map((item) => (
-                <label key={item.id} className="flex items-center gap-1 text-[9px] text-slate-600 min-w-0">
+                <label key={item.id} className="flex items-center gap-1 text-[10px] text-slate-600 min-w-0">
                   <input
                     type="checkbox"
                     checked={item.checked}
@@ -546,15 +546,15 @@ export default function UTClientPage() {
                 onChange={(e) => setConsentAccepted(e.target.checked)}
                 className="rounded border-slate-300 text-brand-600 scale-90"
               />
-              <span className="text-[10px] text-slate-600 whitespace-nowrap">Rozilik</span>
+              <span className="text-[11px] text-slate-600 whitespace-nowrap">Rozilik</span>
             </label>
             <button
               type="button"
               onClick={handleSubmit}
               disabled={submitting || !consentAccepted}
-              className="gradient-btn !py-1.5 !px-3.5 !text-[11px] disabled:opacity-50 flex items-center gap-1 shrink-0 shadow-sm"
+              className="gradient-btn !py-1.5 !px-3.5 !text-[12px] disabled:opacity-50 flex items-center gap-1 shrink-0 shadow-sm"
             >
-              <Send size={13} />
+              <Send size={14} />
               {submitting ? '...' : 'Yuborish'}
             </button>
           </div>
@@ -593,7 +593,7 @@ function FormField({
         })
       : children;
 
-  const labelClass = dense ? 'label !text-[11px] !mb-0.5 !leading-snug' : 'label !text-xs !mb-1';
+  const labelClass = dense ? 'label !text-[12px] !mb-0.5 !leading-snug' : 'label !text-[13px] !mb-1';
 
   return (
     <div>

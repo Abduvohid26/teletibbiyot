@@ -140,6 +140,7 @@ const ROLE_PREFIXES: Record<string, string[]> = {
     '/ut',
     '/ut/patients',
     '/ut/vitals',
+    '/ut/settings',
     '/dashboard/appointments',
     '/dashboard/devices',
     '/dashboard/settings',

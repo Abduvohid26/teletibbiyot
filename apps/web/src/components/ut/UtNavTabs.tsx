@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Stethoscope, Users, Radio } from 'lucide-react';
+import { Stethoscope, Users, Radio, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const TABS = [
@@ -26,6 +26,12 @@ const TABS = [
     hint: 'Video va vital',
     icon: Radio,
     badgeKey: 'live' as const,
+  },
+  {
+    href: '/ut/settings',
+    label: 'Sozlamalar',
+    hint: 'Profil va video',
+    icon: Settings,
   },
 ] as const;
 
@@ -104,7 +110,7 @@ export function UtQuickNav({
   liveCount?: number;
 }) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full max-w-lg">
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full max-w-2xl">
       {TABS.map(({ href, label, hint, icon: Icon, ...rest }) => {
         const badge =
           'badgeKey' in rest && rest.badgeKey === 'patients' && sessionCount > 0
