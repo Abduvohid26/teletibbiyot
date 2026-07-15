@@ -34,10 +34,11 @@ export class AuthService {
     const isProd = this.config.get('NODE_ENV') === 'production';
     const staging = this.config.get('STAGING') === 'true';
     if (!isProd || staging) return false;
-    const roles = (this.config.get('MFA_REQUIRED_ROLES') || 'ADMIN,MT_DOCTOR')
+    const roles = (this.config.get('MFA_REQUIRED_ROLES') || '')
       .split(',')
       .map((r: string) => r.trim())
       .filter(Boolean);
+    if (!roles.length) return false;
     return roles.includes(role);
   }
 

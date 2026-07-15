@@ -9,12 +9,13 @@ try {
 const nextConfig = {
   transpilePackages: ['@ishifo/shared'],
   output: 'standalone',
+  outputFileTracingRoot: path.join(__dirname, '../../'),
   env: {
     NEXT_PUBLIC_E2E: process.env.E2E === 'true' ? 'true' : '',
     NEXT_PUBLIC_MFA_REQUIRED_ROLES:
       process.env.E2E === 'true'
         ? ''
-        : process.env.NEXT_PUBLIC_MFA_REQUIRED_ROLES || 'ADMIN,MT_DOCTOR',
+        : process.env.NEXT_PUBLIC_MFA_REQUIRED_ROLES || '',
   },
   async rewrites() {
     const isProd = process.env.NODE_ENV === 'production';

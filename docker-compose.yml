@@ -158,7 +158,10 @@ services:
       DATABASE_URL: ${DATABASE_URL_DOCKER}
       ALLOW_SEED: ${ALLOW_SEED}
       SEED_PASSWORD: ${SEED_PASSWORD}
-    command: npx ts-node prisma/seed.ts
+    command: >
+      sh -c "npx ts-node --transpile-only
+      --compiler-options '{\"module\":\"commonjs\"}'
+      prisma/seed.ts"
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -182,7 +185,10 @@ services:
       ADMIN_BOOTSTRAP_NAME: ${ADMIN_BOOTSTRAP_NAME}
       UT_FACILITY_CODES: ${UT_FACILITY_CODES}
       ALLOW_SEED: 'false'
-    command: npx ts-node prisma/bootstrap.ts
+    command: >
+      sh -c "npx ts-node --transpile-only
+      --compiler-options '{\"module\":\"commonjs\"}'
+      prisma/bootstrap.ts"
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -247,15 +253,18 @@ services:
       - '${WEB_PUBLISH}:3000'
     environment:
       NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: 3000
       INTERNAL_API_URL: ${INTERNAL_API_URL}
     depends_on:
       api:
         condition: service_healthy
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000']
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000']
       interval: 30s
       timeout: 10s
-      retries: 3
+      retries: 5
+      start_period: 60s
     restart: unless-stopped
     networks:
       - ishifo

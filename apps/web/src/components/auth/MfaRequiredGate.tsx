@@ -10,7 +10,7 @@ const MFA_EXEMPT_PATHS = ['/login', '/unauthorized', '/privacy', '/terms', '/ope
 function roleRequiresMfa(role: string): boolean {
   if (typeof window === 'undefined') return false;
   if (process.env.NEXT_PUBLIC_E2E === 'true') return false;
-  const raw = process.env.NEXT_PUBLIC_MFA_REQUIRED_ROLES || 'ADMIN,MT_DOCTOR';
+  const raw = process.env.NEXT_PUBLIC_MFA_REQUIRED_ROLES || '';
   const roles = raw.split(',').map((r) => r.trim()).filter(Boolean);
   if (!roles.length) return false;
   return roles.includes(role);
