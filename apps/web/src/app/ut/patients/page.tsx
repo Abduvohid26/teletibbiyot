@@ -16,7 +16,9 @@ export default function UtPatientsPage() {
     consultation,
     sessions,
     inProgressList,
+    error,
     switchToConsultation,
+    refreshSessions,
   } = useUtSessions(!!user && isUtRole(user?.role || ''));
 
   useEffect(() => {
@@ -34,11 +36,27 @@ export default function UtPatientsPage() {
 
   return (
     <UtShell sessionCount={sessions.length} liveCount={inProgressList.length}>
-      <div className="h-full max-w-6xl mx-auto p-3 sm:p-4 flex flex-col min-h-0">
-        <div className="shrink-0 mb-3">
-          <h1 className="text-base font-bold text-slate-900">Bemorlar</h1>
-          <p className="text-xs text-slate-500">Navbat va jonli efirdagi bemorlar ro&apos;yxati</p>
+      <div className="h-full w-full p-3 sm:p-4 flex flex-col min-h-0">
+        <div className="shrink-0 mb-3 flex items-start justify-between gap-2">
+          <div>
+            <h1 className="text-base font-bold text-slate-900">Bemorlar</h1>
+            <p className="text-xs text-slate-500">Navbat va jonli efirdagi bemorlar ro&apos;yxati</p>
+          </div>
+          {error && (
+            <button
+              type="button"
+              onClick={() => void refreshSessions()}
+              className="btn-secondary !text-xs !py-1 shrink-0"
+            >
+              Qayta yuklash
+            </button>
+          )}
         </div>
+        {error && (
+          <div className="shrink-0 mb-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            {error}
+          </div>
+        )}
         <UtPatientList
           sessions={sessions}
           activeId={consultation?.id}

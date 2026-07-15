@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api, Consultation } from '@/lib/api';
 import { UT_ACTIVE_CONSULTATION_KEY } from '@/lib/api/constants';
+import { fetchUtSessionConsultations } from '@/lib/ut-sessions-fetch';
 import { useConsultationRealtime } from '@/hooks/use-consultation-realtime';
 import { toast } from '@/lib/toast';
 
@@ -22,7 +23,9 @@ export function useUtSessions(enabled = true) {
   );
 
   const refreshSessions = useCallback(() => {
-    api.getUtSessionConsultations().then(setSessions).catch(() => setSessions([]));
+    return fetchUtSessionConsultations()
+      .then(setSessions)
+      .catch(() => setSessions([]));
   }, []);
 
   const load = useCallback((preferredId?: string) => {

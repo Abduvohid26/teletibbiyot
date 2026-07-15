@@ -60,7 +60,7 @@ export class ConsultationsController {
 
   @Get('queue')
   @SkipThrottle()
-  @Roles(...ROLES_MT_STAFF, ...ROLES_ADMIN)
+  @Roles(...ROLES_MT_STAFF, ...ROLES_ADMIN, ...ROLES_UT)
   @ApiOperation({ summary: 'Navbatdagi konsultatsiyalar' })
   getQueue(@Request() req: { user: AuthUser }) {
     return this.consultationsService.findQueue(req.user);

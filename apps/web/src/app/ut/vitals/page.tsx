@@ -61,7 +61,7 @@ export default function UtVitalsPage() {
         ) : null
       }
     >
-      <div className="h-full max-w-6xl mx-auto flex flex-col min-h-0 p-2 sm:p-3 gap-2">
+      <div className="h-full w-full flex flex-col min-h-0 p-2 sm:p-3 gap-2">
         {error && (
           <div className="shrink-0 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg px-3 py-2">{error}</div>
         )}
