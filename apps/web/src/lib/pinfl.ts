@@ -1,6 +1,10 @@
 /** O'zbekiston JSHSHIR (PINFL) — client validatsiya */
+export function normalizePinfl(pinfl: string): string {
+  return pinfl.replace(/\s/g, '');
+}
+
 export function validatePinfl(pinfl: string): { valid: boolean; error?: string } {
-  const cleaned = pinfl.replace(/\s/g, '');
+  const cleaned = normalizePinfl(pinfl);
   if (!cleaned) return { valid: true };
   if (!/^\d{14}$/.test(cleaned)) {
     return { valid: false, error: 'PINFL 14 ta raqamdan iborat bo\'lishi kerak' };

@@ -14,6 +14,8 @@ interface ConsultationSwitcherProps {
   onStart: (id: string) => void;
   /** header = shifokor header ichida dropdown */
   variant?: 'header' | 'inline';
+  /** UT: navbatdagi bemorni ko'rish (shifokor "Boshlash" emas) */
+  queuedActionLabel?: string;
 }
 
 function labelFor(c: Consultation) {
@@ -28,6 +30,7 @@ export function ConsultationSwitcher({
   onSelect,
   onStart,
   variant = 'header',
+  queuedActionLabel = 'Boshlash',
 }: ConsultationSwitcherProps) {
   const [open, setOpen] = useState(false);
   const [menuStyle, setMenuStyle] = useState<{ top: number; left: number; width: number } | null>(null);
@@ -36,11 +39,14 @@ export function ConsultationSwitcher({
 
   const active =
     myInProgress.find((c) => c.id === activeId)
+    ?? queued.find((c) => c.id === activeId)
     ?? myInProgress[0]
+    ?? queued[0]
     ?? null;
 
   const hasMenu = myInProgress.length > 0 || queued.length > 0;
-  const canSwitch = myInProgress.length > 1 || queued.length > 0;
+  const totalSessions = myInProgress.length + queued.length;
+  const canSwitch = totalSessions > 1;
 
   const summary = useMemo(() => {
     const parts: string[] = [];
@@ -168,7 +174,7 @@ export function ConsultationSwitcher({
                 >
                   <span className="font-medium truncate">{labelFor(c)}</span>
                   <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                    <Play size={10} /> Boshlash
+                    <Play size={10} /> {queuedActionLabel}
                   </span>
                 </button>
               ))}

@@ -175,6 +175,32 @@ export class DashboardService {
     return this.crypto.unprotectConsultations(rows);
   }
 
+  /** UT operator: navbatdagi va jonli barcha sessiyalar */
+  async getUtSessionConsultations(facilityId: string | null) {
+    if (!facilityId) return [];
+
+    const rows = await this.prisma.consultation.findMany({
+      where: {
+        utId: facilityId,
+        status: {
+          in: [ConsultationStatus.QUEUED, ConsultationStatus.IN_PROGRESS],
+        },
+      },
+      include: {
+        patient: true,
+        clinicalRecord: true,
+        utFacility: true,
+        mtDoctor: { select: { id: true, fullName: true } },
+      },
+      orderBy: [
+        { status: 'desc' },
+        { startedAt: 'desc' },
+        { createdAt: 'desc' },
+      ],
+    });
+    return this.crypto.unprotectConsultations(rows);
+  }
+
   async getInProgressConsultations(user: AuthUser) {
     const rows = await this.prisma.consultation.findMany({
       where: this.mergeScope(user, { status: ConsultationStatus.IN_PROGRESS }),

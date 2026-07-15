@@ -341,13 +341,13 @@ body {
   }
 
   .ut-intake-main {
-    @apply flex-1 min-h-0 overflow-hidden px-2.5 py-2 lg:px-3;
+    @apply flex-1 min-h-0 overflow-hidden px-2 py-1.5 lg:px-2.5;
   }
 
   .ut-intake-grid {
     display: grid;
     height: 100%;
-    gap: 0.625rem;
+    gap: 0.5rem;
     grid-template-columns: repeat(12, minmax(0, 1fr));
     grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) auto;
   }

@@ -9,6 +9,7 @@ import {
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { api } from '@/lib/api';
+import { UT_ACTIVE_CONSULTATION_KEY } from '@/lib/api/constants';
 import { buildDefaultChecklist, autoCheckFromForm, isChecklistComplete } from '@/lib/clinical-checklist';
 import {
   flushOfflineQueue,
@@ -19,16 +20,17 @@ import {
 } from '@/lib/offline-sync';
 import { AuthLoadingScreen } from '@/components/auth/AuthLoadingScreen';
 import { UtIntakeSection, UtIntakeSubCard } from '@/components/ut/UtIntakeSection';
+import { UtIntakeActiveHint } from '@/components/ut/UtSessionStatusBanner';
 import { useConsultationRealtime } from '@/hooks/use-consultation-realtime';
 import { toast } from '@/lib/toast';
 import { isUtRole, type ChecklistItem } from '@ishifo/shared';
 import { getRoleHomePath } from '@/lib/auth-utils';
-import { validatePinfl } from '@/lib/pinfl';
+import { validatePinfl, normalizePinfl } from '@/lib/pinfl';
 import { isValidUzPhone, normalizeUzPhone } from '@/lib/phone';
 
-const IN = 'form-input !py-1.5 !px-2.5 !text-sm !min-h-[2.125rem] leading-snug';
-const TA = 'form-input !py-1.5 !px-2.5 !text-sm !min-h-0 !h-[2.75rem] resize-none leading-snug';
-const TA_SM = 'form-input !py-1 !px-2.5 !text-sm !min-h-0 !h-[2.35rem] resize-none leading-snug';
+const IN = 'form-input !py-1 !px-2 !text-xs !min-h-[1.875rem] leading-snug';
+const TA = 'form-input !py-1 !px-2 !text-xs !min-h-0 !h-[2.375rem] resize-none leading-snug';
+const TA_SM = 'form-input !py-1 !px-2 !text-xs !min-h-0 !h-8 resize-none leading-snug';
 
 function emptyPatientData() {
   return {
@@ -93,6 +95,21 @@ export default function UTClientPage() {
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [checklist, setChecklist] = useState<ChecklistItem[]>(buildDefaultChecklist());
   const [offlineNotice, setOfflineNotice] = useState('');
+  const [sessionCount, setSessionCount] = useState(0);
+  const [liveCount, setLiveCount] = useState(0);
+
+  useEffect(() => {
+    if (!user) return;
+    api.getUtSessionConsultations()
+      .then((list) => {
+        setSessionCount(list.length);
+        setLiveCount(list.filter((c) => c.status === 'IN_PROGRESS').length);
+      })
+      .catch(() => {
+        setSessionCount(0);
+        setLiveCount(0);
+      });
+  }, [user, success]);
 
   useEffect(() => {
     flushOfflineQueue(async (payload) => {
@@ -211,7 +228,7 @@ export default function UTClientPage() {
       district: patientData.district.trim(),
       phone: normalizeUzPhone(patientData.phone.trim()),
       ...(patientData.passportNumber.trim() && { passportNumber: patientData.passportNumber.trim() }),
-      ...(patientData.pinfl.trim() && { pinfl: patientData.pinfl.trim() }),
+      ...(patientData.pinfl.trim() && { pinfl: normalizePinfl(patientData.pinfl.trim()) }),
       ...(patientData.address.trim() && { address: patientData.address.trim() }),
       ...(patientData.emergencyContact.trim() && { emergencyContact: patientData.emergencyContact.trim() }),
     };
@@ -284,14 +301,13 @@ export default function UTClientPage() {
 
       setCreatedConsultationId(consultation.id);
       if (typeof window !== 'undefined') {
-        sessionStorage.setItem('ishifo_ut_active_consultation', consultation.id);
+        sessionStorage.setItem(UT_ACTIVE_CONSULTATION_KEY, consultation.id);
       }
       setUploadedFileCount(files.length);
-      setSuccess(true);
       setFiles([]);
       setConsentAccepted(false);
-      toast('Bemor markazga yuborildi', 'success');
-      setTimeout(() => router.push('/ut/vitals'), 2500);
+      toast('Bemor navbatga qo\'shildi — jonli efir sahifasiga o\'tilmoqda', 'success');
+      router.push('/ut/vitals?submitted=1');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Xatolik yuz berdi';
       toast(message, 'error');
@@ -327,7 +343,7 @@ export default function UTClientPage() {
               <Activity size={16} /> Jonli video va vital
             </Link>
             <button type="button" onClick={resetForm} className="btn-secondary px-8">
-              Yangi bemor qabul qilish
+              Yana bemor qo&apos;shish
             </button>
           </div>
         </div>
@@ -337,41 +353,41 @@ export default function UTClientPage() {
 
   return (
     <div className="ut-intake-shell">
-      <header className="shrink-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-3 lg:px-4 py-2">
-        <div className="flex items-center gap-3 justify-between min-h-[2.75rem]">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-9 h-9 rounded-lg gradient-btn flex items-center justify-center shrink-0">
+      <header className="shrink-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-2.5 lg:px-3 py-1.5">
+        <div className="flex items-center gap-2.5 justify-between min-h-[2.375rem]">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-8 h-8 rounded-lg gradient-btn flex items-center justify-center shrink-0">
               <Stethoscope className="w-4 h-4 text-white" />
             </div>
             <div className="min-w-0 leading-tight">
-              <h1 className="font-bold text-slate-900 text-base truncate">
+              <h1 className="font-bold text-slate-900 text-sm truncate">
                 Yangi klinik holat
               </h1>
-              <p className="text-xs text-slate-500 truncate">{user?.facility?.name}</p>
+              <p className="text-[11px] text-slate-500 truncate">{user?.facility?.name}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <label className="hidden md:flex items-center gap-2 cursor-pointer max-w-[180px] lg:max-w-[220px]">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <label className="hidden md:flex items-center gap-1.5 cursor-pointer max-w-[160px] lg:max-w-[200px]">
               <input
                 type="checkbox"
                 checked={consentAccepted}
                 onChange={(e) => setConsentAccepted(e.target.checked)}
-                className="rounded border-slate-300 text-brand-600 shrink-0"
+                className="rounded border-slate-300 text-brand-600 shrink-0 scale-90"
               />
-              <span className="text-xs text-slate-600 leading-tight truncate">Rozilik berildi</span>
+              <span className="text-[11px] text-slate-600 leading-tight truncate">Rozilik berildi</span>
             </label>
             <button
               type="button"
               onClick={handleSubmit}
               disabled={submitting || !consentAccepted}
-              className="gradient-btn !py-2 !px-4 !text-sm disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+              className="gradient-btn !py-1.5 !px-3.5 !text-xs disabled:opacity-50 flex items-center gap-1 shrink-0"
             >
-              <Send size={15} />
+              <Send size={14} />
               {submitting ? '...' : 'Tahlilni boshlash'}
             </button>
-            <Link href="/ut/vitals" className="btn-secondary !py-1 !px-2 !text-[10px] hidden sm:inline-flex">
-              <Activity size={12} />
+            <Link href="/ut/vitals" className="btn-secondary !py-1.5 !px-2.5 !text-xs inline-flex items-center gap-1">
+              <Activity size={13} /> Jonli efir
             </Link>
             <button type="button" onClick={logout} className="btn-ghost !p-1.5 text-red-500" aria-label="Chiqish">
               <LogOut size={14} />
@@ -381,6 +397,7 @@ export default function UTClientPage() {
       </header>
 
       <main className="ut-intake-main">
+        <UtIntakeActiveHint sessionCount={sessionCount} liveCount={liveCount} />
         {offlineNotice && (
           <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-0.5 mb-1 truncate">{offlineNotice}</p>
         )}
@@ -393,7 +410,7 @@ export default function UTClientPage() {
             accent="blue"
             className="ut-intake-shaxsiy"
           >
-            <div className="grid grid-cols-2 gap-x-2 gap-y-1 h-full content-start">
+            <div className="grid grid-cols-2 gap-x-1.5 gap-y-0.5 h-full content-start">
               <div className="col-span-2">
                 <FormField label="F.I.Sh." required dense>
                   <input className={IN} value={patientData.fullName} onChange={(e) => setPatientData({ ...patientData, fullName: e.target.value })} />
@@ -403,7 +420,15 @@ export default function UTClientPage() {
                 <input className={IN} value={patientData.passportNumber} onChange={(e) => setPatientData({ ...patientData, passportNumber: e.target.value })} />
               </FormField>
               <FormField label="PINFL" dense>
-                <input className={IN} value={patientData.pinfl} onChange={(e) => setPatientData({ ...patientData, pinfl: e.target.value })} />
+                <input
+                  className={IN}
+                  value={patientData.pinfl}
+                  onChange={(e) => setPatientData({ ...patientData, pinfl: e.target.value })}
+                  onBlur={(e) => setPatientData((p) => ({ ...p, pinfl: normalizePinfl(e.target.value) }))}
+                  placeholder="3030 1010 1000 05"
+                  inputMode="numeric"
+                  maxLength={17}
+                />
               </FormField>
               <FormField label="Tug'ilgan sana" required dense>
                 <input type="date" className={IN} value={patientData.birthDate} onChange={(e) => setPatientData({ ...patientData, birthDate: e.target.value })} />
@@ -452,7 +477,7 @@ export default function UTClientPage() {
             accent="purple"
             className="ut-intake-klinik"
           >
-            <div className="grid grid-cols-2 gap-x-2 gap-y-1 h-full content-start">
+            <div className="grid grid-cols-2 gap-x-1.5 gap-y-0.5 h-full content-start">
               <div className="col-span-2">
                 <FormField label="Shikoyatlar" required dense>
                   <textarea className={TA} value={clinicalData.complaints} onChange={(e) => setClinicalData({ ...clinicalData, complaints: e.target.value })} />
@@ -480,7 +505,7 @@ export default function UTClientPage() {
             accent="violet"
             className="ut-intake-vital"
           >
-            <div className="grid grid-cols-4 gap-x-1.5 gap-y-1 h-full content-start">
+            <div className="grid grid-cols-4 gap-x-1 gap-y-0.5 h-full content-start">
               <FormField label="Vazn" dense><input type="number" className={IN} value={clinicalData.weight} onChange={(e) => setClinicalData({ ...clinicalData, weight: e.target.value })} /></FormField>
               <FormField label="Bo'y" dense><input type="number" className={IN} value={clinicalData.height} onChange={(e) => setClinicalData({ ...clinicalData, height: e.target.value })} /></FormField>
               <FormField label="Harorat" dense><input type="number" step="0.1" className={IN} value={vitals.temperature} onChange={(e) => setVitals({ ...vitals, temperature: e.target.value })} /></FormField>
@@ -501,13 +526,13 @@ export default function UTClientPage() {
           >
             <div className="grid grid-cols-4 gap-1.5 h-full min-h-0">
               <UtIntakeSubCard title="Diagnostika" icon={ScanLine} accent="teal" className="min-h-0 flex flex-col">
-                <label className="flex-1 border border-dashed border-slate-200 rounded-lg p-2 text-center text-slate-400 hover:border-teal-300 cursor-pointer flex flex-col items-center justify-center gap-1 min-h-[5.5rem]">
-                  <Upload className="w-5 h-5 text-slate-300" />
-                  <span className="text-[11px] leading-tight">Fayl yuklash</span>
+                <label className="flex-1 border border-dashed border-slate-200 rounded-lg p-1.5 text-center text-slate-400 hover:border-teal-300 cursor-pointer flex flex-col items-center justify-center gap-0.5 min-h-[4.75rem]">
+                  <Upload className="w-4 h-4 text-slate-300" />
+                  <span className="text-[10px] leading-tight">Fayl yuklash</span>
                   <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.bmp,.tiff,.tif,.heic,.dcm,.dicom,image/*,application/pdf" className="hidden" onChange={handleFileSelect} />
                 </label>
                 {files.length > 0 && (
-                  <p className="text-[11px] text-teal-700 mt-1 truncate">{files.length} ta fayl tanlandi</p>
+                  <p className="text-[10px] text-teal-700 mt-0.5 truncate">{files.length} ta fayl tanlandi</p>
                 )}
               </UtIntakeSubCard>
 
@@ -525,11 +550,11 @@ export default function UTClientPage() {
             </div>
           </UtIntakeSection>
 
-          <div className="ut-intake-footer panel !rounded-lg px-3 py-2 flex items-center gap-2 min-h-0 overflow-hidden">
-            <p className="text-[10px] font-bold text-slate-500 uppercase shrink-0 hidden sm:block">Protokol</p>
-            <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-x-2 gap-y-0.5 min-w-0">
+          <div className="ut-intake-footer panel !rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 min-h-0 overflow-hidden">
+            <p className="text-[9px] font-bold text-slate-500 uppercase shrink-0 hidden sm:block">Protokol</p>
+            <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-x-1.5 gap-y-0 min-w-0">
               {checklist.map((item) => (
-                <label key={item.id} className="flex items-center gap-1 text-[10px] text-slate-600 min-w-0">
+                <label key={item.id} className="flex items-center gap-1 text-[9px] text-slate-600 min-w-0">
                   <input
                     type="checkbox"
                     checked={item.checked}
@@ -584,7 +609,7 @@ function FormField({
         })
       : children;
 
-  const labelClass = dense ? 'label !text-xs !mb-0.5 !leading-snug' : 'label !text-sm !mb-1';
+  const labelClass = dense ? 'label !text-[11px] !mb-0.5 !leading-snug' : 'label !text-xs !mb-1';
 
   return (
     <div>
