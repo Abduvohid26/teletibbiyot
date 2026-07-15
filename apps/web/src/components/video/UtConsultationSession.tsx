@@ -20,9 +20,10 @@ export function UtConsultationSession({ consultation, patientName }: UtConsultat
   });
 
   const vitals = consultation.clinicalRecord?.vitalSigns || {};
+  const streamFor = (id: string) => video.utCameraStreams.find((c) => c.id === id)?.stream ?? null;
   const monitorStream =
-    video.localCameraFeeds?.equipment
-    ?? video.localCameraFeeds?.room
+    streamFor('equipment')
+    ?? streamFor('room')
     ?? video.vitalsStream
     ?? null;
 
