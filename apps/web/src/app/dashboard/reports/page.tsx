@@ -25,13 +25,15 @@ import {
   Activity, Users, CheckCircle2, Clock, Brain, AlertTriangle,
   TrendingUp, Building2, Timer, Target,
 } from 'lucide-react';
-import { ROLES_MT_DASHBOARD } from '@/lib/roles';
-import { isMtStaff } from '@ishifo/shared';
+import { ROLES_MT_DASHBOARD, ROLES_UT } from '@/lib/roles';
+import { isMtStaff, isUtRole, UserRole } from '@ishifo/shared';
 import { useFilterOptions } from '@/hooks/use-filter-options';
 import { safeAsync } from '@/lib/errors';
+import { UtShell, UtPageHead } from '@/components/ut/UtShell';
+import { cn } from '@/lib/utils';
 
 export default function ReportsPage() {
-  const { user, loading: authLoading } = useRequireAuth([...ROLES_MT_DASHBOARD]);
+  const { user, loading: authLoading } = useRequireAuth([...ROLES_MT_DASHBOARD, ...ROLES_UT]);
   const [filters, setFilters] = useState<AnalyticsFilters>({ period: '30d' });
   const [options, setOptions] = useState<FilterOptions | null>(null);
   const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
@@ -57,8 +59,11 @@ export default function ReportsPage() {
   }, [authLoading, user]);
 
   const load = useCallback(async () => {
+    if (!user) return;
     setLoading(true);
     setError('');
+    const canViewAiAgreement =
+      user.role === UserRole.MT_MANAGER || user.role === UserRole.ADMIN;
     try {
       const [ov, tr, tri, fac, diag, ai, agreement] = await Promise.all([
         api.getAnalyticsOverview(filters),
@@ -67,7 +72,9 @@ export default function ReportsPage() {
         api.getAnalyticsFacilities(filters),
         api.getAnalyticsDiagnoses(filters),
         api.getAnalyticsAiInsights(filters),
-        api.getAnalyticsAiAgreementByDoctor(filters),
+        canViewAiAgreement
+          ? api.getAnalyticsAiAgreementByDoctor(filters)
+          : Promise.resolve([] as DoctorAiAgreement[]),
       ]);
       setOverview(ov);
       setTrends(tr);
@@ -81,7 +88,7 @@ export default function ReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters, user]);
 
   useEffect(() => {
     if (!authLoading && user) load();
@@ -96,18 +103,29 @@ export default function ReportsPage() {
 
   if (authLoading || !user) return null;
 
+  const isUt = isUtRole(user.role);
   const facilityOptions = [
     { value: '', label: 'Barcha UT' },
     ...(options?.facilities.map((f) => ({ value: f.id, label: `${f.code} — ${f.district || f.name}` })) ?? []),
+  ];
+  const filterFields = [
+    { key: 'period', label: 'Davr', type: 'select' as const, value: filters.period || '30d', options: PERIOD_OPTIONS },
+    ...(!isUt
+      ? [{
+          key: 'utId',
+          label: 'UT',
+          type: 'select' as const,
+          value: filters.utId || '',
+          options: facilityOptions,
+          className: 'min-w-[180px]',
+        }]
+      : []),
   ];
 
   const pageBody = (
     <div className="space-y-5">
         <SmartFilterBar
-          fields={[
-            { key: 'period', label: 'Davr', type: 'select', value: filters.period || '30d', options: PERIOD_OPTIONS },
-            { key: 'utId', label: 'UT', type: 'select', value: filters.utId || '', options: facilityOptions, className: 'min-w-[180px]' },
-          ]}
+          fields={filterFields}
           onChange={setFilter}
           onReset={resetFilters}
           activeCount={activeCount}
@@ -133,7 +151,9 @@ export default function ReportsPage() {
               <MetricCard icon={Brain} label="AI tahlillar" value={overview.withAiAnalysis} color="violet" />
               <MetricCard icon={Target} label="Yakuniy tashxis" value={overview.withFinalDiagnosis} color="indigo" />
               <MetricCard icon={Timer} label="O'rtacha davomiylik" value={overview.avgDurationMinutes ?? '—'} suffix={overview.avgDurationMinutes ? 'min' : ''} color="slate" />
-              <MetricCard icon={TrendingUp} label="Shifokorlar" value={overview.totalDoctors} color="brand" />
+              {!isUt && (
+                <MetricCard icon={TrendingUp} label="Shifokorlar" value={overview.totalDoctors} color="brand" />
+              )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-slide-up">
@@ -153,20 +173,22 @@ export default function ReportsPage() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-slide-up">
-              <div className="panel p-5">
-                <h3 className="panel-title mb-4 flex items-center gap-2">
-                  <Building2 size={16} className="text-brand-600" /> UT bo&apos;yicha statistika
-                </h3>
-                <BarChart
-                  data={facilities.map((f) => ({
-                    label: `${f.code} (${f.district || f.name})`,
-                    value: f.consultations,
-                    color: 'bg-brand-500',
-                  }))}
-                />
-              </div>
+              {!isUt && (
+                <div className="panel p-5">
+                  <h3 className="panel-title mb-4 flex items-center gap-2">
+                    <Building2 size={16} className="text-brand-600" /> UT bo&apos;yicha statistika
+                  </h3>
+                  <BarChart
+                    data={facilities.map((f) => ({
+                      label: `${f.code} (${f.district || f.name})`,
+                      value: f.consultations,
+                      color: 'bg-brand-500',
+                    }))}
+                  />
+                </div>
+              )}
 
-              <div className="panel p-5">
+              <div className={cn('panel p-5', isUt && 'lg:col-span-2')}>
                 <h3 className="panel-title mb-4 flex items-center gap-2">
                   <Brain size={16} className="text-violet-600" /> Top AI tashxislar
                 </h3>
@@ -255,6 +277,17 @@ export default function ReportsPage() {
         )}
       </div>
   );
+
+  if (isUt) {
+    return (
+      <UtShell>
+        <div className="ut-page overflow-y-auto">
+          <UtPageHead title="Analitika" subtitle="UT bo'yicha statistika va hisobotlar" />
+          {pageBody}
+        </div>
+      </UtShell>
+    );
+  }
 
   if (isMtStaff(user.role)) {
     return <DoctorShell scrollable>{pageBody}</DoctorShell>;

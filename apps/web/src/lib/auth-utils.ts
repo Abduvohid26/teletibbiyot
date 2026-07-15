@@ -147,6 +147,7 @@ const ROLE_PREFIXES: Record<string, string[]> = {
     '/dashboard/messages',
     '/dashboard/dicom',
     '/dashboard/incidents',
+    '/dashboard/reports',
   ],
   [UserRole.MT_DOCTOR]: [
     '/dashboard',
@@ -194,7 +195,7 @@ export function canAccessRoute(role: string, href: string): boolean {
   }
   if (canAccessMtDashboard(role)) return true;
   if (isUtRole(role)) {
-    return ['/dashboard/appointments', '/dashboard/devices', '/dashboard/settings', '/dashboard/messages', '/dashboard/dicom', '/dashboard/incidents'].some(
+    return ['/dashboard/appointments', '/dashboard/devices', '/dashboard/settings', '/dashboard/messages', '/dashboard/dicom', '/dashboard/incidents', '/dashboard/reports'].some(
       (p) => href === p || href.startsWith(`${p}/`),
     );
   }

@@ -38,6 +38,7 @@ const utMenuItems = [
   { href: '/dashboard/devices', icon: Monitor, label: 'Qurilmalar' },
   { href: '/dashboard/dicom', icon: Scan, label: 'DICOM' },
   { href: '/dashboard/messages', icon: Bell, label: 'Xabarlar' },
+  { href: '/dashboard/reports', icon: BarChart3, label: 'Analitika' },
   { href: '/dashboard/incidents', icon: AlertTriangle, label: 'Incident' },
   { href: '/dashboard/settings', icon: Settings, label: 'Sozlamalar' },
 ];
