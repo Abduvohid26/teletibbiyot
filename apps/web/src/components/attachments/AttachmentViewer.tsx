@@ -138,7 +138,7 @@ export function AiStatusBadge({ status, mock }: { status?: string; mock?: boolea
   const labels: Record<string, string> = {
     PENDING: 'Kutilmoqda',
     PROCESSING: 'AI tahlil...',
-    DONE: mock ? 'AI mock tahlil' : 'AI tahlil ✓',
+    DONE: mock ? 'AI tahlil yo\'q' : 'AI tahlil ✓',
     FAILED: 'Xatolik',
     SKIPPED: 'O\'tkazildi',
   };

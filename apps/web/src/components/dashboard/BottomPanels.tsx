@@ -13,6 +13,7 @@ import {
 interface BottomPanelsProps {
   queue: Consultation[];
   consultationId?: string;
+  consultationStartedAt?: string | null;
   aiSteps?: AiAnalysisStep[];
   aiAnalysis?: { diagnoses: Array<{ name: string; icd10Code: string }>; triageLevel: string };
   devices?: DeviceStatus[];
@@ -65,7 +66,7 @@ export function ConsultationQueue({
   canStartConsultation?: boolean;
   compact?: boolean;
 }) {
-  const queued = queue.filter((c) => c.status === 'QUEUED' || c.status === 'IN_PROGRESS');
+  const queued = queue.filter((c) => c.status === 'QUEUED');
 
   return (
     <PanelShell icon={ListOrdered} title="Navbat" iconColor="text-brand-600" compact={compact}>
@@ -232,16 +233,29 @@ export function DeviceStatusPanel({ devices, compact }: { devices?: DeviceStatus
   );
 }
 
-function SessionStatusPanel({ compact, hasConsultation }: { compact?: boolean; hasConsultation?: boolean }) {
+function SessionStatusPanel({
+  compact,
+  hasConsultation,
+  startedAt,
+}: {
+  compact?: boolean;
+  hasConsultation?: boolean;
+  startedAt?: string | null;
+}) {
   return (
     <PanelShell icon={Clock} title="Sessiya" iconColor="text-sky-600" compact={compact}>
       <div className="space-y-1.5">
         <div className="glass-preview-card !p-2 flex items-center justify-between">
-          <span className="text-[10px] text-slate-500">Vaqt</span>
-          <ClientDateText
-            className="text-xs font-bold text-slate-800"
-            format={{ hour: '2-digit', minute: '2-digit' }}
-          />
+          <span className="text-[10px] text-slate-500">Boshlangan</span>
+          {startedAt ? (
+            <ClientDateText
+              value={startedAt}
+              className="text-xs font-bold text-slate-800"
+              format={{ hour: '2-digit', minute: '2-digit' }}
+            />
+          ) : (
+            <span className="text-xs font-bold text-slate-400">—</span>
+          )}
         </div>
         <div className="glass-preview-card !p-2 flex items-center justify-between">
           <span className="text-[10px] text-slate-500">Holat</span>
@@ -294,6 +308,7 @@ export function QuickActions({ onAction, compact }: { onAction?: (action: string
 export function BottomPanels({
   queue,
   consultationId,
+  consultationStartedAt,
   aiSteps,
   aiAnalysis,
   devices,
@@ -323,7 +338,7 @@ export function BottomPanels({
         />
         <AiReportSummary analysis={aiAnalysis} compact={compact} />
         <DeviceStatusPanel devices={devices} compact={compact} />
-        <SessionStatusPanel compact={compact} hasConsultation={!!consultationId} />
+        <SessionStatusPanel compact={compact} hasConsultation={!!consultationId} startedAt={consultationStartedAt} />
         <div className="min-h-0 overflow-hidden col-span-2">
           <PanelShell icon={MessageSquare} title="Chat arxiv" iconColor="text-violet-500" compact={compact}>
             <ChatTranscript consultationId={consultationId} compact={compact} />

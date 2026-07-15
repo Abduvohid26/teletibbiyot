@@ -193,6 +193,12 @@ export class ConsultationsService {
       this.logger.error('AI tahlil xatoligi', err instanceof Error ? err.stack : err);
     });
 
+    this.videoGateway.emitConsultationEvent(consultation.id, 'consultation-queued', {
+      patientName: consultation.patient.fullName,
+      utCode: consultation.utFacility.code,
+      utId: consultation.utId,
+    });
+
     const doctors = await this.prisma.user.findMany({
       where: { role: { in: MT_NOTIFY_ROLES }, isActive: true },
       select: { id: true, email: true },

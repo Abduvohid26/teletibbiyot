@@ -31,10 +31,14 @@ export default function TriagePage() {
   );
 
   useConsultationRealtime(realtimeIds, {
+    onConsultationQueued: () => load(),
     onConsultationStarted: () => load(),
     onConsultationCompleted: () => load(),
     onAttachmentUploaded: () => load(),
-  });
+    onAiUpdated: () => load(),
+    onTriageUpdated: () => load(),
+    onPriorityUpdated: () => load(),
+  }, { staffFeed: true });
 
   useEffect(() => {
     if (loading || !user) return;

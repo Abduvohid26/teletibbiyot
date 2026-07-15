@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { Heart, Activity, Thermometer, Droplets, User, MapPin, Phone, CreditCard, Radio } from 'lucide-react';
 import { Patient, ClinicalRecord } from '@/lib/api';
 import { calculateAge, formatGender, cn } from '@/lib/utils';
@@ -14,33 +13,8 @@ interface PatientInfoProps {
   compact?: boolean;
 }
 
-function LiveEkgWaveform({ waveform, isLive }: { waveform?: number[]; isLive?: boolean }) {
-  const [points, setPoints] = useState<number[]>([]);
-
-  useEffect(() => {
-    if (waveform?.length) {
-      setPoints(waveform);
-      return;
-    }
-    if (!isLive) {
-      setPoints([]);
-      return;
-    }
-    const generate = () => {
-      const pts: number[] = [];
-      for (let i = 0; i < 100; i += 1) {
-        const base = Math.sin(i * 0.3) * 10;
-        const spike = i % 25 === 12 ? -30 : i % 25 === 13 ? 40 : 0;
-        pts.push(50 + base + spike);
-      }
-      setPoints(pts);
-    };
-    generate();
-    const interval = setInterval(generate, 2000);
-    return () => clearInterval(interval);
-  }, [waveform, isLive]);
-
-  if (!points.length) {
+function LiveEkgWaveform({ waveform }: { waveform?: number[] }) {
+  if (!waveform?.length) {
     return (
       <div className="w-full h-14 flex items-center justify-center text-[10px] text-slate-400 bg-slate-50 rounded-lg">
         EKG ma&apos;lumoti kutilmoqda
@@ -48,7 +22,7 @@ function LiveEkgWaveform({ waveform, isLive }: { waveform?: number[]; isLive?: b
     );
   }
 
-  const pathD = points.map((y, i) => `${i === 0 ? 'M' : 'L'}${i * 3},${y}`).join(' ');
+  const pathD = waveform.map((y, i) => `${i === 0 ? 'M' : 'L'}${i * 3},${y}`).join(' ');
 
   return (
     <svg viewBox="0 0 300 60" className="w-full h-14">
@@ -174,9 +148,9 @@ export function PatientInfo({ patient, clinicalRecord, consultationId, compact }
           {!compact && (
           <div className="rounded-xl bg-slate-900 p-3 mb-3 overflow-hidden">
             <p className="text-[10px] text-emerald-400/80 mb-1 font-medium uppercase tracking-wider">
-              EKG · {isLive ? 'Kamera (jonli)' : 'Simulyatsiya'}
+              EKG · {liveVitals?.ekgWaveform?.length ? 'Jonli' : 'Kutilmoqda'}
             </p>
-            <LiveEkgWaveform waveform={liveVitals?.ekgWaveform} isLive={isLive} />
+            <LiveEkgWaveform waveform={liveVitals?.ekgWaveform} />
           </div>
           )}
 

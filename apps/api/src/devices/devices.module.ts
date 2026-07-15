@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
 import { DevicesService } from './devices.service';
 import { DevicesController } from './devices.controller';
+import { VideoModule } from '../video/video.module';
 
 @Module({
+  imports: [VideoModule],
   controllers: [DevicesController],
   providers: [DevicesService],
   exports: [DevicesService],

@@ -585,6 +585,14 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.logger.debug(`WS event ${event} → ${roomId}`);
   }
 
+  /** Muassasa qurilmalari holati o'zgarganda real-time signal */
+  emitFacilityEvent(facilityId: string, event: string, payload: Record<string, unknown>) {
+    const data = { facilityId, ...payload };
+    this.server.to(VideoGateway.staffFeedUtRoom(facilityId)).emit(event, data);
+    this.server.to(VideoGateway.STAFF_FEED_MT_GLOBAL).emit(event, data);
+    this.logger.debug(`WS facility event ${event} → ${facilityId}`);
+  }
+
   @SubscribeMessage('join-rooms')
   async handleJoinRooms(
     @ConnectedSocket() client: Socket,

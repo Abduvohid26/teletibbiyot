@@ -171,13 +171,14 @@ export class StartupValidationService implements OnModuleInit {
       });
     }
 
-    const deviceMode = this.config.get('DEVICE_MODE') || 'simulator';
-    if (isProd && deviceMode === 'simulator') {
+    const deviceMode = this.config.get('DEVICE_MODE') || 'real';
+    const gatewayUrl = this.config.get('DEVICE_GATEWAY_URL');
+    if (isProd && deviceMode === 'real' && !gatewayUrl) {
       checks.push({
-        name: 'DEVICE_MODE',
+        name: 'DEVICE_GATEWAY_URL',
         ok: true,
         severity: 'warn',
-        message: 'DEVICE_MODE=simulator — haqiqiy qurilmalar ulanmagan (pilot uchun OK)',
+        message: 'DEVICE_GATEWAY_URL bo\'sh — qurilmalar faqat UT/manual yangilanish orqali',
       });
     }
 

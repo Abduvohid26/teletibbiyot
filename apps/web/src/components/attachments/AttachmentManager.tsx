@@ -208,7 +208,7 @@ export function AttachmentManager({
               size={a.fileSize}
               isImage={isImageFile(a.fileName, a.fileType)}
               status={a.aiAnalysisStatus}
-              mockAi={a.aiFindings?.source === 'mock'}
+              mockAi={a.aiFindings?.source === 'mock' || a.aiFindings?.source === 'unavailable'}
               onView={() => setViewer({ attachment: a })}
               onDownload={() => handleDownload(a)}
             />

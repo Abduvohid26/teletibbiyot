@@ -114,6 +114,7 @@ export function ObserverDashboardView({
             <BottomPanels
               queue={queue}
               consultationId={consultation?.id}
+              consultationStartedAt={consultation?.startedAt}
               aiSteps={consultation?.aiAnalysisSteps}
               aiAnalysis={consultation?.aiAnalysis}
               devices={devices}

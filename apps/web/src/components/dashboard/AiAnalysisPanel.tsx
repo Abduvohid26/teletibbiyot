@@ -99,7 +99,7 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
     );
   }
 
-  const { isMock, isUnavailable } = getAiAnalysisMeta(analysis);
+  const { isUnavailable } = getAiAnalysisMeta(analysis);
 
   const topDiagnosis = analysis.diagnoses[0];
   const triage = formatTriage(analysis.triageLevel);
@@ -135,12 +135,10 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
         </div>
         )}
 
-        {(isMock || isUnavailable) && (
-          <div className={cn('rounded-xl border', isUnavailable ? 'bg-red-50 border-red-200' : 'bg-slate-100 border-slate-200', compact ? 'p-2' : 'p-3')}>
-            <p className={cn('font-medium', compact ? 'text-[10px]' : 'text-xs', isUnavailable ? 'text-red-700' : 'text-slate-600')}>
-              {isUnavailable
-                ? 'AI xizmati vaqtincha mavjud emas — shifokor mustaqil klinik baholash o\'tkazishi kerak'
-                : 'Simulyatsiya rejimi — ko\'rsatilgan tashxislar haqiqiy AI natijasi emas'}
+        {(isUnavailable) && (
+          <div className={cn('rounded-xl border bg-red-50 border-red-200', compact ? 'p-2' : 'p-3')}>
+            <p className={cn('font-medium text-red-700', compact ? 'text-[10px]' : 'text-xs')}>
+              AI xizmati mavjud emas — shifokor mustaqil klinik baholash o&apos;tkazishi kerak
             </p>
           </div>
         )}

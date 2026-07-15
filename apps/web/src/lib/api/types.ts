@@ -21,7 +21,7 @@ export interface Attachment {
     abnormalities?: string[];
     recommendations?: string[];
     confidence?: number;
-    source?: 'mock' | 'openai';
+    source?: 'mock' | 'openai' | 'unavailable';
   } | null;
   analyzedAt?: string | null;
   downloadUrl?: string;

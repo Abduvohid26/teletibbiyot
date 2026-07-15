@@ -85,31 +85,8 @@ export class AiService {
 
     let result = await this.callOpenAiAnalysis(clinicalData);
     if (!result) {
-      if (this.config.get('NODE_ENV') === 'production') {
-        await this.prisma.aiAnalysis.upsert({
-          where: { consultationId },
-          create: {
-            consultationId,
-            summary: 'AI tahlil xizmati vaqtincha mavjud emas. Shifokor mustaqil baholash o\'tkazishi kerak.',
-            diagnoses: [],
-            triageLevel: 'MEDIUM',
-            recommendations: ['AI xizmati offline — qo\'lda klinik baholash talab qilinadi'],
-            redFlags: [],
-            rawResponse: { aiUnavailable: true },
-          },
-          update: {
-            summary: 'AI tahlil xizmati vaqtincha mavjud emas.',
-            rawResponse: { aiUnavailable: true },
-          },
-        });
-        await this.prisma.consultation.update({
-          where: { id: consultationId },
-          data: { triageLevel: 'MEDIUM' },
-        });
-        this.videoGateway.emitConsultationEvent(consultationId, 'ai-analysis-updated', { consultationId });
-        return { aiUnavailable: true };
-      }
-      result = { ...this.generateMockAnalysis(clinicalData), source: 'mock' };
+      await this.saveUnavailableAnalysis(consultationId);
+      return { aiUnavailable: true };
     }
 
     const triageLevel = result.triageLevel as TriageLevel;
@@ -260,48 +237,29 @@ export class AiService {
     }
   }
 
-  private generateMockAnalysis(clinicalData: Record<string, unknown>) {
-    const complaints = String(clinicalData.complaints || '').toLowerCase();
-
-    if (complaints.includes('qorin') || complaints.includes('oshqozon') || complaints.includes('gastrit')) {
-      return {
-        summary: 'Bemorda oshqozon-qorin sohasidagi shikoyatlar, ovqatdan keyin og\'riq va ko\'ngil aynishi kuzatilmoqda.',
-        diagnoses: [
-          { name: 'Gastrit', icd10Code: 'K29.7', confidence: 89, reasoning: 'Oshqozon shikoyatlari va anamnezga mos' },
-          { name: 'Gastroezofageal reflyuks', icd10Code: 'K21.0', confidence: 45, reasoning: 'Ko\'ngil aynishi va ovqatdan keyin og\'riq' },
-        ],
+  private async saveUnavailableAnalysis(consultationId: string) {
+    await this.prisma.aiAnalysis.upsert({
+      where: { consultationId },
+      create: {
+        consultationId,
+        summary: 'AI tahlil xizmati vaqtincha mavjud emas. Shifokor mustaqiy baholash o\'tkazishi kerak.',
+        diagnoses: [],
         triageLevel: 'MEDIUM',
-        recommendations: [
-          'Umumiy qon tahlili',
-          'Qorin bo\'shlig\'i UZI',
-          'Gastroskopiya',
-          'Helicobacter pylori testi',
-        ],
+        recommendations: ['AI xizmati offline — qo\'lda klinik baholash talab qilinadi'],
         redFlags: [],
-      };
-    }
-
-    if (complaints.includes('yurak') || complaints.includes('ko\'krak')) {
-      return {
-        summary: 'Bemorda ko\'krak qafasi og\'rig\'i shikoyati mavjud.',
-        diagnoses: [
-          { name: 'Stabil angina pektoris', icd10Code: 'I20.8', confidence: 72, reasoning: 'Ko\'krak og\'rig\'i shikoyati' },
-        ],
-        triageLevel: 'HIGH',
-        recommendations: ['EKG', 'Troponin testi', 'Ekokardiografiya'],
-        redFlags: ['Ko\'krak og\'rig\'i — yurak kasalligi belgisi bo\'lishi mumkin'],
-      };
-    }
-
-    return {
-      summary: 'Klinik ma\'lumotlar asosida dastlabki tahlil amalga oshirildi.',
-      diagnoses: [
-        { name: 'Umumiy tibbiy ko\'rik talab etiladi', icd10Code: 'Z00.0', confidence: 60, reasoning: 'Aniq tashxis uchun qo\'shimcha ma\'lumot kerak' },
-      ],
-      triageLevel: 'LOW',
-      recommendations: ['Umumiy qon tahlili', 'Bemorni klinik ko\'rik'],
-      redFlags: [],
-    };
+        rawResponse: { aiUnavailable: true },
+      },
+      update: {
+        summary: 'AI tahlil xizmati vaqtincha mavjud emas.',
+        diagnoses: [],
+        rawResponse: { aiUnavailable: true },
+      },
+    });
+    await this.prisma.consultation.update({
+      where: { id: consultationId },
+      data: { triageLevel: 'MEDIUM' },
+    });
+    this.videoGateway.emitConsultationEvent(consultationId, 'ai-analysis-updated', { consultationId });
   }
 
   async submitFeedback(aiAnalysisId: string, userId: string, rating: string, comment?: string) {

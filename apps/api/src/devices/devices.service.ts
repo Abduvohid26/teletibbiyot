@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/access-control.service';
 import { hasGlobalMtAccess, isAdmin, isMtStaff, isUtRole } from '../common/roles.constants';
 import { createDeviceAdapter, DeviceAdapter } from './device.adapter';
+import { VideoGateway } from '../video/video.gateway';
 
 @Injectable()
 export class DevicesService implements OnModuleInit, OnModuleDestroy {
@@ -14,13 +15,14 @@ export class DevicesService implements OnModuleInit, OnModuleDestroy {
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
+    private videoGateway: VideoGateway,
   ) {
     this.adapter = createDeviceAdapter(config);
   }
 
   onModuleInit() {
     const gatewayUrl = this.config.get('DEVICE_GATEWAY_URL');
-    if (!gatewayUrl || this.adapter.isSimulated()) return;
+    if (!gatewayUrl) return;
 
     const intervalMs = parseInt(this.config.get('DEVICE_GATEWAY_POLL_MS') || '30000', 10);
     this.gatewayTimer = setInterval(() => {
@@ -35,6 +37,12 @@ export class DevicesService implements OnModuleInit, OnModuleDestroy {
     if (this.gatewayTimer) clearInterval(this.gatewayTimer);
   }
 
+  private notifyDeviceChange(facilityId: string, deviceId?: string) {
+    this.videoGateway.emitFacilityEvent(facilityId, 'device-status-updated', {
+      deviceId,
+    });
+  }
+
   private async syncFromGateway(gatewayUrl: string) {
     const res = await fetch(gatewayUrl, { signal: AbortSignal.timeout(8000) });
     if (!res.ok) throw new Error(`Gateway HTTP ${res.status}`);
@@ -47,6 +55,7 @@ export class DevicesService implements OnModuleInit, OnModuleDestroy {
     const facilityId = payload.facilityId;
     if (!facilityId) return;
 
+    let changed = false;
     for (const remote of payload.devices) {
       const existing = await this.prisma.deviceStatus.findFirst({
         where: { facilityId, name: remote.name },
@@ -55,8 +64,8 @@ export class DevicesService implements OnModuleInit, OnModuleDestroy {
         ? await this.prisma.deviceStatus.update({
             where: { id: existing.id },
             data: {
-              connected: remote.connected !== false,
-              status: remote.status || 'good',
+              connected: remote.connected === true,
+              status: remote.status || (remote.connected === true ? 'good' : 'offline'),
               lastCheck: new Date(),
             },
           })
@@ -65,10 +74,11 @@ export class DevicesService implements OnModuleInit, OnModuleDestroy {
               facilityId,
               name: remote.name,
               type: remote.type || 'sensor',
-              connected: remote.connected !== false,
-              status: remote.status || 'good',
+              connected: remote.connected === true,
+              status: remote.status || (remote.connected === true ? 'good' : 'offline'),
             },
           });
+      changed = true;
 
       if (remote.telemetry) {
         for (const [metricType, value] of Object.entries(remote.telemetry)) {
@@ -83,15 +93,15 @@ export class DevicesService implements OnModuleInit, OnModuleDestroy {
         });
       }
     }
+
+    if (changed) this.notifyDeviceChange(facilityId);
   }
 
   getDeviceMode() {
     return {
       mode: this.adapter.mode,
-      simulated: this.adapter.isSimulated(),
-      message: this.adapter.isSimulated()
-        ? 'Simulyator rejimi — haqiqiy qurilmalar ulanmagan'
-        : 'Real rejim — qurilmalar gateway orqali ulanadi',
+      simulated: false,
+      message: 'Real rejim — qurilmalar DB va gateway orqali yangilanadi',
     };
   }
 
@@ -121,7 +131,7 @@ export class DevicesService implements OnModuleInit, OnModuleDestroy {
     return devices.map((d) => ({
       ...d,
       deviceMode: this.adapter.mode,
-      simulated: this.adapter.isSimulated(),
+      simulated: false,
     }));
   }
 
@@ -154,10 +164,12 @@ export class DevicesService implements OnModuleInit, OnModuleDestroy {
       throw new ForbiddenException('Kirish huquqi yo\'q');
     }
 
-    return this.prisma.deviceStatus.update({
+    const updated = await this.prisma.deviceStatus.update({
       where: { id },
       data: { connected, status, lastCheck: new Date() },
     });
+    this.notifyDeviceChange(device.facilityId, id);
+    return updated;
   }
 
   async ingestTelemetry(
@@ -182,10 +194,12 @@ export class DevicesService implements OnModuleInit, OnModuleDestroy {
       },
     });
 
-    return this.prisma.deviceStatus.update({
+    const updated = await this.prisma.deviceStatus.update({
       where: { id: deviceId },
       data: { connected: true, status: 'good', lastTelemetryAt: new Date(), lastCheck: new Date() },
     });
+    this.notifyDeviceChange(device.facilityId, deviceId);
+    return updated;
   }
 
   async getTelemetry(deviceId: string, user: AuthUser, limit = 50) {

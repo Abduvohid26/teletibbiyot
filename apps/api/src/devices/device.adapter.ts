@@ -1,6 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 
-export type DeviceMode = 'simulator' | 'real';
+export type DeviceMode = 'real';
 
 export interface DeviceDefinition {
   name: string;
@@ -14,29 +14,6 @@ export interface DeviceDefinition {
 export interface DeviceAdapter {
   readonly mode: DeviceMode;
   getDefaultDevices(): DeviceDefinition[];
-  isSimulated(): boolean;
-}
-
-export class SimulatorDeviceAdapter implements DeviceAdapter {
-  readonly mode: DeviceMode = 'simulator';
-
-  isSimulated() {
-    return true;
-  }
-
-  getDefaultDevices(): DeviceDefinition[] {
-    return [
-      { name: 'EKG monitor (sim)', type: 'ekg', connected: true, status: 'good', source: 'simulator' },
-      { name: 'Puls oksimetr (sim)', type: 'spo2', connected: true, status: 'good', source: 'simulator' },
-      { name: 'Tonometr (sim)', type: 'bp', connected: true, status: 'good', source: 'simulator' },
-      { name: 'Video kamera 1 (sim)', type: 'camera', connected: true, status: 'good', source: 'simulator' },
-      { name: 'Video kamera 2 (sim)', type: 'camera', connected: true, status: 'good', source: 'simulator' },
-      { name: 'Video kamera 3 (sim)', type: 'camera', connected: true, status: 'good', source: 'simulator' },
-      { name: 'Video kamera 4 (sim)', type: 'camera', connected: true, status: 'good', source: 'simulator' },
-      { name: 'Mikrofon (sim)', type: 'audio', connected: true, status: 'good', source: 'simulator' },
-      { name: 'Internet (sim)', type: 'network', connected: true, status: 'good', source: 'simulator' },
-    ];
-  }
 }
 
 export class RealDeviceAdapter implements DeviceAdapter {
@@ -45,10 +22,6 @@ export class RealDeviceAdapter implements DeviceAdapter {
 
   constructor(config: ConfigService) {
     this.devices = RealDeviceAdapter.parseDevices(config);
-  }
-
-  isSimulated() {
-    return false;
   }
 
   getDefaultDevices(): DeviceDefinition[] {
@@ -68,8 +41,8 @@ export class RealDeviceAdapter implements DeviceAdapter {
       return parsed.map((item, index) => ({
         name: String(item.name || `Qurilma ${index + 1}`),
         type: String(item.type || 'sensor'),
-        connected: item.connected !== false,
-        status: String(item.status || 'good'),
+        connected: item.connected === true,
+        status: String(item.status || (item.connected === true ? 'good' : 'offline')),
         source: 'real' as DeviceMode,
         gatewayId: item.gatewayId ? String(item.gatewayId) : undefined,
       }));
@@ -88,11 +61,12 @@ export class RealDeviceAdapter implements DeviceAdapter {
       { name: 'Video kamera 2', type: 'camera', connected: false, status: 'offline', source: 'real' },
       { name: 'Video kamera 3', type: 'camera', connected: false, status: 'offline', source: 'real' },
       { name: 'Video kamera 4', type: 'camera', connected: false, status: 'offline', source: 'real' },
+      { name: 'Mikrofon', type: 'audio', connected: false, status: 'offline', source: 'real' },
+      { name: 'Internet', type: 'network', connected: false, status: 'offline', source: 'real' },
     ];
   }
 }
 
 export function createDeviceAdapter(config: ConfigService): DeviceAdapter {
-  const mode = (config.get('DEVICE_MODE') || 'simulator') as DeviceMode;
-  return mode === 'real' ? new RealDeviceAdapter(config) : new SimulatorDeviceAdapter();
+  return new RealDeviceAdapter(config);
 }

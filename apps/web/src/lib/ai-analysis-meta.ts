@@ -7,8 +7,9 @@ type AiRawResponse = {
 
 export function getAiAnalysisMeta(analysis?: AiAnalysis) {
   const raw = analysis?.rawResponse as AiRawResponse | undefined;
+  const legacyMock = raw?.source === 'mock';
   return {
-    isMock: raw?.source === 'mock',
-    isUnavailable: raw?.aiUnavailable === true,
+    isMock: legacyMock,
+    isUnavailable: raw?.aiUnavailable === true || legacyMock,
   };
 }

@@ -140,6 +140,7 @@ export function DoctorDashboardView({
           <BottomPanels
             queue={queue}
             consultationId={documentsConsultationId}
+            consultationStartedAt={consultation?.startedAt}
             aiSteps={consultation?.aiAnalysisSteps}
             aiAnalysis={consultation?.aiAnalysis}
             devices={devices}

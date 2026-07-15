@@ -23,7 +23,7 @@ export interface AttachmentAiResult {
   abnormalities: string[];
   recommendations: string[];
   confidence: number;
-  source?: 'mock' | 'openai';
+  source?: 'openai' | 'unavailable';
 }
 
 @Injectable()
@@ -77,8 +77,16 @@ export class AttachmentAnalysisService {
     }
   }
 
-  private isProduction() {
-    return this.config.get('NODE_ENV') === 'production';
+  private unavailableAnalysis(fileName: string): AttachmentAiResult {
+    return {
+      summary: `${fileName} — AI tahlil xizmati mavjud emas. Shifokor qo'lda ko'rib chiqishi kerak.`,
+      documentType: 'unknown',
+      findings: [],
+      abnormalities: [],
+      recommendations: ['Shifokor qo\'lda hujjatni ko\'rib chiqishi kerak'],
+      confidence: 0,
+      source: 'unavailable',
+    };
   }
 
   private async runAnalysis(
@@ -87,10 +95,7 @@ export class AttachmentAnalysisService {
     fileName: string,
   ): Promise<AttachmentAiResult> {
     if (!this.storage.isAvailable()) {
-      if (this.isProduction()) {
-        throw new Error('S3 storage mavjud emas — attachment AI productionda ishlamaydi');
-      }
-      return this.mockAnalysis(fileName, fileType);
+      return this.unavailableAnalysis(fileName);
     }
 
     const { buffer, contentType } = await this.storage.getObjectBuffer(fileKey);
@@ -107,10 +112,7 @@ export class AttachmentAnalysisService {
       if (pdf) return pdf;
     }
 
-    if (this.isProduction()) {
-      throw new Error('OpenAI attachment tahlili muvaffaqiyatsiz — productionda mock taqiqlangan');
-    }
-    return this.mockAnalysis(fileName, mime);
+    return this.unavailableAnalysis(fileName);
   }
 
   private getOpenAiConfig() {
@@ -221,70 +223,8 @@ export class AttachmentAnalysisService {
         confidence: parsed.confidence ?? 70,
       };
     } catch {
-      if (this.isProduction()) {
-        throw new Error('AI javobini parse qilib bo\'lmadi');
-      }
-      return this.mockAnalysis(fileName, 'application/octet-stream');
+      return this.unavailableAnalysis(fileName);
     }
-  }
-
-  private mockAnalysis(fileName: string, mime: string): AttachmentAiResult {
-    const lower = fileName.toLowerCase();
-    const docType = this.guessDocType(fileName);
-    const mock = (data: Omit<AttachmentAiResult, 'source'>): AttachmentAiResult => ({ ...data, source: 'mock' });
-
-    if (lower.includes('rentgen') || lower.includes('xray') || lower.includes('x-ray')) {
-      return mock({
-        summary: 'Rentgen tasviri yuklandi. AI dastlabki tahlil: o\'pkada infiltrativ o\'zgarishlar ehtimoli ko\'rib chiqilmoqda.',
-        documentType: 'rentgen',
-        findings: ['O\'pkada noaniq soyalar', 'Mediastinum markazda'],
-        abnormalities: ['Past o\'ng lobda noaniq soya — pnevmoniya yoki atelektaz ehtimoli'],
-        recommendations: ['Shifokor bilan tasvirni taqqoslash', 'KT tekshiruvi talab qilinishi mumkin'],
-        confidence: 72,
-      });
-    }
-
-    if (lower.includes('mrt') || lower.includes('mri')) {
-      return mock({
-        summary: 'MRT tasviri yuklandi. Strukturaviy o\'zgarishlar AI tomonidan dastlabki baholandi.',
-        documentType: 'MRT',
-        findings: ['Miya/o\'rgan strukturalari ko\'rib chiqildi'],
-        abnormalities: ['Aniq patologiya tasdiqlanmagan — shifokor ko\'rigini talab qiladi'],
-        recommendations: ['Radiolog xulosasi bilan solishtirish'],
-        confidence: 65,
-      });
-    }
-
-    if (lower.includes('uzi') || lower.includes('ultrasound')) {
-      return mock({
-        summary: 'UZI natijasi yuklandi. Ehoko strukturalar tahlil qilindi.',
-        documentType: 'UZI',
-        findings: ['Organ konturlari saqlangan'],
-        abnormalities: [],
-        recommendations: ['Dinamik kuzatuv tavsiya etiladi'],
-        confidence: 68,
-      });
-    }
-
-    if (mime === 'application/pdf' || lower.endsWith('.pdf')) {
-      return mock({
-        summary: `PDF laboratoriya yoki tekshiruv hujjati (${fileName}) AI tomonidan qayta ishlandi.`,
-        documentType: 'lab',
-        findings: ['Hujjat turi: laboratoriya/tekshiruv natijasi'],
-        abnormalities: ['Normadan chetga chiqishlar shifokor tomonidan tasdiqlanishi kerak'],
-        recommendations: ['Natijalarni klinik belgilar bilan solishtirish'],
-        confidence: 60,
-      });
-    }
-
-    return mock({
-      summary: `Tibbiy hujjat (${fileName}) yuklandi va AI dastlabki ko\'rib chiqdi.`,
-      documentType: docType,
-      findings: ['Hujjat muvaffaqiyatli qabul qilindi'],
-      abnormalities: [],
-      recommendations: ['Markaziy shifokor tomonidan ko\'rib chiqish'],
-      confidence: 55,
-    });
   }
 
   private guessDocType(fileName: string): string {

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { api, DeviceStatus, Facility } from '@/lib/api';
 import { useRequireAuth } from '@/hooks/use-require-auth';
+import { useConsultationRealtime } from '@/hooks/use-consultation-realtime';
 import { CheckCircle2, XCircle, RefreshCw, Cpu } from 'lucide-react';
 import { ROLES_MT_DASHBOARD, ROLES_UT } from '@/lib/roles';
 import { UserRole } from '@ishifo/shared';
@@ -52,8 +53,14 @@ export default function DevicesPage() {
     if (!authLoading && user) load();
   }, [user, authLoading, selectedFacilityId]);
 
+  useConsultationRealtime([], {
+    onDeviceStatusUpdated: (facilityId) => {
+      if (!selectedFacilityId || facilityId === selectedFacilityId) void load();
+    },
+  }, { staffFeed: true });
+
   const toggleDevice = async (device: DeviceStatus) => {
-    if (!canEdit || device.simulated) return;
+    if (!canEdit) return;
     setUpdatingId(device.id);
     try {
       const connected = !device.connected;
@@ -97,12 +104,6 @@ export default function DevicesPage() {
         <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl p-3.5">{error}</div>
       )}
 
-      {devices.some((d) => d.simulated) && (
-        <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-xl p-3.5">
-          Simulyator rejimi — qurilmalar haqiqiy apparat emas, faqat test ma&apos;lumotlari ko&apos;rsatiladi.
-        </div>
-      )}
-
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
@@ -121,15 +122,12 @@ export default function DevicesPage() {
                   <Cpu size={20} className={d.connected ? 'text-emerald-600' : 'text-red-500'} />
                 </div>
                 <div>
-                  <p className="font-semibold text-slate-800">
-                    {d.name}
-                    {d.simulated && <span className="ml-1 text-[10px] text-amber-600 font-normal">(sim)</span>}
-                  </p>
+                  <p className="font-semibold text-slate-800">{d.name}</p>
                   <p className="text-xs text-slate-500 mt-0.5">{d.type} · {d.status}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {canEdit && !d.simulated && (
+                {canEdit && (
                   <button
                     type="button"
                     disabled={updatingId === d.id}
@@ -154,11 +152,9 @@ export default function DevicesPage() {
           <Cpu size={32} className="mb-3 opacity-40" />
           <p>Qurilmalar topilmadi</p>
           <p className="text-sm text-slate-400 mt-1">
-            {devices.some((d) => d.simulated)
-              ? 'Simulyator rejimi — haqiqiy apparat uchun DEVICE_MODE=real va gateway sozlang'
-              : !isUtRole(user.role)
-                ? 'Navbatdan konsultatsiyani boshlang'
-                : 'Muassasani tanlang yoki yangilang'}
+            {!isUtRole(user.role)
+              ? 'Muassasani tanlang yoki UT operator qurilma holatini yangilasin'
+              : 'Qurilma holatini yangilang yoki gateway ulang'}
           </p>
         </div>
       )}

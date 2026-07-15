@@ -13,17 +13,22 @@ import { toast } from '@/lib/toast';
 export interface ConsultationRealtimeHandlers {
   onAttachmentUploaded?: (attachment: Attachment, consultationId: string) => void;
   onAttachmentAnalyzed?: (attachment: Attachment, consultationId: string) => void;
+  onConsultationQueued?: (payload: { consultationId: string; patientName?: string; utCode?: string }) => void;
   onConsultationStarted?: (payload: { consultationId: string; doctorName?: string }) => void;
   onConsultationCompleted?: (payload: { consultationId: string }) => void;
   onAiUpdated?: (consultationId: string) => void;
   onChatMessagePersisted?: (consultationId: string) => void;
   onTriageUpdated?: (consultationId: string) => void;
   onPriorityUpdated?: (consultationId: string) => void;
+  onDeviceStatusUpdated?: (facilityId: string) => void;
 }
 
 type RealtimePayload = {
   consultationId?: string;
   doctorName?: string;
+  patientName?: string;
+  utCode?: string;
+  facilityId?: string;
   fileName?: string;
   aiSummary?: string;
 } & Partial<Attachment>;
@@ -84,6 +89,19 @@ export function useConsultationRealtime(
       handlersRef.current.onAiUpdated?.(cid);
     };
 
+    const onQueued = (payload: RealtimePayload) => {
+      const cid = resolveConsultationId(payload, '');
+      if (!matchesSubscription(cid, ids, staffFeed)) return;
+      handlersRef.current.onConsultationQueued?.({
+        consultationId: cid,
+        patientName: payload.patientName,
+        utCode: payload.utCode,
+      });
+      if (options?.notifyToasts && payload.patientName) {
+        toast(`Navbatga qo'shildi: ${payload.patientName}`, 'info');
+      }
+    };
+
     const onStarted = (payload: RealtimePayload) => {
       const cid = resolveConsultationId(payload, '');
       if (!matchesSubscription(cid, ids, staffFeed)) return;
@@ -127,22 +145,33 @@ export function useConsultationRealtime(
 
     socket.on('attachment-uploaded', onUploaded);
     socket.on('attachment-analyzed', onAnalyzed);
+    const onDeviceUpdated = (payload: RealtimePayload) => {
+      const facilityId = payload.facilityId || '';
+      if (!facilityId) return;
+      if (!staffFeed && !ids.length) return;
+      handlersRef.current.onDeviceStatusUpdated?.(facilityId);
+    };
+
+    socket.on('consultation-queued', onQueued);
     socket.on('consultation-started', onStarted);
     socket.on('consultation-completed', onCompleted);
     socket.on('ai-analysis-updated', onAiUpdated);
     socket.on('chat-message-persisted', onChatPersisted);
     socket.on('triage-updated', onTriageUpdated);
     socket.on('priority-updated', onPriorityUpdated);
+    socket.on('device-status-updated', onDeviceUpdated);
 
     return () => {
       socket.off('attachment-uploaded', onUploaded);
       socket.off('attachment-analyzed', onAnalyzed);
+      socket.off('consultation-queued', onQueued);
       socket.off('consultation-started', onStarted);
       socket.off('consultation-completed', onCompleted);
       socket.off('ai-analysis-updated', onAiUpdated);
       socket.off('chat-message-persisted', onChatPersisted);
       socket.off('triage-updated', onTriageUpdated);
       socket.off('priority-updated', onPriorityUpdated);
+      socket.off('device-status-updated', onDeviceUpdated);
 
       if (staffFeed) {
         releaseStaffFeedSocket();

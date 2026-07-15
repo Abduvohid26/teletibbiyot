@@ -49,9 +49,12 @@ export default function UtVitalsPage() {
   useConsultationRealtime(
     consultation?.id ? [consultation.id] : [],
     {
+      onConsultationQueued: () => load(),
       onConsultationStarted: () => load(),
       onAttachmentAnalyzed: () => load(),
+      onAiUpdated: () => load(),
     },
+    { staffFeed: true, notifyToasts: true },
   );
 
   useEffect(() => {

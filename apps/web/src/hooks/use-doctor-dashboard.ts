@@ -50,6 +50,13 @@ export function useDoctorDashboard() {
     void reload();
   }, [user, reload]);
 
+  useEffect(() => {
+    if (!user || !isDoctor) return;
+    const onFocus = () => void reload();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [user, isDoctor, reload]);
+
   const queue = snapshot?.queue ?? [];
   const consultation = snapshot?.consultation ?? null;
   const queuedPatients = useMemo(() => queue.filter((c) => c.status === 'QUEUED'), [queue]);
@@ -63,6 +70,7 @@ export function useDoctorDashboard() {
   useConsultationRealtime(
     realtimeIds,
     {
+      onConsultationQueued: () => void reload(),
       onAttachmentUploaded: (_attachment, cid) => {
         if (documentsConsultationId === cid || consultation?.id === cid) {
           setSnapshot((prev) =>
@@ -74,8 +82,15 @@ export function useDoctorDashboard() {
       onAttachmentAnalyzed: () => void reload(),
       onAiUpdated: () => void reload(),
       onConsultationStarted: () => void reload(),
+      onConsultationCompleted: () => void reload(),
+      onTriageUpdated: () => void reload(),
+      onPriorityUpdated: () => void reload(),
+      onDeviceStatusUpdated: () => void reload(),
     },
-    { notifyToasts: isMtStaff(user?.role || '') || user?.role === UserRole.ADMIN },
+    {
+      notifyToasts: isMtStaff(user?.role || '') || user?.role === UserRole.ADMIN,
+      staffFeed: isDoctor,
+    },
   );
 
   const startConsultation = useCallback(async (id: string) => {

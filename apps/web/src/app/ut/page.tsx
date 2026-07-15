@@ -130,7 +130,7 @@ export default function UTClientPage() {
         toast(`${payload.doctorName || 'Shifokor'} konsultatsiyani boshladi`, 'success');
       },
     },
-    { notifyToasts: true },
+    { notifyToasts: true, staffFeed: true },
   );
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
