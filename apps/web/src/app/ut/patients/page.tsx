@@ -2,11 +2,14 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { UserPlus } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { isUtRole } from '@ishifo/shared';
 import { getRoleHomePath } from '@/lib/auth-utils';
-import { UtShell } from '@/components/ut/UtShell';
+import { UtShell, UtPageHead } from '@/components/ut/UtShell';
 import { UtPatientList } from '@/components/ut/UtPatientList';
+import { UtPatientSwitcher } from '@/components/ut/UtPatientSwitcher';
 import { useUtSessions } from '@/hooks/use-ut-sessions';
 
 export default function UtPatientsPage() {
@@ -35,33 +38,55 @@ export default function UtPatientsPage() {
   }
 
   return (
-    <UtShell sessionCount={sessions.length} liveCount={inProgressList.length}>
-      <div className="h-full w-full p-3 sm:p-4 flex flex-col min-h-0">
-        <div className="shrink-0 mb-3 flex items-start justify-between gap-2">
-          <div>
-            <h1 className="text-base font-bold text-slate-900">Bemorlar</h1>
-            <p className="text-xs text-slate-500">Navbat va jonli efirdagi bemorlar ro&apos;yxati</p>
-          </div>
-          {error && (
-            <button
-              type="button"
-              onClick={() => void refreshSessions()}
-              className="btn-secondary !text-xs !py-1 shrink-0"
-            >
-              Qayta yuklash
-            </button>
-          )}
-        </div>
+    <UtShell
+      sessionCount={sessions.length}
+      liveCount={inProgressList.length}
+      headerExtra={
+        sessions.length > 0 ? (
+          <UtPatientSwitcher
+            activeId={consultation?.id}
+            sessions={sessions}
+            onSelect={switchToConsultation}
+            className="!min-w-0 !max-w-[200px] !py-1.5 !px-2"
+          />
+        ) : null
+      }
+    >
+      <div className="ut-page">
+        <UtPageHead
+          title="Bemorlar ro'yxati"
+          subtitle="Navbatdagi va jonli efirdagi bemorlar"
+          action={
+            <div className="flex items-center gap-1.5">
+              {error && (
+                <button
+                  type="button"
+                  onClick={() => void refreshSessions()}
+                  className="btn-secondary !text-[10px] !py-1 !px-2"
+                >
+                  Yangilash
+                </button>
+              )}
+              <Link href="/ut" className="gradient-btn !text-[10px] !py-1.5 !px-2.5 inline-flex items-center gap-1">
+                <UserPlus size={12} /> Qabul
+              </Link>
+            </div>
+          }
+        />
+
         {error && (
-          <div className="shrink-0 mb-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          <div className="shrink-0 mb-2 text-[11px] text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-1.5">
             {error}
           </div>
         )}
+
         <UtPatientList
           sessions={sessions}
           activeId={consultation?.id}
           onSelect={switchToConsultation}
           showGoLive
+          sessionCount={sessions.length}
+          liveCount={inProgressList.length}
         />
       </div>
     </UtShell>

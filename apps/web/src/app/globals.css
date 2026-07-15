@@ -336,12 +336,51 @@ body {
   }
 
   /* UT intake — bitta ekranda, scrollsiz */
+  .ut-shell {
+    @apply h-dvh overflow-hidden flex flex-col;
+    background: linear-gradient(165deg, #f1f5f9 0%, #f8fafc 45%, #eef2ff 100%);
+  }
+
+  .ut-shell-header {
+    @apply shrink-0 z-30 flex items-center gap-2 px-2.5 lg:px-3 py-2;
+    @apply bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-sm;
+  }
+
+  .ut-shell-main {
+    @apply flex-1 min-h-0 overflow-hidden px-2 py-1.5 lg:px-3 lg:py-2;
+  }
+
+  .ut-page {
+    @apply h-full flex flex-col min-h-0 overflow-hidden;
+  }
+
+  .ut-page-head {
+    @apply flex items-center justify-between gap-2 mb-2 pb-2 border-b border-slate-200/60;
+  }
+
+  .ut-pill {
+    @apply inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full;
+  }
+
+  .ut-pill-live {
+    @apply bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200/80;
+  }
+
+  .ut-pill-queue {
+    @apply bg-amber-50 text-amber-800 ring-1 ring-amber-200/80;
+  }
+
+  .ut-quick-nav-btn {
+    @apply relative flex flex-col items-center gap-1 p-4 rounded-xl border border-slate-200/80 bg-white;
+    @apply hover:border-brand-300 hover:shadow-md hover:bg-brand-50/30 transition-all text-center;
+  }
+
   .ut-intake-shell {
     @apply h-dvh overflow-hidden flex flex-col bg-surface;
   }
 
   .ut-intake-main {
-    @apply flex-1 min-h-0 overflow-hidden px-2 py-1.5 lg:px-2.5;
+    @apply flex-1 min-h-0 overflow-hidden flex flex-col;
   }
 
   .ut-intake-grid {

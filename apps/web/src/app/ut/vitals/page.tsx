@@ -3,16 +3,18 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Stethoscope, Radio } from 'lucide-react';
+import { Stethoscope, Radio, FileText } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { isUtRole } from '@ishifo/shared';
 import { getRoleHomePath } from '@/lib/auth-utils';
-import { UtShell } from '@/components/ut/UtShell';
+import { UtShell, UtPageHead } from '@/components/ut/UtShell';
 import { UtPatientSwitcher } from '@/components/ut/UtPatientSwitcher';
+import { UtQuickNav } from '@/components/ut/UtNavTabs';
 import { UtConsultationSession } from '@/components/video/UtConsultationSession';
 import { AttachmentManager } from '@/components/attachments/AttachmentManager';
 import { useUtSessions } from '@/hooks/use-ut-sessions';
 import { toast } from '@/lib/toast';
+import { cn } from '@/lib/utils';
 
 export default function UtVitalsPage() {
   const { user, loading } = useAuth();
@@ -57,43 +59,73 @@ export default function UtVitalsPage() {
             activeId={consultation?.id}
             sessions={sessions}
             onSelect={switchToConsultation}
+            className="!min-w-0 !max-w-[220px] !py-1.5 !px-2"
           />
         ) : null
       }
     >
-      <div className="h-full w-full flex flex-col min-h-0 p-2 sm:p-3 gap-2">
+      <div className="ut-page">
         {error && (
-          <div className="shrink-0 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg px-3 py-2">{error}</div>
+          <div className="shrink-0 mb-2 bg-red-50 border border-red-200 text-red-700 text-[11px] rounded-lg px-3 py-1.5">
+            {error}
+          </div>
         )}
 
         {liveBanner && (
-          <div className="shrink-0 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 flex items-center justify-between gap-2 animate-fade-in">
+          <div className="shrink-0 mb-2 rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 flex items-center justify-between gap-2 animate-fade-in">
             <div className="flex items-center gap-2 min-w-0">
-              <Radio size={16} className="text-emerald-600 animate-pulse shrink-0" />
-              <p className="text-sm font-semibold text-emerald-900 truncate">
+              <Radio size={15} className="text-emerald-600 animate-pulse shrink-0" />
+              <p className="text-xs font-semibold text-emerald-900 truncate">
                 Jonli efir boshlandi{liveBanner.doctorName ? ` — ${liveBanner.doctorName}` : ''}
               </p>
             </div>
-            <button type="button" onClick={() => setLiveBanner(null)} className="text-xs text-emerald-700 font-semibold shrink-0">
+            <button
+              type="button"
+              onClick={() => setLiveBanner(null)}
+              className="text-[10px] text-emerald-700 font-bold px-2 py-0.5 rounded-md bg-emerald-100 shrink-0"
+            >
               OK
             </button>
           </div>
         )}
 
         {!consultation ? (
-          <div className="flex-1 panel flex flex-col items-center justify-center p-6 text-center">
-            <Stethoscope className="w-10 h-10 text-slate-300 mb-2" />
-            <h2 className="font-semibold text-slate-800 mb-1">Faol bemor yo&apos;q</h2>
-            <p className="text-xs text-slate-500 mb-4 max-w-xs">
-              Bemor ma&apos;lumotlarini kiriting yoki ro&apos;yxatdan tanlang
-            </p>
-            <div className="flex gap-2">
-              <Link href="/ut" className="gradient-btn !text-xs !py-2">Qabul qilish</Link>
-              <Link href="/ut/patients" className="btn-secondary !text-xs !py-2">Bemorlar</Link>
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 min-h-0 text-center p-4">
+            <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center">
+              <Stethoscope className="w-7 h-7 text-slate-300" />
             </div>
+            <div>
+              <h2 className="font-bold text-slate-800 text-sm mb-1">Faol bemor tanlanmagan</h2>
+              <p className="text-xs text-slate-500 max-w-xs">
+                Avval bemor qabul qiling yoki ro&apos;yxatdan tanlang
+              </p>
+            </div>
+            <UtQuickNav sessionCount={sessions.length} liveCount={inProgressList.length} />
+            <Link href="/ut" className="gradient-btn !text-xs">Bemor qabul qilish</Link>
           </div>
         ) : (
-          <div className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden">
+          <>
+            <UtPageHead
+              title={consultation.patient.fullName}
+              subtitle={
+                consultation.status === 'IN_PROGRESS'
+                  ? `Jonli efir · ${consultation.mtDoctor?.fullName || 'Shifokor'}`
+                  : 'Navbatda — shifokor boshlaguncha kameraga tayyor turing'
+              }
+              action={
+                <span
+                  className={cn(
+                    'text-[10px] font-bold px-2 py-0.5 rounded-full uppercase',
+                    consultation.status === 'IN_PROGRESS'
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'bg-amber-100 text-amber-800',
+                  )}
+                >
+                  {consultation.status === 'IN_PROGRESS' ? '● Jonli' : '○ Navbat'}
+                </span>
+              }
+            />
+
             <div className="flex-1 min-h-0 overflow-hidden">
               <UtConsultationSession
                 key={consultation.id}
@@ -101,12 +133,14 @@ export default function UtVitalsPage() {
                 patientName={consultation.patient.fullName}
               />
             </div>
-            <details className="shrink-0 panel !rounded-lg overflow-hidden group">
-              <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 list-none flex items-center justify-between">
+
+            <details className="shrink-0 mt-1.5 rounded-xl border border-slate-200/80 bg-white overflow-hidden group">
+              <summary className="cursor-pointer px-3 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-50 list-none flex items-center gap-2">
+                <FileText size={13} className="text-slate-400" />
                 Hujjatlar
-                <span className="text-[10px] font-normal text-slate-400 group-open:hidden">Ko&apos;rish</span>
+                <span className="ml-auto text-[10px] font-normal text-slate-400 group-open:hidden">Ochish</span>
               </summary>
-              <div className="border-t border-slate-100 max-h-40 overflow-y-auto">
+              <div className="border-t border-slate-100 max-h-28 overflow-hidden">
                 <AttachmentManager
                   consultationId={consultation.id}
                   allowUpload
@@ -114,7 +148,7 @@ export default function UtVitalsPage() {
                 />
               </div>
             </details>
-          </div>
+          </>
         )}
       </div>
     </UtShell>

@@ -1,49 +1,123 @@
 'use client';
 
 import Link from 'next/link';
-import { LogOut, UserPlus } from 'lucide-react';
+import { LogOut, UserPlus, Stethoscope } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { UtNavTabs } from '@/components/ut/UtNavTabs';
+import { cn } from '@/lib/utils';
 
 interface UtShellProps {
   children: React.ReactNode;
   sessionCount?: number;
   liveCount?: number;
   headerExtra?: React.ReactNode;
+  /** Qabul sahifasi uchun qisqa header */
+  compactNav?: boolean;
 }
 
-export function UtShell({ children, sessionCount = 0, liveCount = 0, headerExtra }: UtShellProps) {
-  const { logout } = useAuth();
+function SessionPills({ sessionCount, liveCount }: { sessionCount: number; liveCount: number }) {
+  if (sessionCount === 0) return null;
+
+  const queued = sessionCount - liveCount;
 
   return (
-    <div className="min-h-dvh h-dvh flex flex-col bg-surface overflow-hidden">
-      <header className="shrink-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-2.5 lg:px-3 py-1.5">
-        <div className="flex items-center gap-2 min-h-[2.375rem]">
-          <UtNavTabs sessionCount={sessionCount} liveCount={liveCount} className="shrink-0" />
+    <div className="hidden lg:flex items-center gap-1.5 shrink-0">
+      {liveCount > 0 && (
+        <span className="ut-pill ut-pill-live">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          {liveCount} jonli
+        </span>
+      )}
+      {queued > 0 && (
+        <span className="ut-pill ut-pill-queue">
+          {queued} navbat
+        </span>
+      )}
+      {liveCount === 0 && (
+        <span className="ut-pill ut-pill-queue">{sessionCount} bemor</span>
+      )}
+    </div>
+  );
+}
 
-          <div className="flex items-center gap-1.5 shrink-0 ml-auto">
-            {sessionCount > 0 && (
-              <span className="hidden md:inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                {liveCount > 0 && <span className="text-emerald-600">{liveCount} jonli</span>}
-                {liveCount > 0 && sessionCount > liveCount && ' · '}
-                {sessionCount > liveCount && (
-                  <span className="text-amber-700">{sessionCount - liveCount} navbat</span>
-                )}
-                {liveCount === 0 && `${sessionCount} bemor`}
-              </span>
-            )}
-            {headerExtra}
-            <Link href="/ut" className="btn-secondary !py-1 !px-2 !text-[11px] inline-flex items-center gap-1">
-              <UserPlus size={12} /> Yangi
-            </Link>
-            <button type="button" onClick={logout} className="btn-ghost !p-1.5 text-red-500" aria-label="Chiqish">
-              <LogOut size={14} />
-            </button>
+export function UtShell({
+  children,
+  sessionCount = 0,
+  liveCount = 0,
+  headerExtra,
+  compactNav,
+}: UtShellProps) {
+  const { user, logout } = useAuth();
+
+  return (
+    <div className="ut-shell">
+      <header className="ut-shell-header">
+        <div className="flex items-center gap-2 min-w-0 shrink-0">
+          <div className="w-9 h-9 rounded-xl gradient-btn flex items-center justify-center shrink-0 shadow-sm">
+            <Stethoscope className="w-4 h-4 text-white" />
           </div>
+          <div className="min-w-0 hidden sm:block">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider leading-none">
+              UT operator
+            </p>
+            <p className="text-xs font-bold text-slate-900 truncate max-w-[140px] lg:max-w-[200px]">
+              {user?.facility?.name}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex-1 flex justify-center min-w-0 px-1">
+          <UtNavTabs
+            sessionCount={sessionCount}
+            liveCount={liveCount}
+            compact={compactNav}
+            className="max-w-full overflow-x-auto"
+          />
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0">
+          <SessionPills sessionCount={sessionCount} liveCount={liveCount} />
+          {headerExtra}
+          <Link
+            href="/ut"
+            className="btn-secondary !py-1.5 !px-2.5 !text-[11px] inline-flex items-center gap-1 shadow-sm"
+          >
+            <UserPlus size={13} />
+            <span className="hidden sm:inline">Yangi</span>
+          </Link>
+          <button
+            type="button"
+            onClick={logout}
+            className="btn-ghost !p-2 text-red-500 hover:bg-red-50 rounded-xl"
+            aria-label="Chiqish"
+          >
+            <LogOut size={15} />
+          </button>
         </div>
       </header>
 
-      <main className="flex-1 min-h-0 overflow-hidden">{children}</main>
+      <main className={cn('ut-shell-main')}>{children}</main>
+    </div>
+  );
+}
+
+/** Sahifa sarlavhasi — content ichida */
+export function UtPageHead({
+  title,
+  subtitle,
+  action,
+}: {
+  title: string;
+  subtitle?: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="ut-page-head shrink-0">
+      <div className="min-w-0">
+        <h1 className="text-sm font-bold text-slate-900">{title}</h1>
+        {subtitle && <p className="text-[11px] text-slate-500 mt-0.5">{subtitle}</p>}
+      </div>
+      {action && <div className="shrink-0">{action}</div>}
     </div>
   );
 }

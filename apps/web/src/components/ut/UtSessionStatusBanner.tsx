@@ -1,6 +1,6 @@
 'use client';
 
-import { Activity, Clock, Radio, UserPlus } from 'lucide-react';
+import { Clock, Radio, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 import { Consultation } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -99,18 +99,16 @@ export function UtIntakeActiveHint({
   if (sessionCount === 0) return null;
 
   return (
-    <div className="rounded-lg border border-brand-200 bg-brand-50 px-2.5 py-1.5 flex flex-wrap items-center justify-between gap-2 mb-1">
-      <p className="text-[11px] text-brand-900">
-        <Activity size={12} className="inline mr-1 -mt-0.5" />
+    <div className="shrink-0 rounded-lg border border-brand-200/80 bg-brand-50/90 px-2.5 py-1 flex flex-wrap items-center justify-between gap-2 mb-1.5">
+      <p className="text-[10px] text-brand-900 font-medium">
         {liveCount > 0 ? (
-          <><span className="font-bold">{liveCount} jonli</span>{sessionCount > liveCount && ` · ${sessionCount - liveCount} navbatda`}</>
+          <><span className="font-bold text-emerald-700">{liveCount} jonli</span>{sessionCount > liveCount && ` · ${sessionCount - liveCount} navbat`}</>
         ) : (
           <><span className="font-bold">{sessionCount} bemor</span> navbatda</>
         )}
-        {' '}— ma&apos;lumot kiritishdan keyin jonli efirga o&apos;ting
       </p>
-      <Link href="/ut/vitals" className="text-[11px] font-bold text-brand-700 hover:underline shrink-0">
-        Jonli efir →
+      <Link href="/ut/patients" className="text-[10px] font-bold text-brand-700 hover:underline shrink-0">
+        Ro&apos;yxat →
       </Link>
     </div>
   );
