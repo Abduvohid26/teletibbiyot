@@ -115,8 +115,8 @@ export function UtVideoPanelView({
   }, [ptzHint]);
 
   return (
-    <div className="panel overflow-hidden">
-      <div className="panel-header gap-2 py-2.5">
+    <div className="panel overflow-hidden h-full flex flex-col">
+      <div className="panel-header gap-2 !py-2 shrink-0">
         <Radio size={15} className={connected ? 'text-emerald-500' : 'text-slate-400'} />
         <div className="min-w-0 flex-1">
           <p className="panel-title !text-sm leading-tight">Video uzatish</p>
@@ -127,18 +127,20 @@ export function UtVideoPanelView({
             </p>
           )}
         </div>
-        {connected && (
-          <div className="flex items-center gap-1.5 shrink-0">
-            <ConnectionQualityBadge quality={connectionStats.quality} bitrateKbps={connectionStats.bitrateKbps} compact />
-            <span className="live-badge !text-[9px] !py-0.5">
-              <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-              {activeCount}/4
-            </span>
-          </div>
-        )}
+        <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+          {connected && (
+            <>
+              <ConnectionQualityBadge quality={connectionStats.quality} bitrateKbps={connectionStats.bitrateKbps} compact />
+              <span className="live-badge !text-[9px] !py-0.5">
+                <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                {activeCount}/4
+              </span>
+            </>
+          )}
+        </div>
       </div>
 
-      <div className="panel-body space-y-3 !p-3 sm:!p-4">
+      <div className="panel-body flex-1 min-h-0 flex flex-col space-y-2.5 !p-3">
         {error && (
           <div className="text-xs text-red-700 bg-red-50 rounded-lg px-2.5 py-2">{error}</div>
         )}
@@ -156,9 +158,9 @@ export function UtVideoPanelView({
           </div>
         )}
 
-        {/* Asosiy layout: chapda bemor, o‘ngda 3 ta kichik kamera — doim gorizontal */}
-        <div className="flex flex-row gap-2 items-stretch">
-          <div className="relative flex-1 min-w-0 rounded-xl overflow-hidden bg-slate-950 ring-2 ring-brand-500 h-[168px] sm:h-[200px]">
+        {/* Asosiy layout: chapda bemor, o‘ngda 3 ta kichik kamera */}
+        <div className="flex flex-row gap-2 items-stretch flex-1 min-h-[200px]">
+          <div className="relative flex-1 min-w-0 rounded-xl overflow-hidden bg-slate-950 ring-2 ring-brand-500 min-h-[180px]">
             <VideoTile
               stream={closeCam?.stream ?? null}
               muted
@@ -210,7 +212,7 @@ export function UtVideoPanelView({
           </div>
         )}
 
-        <div className="flex items-center justify-center gap-2 flex-wrap border-t border-slate-100 pt-3">
+        <div className="flex items-center justify-center gap-2 flex-wrap border-t border-slate-100 pt-2 shrink-0">
           <ControlBtn active={micOn} onClick={toggleMic} icon={micOn ? Mic : MicOff} label="Mic" short />
           <ControlBtn active={speakerOn} onClick={toggleSpeaker} icon={speakerOn ? Volume2 : VolumeX} label="Ovoz" short />
           <ControlBtn active={camOn} onClick={toggleCam} icon={camOn ? Video : VideoOff} label="Kamera" short />
