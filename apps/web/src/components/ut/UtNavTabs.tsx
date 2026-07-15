@@ -54,7 +54,7 @@ export function UtNavTabs({ sessionCount = 0, liveCount = 0, className, compact 
   return (
     <nav
       className={cn(
-        'flex items-center gap-1 p-1 rounded-xl bg-slate-100/90 border border-slate-200/60',
+        'flex items-center gap-1 p-1 rounded-xl bg-white/70 backdrop-blur-md border border-slate-200/70 shadow-sm',
         className,
       )}
       aria-label="UT navigatsiya"

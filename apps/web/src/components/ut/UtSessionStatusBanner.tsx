@@ -99,15 +99,15 @@ export function UtIntakeActiveHint({
   if (sessionCount === 0) return null;
 
   return (
-    <div className="shrink-0 rounded-lg border border-brand-200/80 bg-brand-50/90 px-2.5 py-1 flex flex-wrap items-center justify-between gap-2 mb-1.5">
-      <p className="text-[12px] text-brand-900 font-medium">
+    <div className="shrink-0 alert-info !py-2 !px-3 mb-2 animate-slide-up">
+      <p className="text-[12px] text-brand-900 font-medium flex-1">
         {liveCount > 0 ? (
           <><span className="font-bold text-emerald-700">{liveCount} jonli</span>{sessionCount > liveCount && ` · ${sessionCount - liveCount} navbat`}</>
         ) : (
           <><span className="font-bold">{sessionCount} bemor</span> navbatda</>
         )}
       </p>
-      <Link href="/ut/patients" className="text-[12px] font-bold text-brand-700 hover:underline shrink-0">
+      <Link href="/ut/patients" className="text-[12px] font-bold text-brand-700 hover:underline shrink-0 ml-2">
         Ro&apos;yxat →
       </Link>
     </div>

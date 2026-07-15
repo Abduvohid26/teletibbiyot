@@ -47,6 +47,10 @@ export function UtShell({
 
   return (
     <div className="ut-shell">
+      <div className="ut-shell-bg" aria-hidden>
+        <div className="liquid-orb liquid-orb-1 opacity-50 scale-75" />
+        <div className="liquid-orb liquid-orb-2 opacity-40 scale-90" />
+      </div>
       <header className="ut-shell-header">
         <div className="flex items-center gap-2 min-w-0 shrink-0">
           <div className="w-9 h-9 rounded-xl gradient-btn flex items-center justify-center shrink-0 shadow-sm">
@@ -107,10 +111,10 @@ export function UtPageHead({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="ut-page-head shrink-0">
+    <div className="ut-page-head shrink-0 animate-fade-in">
       <div className="min-w-0">
-        <h1 className="text-sm font-bold text-slate-900">{title}</h1>
-        {subtitle && <p className="text-[11px] text-slate-500 mt-0.5">{subtitle}</p>}
+        <h1 className="text-base font-bold text-slate-900 tracking-tight">{title}</h1>
+        {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
       </div>
       {action && <div className="shrink-0">{action}</div>}
     </div>

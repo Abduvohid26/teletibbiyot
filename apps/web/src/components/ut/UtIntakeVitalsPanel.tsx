@@ -3,7 +3,7 @@
 import { Monitor } from 'lucide-react';
 
 const IN =
-  'form-input !py-1 !px-2 !text-[14px] !min-h-[2.275rem] leading-snug placeholder:text-slate-400 placeholder:font-normal';
+  'input !py-2 !px-3 !text-sm !min-h-[2.5rem] !bg-white/90 placeholder:text-slate-400 placeholder:font-normal';
 
 interface UtIntakeVitalsPanelProps {
   weight: string;
@@ -19,10 +19,10 @@ export function UtIntakeVitalsPanel({
   onHeightChange,
 }: UtIntakeVitalsPanelProps) {
   return (
-    <div className="h-full flex flex-col gap-1.5 min-h-0">
-      <div className="grid grid-cols-2 gap-x-1.5 gap-y-0.5 shrink-0">
+    <div className="h-full flex flex-col gap-2 min-h-0">
+      <div className="grid grid-cols-2 gap-2 shrink-0">
         <div>
-          <label className="label !text-[13px] !mb-0.5 !leading-snug" htmlFor="ut-vazn">
+          <label className="label !text-xs !mb-1" htmlFor="ut-vazn">
             Vazn (kg) <span className="text-red-500">*</span>
           </label>
           <input
@@ -35,7 +35,7 @@ export function UtIntakeVitalsPanel({
           />
         </div>
         <div>
-          <label className="label !text-[13px] !mb-0.5 !leading-snug" htmlFor="ut-boy">
+          <label className="label !text-xs !mb-1" htmlFor="ut-boy">
             Bo&apos;y (sm) <span className="text-red-500">*</span>
           </label>
           <input
@@ -49,16 +49,18 @@ export function UtIntakeVitalsPanel({
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 rounded-lg border border-violet-200/80 bg-gradient-to-br from-violet-50/90 to-white p-2 flex flex-col justify-center gap-1.5">
-        <div className="flex items-center gap-1.5 text-violet-800">
-          <Monitor size={15} className="shrink-0" />
-          <p className="text-[12px] font-bold leading-tight">Patient monitor kamerasi</p>
+      <div className="flex-1 min-h-0 glass-preview-card !p-3 flex flex-col justify-center gap-2">
+        <div className="flex items-center gap-2 text-violet-800">
+          <div className="w-8 h-8 rounded-xl bg-violet-100/90 ring-1 ring-violet-200/70 flex items-center justify-center shrink-0">
+            <Monitor size={15} />
+          </div>
+          <p className="text-sm font-semibold leading-tight">Patient monitor kamerasi</p>
         </div>
-        <p className="text-[11px] text-violet-900/80 leading-snug">
-          Puls, qon bosimi, SpO2, harorat va nafas — <strong>jonli efirda</strong> monitor ekraniga qaratilgan kameradan olinadi.
+        <p className="text-xs text-slate-600 leading-relaxed">
+          Puls, qon bosimi, SpO2, harorat va nafas — <strong className="text-slate-800">jonli efirda</strong> monitor ekranidan olinadi.
         </p>
-        <p className="text-[10px] text-slate-500 leading-snug">
-          Qabulda faqat vazn va bo&apos;y kiritiladi. Boshqa vital ko&apos;rsatkichlarni bu yerda kiritish shart emas.
+        <p className="text-[11px] text-slate-500 leading-snug">
+          Qabulda faqat vazn va bo&apos;y kiritiladi.
         </p>
       </div>
     </div>

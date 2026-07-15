@@ -22,7 +22,7 @@ import { AuthLoadingScreen } from '@/components/auth/AuthLoadingScreen';
 import { UtIntakeSection, UtIntakeSubCard } from '@/components/ut/UtIntakeSection';
 import { UtIntakeVitalsPanel } from '@/components/ut/UtIntakeVitalsPanel';
 import { UtIntakeActiveHint } from '@/components/ut/UtSessionStatusBanner';
-import { UtShell } from '@/components/ut/UtShell';
+import { UtShell, UtPageHead } from '@/components/ut/UtShell';
 import { UtPatientSwitcher } from '@/components/ut/UtPatientSwitcher';
 import { useUtSessions } from '@/hooks/use-ut-sessions';
 import { useConsultationRealtime } from '@/hooks/use-consultation-realtime';
@@ -32,9 +32,9 @@ import { getRoleHomePath } from '@/lib/auth-utils';
 import { validatePinfl, normalizePinfl } from '@/lib/pinfl';
 import { isValidUzPhone, normalizeUzPhone } from '@/lib/phone';
 
-const IN = 'form-input !py-1 !px-2 !text-[14px] !min-h-[2.275rem] leading-snug placeholder:text-slate-400 placeholder:font-normal';
-const TA = 'form-input !py-1 !px-2 !text-[14px] !min-h-0 !h-[2.875rem] resize-none leading-snug placeholder:text-slate-400 placeholder:font-normal';
-const TA_SM = 'form-input !py-1 !px-2 !text-[14px] !min-h-0 !h-[2.425rem] resize-none leading-snug placeholder:text-slate-400 placeholder:font-normal';
+const IN = 'input !py-2 !px-3 !text-sm !min-h-[2.5rem] !bg-white/90 leading-snug placeholder:text-slate-400 placeholder:font-normal';
+const TA = 'input !py-2 !px-3 !text-sm !min-h-0 !h-[2.875rem] !bg-white/90 resize-none leading-snug placeholder:text-slate-400 placeholder:font-normal';
+const TA_SM = 'input !py-2 !px-3 !text-sm !min-h-0 !h-[2.5rem] !bg-white/90 resize-none leading-snug placeholder:text-slate-400 placeholder:font-normal';
 
 function emptyPatientData() {
   return {
@@ -370,9 +370,13 @@ export default function UTClientPage() {
       }
     >
       <div className="ut-page">
+        <UtPageHead
+          title="Bemor qabul"
+          subtitle="Ma'lumotlarni to'ldiring va markaz shifokoriga yuboring"
+        />
         <UtIntakeActiveHint sessionCount={sessions.length} liveCount={inProgressList.length} />
         {offlineNotice && (
-          <p className="text-[12px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-0.5 mb-1 truncate shrink-0">{offlineNotice}</p>
+          <div className="shrink-0 alert-warning !py-1.5 !px-3 !text-xs mb-2 truncate">{offlineNotice}</div>
         )}
 
         <div className="ut-intake-grid flex-1 min-h-0">
@@ -383,7 +387,7 @@ export default function UTClientPage() {
             accent="blue"
             className="ut-intake-shaxsiy"
           >
-            <div className="grid grid-cols-2 gap-x-1.5 gap-y-0.5 h-full content-start">
+            <div className="grid grid-cols-2 gap-x-2 gap-y-1 h-full content-start">
               <div className="col-span-2">
                 <FormField label="F.I.Sh." required dense>
                   <input className={IN} value={patientData.fullName} onChange={(e) => setPatientData({ ...patientData, fullName: e.target.value })} placeholder="Masalan: Aliyev Vali Valijon o'g'li" />
@@ -450,7 +454,7 @@ export default function UTClientPage() {
             accent="purple"
             className="ut-intake-klinik"
           >
-            <div className="grid grid-cols-2 gap-x-1.5 gap-y-0.5 h-full content-start">
+            <div className="grid grid-cols-2 gap-x-2 gap-y-1 h-full content-start">
               <div className="col-span-2">
                 <FormField label="Shikoyatlar" required dense>
                   <textarea className={TA} value={clinicalData.complaints} onChange={(e) => setClinicalData({ ...clinicalData, complaints: e.target.value })} placeholder="Bemor shikoyatlarini kiriting..." />
@@ -519,7 +523,8 @@ export default function UTClientPage() {
             </div>
           </UtIntakeSection>
 
-          <div className="ut-intake-footer panel !rounded-lg px-2.5 py-1.5 flex items-center gap-2 min-h-0 overflow-hidden">
+          <div className="ut-intake-footer">
+            <div className="ut-intake-footer-inner">
             <p className="text-[11px] font-bold text-slate-500 uppercase shrink-0 hidden sm:block">Protokol</p>
             <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-x-1.5 gap-y-0 min-w-0">
               {checklist.map((item) => (
@@ -551,11 +556,12 @@ export default function UTClientPage() {
               type="button"
               onClick={handleSubmit}
               disabled={submitting || !consentAccepted}
-              className="gradient-btn !py-1.5 !px-3.5 !text-[13px] disabled:opacity-50 flex items-center gap-1 shrink-0 shadow-sm"
+              className="gradient-btn !py-2 !px-4 !text-sm disabled:opacity-50 flex items-center gap-1.5 shrink-0 shadow-sm"
             >
-              <Send size={15} />
+              <Send size={16} />
               {submitting ? '...' : 'Yuborish'}
             </button>
+            </div>
           </div>
         </div>
       </div>
@@ -592,7 +598,7 @@ function FormField({
         })
       : children;
 
-  const labelClass = dense ? 'label !text-[13px] !mb-0.5 !leading-snug' : 'label !text-[14px] !mb-1';
+  const labelClass = dense ? 'label !text-xs !mb-1 !leading-snug' : 'label !text-sm !mb-1';
 
   return (
     <div>
