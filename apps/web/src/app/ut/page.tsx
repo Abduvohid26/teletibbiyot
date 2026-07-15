@@ -10,7 +10,6 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { api } from '@/lib/api';
 import { UT_ACTIVE_CONSULTATION_KEY } from '@/lib/api/constants';
-import { fetchUtSessionConsultations } from '@/lib/ut-sessions-fetch';
 import { buildDefaultChecklist, autoCheckFromForm, isChecklistComplete } from '@/lib/clinical-checklist';
 import {
   flushOfflineQueue,
@@ -23,6 +22,8 @@ import { AuthLoadingScreen } from '@/components/auth/AuthLoadingScreen';
 import { UtIntakeSection, UtIntakeSubCard } from '@/components/ut/UtIntakeSection';
 import { UtIntakeActiveHint } from '@/components/ut/UtSessionStatusBanner';
 import { UtShell } from '@/components/ut/UtShell';
+import { UtPatientSwitcher } from '@/components/ut/UtPatientSwitcher';
+import { useUtSessions } from '@/hooks/use-ut-sessions';
 import { useConsultationRealtime } from '@/hooks/use-consultation-realtime';
 import { toast } from '@/lib/toast';
 import { isUtRole, type ChecklistItem } from '@ishifo/shared';
@@ -97,21 +98,18 @@ export default function UTClientPage() {
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [checklist, setChecklist] = useState<ChecklistItem[]>(buildDefaultChecklist());
   const [offlineNotice, setOfflineNotice] = useState('');
-  const [sessionCount, setSessionCount] = useState(0);
-  const [liveCount, setLiveCount] = useState(0);
+
+  const {
+    consultation,
+    sessions,
+    inProgressList,
+    switchToConsultation,
+    refreshSessions,
+  } = useUtSessions(!!user && isUtRole(user?.role || ''));
 
   useEffect(() => {
-    if (!user) return;
-    fetchUtSessionConsultations()
-      .then((list) => {
-        setSessionCount(list.length);
-        setLiveCount(list.filter((c) => c.status === 'IN_PROGRESS').length);
-      })
-      .catch(() => {
-        setSessionCount(0);
-        setLiveCount(0);
-      });
-  }, [user, success]);
+    if (success) void refreshSessions();
+  }, [success, refreshSessions]);
 
   useEffect(() => {
     flushOfflineQueue(async (payload) => {
@@ -355,34 +353,21 @@ export default function UTClientPage() {
 
   return (
     <UtShell
-      sessionCount={sessionCount}
-      liveCount={liveCount}
-      compactNav
-      headerExtra={(
-        <>
-          <label className="hidden md:flex items-center gap-1.5 cursor-pointer shrink-0">
-            <input
-              type="checkbox"
-              checked={consentAccepted}
-              onChange={(e) => setConsentAccepted(e.target.checked)}
-              className="rounded border-slate-300 text-brand-600 scale-90"
-            />
-            <span className="text-[10px] text-slate-600 whitespace-nowrap">Rozilik</span>
-          </label>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={submitting || !consentAccepted}
-            className="gradient-btn !py-1.5 !px-3 !text-[11px] disabled:opacity-50 flex items-center gap-1 shrink-0 shadow-sm"
-          >
-            <Send size={13} />
-            {submitting ? '...' : 'Yuborish'}
-          </button>
-        </>
-      )}
+      sessionCount={sessions.length}
+      liveCount={inProgressList.length}
+      headerExtra={
+        sessions.length > 0 ? (
+          <UtPatientSwitcher
+            activeId={consultation?.id}
+            sessions={sessions}
+            onSelect={switchToConsultation}
+            className="!min-w-0 !max-w-[220px] !py-1.5 !px-2"
+          />
+        ) : null
+      }
     >
       <div className="ut-page">
-        <UtIntakeActiveHint sessionCount={sessionCount} liveCount={liveCount} />
+        <UtIntakeActiveHint sessionCount={sessions.length} liveCount={inProgressList.length} />
         {offlineNotice && (
           <p className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-0.5 mb-1 truncate shrink-0">{offlineNotice}</p>
         )}
@@ -535,7 +520,7 @@ export default function UTClientPage() {
             </div>
           </UtIntakeSection>
 
-          <div className="ut-intake-footer panel !rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 min-h-0 overflow-hidden">
+          <div className="ut-intake-footer panel !rounded-lg px-2.5 py-1.5 flex items-center gap-2 min-h-0 overflow-hidden">
             <p className="text-[9px] font-bold text-slate-500 uppercase shrink-0 hidden sm:block">Protokol</p>
             <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-x-1.5 gap-y-0 min-w-0">
               {checklist.map((item) => (
@@ -554,10 +539,24 @@ export default function UTClientPage() {
                 </label>
               ))}
             </div>
-            <label className="md:hidden flex items-center gap-1 shrink-0 cursor-pointer">
-              <input type="checkbox" checked={consentAccepted} onChange={(e) => setConsentAccepted(e.target.checked)} className="rounded border-slate-300 text-brand-600 scale-90" />
-              <span className="text-[9px] text-slate-600">Rozilik</span>
+            <label className="flex items-center gap-1.5 shrink-0 cursor-pointer border-l border-slate-200 pl-2">
+              <input
+                type="checkbox"
+                checked={consentAccepted}
+                onChange={(e) => setConsentAccepted(e.target.checked)}
+                className="rounded border-slate-300 text-brand-600 scale-90"
+              />
+              <span className="text-[10px] text-slate-600 whitespace-nowrap">Rozilik</span>
             </label>
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={submitting || !consentAccepted}
+              className="gradient-btn !py-1.5 !px-3.5 !text-[11px] disabled:opacity-50 flex items-center gap-1 shrink-0 shadow-sm"
+            >
+              <Send size={13} />
+              {submitting ? '...' : 'Yuborish'}
+            </button>
           </div>
         </div>
       </div>

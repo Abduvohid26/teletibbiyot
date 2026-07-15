@@ -11,8 +11,6 @@ interface UtShellProps {
   sessionCount?: number;
   liveCount?: number;
   headerExtra?: React.ReactNode;
-  /** Qabul sahifasi uchun qisqa header */
-  compactNav?: boolean;
 }
 
 function SessionPills({ sessionCount, liveCount }: { sessionCount: number; liveCount: number }) {
@@ -21,7 +19,7 @@ function SessionPills({ sessionCount, liveCount }: { sessionCount: number; liveC
   const queued = sessionCount - liveCount;
 
   return (
-    <div className="hidden lg:flex items-center gap-1.5 shrink-0">
+    <div className="hidden sm:flex items-center gap-1.5 shrink-0">
       {liveCount > 0 && (
         <span className="ut-pill ut-pill-live">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -45,7 +43,6 @@ export function UtShell({
   sessionCount = 0,
   liveCount = 0,
   headerExtra,
-  compactNav,
 }: UtShellProps) {
   const { user, logout } = useAuth();
 
@@ -70,7 +67,6 @@ export function UtShell({
           <UtNavTabs
             sessionCount={sessionCount}
             liveCount={liveCount}
-            compact={compactNav}
             className="max-w-full overflow-x-auto"
           />
         </div>
