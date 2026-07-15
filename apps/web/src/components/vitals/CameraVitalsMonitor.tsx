@@ -166,30 +166,42 @@ export function CameraVitalsMonitor({
           </div>
         )}
 
-        <div className="relative aspect-video bg-slate-900 rounded-xl overflow-hidden ring-1 ring-slate-800">
-          <video ref={videoRef} muted playsInline className="w-full h-full object-cover mirror" />
-          {!camOn && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 gap-2">
-              <VideoOff size={32} />
-              <p className="text-xs">
-                {sharedVideoStream ? 'Video panel kamerani yoqmoqda...' : 'Kamera o\'chirilgan'}
-              </p>
-            </div>
-          )}
-          {camOn && (
-            <>
-              <div className="absolute top-2 left-2 bg-black/50 text-white text-[10px] px-2 py-1 rounded-md">
-                Bemor yuzini markazga joylashtiring
-              </div>
-              <div className="absolute inset-0 pointer-events-none border-2 border-emerald-400/40 rounded-xl m-8" />
+        {sharedVideoStream ? (
+          <>
+            <video ref={videoRef} muted playsInline className="hidden" aria-hidden />
+            <div className="text-xs text-brand-800 bg-brand-50 border border-brand-100 rounded-xl px-3 py-2.5 leading-relaxed">
+              Vital tahlil yuqoridagi <strong>Bemor yaqindan</strong> kamera oqimidan olinadi. Yuzni kadr markaziga joylashtiring.
               {signalQuality > 0 && (
-                <div className="absolute bottom-2 right-2 text-[10px] text-emerald-300 bg-black/50 px-2 py-1 rounded">
-                  Signal: {Math.round(signalQuality * 100)}%
-                </div>
+                <span className="block mt-1 text-brand-600">Signal: {Math.round(signalQuality * 100)}%</span>
               )}
-            </>
-          )}
-        </div>
+            </div>
+          </>
+        ) : (
+          <div className="relative aspect-video bg-slate-900 rounded-xl overflow-hidden ring-1 ring-slate-800 max-h-64">
+            <video ref={videoRef} muted playsInline className="w-full h-full object-cover mirror" />
+            {!camOn && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 gap-2">
+                <VideoOff size={32} />
+                <p className="text-xs">Kamera o&apos;chirilgan</p>
+              </div>
+            )}
+            {camOn && (
+              <>
+                <div className="absolute top-2 left-2 right-2 text-center">
+                  <span className="inline-block bg-black/50 text-white text-[10px] px-2 py-1 rounded-md">
+                    Bemor yuzini kadr markaziga joylashtiring
+                  </span>
+                </div>
+                <div className="absolute inset-4 pointer-events-none border border-emerald-400/50 rounded-lg" />
+                {signalQuality > 0 && (
+                  <div className="absolute bottom-2 right-2 text-[10px] text-emerald-300 bg-black/50 px-2 py-1 rounded">
+                    Signal: {Math.round(signalQuality * 100)}%
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
         <canvas ref={canvasRef} className="hidden" />
 
         <div className="grid grid-cols-2 gap-2">

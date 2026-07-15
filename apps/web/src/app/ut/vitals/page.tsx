@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Stethoscope, ArrowLeft, LogOut, Activity } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { UserRole, isUtRole } from '@ishifo/shared';
+import { isUtRole } from '@ishifo/shared';
 import { getRoleHomePath } from '@/lib/auth-utils';
 import { api, Consultation } from '@/lib/api';
 import { UT_ACTIVE_CONSULTATION_KEY } from '@/lib/api/constants';
@@ -112,24 +112,40 @@ export default function UtVitalsPage() {
 
   return (
     <div className="min-h-screen bg-surface">
-      <header className="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b border-slate-200/80 px-6 py-4">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href="/ut" className="btn-ghost !p-2">
+      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-6 py-3">
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <Link href="/ut" className="btn-ghost !p-2 shrink-0">
               <ArrowLeft size={18} />
             </Link>
-            <div>
-              <h1 className="font-bold text-slate-900 tracking-tight">Jonli video va vital</h1>
-              <p className="text-xs text-slate-500">{user.facility?.name}</p>
+            <div className="min-w-0">
+              <h1 className="font-bold text-slate-900 tracking-tight truncate">Jonli video va vital</h1>
+              <p className="text-xs text-slate-500 truncate">{user.facility?.name}</p>
             </div>
           </div>
-          <button onClick={logout} className="btn-ghost text-red-500 hover:text-red-600 hover:bg-red-50">
+
+          {consultation && inProgressList.length > 0 && (
+            <ConsultationSwitcher
+              variant="inline"
+              activeId={consultation.id}
+              myInProgress={inProgressList}
+              queued={[]}
+              onSelect={switchToConsultation}
+              onStart={switchToConsultation}
+            />
+          )}
+
+          <button
+            type="button"
+            onClick={logout}
+            className="btn-ghost text-red-500 hover:text-red-600 hover:bg-red-50 shrink-0 self-end sm:self-center"
+          >
             <LogOut size={16} /> Chiqish
           </button>
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto p-6 space-y-4 animate-fade-in">
+      <main className="max-w-6xl mx-auto p-4 sm:p-6 space-y-4 animate-fade-in">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl p-3.5">{error}</div>
         )}
@@ -147,27 +163,21 @@ export default function UtVitalsPage() {
           </div>
         ) : (
           <>
-            <div className="panel p-4 flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-1">
               <div>
                 <p className="text-sm font-semibold text-slate-900">{consultation.patient.fullName}</p>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <p className="text-xs text-slate-500">
                   Shifokor: {consultation.mtDoctor?.fullName || 'Navbatda kutmoqda...'}
                 </p>
               </div>
               <span className={`status-badge ${status?.className}`}>{status?.label}</span>
             </div>
 
-            {inProgressList.length > 1 && (
-              <ConsultationSwitcher
-                activeId={consultation.id}
-                myInProgress={inProgressList}
-                queued={[]}
-                onSelect={switchToConsultation}
-                onStart={switchToConsultation}
-              />
-            )}
-
-            <UtConsultationSession key={consultation.id} consultation={consultation} />
+            <UtConsultationSession
+              key={consultation.id}
+              consultation={consultation}
+              patientName={consultation.patient.fullName}
+            />
 
             <AttachmentManager
               consultationId={consultation.id}

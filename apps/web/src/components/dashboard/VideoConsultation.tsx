@@ -271,20 +271,31 @@ export function VideoConsultation({
       )}
 
       {compact && (
-        <div className="flex gap-1 px-1.5 pt-1 shrink-0 overflow-x-auto">
+        <div className="flex gap-1.5 px-1.5 pt-1.5 shrink-0 overflow-x-auto">
           {UT_CAMERA_FEEDS.map((feed) => {
             const stream = remoteCameras[feed.id] ?? null;
+            const live = !!stream?.getVideoTracks().some((t) => t.readyState === 'live' && t.enabled);
             return (
               <button
                 key={feed.id}
                 type="button"
+                title={feed.label}
                 onClick={() => setActiveCamera(feed.id)}
                 className={cn(
-                  'relative w-14 h-9 rounded-md overflow-hidden border shrink-0',
-                  activeCamera === feed.id ? 'border-brand-500' : 'border-slate-200',
+                  'relative flex flex-col shrink-0 rounded-lg overflow-hidden border-2 transition-all w-[4.5rem]',
+                  activeCamera === feed.id ? 'border-brand-500 ring-1 ring-brand-200' : 'border-slate-200',
+                  feed.id === 'close' && 'ring-brand-300/50',
                 )}
               >
-                <VideoTile stream={stream} muted className="w-full h-full" placeholder="" live={!!stream} />
+                <div className="relative w-full h-9">
+                  <VideoTile stream={stream} muted className="w-full h-full" placeholder="" live={live} />
+                </div>
+                <span className={cn(
+                  'text-[8px] font-semibold px-1 py-0.5 truncate text-center',
+                  live ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500',
+                )}>
+                  {feed.id === 'close' ? 'Bemor' : feed.label.split(' ')[0]}
+                </span>
               </button>
             );
           })}

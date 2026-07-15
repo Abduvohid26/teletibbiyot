@@ -8,17 +8,57 @@ import { VideoTile } from '@/components/video/VideoTile';
 import { ConnectionQualityBadge } from '@/components/video/ConnectionQualityBadge';
 import { MediaSettingsLink } from '@/components/video/MediaDevicePanel';
 import { applyUtPtzAction, isPtzAction } from '@/lib/ut-ptz-state';
+import { UT_CAMERA_FEEDS } from '@/lib/video-config';
 
 interface UtVideoPanelViewProps {
   video: ReturnType<typeof useVideoRoom>;
   doctorName?: string;
   consultationStatus?: string;
+  patientName?: string;
+}
+
+const THUMB_FEEDS = UT_CAMERA_FEEDS.filter((f) => f.id !== 'close');
+
+function CameraThumb({
+  label,
+  stream,
+  active,
+  highlight,
+  className,
+}: {
+  label: string;
+  stream: MediaStream | null;
+  active: boolean;
+  highlight?: boolean;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        'relative rounded-lg overflow-hidden bg-slate-950 ring-1 shrink-0',
+        highlight ? 'ring-brand-500 ring-2' : active ? 'ring-emerald-600/60' : 'ring-slate-700',
+        className,
+      )}
+    >
+      <VideoTile
+        stream={stream}
+        muted
+        className="absolute inset-0 w-full h-full [&_video]:object-cover"
+        placeholder={active ? label : 'Bo‘sh'}
+        live={active}
+      />
+      <span className="absolute bottom-0 inset-x-0 bg-black/75 text-white text-[9px] font-medium px-1.5 py-0.5 truncate pointer-events-none">
+        {label}
+      </span>
+    </div>
+  );
 }
 
 export function UtVideoPanelView({
   video,
   doctorName,
   consultationStatus,
+  patientName,
 }: UtVideoPanelViewProps) {
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
   const [ptzHint, setPtzHint] = useState('');
@@ -35,11 +75,14 @@ export function UtVideoPanelView({
     toggleMic,
     toggleCam,
     connectionStats,
-    virtualCameraWarning,
-    qualityLabel,
     audioMissing,
     utCameraStreams,
+    qualityLabel,
   } = video;
+
+  const streamFor = (id: string) => utCameraStreams.find((c) => c.id === id);
+  const closeCam = streamFor('close');
+  const activeCount = utCameraStreams.filter((c) => c.active).length;
 
   useEffect(() => {
     const el = remoteAudioRef.current;
@@ -71,105 +114,142 @@ export function UtVideoPanelView({
     return () => clearTimeout(timer);
   }, [ptzHint]);
 
-  const activeCameras = utCameraStreams.filter((c) => c.active).length;
-
   return (
     <div className="panel overflow-hidden">
-      <div className="panel-header">
-        <Radio size={16} className={connected ? 'text-emerald-500' : 'text-slate-400'} />
-        <span className="panel-title">Markaz shifokori — video</span>
+      <div className="panel-header gap-2 py-2.5">
+        <Radio size={15} className={connected ? 'text-emerald-500' : 'text-slate-400'} />
+        <div className="min-w-0 flex-1">
+          <p className="panel-title !text-sm leading-tight">Video uzatish</p>
+          {patientName && (
+            <p className="text-[11px] text-slate-500 truncate">
+              {patientName}
+              {doctorName ? ` · ${doctorName}` : ''}
+            </p>
+          )}
+        </div>
         {connected && (
-          <>
-            <ConnectionQualityBadge
-              quality={connectionStats.quality}
-              bitrateKbps={connectionStats.bitrateKbps}
-              compact
-              className="ml-2"
-            />
-            <span className="ml-auto live-badge !text-[10px] !py-0.5">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <ConnectionQualityBadge quality={connectionStats.quality} bitrateKbps={connectionStats.bitrateKbps} compact />
+            <span className="live-badge !text-[9px] !py-0.5">
               <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-              ULANGAN
+              {activeCount}/4
             </span>
-          </>
+          </div>
         )}
       </div>
 
-      <div className="panel-body space-y-3">
-        {(error) && (
-          <div className="text-xs text-red-700 bg-red-50 rounded-lg p-2.5">{error}</div>
+      <div className="panel-body space-y-3 !p-3 sm:!p-4">
+        {error && (
+          <div className="text-xs text-red-700 bg-red-50 rounded-lg px-2.5 py-2">{error}</div>
         )}
 
         {audioMissing && (
-          <div className="text-xs text-amber-800 bg-amber-50 rounded-lg p-2.5 flex items-start gap-2">
-            <AlertTriangle size={14} className="shrink-0 mt-0.5" />
-            <p>Mikrofon ishlamayapti — markaz shifokori sizni eshita olmasligi mumkin. Brauzer ruxsatini tekshiring.</p>
+          <div className="text-[11px] text-amber-800 bg-amber-50 rounded-lg px-2.5 py-2 flex gap-2">
+            <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+            Mikrofon yo‘q — shifokor eshita olmasligi mumkin.
           </div>
-        )}
-
-        {virtualCameraWarning.length > 0 && (
-          <div className="text-xs text-amber-800 bg-amber-50 rounded-lg p-2.5 flex items-start gap-2">
-            <AlertTriangle size={14} className="shrink-0 mt-0.5" />
-            <div>
-              <p className="font-semibold">Virtual kamera ishlatilmoqda</p>
-              <p className="mt-0.5">{virtualCameraWarning.join(', ')} — qo&apos;shimcha jismoniy kamera ulang yoki Sozlamalardan biriktiring.</p>
-            </div>
-          </div>
-        )}
-
-        {doctorName && (
-          <p className="text-sm text-slate-600">
-            Shifokor: <span className="font-semibold text-slate-900">{doctorName}</span>
-            {qualityLabel && (
-              <span className="text-slate-400 ml-2">· {qualityLabel}</span>
-            )}
-          </p>
         )}
 
         {consultationStatus === 'QUEUED' && (
-          <div className="text-xs text-amber-700 bg-amber-50 rounded-lg p-3 space-y-1">
-            <p className="font-semibold">Navbatda kutmoqda</p>
-            <p>4 ta UT kamera uzatilmoqda ({activeCameras}/4 faol). Markaz shifokori konsultatsiyani boshlaguncha kuting.</p>
-            {!connected && (
-              <p className="text-amber-800">Aloqa: kamera ruxsati berilgan bo&apos;lishi va shifokor &quot;Boshlash&quot; ni bosgan bo&apos;lishi kerak.</p>
-            )}
+          <div className="text-[11px] text-amber-800 bg-amber-50 rounded-lg px-2.5 py-2">
+            Navbatda — shifokor boshlaguncha {activeCount} kamera uzatilmoqda.
           </div>
         )}
 
-        <div className="relative aspect-video rounded-xl overflow-hidden ring-1 ring-slate-800 bg-slate-950">
-          <VideoTile
-            stream={mtDoctorStream}
-            muted
-            className="w-full h-full"
-            placeholder="Markaz shifokori kamerasi kutmoqda..."
-            live={!!mtDoctorStream}
-            resolution={connectionStats.resolution}
-          />
-          {remoteAudio && (
-            <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
-          )}
+        {/* Asosiy layout: chapda bemor, o‘ngda 3 ta kichik kamera — doim gorizontal */}
+        <div className="flex flex-row gap-2 items-stretch">
+          <div className="relative flex-1 min-w-0 rounded-xl overflow-hidden bg-slate-950 ring-2 ring-brand-500 h-[168px] sm:h-[200px]">
+            <VideoTile
+              stream={closeCam?.stream ?? null}
+              muted
+              className="absolute inset-0 w-full h-full [&_video]:object-cover"
+              placeholder="Bemor kamerasi — ruxsat bering"
+              live={closeCam?.active}
+            />
+            <span className="absolute top-2 left-2 bg-brand-600/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
+              Bemor yaqindan
+            </span>
+
+            <div className="absolute bottom-2 right-2 w-[88px] sm:w-[100px] aspect-video rounded-lg overflow-hidden ring-2 ring-white/30 shadow-lg bg-slate-900">
+              <VideoTile
+                stream={mtDoctorStream}
+                muted
+                className="absolute inset-0 w-full h-full [&_video]:object-cover"
+                placeholder="Shifokor"
+                live={!!mtDoctorStream}
+              />
+              <span className="absolute bottom-0 inset-x-0 bg-black/70 text-white text-[8px] px-1 py-0.5 text-center">
+                Shifokor
+              </span>
+            </div>
+            {remoteAudio && (
+              <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
+            )}
+          </div>
+
+          <div className="flex flex-col gap-1.5 w-[72px] sm:w-[96px] shrink-0 justify-between">
+            {THUMB_FEEDS.map((feed) => {
+              const cam = streamFor(feed.id);
+              return (
+                <CameraThumb
+                  key={feed.id}
+                  label={feed.label.replace(' ko\'rinishi', '').replace(" ko'rinishi", '')}
+                  stream={cam?.stream ?? null}
+                  active={!!cam?.active}
+                  className="w-full flex-1 min-h-0 aspect-auto"
+                />
+              );
+            })}
+          </div>
         </div>
 
         {ptzHint && (
-          <div className="flex items-center gap-2 text-xs text-brand-700 bg-brand-50 rounded-lg px-3 py-2">
-            <Move size={14} />
+          <div className="flex items-center gap-2 text-[11px] text-brand-700 bg-brand-50 rounded-lg px-2.5 py-1.5">
+            <Move size={13} />
             {ptzHint}
           </div>
         )}
 
-        <div className="flex items-center justify-center gap-2 flex-wrap">
-          <button type="button" onClick={toggleMic} className={cn('flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium', micOn ? 'bg-slate-100 text-slate-700' : 'bg-red-100 text-red-600')}>
-            {micOn ? <Mic size={16} /> : <MicOff size={16} />} Mikrofon
-          </button>
-          <button type="button" onClick={toggleSpeaker} className={cn('flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium', speakerOn ? 'bg-slate-100 text-slate-700' : 'bg-red-100 text-red-600')}>
-            {speakerOn ? <Volume2 size={16} /> : <VolumeX size={16} />} Ovoz
-          </button>
-          <button type="button" onClick={toggleCam} className={cn('flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium', camOn ? 'bg-slate-100 text-slate-700' : 'bg-red-100 text-red-600')}>
-            {camOn ? <Video size={16} /> : <VideoOff size={16} />} 4 kamera
-          </button>
+        <div className="flex items-center justify-center gap-2 flex-wrap border-t border-slate-100 pt-3">
+          <ControlBtn active={micOn} onClick={toggleMic} icon={micOn ? Mic : MicOff} label="Mic" short />
+          <ControlBtn active={speakerOn} onClick={toggleSpeaker} icon={speakerOn ? Volume2 : VolumeX} label="Ovoz" short />
+          <ControlBtn active={camOn} onClick={toggleCam} icon={camOn ? Video : VideoOff} label="Kamera" short />
+          <MediaSettingsLink />
         </div>
 
-        <MediaSettingsLink />
+        {qualityLabel && (
+          <p className="text-center text-[10px] text-slate-400">{qualityLabel}</p>
+        )}
       </div>
     </div>
+  );
+}
+
+function ControlBtn({
+  active,
+  onClick,
+  icon: Icon,
+  label,
+  short,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ElementType;
+  label: string;
+  short?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'flex items-center justify-center gap-1 rounded-xl font-medium min-h-[var(--touch-min)] transition-colors',
+        short ? 'px-3 py-2 text-xs' : 'px-4 py-2 text-sm',
+        active ? 'bg-slate-100 text-slate-700' : 'bg-red-50 text-red-600 ring-1 ring-red-100',
+      )}
+    >
+      <Icon size={short ? 15 : 16} />
+      <span className={short ? 'hidden xs:inline' : ''}>{label}</span>
+    </button>
   );
 }

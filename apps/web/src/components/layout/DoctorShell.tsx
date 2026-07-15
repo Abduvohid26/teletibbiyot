@@ -2,7 +2,7 @@
 
 import { ReactNode } from 'react';
 import { DoctorHeader } from './DoctorHeader';
-import { DashboardStats } from '@/lib/api';
+import { Consultation, DashboardStats } from '@/lib/api';
 
 interface DoctorShellProps {
   children: ReactNode;
@@ -17,6 +17,11 @@ interface DoctorShellProps {
   onAttachments?: () => void;
   attachmentCount?: number;
   notificationCount?: number;
+  activeConsultationId?: string | null;
+  myInProgress?: Consultation[];
+  queuedConsultations?: Consultation[];
+  onSelectConsultation?: (id: string) => void;
+  onStartConsultation?: (id: string) => void;
 }
 
 export function DoctorShell({
@@ -32,6 +37,11 @@ export function DoctorShell({
   onAttachments,
   attachmentCount,
   notificationCount,
+  activeConsultationId,
+  myInProgress,
+  queuedConsultations,
+  onSelectConsultation,
+  onStartConsultation,
 }: DoctorShellProps) {
   return (
     <div className="doctor-shell">
@@ -51,6 +61,11 @@ export function DoctorShell({
         onAttachments={onAttachments}
         attachmentCount={attachmentCount}
         notificationCount={notificationCount}
+        activeConsultationId={activeConsultationId}
+        myInProgress={myInProgress}
+        queuedConsultations={queuedConsultations}
+        onSelectConsultation={onSelectConsultation}
+        onStartConsultation={onStartConsultation}
       />
       <main className={scrollable ? 'doctor-subpage relative z-10' : 'doctor-body relative z-10'}>{children}</main>
     </div>

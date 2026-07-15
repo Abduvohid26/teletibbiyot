@@ -8,7 +8,6 @@ import { BottomPanels } from '@/components/dashboard/BottomPanels';
 import { PatientDocumentsPanel } from '@/components/dashboard/PatientDocumentsPanel';
 import { CompleteDiagnosisModal } from '@/components/dashboard/CompleteDiagnosisModal';
 import { DoctorModals } from '@/components/dashboard/DoctorModals';
-import { ConsultationSwitcher } from '@/components/dashboard/ConsultationSwitcher';
 import { Consultation, DashboardStats, DeviceStatus } from '@/lib/api';
 
 interface DoctorDashboardViewProps {
@@ -81,6 +80,11 @@ export function DoctorDashboardView({
       onAttachments={() => onShowAttachments(true)}
       attachmentCount={attachmentCount}
       notificationCount={notificationCount}
+      activeConsultationId={activeConsultationId}
+      myInProgress={myInProgress}
+      queuedConsultations={queuedPatients}
+      onSelectConsultation={(id) => onSelectConsultation?.(id)}
+      onStartConsultation={onStartConsultation}
     >
       <div className="doctor-workspace">
         {error && (
@@ -91,15 +95,6 @@ export function DoctorDashboardView({
             </button>
           </div>
         )}
-
-        <ConsultationSwitcher
-          activeId={activeConsultationId}
-          myInProgress={myInProgress}
-          queued={queuedPatients}
-          onSelect={(id) => onSelectConsultation?.(id)}
-          onStart={onStartConsultation}
-          compact
-        />
 
         <div className="doctor-main-grid">
           <div className="doctor-video-col">

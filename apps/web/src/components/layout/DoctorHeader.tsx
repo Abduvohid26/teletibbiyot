@@ -9,8 +9,9 @@ import {
 import { useAuth } from '@/lib/auth-context';
 import { SmartSearch } from '@/components/analytics/SmartSearch';
 import { BrandName } from '@/components/brand/BrandName';
-import { DashboardStats } from '@/lib/api';
+import { DashboardStats, Consultation } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { ConsultationSwitcher } from '@/components/dashboard/ConsultationSwitcher';
 
 interface DoctorHeaderProps {
   stats?: DashboardStats | null;
@@ -23,6 +24,11 @@ interface DoctorHeaderProps {
   onAttachments?: () => void;
   attachmentCount?: number;
   notificationCount?: number;
+  activeConsultationId?: string | null;
+  myInProgress?: Consultation[];
+  queuedConsultations?: Consultation[];
+  onSelectConsultation?: (id: string) => void;
+  onStartConsultation?: (id: string) => void;
 }
 
 export function DoctorHeader({
@@ -36,13 +42,18 @@ export function DoctorHeader({
   onAttachments,
   attachmentCount = 0,
   notificationCount = 0,
+  activeConsultationId,
+  myInProgress = [],
+  queuedConsultations = [],
+  onSelectConsultation,
+  onStartConsultation,
 }: DoctorHeaderProps) {
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const isMain = pathname === '/dashboard';
 
   return (
-    <header className="shrink-0 h-12 glass-panel !rounded-none border-x-0 border-t-0 px-2 lg:px-3 flex items-center gap-1.5 lg:gap-2 z-30">
+    <header className="shrink-0 min-h-12 glass-panel !rounded-none border-x-0 border-t-0 px-2 lg:px-3 flex items-center gap-1.5 lg:gap-2 z-30 flex-wrap py-1.5">
       <Link href="/dashboard" className="flex items-center gap-2 shrink-0 group">
         <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-600 via-indigo-600 to-accent-600 flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
           <Stethoscope className="w-4 h-4 text-white" strokeWidth={2.5} />
@@ -59,6 +70,17 @@ export function DoctorHeader({
           <StatChip icon={Users} value={stats.totalPatients} label="Bemor" tone="brand" />
           <StatChip icon={CheckCircle2} value={stats.completed} label="Yakun" tone="violet" />
         </div>
+      )}
+
+      {isMain && (myInProgress.length > 0 || queuedConsultations.length > 0) && onSelectConsultation && onStartConsultation && (
+        <ConsultationSwitcher
+          variant="header"
+          activeId={activeConsultationId ?? undefined}
+          myInProgress={myInProgress}
+          queued={queuedConsultations}
+          onSelect={onSelectConsultation}
+          onStart={onStartConsultation}
+        />
       )}
 
       <div className="flex-1 min-w-0 flex items-center justify-end gap-1.5 lg:gap-2">
