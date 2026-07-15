@@ -12,13 +12,24 @@ interface UtPatientSwitcherProps {
   sessions: Consultation[];
   onSelect: (id: string) => void;
   className?: string;
+  compact?: boolean;
 }
 
 function patientLabel(c: Consultation) {
   return c.patient.fullName;
 }
 
-export function UtPatientSwitcher({ activeId, sessions, onSelect, className }: UtPatientSwitcherProps) {
+function patientInitial(name: string) {
+  return name.trim().charAt(0).toUpperCase() || '?';
+}
+
+export function UtPatientSwitcher({
+  activeId,
+  sessions,
+  onSelect,
+  className,
+  compact = false,
+}: UtPatientSwitcherProps) {
   const [open, setOpen] = useState(false);
   const [menuStyle, setMenuStyle] = useState<{ top: number; left: number; width: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -65,6 +76,7 @@ export function UtPatientSwitcher({ activeId, sessions, onSelect, className }: U
   if (sessions.length === 0) return null;
 
   const status = active ? formatStatus(active.status) : null;
+  const isLive = active?.status === 'IN_PROGRESS';
 
   const menu = open && menuStyle && typeof document !== 'undefined'
     ? createPortal(
@@ -97,6 +109,38 @@ export function UtPatientSwitcher({ activeId, sessions, onSelect, className }: U
       )
     : null;
 
+  if (compact) {
+    return (
+      <>
+        <button
+          ref={triggerRef}
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className={cn(
+            'flex items-center gap-1.5 rounded-xl border border-white/60 bg-white/55 backdrop-blur-md px-2 py-1.5 text-left hover:bg-white/70 transition-all max-w-[160px] sm:max-w-[200px] shadow-sm',
+            className,
+          )}
+        >
+          <div
+            className={cn(
+              'w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-[11px] font-bold',
+              isLive ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800',
+            )}
+          >
+            {active ? patientInitial(active.patient.fullName) : <User size={13} />}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-bold text-slate-900 truncate leading-tight">
+              {active ? patientLabel(active) : 'Tanlang'}
+            </p>
+          </div>
+          <ChevronDown size={13} className={cn('text-slate-400 shrink-0 transition-transform', open && 'rotate-180')} />
+        </button>
+        {menu}
+      </>
+    );
+  }
+
   return (
     <>
       <button
@@ -104,8 +148,7 @@ export function UtPatientSwitcher({ activeId, sessions, onSelect, className }: U
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          'flex items-center gap-2 rounded-xl border border-white/60 bg-white/55 backdrop-blur-md px-3 py-2 text-left hover:bg-white/70 hover:border-white/75 transition-all min-w-[200px] max-w-[320px]',
-          'shadow-sm',
+          'flex items-center gap-2 rounded-xl border border-white/60 bg-white/55 backdrop-blur-md px-3 py-2 text-left hover:bg-white/70 hover:border-white/75 transition-all min-w-[200px] max-w-[320px] shadow-sm',
           className,
         )}
       >

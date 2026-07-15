@@ -360,10 +360,10 @@ export default function UTClientPage() {
       headerExtra={
         sessions.length > 0 ? (
           <UtPatientSwitcher
+            compact
             activeId={consultation?.id}
             sessions={sessions}
             onSelect={switchToConsultation}
-            className="!min-w-0 !max-w-[220px] !py-1.5 !px-2"
           />
         ) : null
       }

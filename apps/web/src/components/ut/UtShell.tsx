@@ -15,35 +15,6 @@ interface UtShellProps {
   pageAction?: React.ReactNode;
 }
 
-function SessionPills({ sessionCount, liveCount }: { sessionCount: number; liveCount: number }) {
-  if (sessionCount === 0) return null;
-
-  const queued = sessionCount - liveCount;
-
-  return (
-    <Link
-      href="/ut/patients"
-      className="hidden sm:flex items-center gap-1.5 shrink-0 ut-glass-pills hover:opacity-90 transition-opacity"
-      title="Bemorlar ro'yxati"
-    >
-      {liveCount > 0 && (
-        <span className="ut-pill ut-pill-live">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          {liveCount} jonli
-        </span>
-      )}
-      {queued > 0 && (
-        <span className="ut-pill ut-pill-queue">
-          {queued} navbat
-        </span>
-      )}
-      {liveCount === 0 && (
-        <span className="ut-pill ut-pill-queue">{sessionCount} bemor</span>
-      )}
-    </Link>
-  );
-}
-
 export function UtShell({
   children,
   sessionCount = 0,
@@ -63,47 +34,48 @@ export function UtShell({
         <div className="liquid-orb liquid-orb-2 opacity-40 scale-90" />
       </div>
       <header className="ut-shell-header">
-        <div className="ut-shell-header-main">
+        <div className="ut-shell-topbar">
           <div className="ut-shell-brand">
-            <div className="w-8 h-8 rounded-xl gradient-btn flex items-center justify-center shrink-0 shadow-sm">
-              <Stethoscope className="w-3.5 h-3.5 text-white" />
+            <div className="w-9 h-9 rounded-xl gradient-btn flex items-center justify-center shrink-0 shadow-sm">
+              <Stethoscope className="w-4 h-4 text-white" />
             </div>
-            <div className="min-w-0 hidden md:block">
-              <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider leading-none">
-                UT operator
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-slate-900 truncate max-w-[140px] sm:max-w-[220px] lg:max-w-[280px]">
+                {user?.facility?.name || 'UT operator'}
               </p>
-              <p className="text-[11px] font-bold text-slate-900 truncate max-w-[120px] lg:max-w-[160px]">
-                {user?.facility?.name}
+              <p className="text-[10px] text-slate-500 truncate hidden sm:block">
+                Masofaviy qabul markazi
               </p>
             </div>
           </div>
 
-          <UtNavTabs
-            sessionCount={sessionCount}
-            liveCount={liveCount}
-            compact
-            className="flex-1 min-w-0 justify-start"
-          />
-
           <div className="ut-shell-actions">
-            <SessionPills sessionCount={sessionCount} liveCount={liveCount} />
             {headerExtra}
             <Link
               href="/ut"
-              className="ut-glass-btn !py-1.5 !px-2.5 !text-[11px] inline-flex items-center gap-1"
+              className="gradient-btn !py-1.5 !px-2.5 !text-[11px] inline-flex items-center gap-1 shadow-sm"
             >
               <UserPlus size={13} />
-              <span className="hidden sm:inline">Yangi</span>
+              <span className="hidden sm:inline">Yangi bemor</span>
+              <span className="sm:hidden">Yangi</span>
             </Link>
             <button
               type="button"
               onClick={logout}
-              className="btn-ghost !p-2 text-red-500 hover:bg-red-50/80 rounded-xl"
+              className="ut-glass-btn !p-2 text-red-500 hover:!bg-red-50/80 hover:!text-red-600"
               aria-label="Chiqish"
             >
               <LogOut size={15} />
             </button>
           </div>
+        </div>
+
+        <div className="ut-shell-nav-wrap">
+          <UtNavTabs
+            sessionCount={sessionCount}
+            liveCount={liveCount}
+            stretch
+          />
         </div>
 
         {showPageBar && (
