@@ -8,8 +8,9 @@ import type {
 
 export function defineDashboardApi(client: HttpClient) {
   return {
-    getActiveConsultation() {
-      return client.request<Consultation | null>('/dashboard/active-consultation');
+    getActiveConsultation(preferredId?: string) {
+      const q = preferredId ? `?id=${encodeURIComponent(preferredId)}` : '';
+      return client.request<Consultation | null>(`/dashboard/active-consultation${q}`);
     },
 
     getUtActiveConsultation(preferredId?: string) {

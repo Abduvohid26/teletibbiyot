@@ -26,8 +26,11 @@ export class DashboardController {
 
   @Get('active-consultation')
   @Roles(UserRole.MT_DOCTOR, UserRole.ADMIN)
-  getActiveConsultation(@Request() req: { user: { id: string } }) {
-    return this.dashboardService.getActiveConsultation(req.user.id);
+  getActiveConsultation(
+    @Request() req: { user: { id: string } },
+    @Query('id') preferredId?: string,
+  ) {
+    return this.dashboardService.getActiveConsultation(req.user.id, preferredId);
   }
 
   @Get('ut-active-consultation')

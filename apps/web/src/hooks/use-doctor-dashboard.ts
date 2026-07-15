@@ -20,6 +20,7 @@ export function useDoctorDashboard() {
 
   const [snapshot, setSnapshot] = useState<DashboardSnapshot | null>(null);
   const [observedId, setObservedId] = useState<string | null>(null);
+  const [selectedConsultationId, setSelectedConsultationId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [showComplete, setShowComplete] = useState(false);
   const [showSecondOpinion, setShowSecondOpinion] = useState(false);
@@ -34,21 +35,31 @@ export function useDoctorDashboard() {
     }
   }, [user, loading, router]);
 
-  const reload = useCallback(async () => {
+  const reload = useCallback(async (preferredId?: string | null) => {
     if (!user) return;
     setError('');
+    const activeId = preferredId !== undefined ? preferredId : selectedConsultationId;
     try {
-      const data = await loadDashboardSnapshot({ isDoctor, observedId });
+      const data = await loadDashboardSnapshot({
+        isDoctor,
+        observedId,
+        activeConsultationId: activeId,
+      });
       setSnapshot(data);
+      if (data.consultation?.id) {
+        setSelectedConsultationId(data.consultation.id);
+      } else if (activeId) {
+        setSelectedConsultationId(null);
+      }
     } catch (err) {
       setError(toUserMessage(err, 'Ma\'lumotlarni yuklashda xatolik'));
     }
-  }, [user, isDoctor, observedId]);
+  }, [user, isDoctor, observedId, selectedConsultationId]);
 
   useEffect(() => {
     if (!user) return;
     void reload();
-  }, [user, reload]);
+  }, [user, isDoctor, observedId]);
 
   useEffect(() => {
     if (!user || !isDoctor) return;
@@ -60,6 +71,10 @@ export function useDoctorDashboard() {
   const queue = snapshot?.queue ?? [];
   const consultation = snapshot?.consultation ?? null;
   const queuedPatients = useMemo(() => queue.filter((c) => c.status === 'QUEUED'), [queue]);
+  const myInProgress = useMemo(
+    () => (snapshot?.inProgressList ?? []).filter((c) => c.mtDoctor?.id === user?.id),
+    [snapshot?.inProgressList, user?.id],
+  );
   const documentsConsultationId = consultation?.id ?? queuedPatients[0]?.id;
 
   const realtimeIds = useMemo(
@@ -81,8 +96,16 @@ export function useDoctorDashboard() {
       },
       onAttachmentAnalyzed: () => void reload(),
       onAiUpdated: () => void reload(),
-      onConsultationStarted: () => void reload(),
-      onConsultationCompleted: () => void reload(),
+      onConsultationStarted: (payload) => {
+        if (payload.consultationId) {
+          setSelectedConsultationId(payload.consultationId);
+        }
+        void reload();
+      },
+      onConsultationCompleted: () => {
+        setSelectedConsultationId(null);
+        void reload();
+      },
       onTriageUpdated: () => void reload(),
       onPriorityUpdated: () => void reload(),
       onDeviceStatusUpdated: () => void reload(),
@@ -93,11 +116,17 @@ export function useDoctorDashboard() {
     },
   );
 
+  const selectConsultation = useCallback((id: string) => {
+    setSelectedConsultationId(id);
+    void reload(id);
+  }, [reload]);
+
   const startConsultation = useCallback(async (id: string) => {
     setError('');
     try {
       await api.startConsultation(id);
-      await reload();
+      setSelectedConsultationId(id);
+      await reload(id);
     } catch (err) {
       setError(toUserMessage(err, 'Konsultatsiyani boshlashda xatolik'));
     }
@@ -122,6 +151,7 @@ export function useDoctorDashboard() {
     consultation,
     queue,
     queuedPatients,
+    myInProgress,
     documentsConsultationId,
     inProgressList: snapshot?.inProgressList ?? [],
     stats: snapshot?.stats ?? null,
@@ -130,6 +160,8 @@ export function useDoctorDashboard() {
     notificationCount: snapshot?.notificationCount ?? 0,
     observedId,
     setObservedId,
+    selectedConsultationId,
+    selectConsultation,
     showComplete,
     setShowComplete,
     showSecondOpinion,

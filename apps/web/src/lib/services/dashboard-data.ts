@@ -14,11 +14,12 @@ export interface DashboardSnapshot {
 export async function loadDashboardSnapshot(params: {
   isDoctor: boolean;
   observedId: string | null;
+  activeConsultationId?: string | null;
 }): Promise<DashboardSnapshot> {
-  const { isDoctor, observedId } = params;
+  const { isDoctor, observedId, activeConsultationId } = params;
 
   const [active, queue, stats, inProgress, notifications] = await Promise.all([
-    isDoctor ? api.getActiveConsultation() : Promise.resolve(null),
+    isDoctor ? api.getActiveConsultation(activeConsultationId || undefined) : Promise.resolve(null),
     api.getQueue(),
     api.getStats(),
     api.getInProgressConsultations(),

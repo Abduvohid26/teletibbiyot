@@ -8,12 +8,16 @@ import { BottomPanels } from '@/components/dashboard/BottomPanels';
 import { PatientDocumentsPanel } from '@/components/dashboard/PatientDocumentsPanel';
 import { CompleteDiagnosisModal } from '@/components/dashboard/CompleteDiagnosisModal';
 import { DoctorModals } from '@/components/dashboard/DoctorModals';
+import { ConsultationSwitcher } from '@/components/dashboard/ConsultationSwitcher';
 import { Consultation, DashboardStats, DeviceStatus } from '@/lib/api';
 
 interface DoctorDashboardViewProps {
   stats: DashboardStats | null;
   queue: Consultation[];
   consultation: Consultation | null;
+  myInProgress?: Consultation[];
+  selectedConsultationId?: string | null;
+  onSelectConsultation?: (id: string) => void;
   devices: DeviceStatus[];
   attachmentCount: number;
   notificationCount: number;
@@ -34,6 +38,9 @@ export function DoctorDashboardView({
   stats,
   queue,
   consultation,
+  myInProgress = [],
+  selectedConsultationId,
+  onSelectConsultation,
   devices,
   attachmentCount,
   notificationCount,
@@ -78,9 +85,19 @@ export function DoctorDashboardView({
           </div>
         )}
 
+        <ConsultationSwitcher
+          activeId={selectedConsultationId ?? consultation?.id}
+          myInProgress={myInProgress}
+          queued={queuedPatients}
+          onSelect={(id) => onSelectConsultation?.(id)}
+          onStart={onStartConsultation}
+          compact
+        />
+
         <div className="doctor-main-grid">
           <div className="doctor-video-col">
             <VideoConsultation
+              key={consultation?.id ?? 'none'}
               facilityCode={consultation?.utFacility?.code}
               consultationId={consultation?.id}
               onEndCall={onReload}

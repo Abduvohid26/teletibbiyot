@@ -37,6 +37,7 @@ import {
 import { FieldCryptoService } from '../common/field-crypto.service';
 import { buildPatientSearchOr } from '../common/patient-search.util';
 import { isAccessDeniedScope } from '../common/access-scope.constants';
+import { assertCanStartWhileAnotherActive } from './consultations.rules';
 
 @Injectable()
 export class ConsultationsService {
@@ -349,6 +350,18 @@ export class ConsultationsService {
 
     if (existing.status === ConsultationStatus.IN_PROGRESS && existing.mtDoctorId && existing.mtDoctorId !== doctorId) {
       throw new ForbiddenException('Konsultatsiya boshqa shifokor tomonidan olib borilmoqda');
+    }
+
+    const otherActive = await this.prisma.consultation.findFirst({
+      where: {
+        mtDoctorId: doctorId,
+        status: ConsultationStatus.IN_PROGRESS,
+        id: { not: id },
+      },
+      select: { id: true, patient: { select: { fullName: true } } },
+    });
+    if (otherActive) {
+      assertCanStartWhileAnotherActive(otherActive);
     }
 
     const updated = await this.prisma.consultation.updateMany({

@@ -552,11 +552,24 @@ export function useVideoRoom({
       }
     };
 
+    const reofferPeers = () => {
+      if (!isOfferer) return;
+      knownParticipantsRef.current.forEach((socketId) => {
+        pendingOfferTargetsRef.current.add(socketId);
+      });
+      flushPendingOffers();
+    };
+
+    const onConsultationStarted = () => {
+      reofferPeers();
+    };
+
     socket.on('room-participants', onRoomParticipants);
     socket.on('participant-joined', onParticipantJoined);
     socket.on('participant-left', onParticipantLeft);
     socket.io.on('reconnect', onReconnect);
     socket.on('room-joined', onRoomJoined);
+    socket.on('consultation-started', onConsultationStarted);
     socket.on('offer', onOffer);
     socket.on('answer', onAnswer);
     socket.on('ice-candidate', onIce);
@@ -571,6 +584,7 @@ export function useVideoRoom({
       socket.off('participant-left', onParticipantLeft);
       socket.io.off('reconnect', onReconnect);
       socket.off('room-joined', onRoomJoined);
+      socket.off('consultation-started', onConsultationStarted);
       socket.off('offer', onOffer);
       socket.off('answer', onAnswer);
       socket.off('ice-candidate', onIce);

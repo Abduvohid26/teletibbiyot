@@ -86,25 +86,34 @@ export class DashboardService {
     };
   }
 
-  async getActiveConsultation(doctorId: string) {
+  async getActiveConsultation(doctorId: string, preferredId?: string) {
+    const include = {
+      patient: true,
+      clinicalRecord: true,
+      aiAnalysis: true,
+      utFacility: true,
+      aiAnalysisSteps: { orderBy: { order: 'asc' as const } },
+    };
+
+    if (preferredId) {
+      const preferred = await this.prisma.consultation.findFirst({
+        where: {
+          id: preferredId,
+          mtDoctorId: doctorId,
+          status: ConsultationStatus.IN_PROGRESS,
+        },
+        include,
+      });
+      if (preferred) return this.crypto.unprotectConsultation(preferred);
+    }
+
     const row = await this.prisma.consultation.findFirst({
       where: {
         mtDoctorId: doctorId,
-
         status: ConsultationStatus.IN_PROGRESS,
       },
-
-      include: {
-        patient: true,
-
-        clinicalRecord: true,
-
-        aiAnalysis: true,
-
-        utFacility: true,
-
-        aiAnalysisSteps: { orderBy: { order: "asc" } },
-      },
+      orderBy: { startedAt: 'desc' },
+      include,
     });
     return row ? this.crypto.unprotectConsultation(row) : null;
   }
