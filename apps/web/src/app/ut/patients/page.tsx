@@ -15,10 +15,11 @@ export default function UtPatientsPage() {
   const {
     consultation,
     sessions,
+    patientConsultations,
     inProgressList,
     error,
     switchToConsultation,
-    refreshSessions,
+    refreshAll,
   } = useUtSessions(!!user && isUtRole(user?.role || ''));
 
   useEffect(() => {
@@ -42,7 +43,7 @@ export default function UtPatientsPage() {
         error ? (
           <button
             type="button"
-            onClick={() => void refreshSessions()}
+            onClick={() => void refreshAll()}
             className="ut-glass-btn !text-xs !py-1 !px-2 shrink-0"
           >
             Yangilash
@@ -58,7 +59,7 @@ export default function UtPatientsPage() {
         )}
 
         <UtPatientList
-          sessions={sessions}
+          sessions={patientConsultations.length > 0 ? patientConsultations : sessions}
           activeId={consultation?.id}
           onSelect={switchToConsultation}
           showGoLive

@@ -494,9 +494,11 @@ export class ConsultationsService {
       return updated;
     });
 
-    this.reportsService
-      .generateReport(id, { id: doctorId, role: UserRole.MT_DOCTOR, facilityId: null })
-      .catch((err) => this.logger.warn(`Hisobot yaratish xatosi (${id}): ${err}`));
+    try {
+      await this.aiService.persistAnalysisReport(id, doctorId);
+    } catch (err) {
+      this.logger.warn(`Tashxis PDF saqlash xatosi (${id}): ${err}`);
+    }
     this.videoGateway.emitConsultationEvent(id, 'consultation-completed', { consultationId: id });
 
     return result;

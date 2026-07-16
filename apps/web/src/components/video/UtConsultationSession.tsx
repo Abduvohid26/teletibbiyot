@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useVideoRoom } from '@/hooks/use-video-room';
 import { UtVideoPanelView } from '@/components/video/UtVideoPanelView';
 import { VideoPreflightModal } from '@/components/video/VideoPreflightModal';
 import { Consultation } from '@/lib/api';
-import { VitalReading } from '@/lib/camera-vitals';
 import { useVitalsStream } from '@/hooks/use-vitals-stream';
-import { vitalsFromRecord } from '@/components/vitals/VitalsOverlayBar';
+import { useMonitorVitalsReader } from '@/hooks/use-monitor-vitals-reader';
+import { isUtStreamLive } from '@/lib/ut-camera-streams';
 
 interface UtConsultationSessionProps {
   consultation: Consultation;
@@ -23,13 +23,19 @@ export function UtConsultationSession({ consultation, patientName }: UtConsultat
     skipPreflight: consultation.status === 'QUEUED',
   });
 
-  const initial = vitalsFromRecord(consultation.clinicalRecord?.vitalSigns as Record<string, number> | undefined);
-  const [reading, setReading] = useState<VitalReading>(initial);
-  const { connected, sendVitals } = useVitalsStream(consultation.id, 'send');
+  const equipmentStream = useMemo(
+    () => video.utCameraStreams.find((c) => c.id === 'equipment')?.stream ?? null,
+    [video.utCameraStreams],
+  );
 
-  useEffect(() => {
-    setReading(vitalsFromRecord(consultation.clinicalRecord?.vitalSigns as Record<string, number> | undefined));
-  }, [consultation.id, consultation.clinicalRecord?.vitalSigns]);
+  const { reading, analyzing } = useMonitorVitalsReader({
+    stream: equipmentStream,
+    consultationId: consultation.id,
+    enabled: isUtStreamLive(equipmentStream),
+    intervalMs: 4000,
+  });
+
+  const { connected, sendVitals } = useVitalsStream(consultation.id, 'send');
 
   useEffect(() => {
     if (!connected) return;
@@ -48,7 +54,7 @@ export function UtConsultationSession({ consultation, patientName }: UtConsultat
           doctorName={consultation.mtDoctor?.fullName}
           patientName={patientName ?? consultation.patient.fullName}
           vitalsReading={reading}
-          onVitalsChange={setReading}
+          vitalsAnalyzing={analyzing}
           defaultView="equipment"
         />
       </div>

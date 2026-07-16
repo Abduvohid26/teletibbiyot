@@ -6,23 +6,58 @@ import { MT_NOTIFY_ROLES } from '../common/roles.constants';
 import { BRAND } from '@ishifo/shared';
 import { NotificationsService } from '../notifications/notifications.service';
 import { VideoGateway } from '../video/video.gateway';
+import { AccessControlService, AuthUser } from '../common/access-control.service';
+import { FieldCryptoService } from '../common/field-crypto.service';
+import { StorageService } from '../storage/storage.service';
+import { buildAiAnalysisPdfBuffer } from './clinical-conclusion-pdf';
 
 const SYSTEM_PROMPT = `Siz ${BRAND.name} platformasining AI-yordamchi shifokorisiz.
-MUHIM: Siz HECH QACHON yakuniy, rasmiy tibbiy tashxis qo'ymaysiz.
-Sizning vazifangiz faqat:
-1. Ehtimoliy tashxislar ro'yxatini (differensial diagnostika) taklif qilish
-2. Xavf darajasini baholash (LOW/MEDIUM/HIGH/EMERGENCY)
-3. Qo'shimcha tekshiruvlar bo'yicha tavsiyalar berish
-4. Qizil bayroqlar (red flags) aniqlash
+MUHIM: Siz HECH QACHON yakuniy, rasmiy tibbiy tashxis qo'ymaysiz — bu faqat AI konsensus xulosasi.
+O'zbekiston SSV klinik protokollari va dalillarga asoslangan tavsiyalar bering.
+Barcha matnlar o'zbek tilida bo'lsin.
 
 Javobni faqat quyidagi JSON formatida bering:
 {
-  "summary": "qisqa klinik xulosa",
+  "summary": "qisqa asosiy klinik xulosa (2-4 jumla)",
   "diagnoses": [{"name": "...", "icd10Code": "...", "confidence": 0-100, "reasoning": "..."}],
   "triageLevel": "LOW|MEDIUM|HIGH|EMERGENCY",
   "recommendations": ["..."],
-  "redFlags": ["..."]
-}`;
+  "redFlags": ["..."],
+  "clinicalConclusion": {
+    "mainConclusion": "konsensus xulosa — kritik topilmalar",
+    "consensusDiagnoses": [{
+      "name": "asosiy tashxis",
+      "icd10Code": "F50.00",
+      "confidence": 94,
+      "protocolReference": "O'zbekiston SSV ... bo'yicha protokoli",
+      "justification": "batafsil asoslash matni",
+      "logicChain": ["1-qadam mantiq", "2-qadam mantiq"]
+    }],
+    "alternativeDiagnoses": [{"name": "...", "icd10Code": "...", "confidence": 6, "justification": "..."}],
+    "scientificArticles": [{"title": "...", "url": "https://...", "description": "..."}],
+    "treatmentSteps": ["qadam: ..."],
+    "medicationWarnings": ["DDI ogohlantirish..."],
+    "medications": [{"name": "...", "dose": "...", "tradeNames": "O'zbekistonda mavjud", "instructions": "...", "diagnosis": "..."}],
+    "additionalTests": ["Qon shakarini tekshirish - ..."],
+    "patientRouting": {"level": "Ambulator", "description": "..."},
+    "recommendedSpecialists": ["Psixolog — ..."],
+    "followUp": "1 oy ichida qayta ko'rik",
+    "riskFactors": ["..."],
+    "riskSeverity": {"label": "O'rtacha", "score": 5, "max": 10},
+    "prognosisShort": "1-3 oy prognoz",
+    "prognosisLong": "1-5 yil prognoz",
+    "prognosisFactors": ["..."],
+    "dietGeneral": ["Kunlik ratsion..."],
+    "dietByDiagnosis": {"diagnosis": "...", "allowed": ["..."], "restricted": ["..."], "notes": "..."},
+    "preventionTips": ["Profilaktika..."],
+    "herbalMedicine": [{"name": "...", "part": "...", "preparation": "...", "context": "...", "caution": "..."}],
+    "qualityScore": {"overall": 70, "notes": "..."},
+    "rejectedHypotheses": [{"name": "...", "reason": "..."}],
+    "recordedFindings": ["Kartada qayd etilgan..."]
+  }
+}
+
+clinicalConclusion bo'limi to'liq va batafsil bo'lsin. diagnoses massivida eng yuqori ishonchli tashxis birinchi.`;
 
 interface OpenAiAnalysisResult {
   summary: string;
@@ -30,6 +65,7 @@ interface OpenAiAnalysisResult {
   triageLevel: string;
   recommendations: string[];
   redFlags: string[];
+  clinicalConclusion?: Record<string, unknown>;
   [key: string]: unknown;
 }
 
@@ -42,6 +78,9 @@ export class AiService {
     private config: ConfigService,
     private notifications: NotificationsService,
     private videoGateway: VideoGateway,
+    private access: AccessControlService,
+    private crypto: FieldCryptoService,
+    private storage: StorageService,
   ) {}
 
   async analyzeConsultation(consultationId: string): Promise<unknown> {
@@ -174,7 +213,7 @@ export class AiService {
     try {
       const body: Record<string, unknown> = {
         model: cfg.model,
-        max_tokens: options?.maxTokens ?? 2048,
+        max_tokens: options?.maxTokens ?? 4096,
         messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...messages],
         temperature: 0.2,
       };
@@ -217,7 +256,7 @@ export class AiService {
           content: `Quyidagi klinik ma'lumotlarni tahlil qiling. Javobni faqat JSON obyekt sifatida qaytaring:\n${JSON.stringify(clinicalData, null, 2)}`,
         },
       ],
-      { json: true, maxTokens: 2048 },
+      { json: true, maxTokens: 8192 },
     );
 
     if (!text) return null;
@@ -260,6 +299,117 @@ export class AiService {
       data: { triageLevel: 'MEDIUM' },
     });
     this.videoGateway.emitConsultationEvent(consultationId, 'ai-analysis-updated', { consultationId });
+  }
+
+  /** AI klinik xulosasini PDF formatida */
+  async buildAnalysisPdf(consultationId: string, user: AuthUser): Promise<{ buffer: Buffer; fileName: string }> {
+    const consultation = await this.prisma.consultation.findUnique({
+      where: { id: consultationId },
+      include: {
+        patient: true,
+        utFacility: true,
+        mtDoctor: true,
+        aiAnalysis: true,
+      },
+    });
+    if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
+    this.access.assertConsultationAccess(user, consultation);
+    if (!consultation.aiAnalysis) throw new NotFoundException('AI tahlil topilmadi');
+
+    const buffer = await this.buildAnalysisPdfBufferForConsultation(consultation);
+    const fileName = `tashxis-${consultationId.slice(0, 8)}.pdf`;
+    return { buffer, fileName };
+  }
+
+  /** Yakunlashda UT operator uchun tashxis PDF saqlash */
+  async persistAnalysisReport(consultationId: string, generatedById?: string): Promise<void> {
+    const consultation = await this.prisma.consultation.findUnique({
+      where: { id: consultationId },
+      include: {
+        patient: true,
+        utFacility: true,
+        mtDoctor: true,
+        aiAnalysis: true,
+      },
+    });
+    if (!consultation?.aiAnalysis) {
+      this.logger.warn(`Tashxis PDF: AI tahlil yo'q (${consultationId})`);
+      return;
+    }
+
+    const buffer = await this.buildAnalysisPdfBufferForConsultation(consultation);
+    const fileName = `tashxis-${consultationId.slice(0, 8)}.pdf`;
+    const fileKey = `reports/${consultationId}/${fileName}`;
+    await this.storage.uploadBuffer(fileKey, buffer, 'application/pdf');
+
+    await this.prisma.consultationReport.upsert({
+      where: { consultationId },
+      create: {
+        consultationId,
+        fileKey,
+        fileName,
+        generatedById,
+      },
+      update: {
+        fileKey,
+        fileName,
+        generatedAt: new Date(),
+        generatedById,
+      },
+    });
+
+    const utOperators = await this.prisma.user.findMany({
+      where: { role: UserRole.UT_OPERATOR, facilityId: consultation.utId, isActive: true },
+      select: { id: true },
+    });
+    if (utOperators.length) {
+      const p = this.crypto.unprotectPatient(consultation.patient as Record<string, unknown>) as typeof consultation.patient;
+      await this.notifications.notifyReportReady(
+        utOperators.map((u) => u.id),
+        p.fullName,
+        consultationId,
+      );
+    }
+  }
+
+  private async buildAnalysisPdfBufferForConsultation(
+    consultation: {
+      id: string;
+      patient: { fullName: string; phone: string | null; birthDate: Date; gender: string };
+      utFacility: { name: string; code: string };
+      mtDoctor?: { fullName: string } | null;
+      aiAnalysis: {
+        summary: string;
+        triageLevel: string;
+        diagnoses: unknown;
+        recommendations: unknown;
+        redFlags: unknown;
+        rawResponse: unknown;
+      };
+    },
+  ): Promise<Buffer> {
+    const analysis = consultation.aiAnalysis;
+    const p = this.crypto.unprotectPatient(consultation.patient as Record<string, unknown>) as typeof consultation.patient;
+    const diagnoses = (analysis.diagnoses as Array<{ name: string; icd10Code: string; confidence: number; reasoning: string }>) || [];
+    const recommendations = (analysis.recommendations as string[]) || [];
+    const redFlags = (analysis.redFlags as string[]) || [];
+    const rawResponse = (analysis.rawResponse as Record<string, unknown> | null) ?? null;
+
+    return buildAiAnalysisPdfBuffer({
+      patientName: p.fullName,
+      patientPhone: p.phone,
+      birthDate: p.birthDate.toISOString().slice(0, 10),
+      gender: p.gender,
+      facilityName: consultation.utFacility.name,
+      facilityCode: consultation.utFacility.code,
+      doctorName: consultation.mtDoctor?.fullName,
+      triageLevel: analysis.triageLevel,
+      summary: analysis.summary,
+      diagnoses,
+      recommendations,
+      redFlags,
+      rawResponse,
+    });
   }
 
   async submitFeedback(aiAnalysisId: string, userId: string, rating: string, comment?: string) {

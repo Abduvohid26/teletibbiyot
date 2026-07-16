@@ -1,0 +1,322 @@
+import PDFDocument from 'pdfkit';
+import { BRAND } from '@ishifo/shared';
+
+type DiagnosisRow = {
+  name: string;
+  icd10Code: string;
+  confidence: number;
+  reasoning: string;
+};
+
+function asRecord(v: unknown): Record<string, unknown> | null {
+  return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+}
+
+function asStrings(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  return v.filter((x): x is string => typeof x === 'string' && x.trim().length > 0);
+}
+
+function parseClinicalConclusion(raw: unknown) {
+  const cc = asRecord(raw);
+  if (!cc) return null;
+  return cc;
+}
+
+export interface AiAnalysisPdfInput {
+  patientName: string;
+  patientPhone?: string | null;
+  birthDate: string;
+  gender?: string;
+  facilityName: string;
+  facilityCode: string;
+  doctorName?: string | null;
+  triageLevel: string;
+  summary: string;
+  diagnoses: DiagnosisRow[];
+  recommendations: string[];
+  redFlags: string[];
+  rawResponse?: Record<string, unknown> | null;
+}
+
+function ensureSpace(doc: InstanceType<typeof PDFDocument>, needed = 60) {
+  if (doc.y + needed > doc.page.height - doc.page.margins.bottom) {
+    doc.addPage();
+  }
+}
+
+function sectionTitle(doc: InstanceType<typeof PDFDocument>, title: string) {
+  ensureSpace(doc, 40);
+  doc.moveDown(0.4);
+  doc.fontSize(12).fillColor('#4f46e5').text(title, { underline: true });
+  doc.moveDown(0.25);
+  doc.fontSize(10).fillColor('#0f172a');
+}
+
+function bodyText(doc: InstanceType<typeof PDFDocument>, text: string) {
+  ensureSpace(doc, 30);
+  doc.text(text || '—', { width: 495, align: 'left' });
+  doc.moveDown(0.2);
+}
+
+function bulletList(doc: InstanceType<typeof PDFDocument>, items: string[]) {
+  for (const item of items) {
+    ensureSpace(doc, 24);
+    doc.text(`• ${item}`, { width: 490, indent: 8 });
+  }
+  doc.moveDown(0.15);
+}
+
+export function buildAiAnalysisPdfBuffer(data: AiAnalysisPdfInput): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    const chunks: Buffer[] = [];
+    doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+
+    const cc = parseClinicalConclusion(data.rawResponse?.clinicalConclusion);
+    const consensus = (cc?.consensusDiagnoses as unknown[]) ?? [];
+    const alternatives = (cc?.alternativeDiagnoses as unknown[]) ?? [];
+    const generatedAt = new Date().toLocaleString('uz-UZ');
+
+    doc.fontSize(16).fillColor('#4f46e5').text('YAKUNIY KLINIK XULOSA', { align: 'center' });
+    doc.fontSize(10).fillColor('#64748b').text('Konsilium konsensusi asosida — AI tibbiy hujjat', { align: 'center' });
+    doc.moveDown(0.5);
+    doc.fontSize(9).fillColor('#64748b').text(`${BRAND.name} | ${generatedAt}`, { align: 'center' });
+    doc.moveDown();
+
+    sectionTitle(doc, 'Bemor ma\'lumotlari');
+    doc.text(`F.I.Sh.: ${data.patientName}`);
+    doc.text(`Telefon: ${data.patientPhone || '—'}`);
+    doc.text(`Tug'ilgan sana: ${data.birthDate}`);
+    if (data.gender) doc.text(`Jins: ${data.gender}`);
+    doc.text(`UT: ${data.facilityName} (${data.facilityCode})`);
+    if (data.doctorName) doc.text(`Shifokor: ${data.doctorName}`);
+    doc.text(`Xavf darajasi: ${data.triageLevel}`);
+    doc.moveDown(0.3);
+
+    doc.fontSize(8).fillColor('#b45309').text(
+      'DIQQAT: Bu AI konsensus xulosasi. Yakuniy tibbiy qaror faqat malakali shifokorga tegishli.',
+      { width: 495 },
+    );
+    doc.fillColor('#0f172a');
+    doc.moveDown(0.4);
+
+    const mainConclusion = typeof cc?.mainConclusion === 'string' ? cc.mainConclusion : data.summary;
+    sectionTitle(doc, 'Asosiy xulosa');
+    bodyText(doc, mainConclusion);
+
+    sectionTitle(doc, 'Konsensus tashxis(lar) — MKB-10');
+    if (consensus.length > 0) {
+      consensus.forEach((item, i) => {
+        const row = asRecord(item);
+        if (!row) return;
+        ensureSpace(doc, 50);
+        doc.fontSize(11).fillColor('#0f172a').text(`${i + 1}. ${String(row.name ?? '')}`);
+        doc.fontSize(10);
+        if (row.icd10Code) doc.text(`MKB-10: ${String(row.icd10Code)}`);
+        if (row.confidence != null) doc.text(`Ishonch: ${String(row.confidence)}%`);
+        if (typeof row.protocolReference === 'string') doc.text(`Protokol: ${row.protocolReference}`);
+        if (typeof row.justification === 'string') {
+          doc.moveDown(0.1);
+          doc.fontSize(9).fillColor('#475569').text(`Asoslash: ${row.justification}`, { width: 495 });
+          doc.fillColor('#0f172a').fontSize(10);
+        }
+        const chain = asStrings(row.logicChain);
+        if (chain.length) {
+          doc.moveDown(0.15);
+          doc.fontSize(9).text('Mantiqiy zanjir:', { underline: true });
+          chain.forEach((step, j) => doc.text(`  ${j + 1}. ${step}`, { width: 485 }));
+          doc.fontSize(10);
+        }
+        doc.moveDown(0.25);
+      });
+    } else if (data.diagnoses.length) {
+      data.diagnoses.forEach((d, i) => {
+        ensureSpace(doc, 40);
+        doc.text(`${i + 1}. ${d.name} (${d.icd10Code}) — ${d.confidence}%`);
+        if (d.reasoning) doc.fontSize(9).fillColor('#475569').text(d.reasoning, { width: 495 }).fontSize(10).fillColor('#0f172a');
+      });
+    } else {
+      bodyText(doc, '—');
+    }
+
+    if (alternatives.length > 0) {
+      sectionTitle(doc, 'Muqobil tashxis');
+      alternatives.forEach((item, i) => {
+        const row = asRecord(item);
+        if (!row) return;
+        ensureSpace(doc, 30);
+        doc.text(`${i + 2}. ${String(row.name ?? '')}${row.icd10Code ? ` (${String(row.icd10Code)})` : ''}${row.confidence != null ? ` — ${String(row.confidence)}%` : ''}`);
+        if (typeof row.justification === 'string') {
+          doc.fontSize(9).fillColor('#475569').text(row.justification, { width: 495 }).fontSize(10).fillColor('#0f172a');
+        }
+      });
+    }
+
+    const articles = (cc?.scientificArticles as unknown[]) ?? [];
+    if (articles.length) {
+      sectionTitle(doc, 'Tegishli ilmiy maqolalar');
+      articles.forEach((item) => {
+        const row = asRecord(item);
+        if (!row) return;
+        ensureSpace(doc, 28);
+        const title = String(row.title ?? '');
+        const url = typeof row.url === 'string' ? row.url : '';
+        doc.text(`• ${title}${url ? `\n  ${url}` : ''}`, { width: 490 });
+        if (typeof row.description === 'string') {
+          doc.fontSize(9).fillColor('#64748b').text(row.description, { width: 490 }).fontSize(10).fillColor('#0f172a');
+        }
+      });
+    }
+
+    const treatmentSteps = asStrings(cc?.treatmentSteps).length ? asStrings(cc?.treatmentSteps) : data.recommendations;
+    if (treatmentSteps.length) {
+      sectionTitle(doc, 'Tavsiya etilgan davolash rejasi');
+      treatmentSteps.forEach((step, i) => {
+        ensureSpace(doc, 20);
+        doc.text(`${i + 1}. ${step.replace(/^\d+\.\s*/, '')}`, { width: 490 });
+      });
+    }
+
+    const medWarnings = asStrings(cc?.medicationWarnings);
+    const medications = (cc?.medications as unknown[]) ?? [];
+    if (medWarnings.length || medications.length) {
+      sectionTitle(doc, 'Dori-darmonlar bo\'yicha tavsiyalar');
+      if (medWarnings.length) {
+        doc.fontSize(9).fillColor('#b45309').text('Farmakolog ogohlantirishlari:', { underline: true });
+        doc.fillColor('#0f172a');
+        bulletList(doc, medWarnings);
+      }
+      medications.forEach((item) => {
+        const row = asRecord(item);
+        if (!row) return;
+        ensureSpace(doc, 36);
+        doc.fontSize(10).text(String(row.name ?? ''));
+        if (typeof row.dose === 'string') doc.text(`Doza: ${row.dose}`);
+        if (typeof row.tradeNames === 'string') doc.text(`Mahalliy nomlar: ${row.tradeNames}`);
+        if (typeof row.instructions === 'string') doc.fontSize(9).text(row.instructions, { width: 490 }).fontSize(10);
+        doc.moveDown(0.2);
+      });
+    }
+
+    const additionalTests = asStrings(cc?.additionalTests);
+    const followUp = typeof cc?.followUp === 'string' ? cc.followUp : undefined;
+    const routing = asRecord(cc?.patientRouting);
+    const specialists = asStrings(cc?.recommendedSpecialists);
+    if (additionalTests.length || followUp || routing || specialists.length) {
+      sectionTitle(doc, 'Keyingi qadamlar rejasi');
+      if (additionalTests.length) {
+        doc.text('Qo\'shimcha tekshiruvlar:', { underline: true });
+        bulletList(doc, additionalTests);
+      }
+      if (routing) {
+        doc.text(`Yo'nalish: ${routing.level ?? ''}${routing.description ? ` — ${routing.description}` : ''}`);
+      }
+      if (specialists.length) {
+        doc.text('Tavsiya etilgan mutaxassislar:');
+        bulletList(doc, specialists);
+      }
+      if (followUp) doc.text(`Keyingi kuzatuv: ${followUp}`);
+    }
+
+    const riskFactors = asStrings(cc?.riskFactors).length ? asStrings(cc?.riskFactors) : data.redFlags;
+    const riskSeverity = asRecord(cc?.riskSeverity);
+    if (riskFactors.length || riskSeverity) {
+      sectionTitle(doc, 'Xavf omillari');
+      if (riskSeverity) {
+        doc.text(`Holat og'irligi: ${riskSeverity.label ?? 'Baholangan'}${riskSeverity.score != null ? ` (${riskSeverity.score}/${riskSeverity.max ?? 10})` : ''}`);
+      }
+      bulletList(doc, riskFactors);
+    }
+
+    if (typeof cc?.prognosisShort === 'string' || typeof cc?.prognosisLong === 'string') {
+      sectionTitle(doc, 'Kasallik prognozi');
+      if (typeof cc.prognosisShort === 'string') {
+        doc.text('Qisqa muddat (1–3 oy):', { underline: true });
+        bodyText(doc, cc.prognosisShort);
+      }
+      if (typeof cc.prognosisLong === 'string') {
+        doc.text('Uzoq muddat (1–5 yil):', { underline: true });
+        bodyText(doc, cc.prognosisLong);
+      }
+      const progFactors = asStrings(cc.prognosisFactors);
+      if (progFactors.length) bulletList(doc, progFactors);
+    }
+
+    const dietGeneral = asStrings(cc?.dietGeneral);
+    const diet = asRecord(cc?.dietByDiagnosis);
+    const prevention = asStrings(cc?.preventionTips);
+    if (dietGeneral.length || diet || prevention.length) {
+      sectionTitle(doc, 'Parhez va profilaktika');
+      if (dietGeneral.length) bulletList(doc, dietGeneral);
+      if (diet) {
+        if (typeof diet.diagnosis === 'string') doc.text(diet.diagnosis, { underline: true });
+        const allowed = asStrings(diet.allowed);
+        const restricted = asStrings(diet.restricted);
+        if (allowed.length) doc.text(`Ruxsat: ${allowed.join('; ')}`, { width: 495 });
+        if (restricted.length) doc.text(`Cheklangan: ${restricted.join('; ')}`, { width: 495 });
+        if (typeof diet.notes === 'string') bodyText(doc, diet.notes);
+      }
+      if (prevention.length) {
+        doc.text('Profilaktika:');
+        bulletList(doc, prevention);
+      }
+    }
+
+    const herbal = (cc?.herbalMedicine as unknown[]) ?? [];
+    if (herbal.length) {
+      sectionTitle(doc, "Xalq tabobati (qo'shimcha)");
+      doc.fontSize(8).fillColor('#64748b').text('Rasmiy dori va shifokor ko\'rsatmasining o\'rnini bosmaydi.', { width: 495 });
+      doc.fillColor('#0f172a').fontSize(10);
+      herbal.forEach((item) => {
+        const row = asRecord(item);
+        if (!row) return;
+        ensureSpace(doc, 30);
+        doc.text(`• ${String(row.name ?? '')}`);
+        if (typeof row.preparation === 'string') doc.fontSize(9).text(`  Tayyorlash: ${row.preparation}`);
+        if (typeof row.caution === 'string') doc.fillColor('#b45309').text(`  Ehtiyot: ${row.caution}`).fillColor('#0f172a');
+        doc.fontSize(10);
+      });
+    }
+
+    const quality = asRecord(cc?.qualityScore);
+    if (quality?.overall != null) {
+      sectionTitle(doc, 'Tibbiy yordam sifati');
+      doc.text(`Umumiy ball: ${String(quality.overall)}/100`);
+      if (typeof quality.notes === 'string') bodyText(doc, quality.notes);
+    }
+
+    const recorded = asStrings(cc?.recordedFindings);
+    if (recorded.length) {
+      sectionTitle(doc, 'Kartada qayd etilgan ma\'lumotlar');
+      bulletList(doc, recorded);
+    }
+
+    const rejected = (cc?.rejectedHypotheses as unknown[]) ?? [];
+    if (rejected.length) {
+      sectionTitle(doc, 'Inkori etilgan gipotezalar');
+      rejected.forEach((item) => {
+        const row = asRecord(item);
+        if (!row) return;
+        ensureSpace(doc, 24);
+        doc.text(`• ${String(row.name ?? '')}`);
+        if (typeof row.reason === 'string') doc.fontSize(9).fillColor('#475569').text(row.reason, { width: 490 }).fontSize(10).fillColor('#0f172a');
+      });
+    }
+
+    if (data.redFlags.length) {
+      sectionTitle(doc, 'Qizil bayroqlar');
+      bulletList(doc, data.redFlags);
+    }
+
+    doc.moveDown();
+    doc.fontSize(8).fillColor('#64748b').text(
+      `${BRAND.name} — ${BRAND.supporter}. AI xulosa. Yakuniy qaror shifokor mas'uliyatida.`,
+      { width: 495, align: 'center' },
+    );
+
+    doc.end();
+  });
+}

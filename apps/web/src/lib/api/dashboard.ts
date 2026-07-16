@@ -26,6 +26,10 @@ export function defineDashboardApi(client: HttpClient) {
       return client.request<Consultation[]>('/dashboard/ut-session-consultations');
     },
 
+    getUtPatientConsultations() {
+      return client.request<Consultation[]>('/dashboard/ut-patient-consultations');
+    },
+
     getInProgressConsultations() {
       return client.request<Consultation[]>('/dashboard/in-progress-consultations');
     },

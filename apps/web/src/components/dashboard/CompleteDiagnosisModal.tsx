@@ -83,16 +83,19 @@ export function CompleteDiagnosisModal({
 
       let url: string | null = null;
       try {
-        const report = await api.generateReport(consultationId);
         const link = await api.getReportLink(consultationId);
-        url = link.url || report.downloadUrl;
+        url = link.url;
       } catch {
         await new Promise((r) => setTimeout(r, 2000));
         try {
           const link = await api.getReportLink(consultationId);
           url = link.url;
         } catch {
-          /* report may still be generating */
+          try {
+            await api.downloadAiAnalysisPdf(consultationId);
+          } catch {
+            /* report may still be generating */
+          }
         }
       }
 
@@ -121,7 +124,7 @@ export function CompleteDiagnosisModal({
         <div className="panel w-full max-w-lg shadow-2xl animate-slide-up p-6 text-center">
           <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
           <h2 className="font-bold text-slate-900 mb-2">Konsultatsiya yakunlandi</h2>
-          <p className="text-sm text-slate-600 mb-6">PDF hisobot tayyor. UT operatorga ham yuborildi.</p>
+          <p className="text-sm text-slate-600 mb-6">Tashxis PDF tayyor. UT operator Bemorlar bo&apos;limida ko&apos;ra oladi.</p>
           <div className="flex gap-3">
             <a
               href={reportUrl}
@@ -129,7 +132,7 @@ export function CompleteDiagnosisModal({
               rel="noopener noreferrer"
               className="flex-1 gradient-btn inline-flex items-center justify-center gap-2"
             >
-              <Download size={16} /> Hisobotni yuklab olish
+              <Download size={16} /> Tashxis PDF yuklab olish
             </a>
             <button type="button" onClick={handleFinish} className="flex-1 btn-secondary">
               Yopish
@@ -148,7 +151,7 @@ export function CompleteDiagnosisModal({
             <div className="p-2 rounded-xl bg-white shadow-sm">
               <Stethoscope className="w-5 h-5 text-brand-600" />
             </div>
-            <h2 className="font-bold text-slate-900">Yakuniy tashxis kiritish</h2>
+            <h2 className="font-bold text-slate-900">Konsultatsiyani yakunlash</h2>
           </div>
           <button
             type="button"
@@ -163,7 +166,7 @@ export function CompleteDiagnosisModal({
           <div className="flex gap-3 bg-amber-50 border border-amber-200/80 rounded-xl p-3.5 text-xs text-amber-800">
             <AlertTriangle size={16} className="shrink-0 mt-0.5 text-amber-600" />
             <p>
-              Yakuniy tashxis faqat shifokor tomonidan tasdiqlanadi. AI tavsiyasi faqat yordamchi hisoblanadi.
+              Shifokor yakuniy qarorini kiritadi. AI klinik xulosa UT operatorga PDF sifatida yuboriladi.
             </p>
           </div>
 
@@ -255,7 +258,7 @@ export function CompleteDiagnosisModal({
               disabled={loading || unconfirmedAiSteps > 0}
               className="flex-1 gradient-btn disabled:opacity-50"
             >
-              {loading ? 'Saqlanmoqda...' : 'Tasdiqlash va yakunlash'}
+              {loading ? 'Saqlanmoqda...' : 'Yakunlash'}
             </button>
           </div>
         </form>

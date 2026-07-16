@@ -1,22 +1,26 @@
 import {
   Controller,
   Post,
+  Get,
   Body,
   Param,
   UseGuards,
   Request,
+  Res,
   NotFoundException,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
+import { Response } from 'express';
 import { AiService } from './ai.service';
+import { MonitorVitalsService } from './monitor-vitals.service';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { AiFeedbackDto, ConfirmAiStepDto } from '../consultations/dto/consultation.dto';
-import { AiChatDto } from '../common/dto/common.dto';
+import { AiChatDto, ReadMonitorVitalsDto } from '../common/dto/common.dto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccessControlService, AuthUser } from '../common/access-control.service';
-import { ROLES_ADMIN, ROLES_MT_DOCTOR } from '../common/roles.constants';
+import { ROLES_ADMIN, ROLES_CLINICAL, ROLES_MT_DOCTOR, ROLES_UT } from '../common/roles.constants';
 
 @ApiTags('AI')
 @Controller('ai')
@@ -25,6 +29,7 @@ import { ROLES_ADMIN, ROLES_MT_DOCTOR } from '../common/roles.constants';
 export class AiController {
   constructor(
     private aiService: AiService,
+    private monitorVitals: MonitorVitalsService,
     private prisma: PrismaService,
     private access: AccessControlService,
   ) {}
@@ -36,6 +41,34 @@ export class AiController {
     if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
     this.access.assertConsultationAccess(user, consultation);
     return consultation;
+  }
+
+  @Get('consultations/:id/analysis-pdf')
+  @Roles(...ROLES_CLINICAL, ...ROLES_ADMIN)
+  @ApiOperation({ summary: 'AI klinik xulosasini PDF yuklab olish' })
+  async downloadAnalysisPdf(
+    @Param('id') id: string,
+    @Request() req: { user: AuthUser },
+    @Res() res: Response,
+  ) {
+    const { buffer, fileName } = await this.aiService.buildAnalysisPdf(id, req.user);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Content-Length', buffer.length);
+    return res.send(buffer);
+  }
+
+  @Post('consultations/:id/monitor-vitals')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  @Roles(...ROLES_UT, ...ROLES_MT_DOCTOR, ...ROLES_ADMIN)
+  @ApiOperation({ summary: 'Patient monitor ekranidan vital o\'qish (AI vision)' })
+  async readMonitorVitals(
+    @Param('id') id: string,
+    @Body() dto: ReadMonitorVitalsDto,
+    @Request() req: { user: AuthUser },
+  ) {
+    await this.assertConsultationAccess(req.user, id);
+    return this.monitorVitals.readFromImageBase64(dto.image, dto.mimeType ?? 'image/jpeg');
   }
 
   @Post('consultations/:id/analyze')

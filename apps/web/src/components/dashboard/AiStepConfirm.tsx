@@ -64,7 +64,7 @@ export function AiStepConfirm({ consultationId, steps, onConfirmed, canConfirm, 
       ))}
       {canConfirm && pending.length > 0 && !compact && (
         <p className="text-[10px] text-amber-700 bg-amber-50 rounded-lg p-2">
-          Yakuniy tashxisdan oldin {pending.length} ta AI bosqichini tasdiqlang
+          Yakunlashdan oldin {pending.length} ta AI bosqichini tasdiqlang
         </p>
       )}
     </div>

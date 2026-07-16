@@ -28,6 +28,48 @@ export function defineIntegrationsApi(client: HttpClient) {
       });
     },
 
+    readMonitorVitals(consultationId: string, image: string, mimeType = 'image/jpeg') {
+      return client.request<{
+        heartRate: number | null;
+        bloodPressureSystolic: number | null;
+        bloodPressureDiastolic: number | null;
+        spo2: number | null;
+        temperature: number | null;
+        respiratoryRate: number | null;
+        detected: boolean;
+        source: string;
+      }>(`/ai/consultations/${consultationId}/monitor-vitals`, {
+        method: 'POST',
+        body: JSON.stringify({ image, mimeType }),
+      });
+    },
+
+    async downloadAiAnalysisPdf(consultationId: string) {
+      const res = await client.fetchApi(`/ai/consultations/${consultationId}/analysis-pdf`);
+      if (!res.ok) {
+        let message = 'PDF yuklab olishda xatolik';
+        try {
+          const err = await res.json() as { message?: string | string[] };
+          const msg = err.message;
+          message = Array.isArray(msg) ? msg.join(', ') : (msg || message);
+        } catch {
+          /* ignore */
+        }
+        throw new Error(message);
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get('Content-Disposition') ?? '';
+      const match = disposition.match(/filename="([^"]+)"/);
+      const fileName = match?.[1] ?? `ai-klinik-xulosa-${consultationId.slice(0, 8)}.pdf`;
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = fileName;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      return fileName;
+    },
+
     getIntegrationsStatus() {
       return client.request<{
         oneId: { enabled: boolean; mock: boolean };

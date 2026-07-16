@@ -58,7 +58,7 @@ export function VideoConsultation({
     () => mergeVitalsReading(clinicalVitals ?? {}, liveVitals),
     [clinicalVitals, liveVitals],
   );
-  const showVitalsOverlay = !!consultationId && !observeMode;
+  const showVitalsOverlay = !!consultationId && !observeMode && activeCamera === 'equipment';
 
   const role: VideoRole = observeMode ? 'observe' : 'mt';
 
@@ -232,7 +232,7 @@ export function VideoConsultation({
             />
             {showVitalsOverlay && (
               <div className="absolute bottom-2 left-2 right-2 z-10 pointer-events-none">
-                <VitalsOverlayBar reading={vitalsReading} variant="doctor" />
+                <VitalsOverlayBar reading={vitalsReading} variant="doctor" showZeroDefaults />
               </div>
             )}
           </>

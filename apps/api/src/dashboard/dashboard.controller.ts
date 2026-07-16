@@ -60,6 +60,14 @@ export class DashboardController {
     return this.dashboardService.getUtSessionConsultations(req.user.facilityId);
   }
 
+  @Get('ut-patient-consultations')
+  @Roles(...ROLES_UT)
+  getUtPatientConsultations(
+    @Request() req: { user: { facilityId: string | null } },
+  ) {
+    return this.dashboardService.getUtPatientConsultations(req.user.facilityId);
+  }
+
   @Get('in-progress-consultations')
   @Roles(...ROLES_MT_STAFF)
   getInProgressConsultations(@Request() req: { user: AuthUser }) {

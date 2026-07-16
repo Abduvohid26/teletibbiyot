@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Heart, Activity, Video, VideoOff, Radio, AlertCircle } from 'lucide-react';
+import { Heart, Activity, Video, VideoOff, Radio, AlertCircle, Thermometer, Droplets } from 'lucide-react';
 import { CameraVitalAnalyzer, estimateRespiratoryRate, VitalReading } from '@/lib/camera-vitals';
 import { useVitalsStream } from '@/hooks/use-vitals-stream';
+import { useMonitorVitalsReader } from '@/hooks/use-monitor-vitals-reader';
 import { cn } from '@/lib/utils';
 import { VideoTile } from '@/components/video/VideoTile';
 import { isUtStreamLive } from '@/lib/ut-camera-streams';
@@ -48,6 +49,15 @@ export function CameraVitalsMonitor({
   const [signalQuality, setSignalQuality] = useState(0);
 
   const { connected, sendVitals } = useVitalsStream(consultationId, 'send');
+
+  const { reading: monitorReading, analyzing: monitorAnalyzing } = useMonitorVitalsReader({
+    stream: monitorMode ? sharedVideoStream : null,
+    consultationId,
+    enabled: monitorMode && !!sharedVideoStream && isUtStreamLive(sharedVideoStream),
+    intervalMs: 4000,
+  });
+
+  const effectiveReading = monitorMode ? monitorReading : reading;
 
   const startCamera = async () => {
     if (sharedVideoStream) {
@@ -142,10 +152,10 @@ export function CameraVitalsMonitor({
   useEffect(() => {
     if (!connected) return;
     const interval = setInterval(() => {
-      sendVitals(reading);
+      sendVitals(monitorMode ? monitorReading : reading);
     }, 1000);
     return () => clearInterval(interval);
-  }, [connected, reading, sendVitals]);
+  }, [connected, reading, monitorMode, monitorReading, sendVitals]);
 
   useEffect(() => () => stopCamera(), []);
 
@@ -250,17 +260,22 @@ export function CameraVitalsMonitor({
         )}
 
         <div className={cn(
-          'mt-auto grid grid-cols-3 gap-2 rounded-xl bg-gradient-to-br from-slate-900 to-slate-800 text-white ring-1 ring-slate-700/50',
+          'mt-auto grid grid-cols-4 gap-2 rounded-xl bg-gradient-to-br from-slate-900 to-slate-800 text-white ring-1 ring-slate-700/50',
           compact ? 'p-2.5' : 'p-3',
         )}>
-          <LiveStat icon={Heart} label="Puls" value={reading.heartRate} unit="bpm" color="text-red-400" live={!!reading.heartRate && !monitorMode} compact={compact} />
-          <LiveStat icon={Activity} label="Nafas" value={reading.respiratoryRate} unit="/min" color="text-cyan-400" live={!!reading.respiratoryRate && !monitorMode} compact={compact} />
-          <LiveStat icon={Activity} label="SpO2" value={reading.spo2} unit="%" color="text-sky-400" live={!!reading.spo2 && !monitorMode} compact={compact} />
+          <LiveStat icon={Heart} label="Puls" value={effectiveReading.heartRate} unit="bpm" color="text-red-400" live={!!effectiveReading.heartRate && monitorMode} compact={compact} />
+          <LiveStat icon={Activity} label="Qon bosimi" value={formatBp(effectiveReading)} unit="mmHg" color="text-blue-400" live={monitorMode && !!effectiveReading.bloodPressureSystolic} compact={compact} />
+          <LiveStat icon={Droplets} label="SpO2" value={effectiveReading.spo2} unit="%" color="text-sky-400" live={!!effectiveReading.spo2 && monitorMode} compact={compact} />
+          <LiveStat icon={Thermometer} label="Harorat" value={effectiveReading.temperature} unit="°C" color="text-orange-400" live={!!effectiveReading.temperature && monitorMode} compact={compact} />
         </div>
 
-        {monitorMode && !reading.heartRate && !reading.spo2 && (
+        {monitorMode && monitorAnalyzing && (
+          <p className="text-xs text-emerald-600 text-center shrink-0">AI monitor o&apos;qilmoqda...</p>
+        )}
+
+        {monitorMode && !monitorAnalyzing && !isUtStreamLive(sharedVideoStream) && (
           <p className="text-xs text-slate-400 text-center leading-snug shrink-0">
-            Vital ko&apos;rsatkichlar monitor ekranida — avtomatik o&apos;qish keyingi bosqichda
+            Kamera ulanmagan — vital ko&apos;rsatkichlar 0/0
           </p>
         )}
 
@@ -288,14 +303,23 @@ function VitalInput({ label, value, onChange, step = 1, compact, placeholder = '
   );
 }
 
-function LiveStat({ icon: Icon, label, value, unit, color, live, compact }: { icon: React.ElementType; label: string; value?: number; unit: string; color: string; live: boolean; compact?: boolean }) {
+function formatBp(r: VitalReading): string | number | undefined {
+  if (r.bloodPressureSystolic != null && r.bloodPressureDiastolic != null) {
+    return `${r.bloodPressureSystolic}/${r.bloodPressureDiastolic}`;
+  }
+  if (r.bloodPressureSystolic != null) return r.bloodPressureSystolic;
+  return undefined;
+}
+
+function LiveStat({ icon: Icon, label, value, unit, color, live, compact }: { icon: React.ElementType; label: string; value?: number | string; unit: string; color: string; live: boolean; compact?: boolean }) {
+  const shown = value ?? 0;
   return (
     <div className="text-center py-0.5">
       <Icon size={compact ? 14 : 16} className={cn('mx-auto mb-0.5', color)} />
       <p className={cn('text-slate-400 uppercase tracking-wide', compact ? 'text-xs' : 'text-xs')}>{label}</p>
       <p className={cn('font-bold leading-tight', compact ? 'text-xl' : 'text-2xl')}>
-        {value ?? '—'}
-        {value != null && <span className="text-xs font-normal text-slate-400 ml-0.5">{unit}</span>}
+        {shown}
+        <span className="text-xs font-normal text-slate-400 ml-0.5">{unit}</span>
       </p>
       {live && (
         <span className="inline-flex items-center gap-0.5 text-xs font-bold text-emerald-400 mt-0.5">

@@ -18,6 +18,7 @@ interface UtVideoPanelViewProps {
   patientName?: string;
   vitalsReading?: VitalReading;
   onVitalsChange?: (reading: VitalReading) => void;
+  vitalsAnalyzing?: boolean;
   defaultView?: 'close' | 'main' | 'room' | 'equipment' | 'doctor' | 'all';
 }
 
@@ -103,6 +104,7 @@ export function UtVideoPanelView({
   patientName,
   vitalsReading,
   onVitalsChange,
+  vitalsAnalyzing,
   defaultView = 'close',
 }: UtVideoPanelViewProps) {
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
@@ -306,11 +308,18 @@ export function UtVideoPanelView({
                 </div>
               )}
               {showVitalsOverlay && (
-                <div className="absolute bottom-2 left-2 right-2 z-10 pointer-events-auto">
+                <div className="absolute bottom-2 left-2 right-2 z-10 pointer-events-none">
+                  {vitalsAnalyzing && (
+                    <p className="text-[10px] text-emerald-300 bg-black/50 rounded px-2 py-0.5 mb-1 inline-block">
+                      AI monitor o&apos;qilmoqda...
+                    </p>
+                  )}
                   <VitalsOverlayBar
                     reading={vitalsReading!}
                     onChange={onVitalsChange}
-                    editable={!!onVitalsChange}
+                    editable={false}
+                    showZeroDefaults
+                    variant="doctor"
                   />
                 </div>
               )}

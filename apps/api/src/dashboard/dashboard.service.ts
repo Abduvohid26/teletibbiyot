@@ -351,6 +351,43 @@ export class DashboardService {
     return this.crypto.unprotectConsultations(rows);
   }
 
+  /** UT bemorlar: jonli + navbat + yakunlangan (tashxis PDF bilan) */
+  async getUtPatientConsultations(facilityId: string | null) {
+    if (!facilityId) return [];
+
+    const since = new Date();
+    since.setDate(since.getDate() - 30);
+
+    const rows = await this.prisma.consultation.findMany({
+      where: {
+        utId: facilityId,
+        OR: [
+          { status: { in: [ConsultationStatus.QUEUED, ConsultationStatus.IN_PROGRESS] } },
+          {
+            status: ConsultationStatus.COMPLETED,
+            completedAt: { gte: since },
+          },
+        ],
+      },
+      include: {
+        patient: true,
+        clinicalRecord: true,
+        utFacility: true,
+        mtDoctor: { select: { id: true, fullName: true } },
+        aiAnalysis: true,
+        finalDiagnosis: { select: { diagnosis: true, icd10Code: true, recommendations: true } },
+        consultationReport: { select: { fileName: true, generatedAt: true } },
+      },
+      orderBy: [
+        { status: 'asc' },
+        { completedAt: 'desc' },
+        { startedAt: 'desc' },
+        { createdAt: 'desc' },
+      ],
+    });
+    return this.crypto.unprotectConsultations(rows);
+  }
+
   async getInProgressConsultations(user: AuthUser) {
     const rows = await this.prisma.consultation.findMany({
       where: this.mergeScope(user, { status: ConsultationStatus.IN_PROGRESS }),

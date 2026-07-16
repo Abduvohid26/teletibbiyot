@@ -89,8 +89,8 @@ export function DoctorDashboardView({
             onClick={() => onShowComplete(true)}
             className="gradient-btn !py-1.5 !px-2 !text-[11px] sm:!text-xs shrink-0 whitespace-nowrap"
           >
-            <span className="hidden sm:inline">Yakuniy tashxis</span>
-            <span className="sm:hidden">Tashxis</span>
+            <span className="hidden sm:inline">Yakunlash</span>
+            <span className="sm:hidden">Yakun</span>
           </button>
         ) : undefined
       }

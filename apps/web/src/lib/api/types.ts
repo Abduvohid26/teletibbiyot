@@ -203,6 +203,7 @@ export interface Consultation {
   aiAnalysis?: AiAnalysis;
   aiAnalysisSteps?: AiAnalysisStep[];
   finalDiagnosis?: { diagnosis: string; icd10Code: string; recommendations: string };
+  consultationReport?: { fileName: string; generatedAt: string };
   secondOpinions?: SecondOpinion[];
 }
 

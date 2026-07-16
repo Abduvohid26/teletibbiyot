@@ -51,6 +51,18 @@ export class AiChatDto {
   question: string;
 }
 
+export class ReadMonitorVitalsDto {
+  @ApiProperty({ description: 'Base64 JPEG/PNG (data URL yoki xom base64)' })
+  @IsString()
+  @Min(10)
+  image: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  mimeType?: string;
+}
+
 export class ResetPasswordDto {
   @ApiProperty()
   @IsString()

@@ -10,6 +10,7 @@ import { toast } from '@/lib/toast';
 export function useUtSessions(enabled = true) {
   const [consultation, setConsultation] = useState<Consultation | null>(null);
   const [sessions, setSessions] = useState<Consultation[]>([]);
+  const [patientConsultations, setPatientConsultations] = useState<Consultation[]>([]);
   const [error, setError] = useState('');
   const [liveBanner, setLiveBanner] = useState<{ doctorName?: string } | null>(null);
 
@@ -28,6 +29,17 @@ export function useUtSessions(enabled = true) {
       .catch(() => setSessions([]));
   }, []);
 
+  const refreshPatientConsultations = useCallback(() => {
+    return api
+      .getUtPatientConsultations()
+      .then(setPatientConsultations)
+      .catch(() => setPatientConsultations([]));
+  }, []);
+
+  const refreshAll = useCallback(() => {
+    return Promise.all([refreshSessions(), refreshPatientConsultations()]);
+  }, [refreshSessions, refreshPatientConsultations]);
+
   const load = useCallback((preferredId?: string) => {
     const preferred =
       preferredId
@@ -42,13 +54,14 @@ export function useUtSessions(enabled = true) {
           sessionStorage.setItem(UT_ACTIVE_CONSULTATION_KEY, c.id);
         }
         refreshSessions();
+        refreshPatientConsultations();
         return c;
       })
       .catch((err) => {
         setError(err instanceof Error ? err.message : 'Xatolik');
         return null;
       });
-  }, [refreshSessions]);
+  }, [refreshSessions, refreshPatientConsultations]);
 
   const switchToConsultation = useCallback((consultationId: string) => {
     if (typeof window !== 'undefined') {
@@ -59,18 +72,20 @@ export function useUtSessions(enabled = true) {
       .then((c) => {
         setConsultation(c);
         refreshSessions();
+        refreshPatientConsultations();
         return c;
       })
       .catch((err) => {
         setError(err instanceof Error ? err.message : 'Xatolik');
         return null;
       });
-  }, [refreshSessions]);
+  }, [refreshSessions, refreshPatientConsultations]);
 
   useEffect(() => {
     if (!enabled) return;
     void load();
-  }, [enabled, load]);
+    void refreshPatientConsultations();
+  }, [enabled, load, refreshPatientConsultations]);
 
   const realtimeIds = useMemo(
     () => sessions.map((c) => c.id).slice(0, 12),
@@ -91,7 +106,10 @@ export function useUtSessions(enabled = true) {
           void load();
         }
       },
-      onConsultationCompleted: () => void load(),
+      onConsultationCompleted: () => {
+        void load();
+        void refreshPatientConsultations();
+      },
       onAttachmentAnalyzed: () => void load(),
       onAiUpdated: () => void load(),
     },
@@ -149,5 +167,8 @@ export function useUtSessions(enabled = true) {
     switchToConsultation,
     cancelSession,
     refreshSessions,
+    refreshPatientConsultations,
+    refreshAll,
+    patientConsultations,
   };
 }

@@ -61,7 +61,7 @@ export function DoctorLiveQueuePanel({
             onClick={onComplete}
             className="w-full gradient-btn !py-2 !text-xs"
           >
-            Yakuniy tashxis
+            Yakunlash
           </button>
         </div>
       )}
