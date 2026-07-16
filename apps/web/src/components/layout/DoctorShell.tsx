@@ -21,6 +21,7 @@ interface DoctorShellProps {
   myInProgress?: Consultation[];
   queuedConsultations?: Consultation[];
   onSelectConsultation?: (id: string) => void;
+  onReconnectConsultation?: (id: string) => void;
   onStartConsultation?: (id: string) => void;
 }
 
@@ -41,6 +42,7 @@ export function DoctorShell({
   myInProgress,
   queuedConsultations,
   onSelectConsultation,
+  onReconnectConsultation,
   onStartConsultation,
 }: DoctorShellProps) {
   return (
@@ -65,6 +67,7 @@ export function DoctorShell({
         myInProgress={myInProgress}
         queuedConsultations={queuedConsultations}
         onSelectConsultation={onSelectConsultation}
+        onReconnectConsultation={onReconnectConsultation}
         onStartConsultation={onStartConsultation}
       />
       <main className={scrollable ? 'doctor-subpage relative z-10' : 'doctor-body relative z-10'}>{children}</main>

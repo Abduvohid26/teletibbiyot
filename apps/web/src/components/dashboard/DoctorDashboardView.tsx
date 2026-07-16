@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback, useEffect, useState } from 'react';
 import { DoctorShell } from '@/components/layout/DoctorShell';
 import { VideoConsultation } from '@/components/dashboard/VideoConsultation';
 import { PatientInfo } from '@/components/dashboard/PatientInfo';
@@ -57,12 +58,33 @@ export function DoctorDashboardView({
   showAttachments,
   onShowAttachments,
 }: DoctorDashboardViewProps) {
+  const [reconnectSignal, setReconnectSignal] = useState(0);
   const queuedPatients = queue.filter((c) => c.status === 'QUEUED');
   const passiveRefresh = onRefresh ?? onReload;
   const activeConsultationId = selectedConsultationId ?? consultation?.id;
   const activeConsultation =
     (activeConsultationId && myInProgress.find((c) => c.id === activeConsultationId))
     || consultation;
+
+  const handleSelectConsultation = useCallback((id: string) => {
+    const samePatient = id === activeConsultationId;
+    onSelectConsultation?.(id);
+    if (samePatient) {
+      setReconnectSignal((s) => s + 1);
+    }
+  }, [activeConsultationId, onSelectConsultation]);
+
+  const handleReconnectConsultation = useCallback((id: string) => {
+    if (id !== activeConsultationId) {
+      onSelectConsultation?.(id);
+      return;
+    }
+    setReconnectSignal((s) => s + 1);
+  }, [activeConsultationId, onSelectConsultation]);
+
+  useEffect(() => {
+    setReconnectSignal(0);
+  }, [activeConsultationId]);
 
   return (
     <DoctorShell
@@ -83,7 +105,8 @@ export function DoctorDashboardView({
       activeConsultationId={activeConsultationId}
       myInProgress={myInProgress}
       queuedConsultations={queuedPatients}
-      onSelectConsultation={(id) => onSelectConsultation?.(id)}
+      onSelectConsultation={handleSelectConsultation}
+      onReconnectConsultation={handleReconnectConsultation}
       onStartConsultation={onStartConsultation}
     >
       <div className="doctor-workspace">
@@ -102,7 +125,7 @@ export function DoctorDashboardView({
               key={activeConsultationId ?? 'none'}
               facilityCode={activeConsultation?.utFacility?.code ?? consultation?.utFacility?.code}
               consultationId={activeConsultationId}
-              onEndCall={passiveRefresh}
+              reconnectSignal={reconnectSignal}
               compact
             />
           </div>

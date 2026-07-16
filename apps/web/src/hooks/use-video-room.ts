@@ -71,6 +71,8 @@ export function useVideoRoom({
   const setupStartedRef = useRef(false);
   const preflightConfirmedRef = useRef(false);
 
+  const [videoPaused, setVideoPaused] = useState(false);
+  const [connectNonce, setConnectNonce] = useState(0);
   const [iceReady, setIceReady] = useState(false);
   const [mediaReady, setMediaReady] = useState(false);
   const [preflightPending, setPreflightPending] = useState(false);
@@ -451,12 +453,22 @@ export function useVideoRoom({
   }, []);
 
   useEffect(() => {
+    setVideoPaused(false);
+    setupStartedRef.current = false;
+  }, [consultationId]);
+
+  useEffect(() => {
     if (!enabled || !consultationId || !iceReady) {
-      preflightConfirmedRef.current = false;
-      setupStartedRef.current = false;
-      cleanupMedia();
+      if (!enabled || !consultationId) {
+        preflightConfirmedRef.current = false;
+        setupStartedRef.current = false;
+        setVideoPaused(false);
+        cleanupMedia();
+      }
       return;
     }
+
+    if (videoPaused) return;
 
     const prefs = loadMediaPreferences();
     const needsPreflight =
@@ -479,6 +491,7 @@ export function useVideoRoom({
     };
   }, [
     cleanupMedia,
+    connectNonce,
     consultationId,
     enabled,
     iceReady,
@@ -486,6 +499,7 @@ export function useVideoRoom({
     preflightPending,
     setupLocalMedia,
     skipPreflight,
+    videoPaused,
   ]);
 
   useEffect(() => {
@@ -559,6 +573,8 @@ export function useVideoRoom({
     };
 
     const onCallEndedEvent = () => {
+      setupStartedRef.current = false;
+      setVideoPaused(true);
       cleanupMedia();
       onCallEnded?.();
     };
@@ -737,8 +753,19 @@ export function useVideoRoom({
       socket.emit('end-call', { roomId: consultationId });
     }
     window.dispatchEvent(new CustomEvent('call-ended-recording'));
+    setupStartedRef.current = false;
+    setVideoPaused(true);
     cleanupMedia();
   }, [cleanupMedia, consultationId, socketRef]);
+
+  const reconnectCall = useCallback(() => {
+    setupStartedRef.current = false;
+    preflightConfirmedRef.current = skipPreflight || !loadMediaPreferences().preflightEnabled;
+    setPreflightPending(false);
+    setError('');
+    setVideoPaused(false);
+    setConnectNonce((n) => n + 1);
+  }, [skipPreflight]);
 
   const reloadMedia = useCallback(async () => {
     const existingTargets = [...pcsRef.current.keys()];
@@ -769,7 +796,8 @@ export function useVideoRoom({
   });
 
   return {
-    connected: socketConnected && roomJoined && mediaReady && iceReady,
+    connected: socketConnected && roomJoined && mediaReady && iceReady && !videoPaused,
+    videoPaused,
     error,
     micOn,
     camOn,
@@ -785,6 +813,7 @@ export function useVideoRoom({
     toggleCam,
     sendPtz,
     endCall,
+    reconnectCall,
     observeMode: role === 'observe',
     connectionStats,
     virtualCameraWarning,

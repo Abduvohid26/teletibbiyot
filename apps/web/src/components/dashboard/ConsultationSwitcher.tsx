@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, Clock, Play, User, Video } from 'lucide-react';
+import { ChevronDown, Clock, Play, Phone, User, Video } from 'lucide-react';
 import { Consultation } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -12,6 +12,7 @@ interface ConsultationSwitcherProps {
   queued: Consultation[];
   onSelect: (id: string) => void;
   onStart: (id: string) => void;
+  onReconnect?: (id: string) => void;
   /** header = shifokor header ichida dropdown */
   variant?: 'header' | 'inline';
   /** UT: navbatdagi bemorni ko'rish (shifokor "Boshlash" emas) */
@@ -29,6 +30,7 @@ export function ConsultationSwitcher({
   queued,
   onSelect,
   onStart,
+  onReconnect,
   variant = 'header',
   queuedActionLabel = 'Boshlash',
 }: ConsultationSwitcherProps) {
@@ -128,29 +130,57 @@ export function ConsultationSwitcher({
                 <Video size={10} /> Jarayonda
               </p>
               {myInProgress.map((c) => (
-                <button
+                <div
                   key={c.id}
-                  type="button"
-                  role="option"
-                  aria-selected={activeId === c.id}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onSelect(c.id);
-                    setOpen(false);
-                  }}
                   className={cn(
-                    'w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-left text-sm transition-colors',
-                    activeId === c.id
-                      ? 'bg-brand-600 text-white'
-                      : 'text-slate-800 hover:bg-slate-50',
+                    'flex items-center gap-1 px-1.5 py-0.5 rounded-lg',
+                    activeId === c.id ? 'bg-brand-600' : 'hover:bg-slate-50',
                   )}
                 >
-                  <span className="font-semibold truncate">{labelFor(c)}</span>
-                  {activeId === c.id && (
-                    <span className="ml-auto text-[10px] opacity-80 shrink-0">Tanlangan</span>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={activeId === c.id}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onSelect(c.id);
+                      setOpen(false);
+                    }}
+                    className={cn(
+                      'flex-1 min-w-0 flex items-center gap-2 px-1.5 py-1.5 rounded-md text-left text-sm transition-colors',
+                      activeId === c.id
+                        ? 'text-white'
+                        : 'text-slate-800',
+                    )}
+                  >
+                    <span className="font-semibold truncate">{labelFor(c)}</span>
+                    {activeId === c.id && (
+                      <span className="ml-auto text-[10px] opacity-80 shrink-0">Tanlangan</span>
+                    )}
+                  </button>
+                  {onReconnect && (
+                    <button
+                      type="button"
+                      title="Video qayta ulash"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onReconnect(c.id);
+                        setOpen(false);
+                      }}
+                      className={cn(
+                        'shrink-0 inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full transition-colors',
+                        activeId === c.id
+                          ? 'text-brand-700 bg-white hover:bg-brand-50'
+                          : 'text-emerald-700 bg-emerald-100 hover:bg-emerald-200',
+                      )}
+                    >
+                      <Phone size={10} />
+                      Ulash
+                    </button>
                   )}
-                </button>
+                </div>
               ))}
             </div>
           )}

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import {
-  Mic, MicOff, Video, VideoOff, PhoneOff, MoreHorizontal,
+  Mic, MicOff, Video, VideoOff, PhoneOff, Phone, MoreHorizontal,
   ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Eye, Volume2, VolumeX, AlertTriangle,
   LayoutGrid,
 } from 'lucide-react';
@@ -23,6 +23,7 @@ interface VideoConsultationProps {
   onEndCall?: () => void;
   observeMode?: boolean;
   compact?: boolean;
+  reconnectSignal?: number;
 }
 
 const ALL_CAMERAS_VIEW = 'all';
@@ -43,6 +44,7 @@ export function VideoConsultation({
   onEndCall,
   observeMode = false,
   compact = false,
+  reconnectSignal = 0,
 }: VideoConsultationProps) {
   const [activeCamera, setActiveCamera] = useState('close');
   const [showPtz, setShowPtz] = useState(false);
@@ -52,6 +54,7 @@ export function VideoConsultation({
 
   const {
     connected,
+    videoPaused,
     error,
     micOn,
     camOn,
@@ -65,6 +68,7 @@ export function VideoConsultation({
     toggleCam,
     sendPtz,
     endCall,
+    reconnectCall,
     connectionStats,
     virtualCameraWarning,
     preflightPending,
@@ -77,6 +81,12 @@ export function VideoConsultation({
     enabled: !!consultationId,
     onCallEnded: onEndCall,
   });
+
+  useEffect(() => {
+    if (reconnectSignal > 0) {
+      reconnectCall();
+    }
+  }, [reconnectSignal, reconnectCall]);
 
   const uniqueCameraStreams = mapUniqueUtCameraStreams(remoteCameras);
 
@@ -141,7 +151,10 @@ export function VideoConsultation({
 
   const handleEndCall = () => {
     endCall();
-    onEndCall?.();
+  };
+
+  const handleReconnect = () => {
+    reconnectCall();
   };
 
   return (
@@ -251,6 +264,10 @@ export function VideoConsultation({
               <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
               JONLI
             </span>
+          ) : videoPaused ? (
+            <span className="bg-amber-600/90 text-white text-[10px] font-medium px-2 py-0.5 rounded-md">
+              Uzilgan
+            </span>
           ) : (
             <span className="bg-slate-700/80 text-slate-300 text-[10px] font-medium px-2 py-0.5 rounded-md">
               Ulanmoqda
@@ -284,6 +301,29 @@ export function VideoConsultation({
           <div className="absolute bottom-3 left-3 z-10 max-w-xs bg-amber-500/90 text-white text-[10px] rounded-lg px-2.5 py-2 flex items-start gap-1.5">
             <AlertTriangle size={12} className="shrink-0 mt-0.5" />
             <span>UT virtual kamera: {virtualCameraWarning.join(', ')} — qo&apos;shimcha jismoniy kamera ulang</span>
+          </div>
+        )}
+
+        {videoPaused && !observeMode && (
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950/75 backdrop-blur-sm px-4">
+            <VideoOff className="w-10 h-10 text-slate-400 mb-2" />
+            <p className={cn('font-semibold text-white text-center', compact ? 'text-xs' : 'text-sm')}>
+              Video uzildi
+            </p>
+            <p className="text-[11px] text-slate-300 text-center mt-1 max-w-xs leading-relaxed">
+              Konsultatsiya jarayonda davom etadi. Qayta ulash uchun tugmani bosing.
+            </p>
+            <button
+              type="button"
+              onClick={handleReconnect}
+              className={cn(
+                'mt-3 inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition-all shadow-lg',
+                compact ? 'text-xs px-3 py-1.5' : 'text-sm px-5 py-2.5',
+              )}
+            >
+              <Phone size={compact ? 14 : 16} />
+              Qayta ulash
+            </button>
           </div>
         )}
 
@@ -398,6 +438,19 @@ export function VideoConsultation({
               <PhoneOff size={compact ? 14 : 16} />
               {compact ? 'Uzish' : 'Video uzish'}
             </button>
+            {videoPaused && (
+              <button
+                type="button"
+                onClick={handleReconnect}
+                className={cn(
+                  'flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition-all shadow-lg shadow-emerald-500/25',
+                  compact ? 'text-xs px-3 py-1.5' : 'text-sm px-5 py-2.5 rounded-2xl',
+                )}
+              >
+                <Phone size={compact ? 14 : 16} />
+                Qayta ulash
+              </button>
+            )}
           </>
         )}
         {observeMode && (

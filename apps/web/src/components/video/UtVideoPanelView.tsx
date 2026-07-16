@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Mic, MicOff, Video, VideoOff, Radio, Move, Volume2, VolumeX, AlertTriangle } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, Radio, Move, Volume2, VolumeX, AlertTriangle, LayoutGrid } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useVideoRoom } from '@/hooks/use-video-room';
 import { VideoTile } from '@/components/video/VideoTile';
 import { ConnectionQualityBadge } from '@/components/video/ConnectionQualityBadge';
 import { applyUtPtzAction, isPtzAction } from '@/lib/ut-ptz-state';
 import { UT_CAMERA_FEEDS } from '@/lib/video-config';
+import { isUtStreamLive } from '@/lib/ut-camera-streams';
 
 interface UtVideoPanelViewProps {
   video: ReturnType<typeof useVideoRoom>;
@@ -16,38 +17,56 @@ interface UtVideoPanelViewProps {
   patientName?: string;
 }
 
+const ALL_VIEW = 'all';
+
 const FEED_LABELS: Record<string, string> = Object.fromEntries(
   UT_CAMERA_FEEDS.map((f) => [f.id, f.label]),
 );
 
-/** Kamera 1 — katta; 2–5 — doim ko'rinadigan slotlar */
-const THUMB_SLOTS = [
+type ViewId = (typeof UT_CAMERA_FEEDS)[number]['id'] | 'doctor' | typeof ALL_VIEW;
+
+const VIEW_SLOTS: { id: ViewId; num: number; label: string; isDoctor?: boolean }[] = [
+  { id: 'close', num: 1, label: FEED_LABELS.close ?? 'Bemor yaqindan' },
   { id: 'main', num: 2, label: FEED_LABELS.main ?? 'Asosiy' },
   { id: 'room', num: 3, label: FEED_LABELS.room ?? 'Xona' },
   { id: 'equipment', num: 4, label: FEED_LABELS.equipment ?? 'Qurilmalar' },
   { id: 'doctor', num: 5, label: 'Shifokor', isDoctor: true },
-] as const;
+];
+
+function shortLabel(id: string, label: string) {
+  if (id === 'close') return 'Bemor';
+  if (id === 'equipment') return 'Qurilmalar';
+  return label.split(' ')[0];
+}
 
 function CameraSlot({
   num,
   label,
   stream,
   active,
-  highlight,
+  selected,
+  onClick,
   className,
 }: {
   num: number;
   label: string;
   stream: MediaStream | null;
   active: boolean;
-  highlight?: boolean;
+  selected?: boolean;
+  onClick?: () => void;
   className?: string;
 }) {
+  const live = isUtStreamLive(stream);
+  const Tag = onClick ? 'button' : 'div';
+
   return (
-    <div
+    <Tag
+      type={onClick ? 'button' : undefined}
+      onClick={onClick}
       className={cn(
-        'relative rounded-lg overflow-hidden bg-slate-950/90 ring-1 min-h-0',
-        highlight ? 'ring-brand-500 ring-2' : active ? 'ring-emerald-600/70' : 'ring-slate-700/80',
+        'relative rounded-lg overflow-hidden bg-slate-950/90 ring-1 min-h-0 text-left',
+        selected ? 'ring-brand-500 ring-2' : active ? 'ring-emerald-600/70' : 'ring-slate-700/80',
+        onClick && 'cursor-pointer hover:ring-brand-400/80 transition-shadow',
         className,
       )}
     >
@@ -56,7 +75,7 @@ function CameraSlot({
         muted
         className="absolute inset-0 w-full h-full [&_video]:object-cover"
         placeholder={active ? label : 'Bo\'sh'}
-        live={active}
+        live={live}
       />
       {!active && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 bg-slate-900/75 pointer-events-none">
@@ -70,7 +89,7 @@ function CameraSlot({
       <span className="absolute bottom-0 inset-x-0 bg-black/75 text-white text-xs font-medium px-1.5 py-0.5 truncate pointer-events-none">
         {label}
       </span>
-    </div>
+    </Tag>
   );
 }
 
@@ -81,6 +100,7 @@ export function UtVideoPanelView({
   patientName,
 }: UtVideoPanelViewProps) {
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
+  const [activeView, setActiveView] = useState<ViewId>('close');
   const [ptzHint, setPtzHint] = useState('');
 
   const {
@@ -101,10 +121,25 @@ export function UtVideoPanelView({
   } = video;
 
   const streamFor = (id: string) => utCameraStreams.find((c) => c.id === id);
-  const closeCam = streamFor('close');
-  const utActiveCount = utCameraStreams.filter((c) => c.active).length;
-  const doctorActive = !!mtDoctorStream;
+  const getStream = (id: ViewId): MediaStream | null => {
+    if (id === 'doctor') return mtDoctorStream;
+    if (id === ALL_VIEW) return null;
+    return streamFor(id)?.stream ?? null;
+  };
+  const isActive = (id: ViewId): boolean => {
+    if (id === 'doctor') return !!mtDoctorStream && isUtStreamLive(mtDoctorStream);
+    if (id === ALL_VIEW) return false;
+    const cam = streamFor(id);
+    return !!cam?.active && isUtStreamLive(cam.stream);
+  };
+
+  const utActiveCount = utCameraStreams.filter((c) => c.active && isUtStreamLive(c.stream)).length;
+  const doctorActive = !!mtDoctorStream && isUtStreamLive(mtDoctorStream);
   const liveTotal = utActiveCount + (doctorActive ? 1 : 0);
+  const isAllView = activeView === ALL_VIEW;
+  const activeSlot = VIEW_SLOTS.find((s) => s.id === activeView);
+  const mainStream = isAllView ? null : getStream(activeView);
+  const mainLive = isAllView ? false : isActive(activeView);
 
   useEffect(() => {
     const el = remoteAudioRef.current;
@@ -113,6 +148,13 @@ export function UtVideoPanelView({
     el.muted = !speakerOn;
     void el.play().catch(() => undefined);
   }, [remoteAudio, speakerOn]);
+
+  useEffect(() => {
+    if (isAllView) return;
+    if (isActive(activeView)) return;
+    const fallback = VIEW_SLOTS.find((s) => s.id !== 'doctor' && isActive(s.id));
+    if (fallback) setActiveView(fallback.id);
+  }, [activeView, isAllView, utCameraStreams, mtDoctorStream]);
 
   useEffect(() => {
     const onPtz = (event: Event) => {
@@ -180,52 +222,101 @@ export function UtVideoPanelView({
           </div>
         )}
 
-        {/* Kamera 1 — asosiy */}
+        {/* Tanlangan kamera — katta ko'rinish */}
         <div className="relative flex-[1.4] min-h-[140px] rounded-xl overflow-hidden bg-slate-950 ring-2 ring-brand-500/90">
-          <VideoTile
-            stream={closeCam?.stream ?? null}
-            muted
-            className="absolute inset-0 w-full h-full [&_video]:object-cover"
-            placeholder="Kamera 1 — ruxsat bering"
-            live={closeCam?.active}
-          />
-          {!closeCam?.active && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-slate-900/60 pointer-events-none">
-              <VideoOff size={22} className="text-slate-500" />
-              <span className="text-xs text-slate-400">Bemor yaqindan — ulanmagan</span>
+          {isAllView ? (
+            <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-0.5 p-0.5 bg-slate-950">
+              {UT_CAMERA_FEEDS.map((feed) => {
+                const stream = streamFor(feed.id)?.stream ?? null;
+                const live = isUtStreamLive(stream);
+                return (
+                  <button
+                    key={feed.id}
+                    type="button"
+                    onClick={() => setActiveView(feed.id)}
+                    className="relative min-h-0 min-w-0 rounded-md overflow-hidden ring-1 ring-white/10 hover:ring-brand-400/60 transition-shadow"
+                  >
+                    <VideoTile
+                      stream={stream}
+                      muted
+                      className="absolute inset-0 w-full h-full [&_video]:object-cover"
+                      placeholder={feed.label}
+                      live={live}
+                    />
+                    <span className="absolute top-1 left-1 bg-black/60 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded pointer-events-none">
+                      {shortLabel(feed.id, feed.label)}
+                    </span>
+                    {!live && (
+                      <span className="absolute inset-0 flex items-center justify-center bg-slate-900/40 pointer-events-none">
+                        <VideoOff className="w-5 h-5 text-slate-500" />
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
+          ) : (
+            <>
+              <VideoTile
+                stream={mainStream}
+                muted
+                className="absolute inset-0 w-full h-full [&_video]:object-cover"
+                placeholder={`${activeSlot?.label ?? 'Kamera'} — kutilmoqda`}
+                live={mainLive}
+              />
+              {!mainLive && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-slate-900/60 pointer-events-none">
+                  <VideoOff size={22} className="text-slate-500" />
+                  <span className="text-xs text-slate-400">{activeSlot?.label} — ulanmagan</span>
+                </div>
+              )}
+            </>
           )}
-          <span className="absolute top-2 left-2 min-w-[22px] h-[22px] px-1.5 rounded-md bg-brand-600 text-white text-[10px] font-bold flex items-center justify-center">
-            1
-          </span>
-          <span className="absolute top-2 right-2 bg-brand-600/90 text-white text-xs font-bold px-2 py-0.5 rounded-md">
-            Bemor yaqindan
-          </span>
+          {!isAllView && activeSlot && (
+            <>
+              <span className="absolute top-2 left-2 min-w-[22px] h-[22px] px-1.5 rounded-md bg-brand-600 text-white text-[10px] font-bold flex items-center justify-center">
+                {activeSlot.num}
+              </span>
+              <span className="absolute top-2 right-2 bg-brand-600/90 text-white text-xs font-bold px-2 py-0.5 rounded-md max-w-[60%] truncate">
+                {activeSlot.label}
+              </span>
+            </>
+          )}
+          {isAllView && (
+            <span className="absolute top-2 right-2 bg-brand-600/90 text-white text-xs font-bold px-2 py-0.5 rounded-md">
+              Hammasi — 4 kamera
+            </span>
+          )}
           {remoteAudio && (
             <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
           )}
         </div>
 
-        {/* Kameralar 2–5 — doim ko'rinadi */}
-        <div className="grid grid-cols-4 gap-1.5 shrink-0 min-h-[4.5rem] sm:min-h-[5.25rem]">
-          {THUMB_SLOTS.map((slot) => {
-            const isDoctor = 'isDoctor' in slot && slot.isDoctor;
-            const stream = isDoctor
-              ? mtDoctorStream
-              : (streamFor(slot.id)?.stream ?? null);
-            const active = isDoctor ? doctorActive : !!streamFor(slot.id)?.active;
+        {/* Kameralar 1–5 + Hammasi */}
+        <div className="flex gap-1.5 shrink-0 overflow-x-auto pb-0.5">
+          {VIEW_SLOTS.map((slot) => {
+            const stream = slot.isDoctor ? mtDoctorStream : (streamFor(slot.id)?.stream ?? null);
+            const active = slot.isDoctor ? doctorActive : isActive(slot.id);
 
             return (
               <CameraSlot
                 key={slot.id}
                 num={slot.num}
-                label={slot.label}
+                label={shortLabel(slot.id, slot.label)}
                 stream={stream}
                 active={active}
-                className="aspect-video w-full"
+                selected={activeView === slot.id}
+                onClick={() => setActiveView(slot.id)}
+                className="aspect-video w-[4.5rem] sm:w-[5rem] shrink-0"
               />
             );
           })}
+          <AllCamerasButton
+            active={isAllView}
+            liveCount={utActiveCount}
+            onClick={() => setActiveView(ALL_VIEW)}
+            className="aspect-video w-[4.5rem] sm:w-[5rem] shrink-0"
+          />
         </div>
 
         {ptzHint && (
@@ -246,6 +337,41 @@ export function UtVideoPanelView({
         )}
       </div>
     </div>
+  );
+}
+
+function AllCamerasButton({
+  active,
+  liveCount,
+  onClick,
+  className,
+}: {
+  active: boolean;
+  liveCount: number;
+  onClick: () => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      title="Hammasi — 4 ta kamera bir vaqtda"
+      onClick={onClick}
+      className={cn(
+        'relative rounded-lg overflow-hidden border-2 transition-all bg-slate-900 min-h-0',
+        active ? 'border-brand-500 ring-2 ring-brand-200' : 'border-slate-700 hover:border-slate-500',
+        className,
+      )}
+    >
+      <div className="absolute inset-1 grid grid-cols-2 grid-rows-2 gap-0.5">
+        {[0, 1, 2, 3].map((i) => (
+          <span key={i} className={cn('rounded-sm', i < liveCount ? 'bg-emerald-500/70' : 'bg-slate-700')} />
+        ))}
+      </div>
+      <LayoutGrid size={12} className="absolute top-1 right-1 text-white/40" />
+      <span className="absolute bottom-0 inset-x-0 bg-black/75 text-white text-[10px] font-medium px-1 py-0.5 truncate">
+        Hammasi
+      </span>
+    </button>
   );
 }
 

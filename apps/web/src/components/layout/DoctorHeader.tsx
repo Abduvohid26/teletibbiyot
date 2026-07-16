@@ -28,6 +28,7 @@ interface DoctorHeaderProps {
   myInProgress?: Consultation[];
   queuedConsultations?: Consultation[];
   onSelectConsultation?: (id: string) => void;
+  onReconnectConsultation?: (id: string) => void;
   onStartConsultation?: (id: string) => void;
 }
 
@@ -46,6 +47,7 @@ export function DoctorHeader({
   myInProgress = [],
   queuedConsultations = [],
   onSelectConsultation,
+  onReconnectConsultation,
   onStartConsultation,
 }: DoctorHeaderProps) {
   const { user, logout } = useAuth();
@@ -79,6 +81,7 @@ export function DoctorHeader({
           myInProgress={myInProgress}
           queued={queuedConsultations}
           onSelect={onSelectConsultation}
+          onReconnect={onReconnectConsultation}
           onStart={onStartConsultation}
         />
       )}

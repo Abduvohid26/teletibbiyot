@@ -5,6 +5,7 @@ import { UtVideoPanelView } from '@/components/video/UtVideoPanelView';
 import { CameraVitalsMonitor } from '@/components/vitals/CameraVitalsMonitor';
 import { VideoPreflightModal } from '@/components/video/VideoPreflightModal';
 import { Consultation } from '@/lib/api';
+import { isUtStreamLive } from '@/lib/ut-camera-streams';
 
 interface UtConsultationSessionProps {
   consultation: Consultation;
@@ -21,11 +22,8 @@ export function UtConsultationSession({ consultation, patientName }: UtConsultat
 
   const vitals = consultation.clinicalRecord?.vitalSigns || {};
   const streamFor = (id: string) => video.utCameraStreams.find((c) => c.id === id)?.stream ?? null;
-  const monitorStream =
-    streamFor('equipment')
-    ?? streamFor('room')
-    ?? video.vitalsStream
-    ?? null;
+  const monitorStream = streamFor('equipment');
+  const monitorLive = isUtStreamLive(monitorStream);
 
   return (
     <>
@@ -40,6 +38,7 @@ export function UtConsultationSession({ consultation, patientName }: UtConsultat
               patientName={patientName ?? consultation.patient.fullName}
               initialVitals={vitals as Record<string, number>}
               sharedVideoStream={monitorStream}
+              monitorStreamLive={monitorLive}
               monitorMode
               compact
             />

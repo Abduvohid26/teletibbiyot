@@ -5,6 +5,8 @@ import { Heart, Activity, Video, VideoOff, Radio, AlertCircle } from 'lucide-rea
 import { CameraVitalAnalyzer, estimateRespiratoryRate, VitalReading } from '@/lib/camera-vitals';
 import { useVitalsStream } from '@/hooks/use-vitals-stream';
 import { cn } from '@/lib/utils';
+import { VideoTile } from '@/components/video/VideoTile';
+import { isUtStreamLive } from '@/lib/ut-camera-streams';
 
 interface CameraVitalsMonitorProps {
   consultationId: string;
@@ -12,6 +14,7 @@ interface CameraVitalsMonitorProps {
   initialVitals?: Record<string, number>;
   /** Patient monitor yoki umumiy kamera oqimi */
   sharedVideoStream?: MediaStream | null;
+  monitorStreamLive?: boolean;
   /** Monitor ekraniga qaratilgan kamera — qo'lda kiritish yo'q */
   monitorMode?: boolean;
   compact?: boolean;
@@ -22,6 +25,7 @@ export function CameraVitalsMonitor({
   patientName,
   initialVitals = {},
   sharedVideoStream,
+  monitorStreamLive,
   monitorMode = false,
   compact = false,
 }: CameraVitalsMonitorProps) {
@@ -174,38 +178,29 @@ export function CameraVitalsMonitor({
         )}
 
         {monitorMode || sharedVideoStream ? (
-          <>
-            <div className="relative aspect-video bg-slate-950 rounded-lg overflow-hidden ring-1 ring-slate-800 max-h-32 shrink-0">
-              <video ref={videoRef} muted playsInline className="w-full h-full object-cover" />
-              <span className="absolute top-1.5 left-1.5 min-w-[18px] h-[18px] px-1 rounded-md bg-black/70 text-white text-[10px] font-bold flex items-center justify-center">
-                4
-              </span>
-              <span className="absolute top-1.5 right-1.5 bg-black/60 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded">
-                {monitorMode ? 'Monitor' : 'Kamera'}
-              </span>
-              {!sharedVideoStream && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-slate-900/85 pointer-events-none">
-                  <VideoOff size={16} className="text-slate-500" />
-                  <span className="text-xs text-slate-500">Kamera 4 — kutilmoqda</span>
-                </div>
-              )}
-            </div>
-            <p className="text-xs text-slate-600 bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 leading-relaxed">
-              {monitorMode ? (
-                <>
-                  Vital ko&apos;rsatkichlar <strong className="text-slate-800">patient monitor</strong> ekranidan kamerada ko&apos;rinadi.
-                  Qo&apos;lda kiritish shart emas — shifokor ham jonli efirda ko&apos;radi.
-                </>
-              ) : (
-                <>
-                  Vital tahlil <strong className="text-slate-700">Bemor yaqindan</strong> kameradan olinadi
-                  {signalQuality > 0 && (
-                    <span className="text-emerald-600 font-semibold ml-1">· {Math.round(signalQuality * 100)}%</span>
-                  )}
-                </>
-              )}
-            </p>
-          </>
+          <div className="relative flex-1 min-h-[120px] bg-slate-950 rounded-lg overflow-hidden ring-1 ring-slate-800">
+            <VideoTile
+              stream={sharedVideoStream ?? null}
+              muted
+              className="absolute inset-0 w-full h-full [&_video]:object-contain"
+              placeholder="Patient monitor — kamera 4 (Qurilmalar)"
+              live={monitorStreamLive ?? isUtStreamLive(sharedVideoStream)}
+            />
+            <span className="absolute top-1.5 left-1.5 min-w-[18px] h-[18px] px-1 rounded-md bg-black/70 text-white text-[10px] font-bold flex items-center justify-center pointer-events-none">
+              4
+            </span>
+            <span className="absolute top-1.5 right-1.5 bg-black/60 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded pointer-events-none">
+              Monitor
+            </span>
+            {!sharedVideoStream && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-slate-900/90 px-3 text-center pointer-events-none">
+                <VideoOff size={20} className="text-slate-500" />
+                <span className="text-xs text-slate-400 leading-snug">
+                  Kamera 4 (Qurilmalar) ulanmagan — Sozlamalar → Video va ovoz dan biriktiring
+                </span>
+              </div>
+            )}
+          </div>
         ) : compact && !monitorMode ? (
           <p className="text-xs text-brand-800 bg-brand-50 border border-brand-100 rounded-lg px-2.5 py-2 leading-relaxed">
             Kamerani o&apos;ngdagi <strong>Video uzatish</strong> panelidagi kamera tugmasi orqali yoqing — vital avtomatik olinadi.
@@ -263,9 +258,9 @@ export function CameraVitalsMonitor({
           <LiveStat icon={Activity} label="SpO2" value={reading.spo2} unit="%" color="text-sky-400" live={!!reading.spo2 && !monitorMode} compact={compact} />
         </div>
 
-        {monitorMode && (
-          <p className="text-xs text-slate-400 text-center leading-snug">
-            Puls, bosim, harorat — monitor ekranida. Avtomatik o&apos;qish keyingi bosqichda qo&apos;shiladi.
+        {monitorMode && !reading.heartRate && !reading.spo2 && (
+          <p className="text-xs text-slate-400 text-center leading-snug shrink-0">
+            Vital ko&apos;rsatkichlar monitor ekranida — avtomatik o&apos;qish keyingi bosqichda
           </p>
         )}
 
