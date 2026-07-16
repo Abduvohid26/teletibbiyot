@@ -4,13 +4,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { Stethoscope } from 'lucide-react';
 import { DoctorShell } from '@/components/layout/DoctorShell';
 import { VideoConsultation } from '@/components/dashboard/VideoConsultation';
-import { PatientInfo } from '@/components/dashboard/PatientInfo';
 import { AiAnalysisPanel } from '@/components/dashboard/AiAnalysisPanel';
 import { PatientDocumentsPanel } from '@/components/dashboard/PatientDocumentsPanel';
 import { CompleteDiagnosisModal } from '@/components/dashboard/CompleteDiagnosisModal';
 import {
   DoctorLiveQueuePanel,
-  DoctorQueueCountPill,
 } from '@/components/dashboard/DoctorLiveQueuePanel';
 import {
   DoctorLiveQueueDrawer,
@@ -72,37 +70,13 @@ export function DoctorDashboardView({
     setReconnectSignal(0);
   }, [activeConsultationId]);
 
-  const patientName = activeConsultation?.patient.fullName;
   const hasQueue = myInProgress.length > 0 || queuedPatients.length > 0;
+  const showCompleteBtn = activeConsultation?.status === 'IN_PROGRESS';
 
   return (
     <DoctorShell
       liveCount={myInProgress.length}
       queueCount={queuedPatients.length}
-      pageTitle={patientName}
-      pageSubtitle={
-        activeConsultation
-          ? activeConsultation.status === 'IN_PROGRESS'
-            ? `Jonli efir · ${activeConsultation.utFacility?.name || 'UT'}`
-            : activeConsultation.utFacility?.name || 'Navbatda'
-          : undefined
-      }
-      pageAction={
-        hasQueue || activeConsultation ? (
-          <div className="flex items-center gap-2 shrink-0">
-            <DoctorQueueCountPill count={queuedPatients.length} />
-            {activeConsultation?.status === 'IN_PROGRESS' && (
-              <button
-                type="button"
-                onClick={() => onShowComplete(true)}
-                className="gradient-btn !py-1 !px-2.5 !text-xs"
-              >
-                Yakuniy tashxis
-              </button>
-            )}
-          </div>
-        ) : undefined
-      }
     >
       <div className="ut-page pb-14 lg:pb-0">
         {error && (
@@ -132,19 +106,12 @@ export function DoctorDashboardView({
                   key={activeConsultationId ?? 'none'}
                   facilityCode={activeConsultation?.utFacility?.code ?? consultation?.utFacility?.code}
                   consultationId={activeConsultation?.status === 'IN_PROGRESS' ? activeConsultationId : undefined}
+                  clinicalVitals={activeConsultation?.clinicalRecord?.vitalSigns as Record<string, number> | undefined}
                   reconnectSignal={reconnectSignal}
                   compact
                 />
               </div>
               <div className="doctor-side-col">
-                <div className="doctor-patient-col">
-                  <PatientInfo
-                    patient={activeConsultation?.patient ?? consultation?.patient}
-                    clinicalRecord={activeConsultation?.clinicalRecord ?? consultation?.clinicalRecord}
-                    consultationId={activeConsultationId}
-                    compact
-                  />
-                </div>
                 <div className="doctor-docs-col glass-panel overflow-hidden flex flex-col min-h-0">
                   <div className="shrink-0 glass-header py-1 px-2 flex items-center justify-between gap-1">
                     <span className="text-[10px] font-semibold text-slate-700 uppercase tracking-wide truncate">
@@ -168,9 +135,11 @@ export function DoctorDashboardView({
                   </div>
                   <PatientDocumentsPanel
                     consultationId={documentsConsultationId}
+                    patient={activeConsultation?.patient ?? consultation?.patient}
+                    clinicalRecord={activeConsultation?.clinicalRecord ?? consultation?.clinicalRecord}
                     allowUpload={false}
                     compact
-                    className="flex-1 min-h-0 px-1.5 pb-1"
+                    className="flex-1 min-h-0 px-1.5 pb-1 overflow-hidden"
                   />
                 </div>
                 <div className="doctor-ai-col">
@@ -191,6 +160,7 @@ export function DoctorDashboardView({
                 queued={queuedPatients}
                 onSelect={handleSelectConsultation}
                 onStart={onStartConsultation}
+                onComplete={showCompleteBtn ? () => onShowComplete(true) : undefined}
                 className="hidden lg:flex w-[220px] xl:w-[248px] shrink-0"
               />
             )}
@@ -213,6 +183,7 @@ export function DoctorDashboardView({
             queued={queuedPatients}
             onSelect={handleSelectConsultation}
             onStart={onStartConsultation}
+            onComplete={showCompleteBtn ? () => onShowComplete(true) : undefined}
           />
         </>
       )}

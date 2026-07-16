@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { User, Building2, Video, Wifi, Camera } from 'lucide-react';
+import { Video, Wifi, Camera, User } from 'lucide-react';
 import { MediaDevicePanel, MediaCameraPreview } from '@/components/video/MediaDevicePanel';
 import { UtCameraMappingPanel } from '@/components/ut/UtCameraMappingPanel';
+import { ProfileSettingsPanel } from '@/components/settings/ProfileSettingsPanel';
 import { clearIceCache } from '@/lib/video-config';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -108,12 +109,7 @@ export function SettingsContent({ user, videoRole, compact, className }: Setting
             <span className="panel-title">Profil</span>
           </div>
           <div className="panel-body !p-3 flex flex-col gap-3 min-h-0 overflow-y-auto text-sm">
-            <div className="space-y-2">
-              <InfoRow label="Ism" value={user.fullName} compact />
-              <InfoRow label="Email" value={user.email} compact />
-              <InfoRow label="Rol" value={user.role} compact />
-              <InfoRow label="Muassasa" value={user.facility?.name || '—'} icon={Building2} compact />
-            </div>
+            <ProfileSettingsPanel compact />
             {!isUt && (
               <div className="mt-auto pt-1">
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Kamera tekshiruvi</p>
@@ -133,11 +129,8 @@ export function SettingsContent({ user, videoRole, compact, className }: Setting
           <User size={18} className="text-brand-600" />
           <span className="panel-title">Profil ma&apos;lumotlari</span>
         </div>
-        <div className="panel-body space-y-3 text-sm">
-          <InfoRow label="Ism" value={user.fullName} />
-          <InfoRow label="Email" value={user.email} />
-          <InfoRow label="Rol" value={user.role} />
-          <InfoRow label="Muassasa" value={user.facility?.name || '—'} icon={Building2} />
+        <div className="panel-body">
+          <ProfileSettingsPanel />
         </div>
       </div>
 
@@ -181,44 +174,6 @@ export function SettingsContent({ user, videoRole, compact, className }: Setting
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-function InfoRow({
-  label,
-  value,
-  icon: Icon,
-  compact,
-}: {
-  label: string;
-  value?: string;
-  icon?: React.ElementType;
-  compact?: boolean;
-}) {
-  if (compact) {
-    return (
-      <div className="flex flex-col gap-0.5 min-w-0 border-b border-slate-50 last:border-0 py-1">
-        <span className="text-slate-500 flex items-center gap-1 text-xs">
-          {Icon && <Icon size={12} />}
-          {label}
-        </span>
-        <span className="font-medium text-slate-800 truncate text-sm">
-          {value || '—'}
-        </span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
-      <span className="text-slate-500 flex items-center gap-1.5">
-        {Icon && <Icon size={14} />}
-        {label}
-      </span>
-      <span className="font-medium text-slate-800 text-right truncate ml-2 text-sm">
-        {value || '—'}
-      </span>
     </div>
   );
 }

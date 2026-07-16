@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Mic, MicOff, Video, VideoOff, PhoneOff, Phone, MoreHorizontal,
   ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Eye, Volume2, VolumeX, AlertTriangle,
@@ -13,13 +13,15 @@ import { buildRecordingStream } from '@/lib/recording-stream';
 import { UT_CAMERA_FEEDS } from '@/lib/video-config';
 import { countLiveUtCameraStreams, isUtStreamLive, mapUniqueUtCameraStreams } from '@/lib/ut-camera-streams';
 import { VideoTile } from '@/components/video/VideoTile';
-import { ConnectionQualityBadge } from '@/components/video/ConnectionQualityBadge';
 import { VideoPreflightModal } from '@/components/video/VideoPreflightModal';
 import { MediaSettingsLink } from '@/components/video/MediaDevicePanel';
+import { VitalsOverlayBar, mergeVitalsReading } from '@/components/vitals/VitalsOverlayBar';
+import { useVitalsStream } from '@/hooks/use-vitals-stream';
 
 interface VideoConsultationProps {
   facilityCode?: string;
   consultationId?: string;
+  clinicalVitals?: Record<string, number>;
   onEndCall?: () => void;
   observeMode?: boolean;
   compact?: boolean;
@@ -41,14 +43,22 @@ function isStreamLive(stream: MediaStream | null | undefined) {
 export function VideoConsultation({
   facilityCode = 'UT-001',
   consultationId,
+  clinicalVitals,
   onEndCall,
   observeMode = false,
   compact = false,
   reconnectSignal = 0,
 }: VideoConsultationProps) {
-  const [activeCamera, setActiveCamera] = useState('close');
+  const [activeCamera, setActiveCamera] = useState(compact ? 'equipment' : 'close');
   const [showPtz, setShowPtz] = useState(false);
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
+
+  const { liveVitals } = useVitalsStream(consultationId, 'receive');
+  const vitalsReading = useMemo(
+    () => mergeVitalsReading(clinicalVitals ?? {}, liveVitals),
+    [clinicalVitals, liveVitals],
+  );
+  const showVitalsOverlay = !!consultationId && !observeMode;
 
   const role: VideoRole = observeMode ? 'observe' : 'mt';
 
@@ -74,7 +84,6 @@ export function VideoConsultation({
     preflightPending,
     confirmPreflight,
     cancelPreflight,
-    qualityLabel,
   } = useVideoRoom({
     consultationId,
     role,
@@ -206,22 +215,35 @@ export function VideoConsultation({
               );
             })}
           </div>
-        ) : (
-          <VideoTile
-            stream={mainStream}
-            muted
-            className="absolute inset-0 w-full h-full"
-            placeholder={`${activeFeed.label} — UT kamera kutmoqda`}
-            live={!!mainStream}
-            resolution={connectionStats.resolution}
-          />
-        )}
+          ) : (
+          <>
+            <VideoTile
+              stream={mainStream}
+              muted
+              className={cn(
+                'absolute inset-0 w-full h-full',
+                activeCamera === 'equipment' ? '[&_video]:object-contain' : '[&_video]:object-cover',
+              )}
+              placeholder={`${activeFeed.label} — UT kamera kutmoqda`}
+              live={!!mainStream}
+              resolution={connectionStats.resolution}
+            />
+            {showVitalsOverlay && (
+              <div className="absolute bottom-2 left-2 right-2 z-10 pointer-events-none">
+                <VitalsOverlayBar reading={vitalsReading} variant="doctor" />
+              </div>
+            )}
+          </>
+          )}
         {remoteAudio && (
           <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
         )}
 
         {!observeMode && localPreview && (
-          <div className="absolute bottom-3 right-3 w-24 aspect-video rounded-lg overflow-hidden ring-2 ring-white/20 shadow-lg z-10">
+          <div className={cn(
+            'absolute w-24 aspect-video rounded-lg overflow-hidden ring-2 ring-white/20 shadow-lg z-10',
+            showVitalsOverlay ? 'bottom-16 right-2' : 'bottom-3 right-3',
+          )}>
             <VideoTile stream={localPreview} mirror muted label="Siz" />
             {!camOn && (
               <div className="absolute inset-0 bg-slate-800/80 flex items-center justify-center">
@@ -236,43 +258,28 @@ export function VideoConsultation({
             <Eye size={14} /> Kuzatuv — {facilityCode}
           </div>
         ) : (
-          <div className="absolute top-3 left-3 flex items-center gap-2 z-10 flex-wrap">
+          <div className="absolute top-3 left-3 z-10">
             <span className="bg-black/50 backdrop-blur-md text-white text-xs font-bold px-2.5 py-1 rounded-lg border border-white/10">
               {facilityCode}
-            </span>
-            <span className="bg-black/40 text-white/80 text-[10px] px-2 py-0.5 rounded-md">
-              {isAllView ? `${liveCount}/4 kamera` : `${connectedCount}/4 kamera`}
-            </span>
-            {connected && (
-              <ConnectionQualityBadge
-                quality={connectionStats.quality}
-                bitrateKbps={connectionStats.bitrateKbps}
-                resolution={connectionStats.resolution}
-                fps={connectionStats.fps}
-                compact
-              />
-            )}
-            <span className="bg-black/30 text-white/70 text-[10px] px-2 py-0.5 rounded-md hidden sm:inline">
-              {qualityLabel}
             </span>
           </div>
         )}
 
-        <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-1">
+        <div className="absolute top-3 right-3 z-10">
           {connected ? (
             <span className="live-badge">
               <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
               JONLI
             </span>
           ) : videoPaused ? (
-            <span className="bg-amber-600/90 text-white text-[10px] font-medium px-2 py-0.5 rounded-md">
-              Uzilgan
-            </span>
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" title="Uzilgan" />
           ) : (
-            <span className="bg-slate-700/80 text-slate-300 text-[10px] font-medium px-2 py-0.5 rounded-md">
-              Ulanmoqda
-            </span>
+            <span className="w-2.5 h-2.5 rounded-full bg-slate-400 animate-pulse" title="Ulanmoqda" />
           )}
+        </div>
+
+        {(recording || uploading || skipped) && (
+        <div className="absolute top-3 right-12 z-10 flex flex-col items-end gap-1">
           {recording && (
             <span className="bg-red-600/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
               <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
@@ -290,6 +297,7 @@ export function VideoConsultation({
             </span>
           )}
         </div>
+        )}
 
         {(error || recordingError) && (
           <div className="absolute top-12 left-3 right-3 z-10 bg-red-500/90 text-white text-xs rounded-lg px-3 py-2">

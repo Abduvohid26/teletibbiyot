@@ -21,6 +21,18 @@ export function defineAuthApi(client: HttpClient) {
       return client.request<User>('/auth/me');
     },
 
+    updateProfile(data: {
+      fullName?: string;
+      phone?: string | null;
+      currentPassword?: string;
+      newPassword?: string;
+    }) {
+      return client.request<User>('/auth/me', {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      });
+    },
+
     async tryGetMe() {
       try {
         return await client.request<User>('/auth/me');

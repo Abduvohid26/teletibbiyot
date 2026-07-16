@@ -11,6 +11,7 @@ interface DoctorLiveQueuePanelProps {
   queued: Consultation[];
   onSelect: (id: string) => void;
   onStart: (id: string) => void;
+  onComplete?: () => void;
   className?: string;
 }
 
@@ -26,6 +27,7 @@ export function DoctorLiveQueuePanel({
   queued,
   onSelect,
   onStart,
+  onComplete,
   className,
 }: DoctorLiveQueuePanelProps) {
   const active = inProgress.find((c) => c.id === activeId)
@@ -52,6 +54,17 @@ export function DoctorLiveQueuePanel({
         className,
       )}
     >
+      {onComplete && (
+        <div className="shrink-0 p-2 border-b border-white/50">
+          <button
+            type="button"
+            onClick={onComplete}
+            className="w-full gradient-btn !py-2 !text-xs"
+          >
+            Yakuniy tashxis
+          </button>
+        </div>
+      )}
       <div className="flex-1 min-h-0 overflow-y-auto p-2 flex flex-col gap-3">
         {currentList.length > 0 && (
           <section>

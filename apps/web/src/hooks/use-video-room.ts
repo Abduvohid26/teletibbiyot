@@ -16,11 +16,11 @@ import {
 import { loadMediaPreferences, type MediaPreferences, type VideoQualityPreset } from '@/lib/media-preferences';
 import {
   applyAllSendersBitrate,
-  acquireUserMedia,
-  getAudioConstraints,
-  getVideoConstraints,
+  acquireMtDoctorStream,
+  normalizeMediaError,
   QUALITY_PROFILES,
 } from '@/lib/webrtc-quality';
+import { saveMediaPreferences } from '@/lib/media-preferences';
 
 export type VideoRole = 'mt' | 'ut' | 'observe';
 
@@ -508,13 +508,22 @@ export function useVideoRoom({
 
     try {
       if (role === 'mt') {
-        const profile = QUALITY_PROFILES[prefs.qualityPreset];
-        const stream = await acquireUserMedia(
-          { video: getVideoConstraints(prefs), audio: getAudioConstraints(prefs) },
-          { video: { ...profile.video, facingMode: 'user' }, audio: true },
-        );
-        localStreamsRef.current.set(MT_DOCTOR_STREAM_ID, stream);
-        setLocalPreview(stream);
+        try {
+          const { stream, videoOk } = await acquireMtDoctorStream(prefs);
+          localStreamsRef.current.set(MT_DOCTOR_STREAM_ID, stream);
+          if (videoOk) {
+            setLocalPreview(stream);
+            setError('');
+          } else {
+            setError('Shifokor kamerasi yo\'q — faqat ovoz. UT kameralarini kuzatishingiz mumkin.');
+          }
+        } catch (err) {
+          const msg = normalizeMediaError(err);
+          if (prefs.videoDeviceId) {
+            saveMediaPreferences({ videoDeviceId: '' });
+          }
+          setError(`${msg} UT kameralarini kuting — shifokor videosiz ham davom etadi.`);
+        }
       } else {
         const { streams, audioStream, usedVirtual, audioMissing: micMissing } = await captureUtCameraStreams(prefs);
         localStreamsRef.current = streams;
@@ -541,10 +550,14 @@ export function useVideoRoom({
       }
       setMediaReady(true);
       hadMediaSessionRef.current = true;
-      setError('');
     } catch (err) {
-      const msg = err instanceof Error ? err.message : '';
-      setError(msg || 'Kameraga ruxsat berilmadi. Sozlamalar → Video va ovoz bo\'limidan tekshiring.');
+      if (role === 'mt') {
+        setMediaReady(true);
+        hadMediaSessionRef.current = true;
+        setError(normalizeMediaError(err));
+        return;
+      }
+      setError(normalizeMediaError(err));
     }
   }, [isPublisher, role]);
 

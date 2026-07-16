@@ -1,10 +1,11 @@
-import { Controller, Post, Body, Get, UseGuards, Request, Res, Req } from '@nestjs/common';
+import { Controller, Post, Body, Get, Patch, UseGuards, Request, Res, Req } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { Throttle, SkipThrottle } from '@nestjs/throttler';
 import { Response, Request as ExpressRequest } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { JwtAuthGuard } from './guards/auth.guard';
 import { resolveAuthCookieOptions } from '../common/auth-cookie.util';
 import { jwtExpiresInMs } from '../common/jwt-cookie.util';
@@ -74,5 +75,22 @@ export class AuthController {
   @ApiOperation({ summary: 'Joriy foydalanuvchi ma\'lumotlari' })
   getMe(@Request() req: { user: Record<string, unknown> }) {
     return req.user;
+  }
+
+  @Patch('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Profilni yangilash' })
+  updateMe(
+    @Request() req: { user: { id: string } },
+    @Body() dto: UpdateProfileDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.authService.updateProfile(req.user.id, dto).then((result) => {
+      if (result.accessToken) {
+        this.setAuthCookie(res, result.accessToken);
+      }
+      return result.user;
+    });
   }
 }

@@ -1,9 +1,10 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Injectable()
 export class AuthService {
@@ -105,5 +106,98 @@ export class AuthService {
     }
 
     return { success: true };
+  }
+
+  async updateProfile(userId: string, dto: UpdateProfileDto) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException('Foydalanuvchi topilmadi');
+    }
+
+    if (dto.newPassword) {
+      if (!dto.currentPassword) {
+        throw new BadRequestException('Joriy parolni kiriting');
+      }
+      const valid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
+      if (!valid) {
+        throw new BadRequestException('Joriy parol noto\'g\'ri');
+      }
+      if (dto.newPassword.length < 8 || dto.newPassword.length > 128) {
+        throw new BadRequestException('Yangi parol 8–128 belgi oralig\'ida bo\'lishi kerak');
+      }
+    }
+
+    const data: { fullName?: string; phone?: string | null; passwordHash?: string; tokenVersion?: { increment: number } } = {};
+
+    if (dto.fullName !== undefined) {
+      const name = dto.fullName.trim();
+      if (name.length < 2) {
+        throw new BadRequestException('Ism kamida 2 belgidan iborat bo\'lishi kerak');
+      }
+      data.fullName = name;
+    }
+
+    if (dto.phone !== undefined) {
+      data.phone = dto.phone?.trim() || null;
+    }
+
+    if (dto.newPassword) {
+      data.passwordHash = await bcrypt.hash(dto.newPassword, 12);
+      data.tokenVersion = { increment: 1 };
+    }
+
+    if (Object.keys(data).length === 0) {
+      throw new BadRequestException('O\'zgartirish uchun ma\'lumot kiriting');
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data,
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        role: true,
+        facilityId: true,
+        facility: true,
+        isActive: true,
+        specialty: true,
+        phone: true,
+        tokenVersion: true,
+        createdAt: true,
+      },
+    });
+
+    try {
+      await this.prisma.auditLog.create({
+        data: {
+          userId,
+          action: 'UPDATE_PROFILE',
+          entity: 'User',
+          entityId: userId,
+          details: {
+            fields: [
+              ...(dto.fullName !== undefined ? ['fullName'] : []),
+              ...(dto.phone !== undefined ? ['phone'] : []),
+              ...(dto.newPassword ? ['password'] : []),
+            ],
+          },
+        },
+      });
+    } catch (err) {
+      this.logger.warn(`Profile audit yozilmadi (${userId}): ${err instanceof Error ? err.message : err}`);
+    }
+
+    const { tokenVersion, ...profileUser } = updated;
+    const accessToken = dto.newPassword
+      ? this.jwtService.sign({
+          sub: profileUser.id,
+          email: profileUser.email,
+          role: profileUser.role,
+          tv: tokenVersion,
+        })
+      : undefined;
+
+    return { user: profileUser, accessToken };
   }
 }

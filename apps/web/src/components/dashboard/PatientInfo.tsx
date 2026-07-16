@@ -132,6 +132,7 @@ export function PatientInfo({ patient, clinicalRecord, consultationId, compact }
         </div>
         )}
 
+        {!compact && (
         <div className={cn('border-t border-slate-100', compact ? 'pt-1' : 'pt-2')}>
           <div className="flex items-center justify-between mb-1.5">
             <h3 className="text-xs font-semibold text-slate-800 flex items-center gap-1">
@@ -184,6 +185,7 @@ export function PatientInfo({ patient, clinicalRecord, consultationId, compact }
             </p>
           )}
         </div>
+        )}
       </div>
     </div>
   );

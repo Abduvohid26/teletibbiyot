@@ -61,6 +61,60 @@ export function getUtVideoConstraints(prefs: MediaPreferences, deviceId?: string
   return { ...profile.video, facingMode: 'environment' as const };
 }
 
+/** Brauzer xabarlarini o'zbekcha qisqa matnga aylantirish */
+export function normalizeMediaError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err ?? '');
+  const lower = raw.toLowerCase();
+
+  if (
+    lower.includes('videoinput')
+    || lower.includes('starting video')
+    || lower.includes('notfounderror')
+    || lower.includes('requested device not found')
+  ) {
+    return 'Kamera topilmadi — Sozlamalar → Video va ovoz dan kamerani tanlang yoki boshqa dasturni yoping.';
+  }
+  if (lower.includes('notallowed') || lower.includes('permission denied')) {
+    return 'Kameraga ruxsat berilmadi — brauzer sozlamalaridan ruxsat bering.';
+  }
+  if (lower.includes('notreadable') || lower.includes('track starterror') || lower.includes('could not start')) {
+    return 'Kamera band — boshqa ilova ishlatmoqda yoki qurilma uzilgan.';
+  }
+  if (lower.includes('overconstrained')) {
+    return 'Kamera parametrlari mos emas — sifatni Standart yoki Past qiling.';
+  }
+  if (lower.includes('https') || lower.includes('secure context')) {
+    return 'Kamera faqat HTTPS yoki localhost da ishlaydi.';
+  }
+  return raw.trim() || 'Kamera/mikrofon ochilmadi';
+}
+
+/** Shifokor (MT) uchun bosqichma-bosqich media olish */
+export async function acquireMtDoctorStream(
+  prefs: MediaPreferences,
+): Promise<{ stream: MediaStream; videoOk: boolean }> {
+  const profile = QUALITY_PROFILES[prefs.qualityPreset];
+  const attempts: MediaStreamConstraints[] = [
+    { video: getVideoConstraints(prefs), audio: getAudioConstraints(prefs) },
+    { video: { ...profile.video, facingMode: 'user' as const }, audio: getAudioConstraints(prefs) },
+    { video: { facingMode: 'user' as const }, audio: true },
+    { video: true, audio: true },
+    { audio: getAudioConstraints(prefs), video: false },
+    { audio: true, video: false },
+  ];
+
+  let lastErr: unknown;
+  for (const constraints of attempts) {
+    try {
+      const stream = await acquireUserMedia(constraints);
+      return { stream, videoOk: stream.getVideoTracks().some((t) => t.readyState === 'live') };
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr ?? new Error('Kamera/mikrofon ochilmadi');
+}
+
 /** Qurilma topilmasa fallback bilan media olish */
 export async function acquireUserMedia(
   primary: MediaStreamConstraints,

@@ -15,6 +15,7 @@ interface DoctorLiveQueueDrawerProps {
   queued: Consultation[];
   onSelect: (id: string) => void;
   onStart: (id: string) => void;
+  onComplete?: () => void;
 }
 
 export function DoctorLiveQueueDrawer({
@@ -25,6 +26,7 @@ export function DoctorLiveQueueDrawer({
   queued,
   onSelect,
   onStart,
+  onComplete,
 }: DoctorLiveQueueDrawerProps) {
   useEffect(() => {
     if (!open) return;
@@ -64,6 +66,7 @@ export function DoctorLiveQueueDrawer({
           queued={queued}
           onSelect={(id) => { onSelect(id); onClose(); }}
           onStart={(id) => { onStart(id); onClose(); }}
+          onComplete={onComplete ? () => { onComplete(); onClose(); } : undefined}
           className="flex-1 min-h-0 !border-0 !rounded-none !bg-transparent"
         />
       </div>
