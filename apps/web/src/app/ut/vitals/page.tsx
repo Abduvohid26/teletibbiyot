@@ -53,7 +53,6 @@ export default function UtVitalsPage() {
             sessions={sessions}
             onSelect={switchToConsultation}
             onCancel={(id) => void cancelSession(id)}
-            compact
           />
         ) : undefined
       }

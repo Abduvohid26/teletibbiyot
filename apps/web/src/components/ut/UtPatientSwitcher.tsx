@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, User, X } from 'lucide-react';
+import { ChevronDown, Radio, User, X } from 'lucide-react';
 import { Consultation } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -12,11 +12,6 @@ interface UtPatientSwitcherProps {
   onSelect: (id: string) => void;
   onCancel?: (id: string) => void;
   className?: string;
-  compact?: boolean;
-}
-
-function patientLabel(c: Consultation) {
-  return c.patient.fullName;
 }
 
 function patientInitial(name: string) {
@@ -35,39 +30,39 @@ export function UtPatientSwitcher({
   onSelect,
   onCancel,
   className,
-  compact = false,
 }: UtPatientSwitcherProps) {
   const [open, setOpen] = useState(false);
   const [menuStyle, setMenuStyle] = useState<{ top: number; left: number; width: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const active = sessions.find((c) => c.id === activeId) ?? sessions[0] ?? null;
+  const inProgress = useMemo(
+    () => sessions.filter((c) => c.status === 'IN_PROGRESS').sort(sortByRecent),
+    [sessions],
+  );
+  const queued = useMemo(
+    () => sessions.filter((c) => c.status === 'QUEUED').sort(sortByRecent),
+    [sessions],
+  );
 
-  const { currentList, waitingList } = useMemo(() => {
-    const inProgress = sessions.filter((c) => c.status === 'IN_PROGRESS').sort(sortByRecent);
-    const queued = sessions.filter((c) => c.status === 'QUEUED').sort(sortByRecent);
+  const active =
+    sessions.find((c) => c.id === activeId)
+    ?? inProgress[0]
+    ?? queued[0]
+    ?? null;
 
-    if (active?.status === 'QUEUED') {
-      const waiting = queued.filter((c) => c.id !== active.id);
-      return { currentList: [active], waitingList: waiting };
-    }
+  const currentList = useMemo(() => {
+    const sorted = [...inProgress];
+    if (!active || active.status !== 'IN_PROGRESS') return sorted;
+    return [active, ...sorted.filter((c) => c.id !== active.id)];
+  }, [inProgress, active]);
 
-    if (inProgress.length > 0) {
-      const ordered = active
-        ? [active, ...inProgress.filter((c) => c.id !== active.id)]
-        : inProgress;
-      return { currentList: ordered, waitingList: queued };
-    }
+  const waitingList = queued;
 
-    if (active) {
-      return { currentList: [active], waitingList: queued.filter((c) => c.id !== active.id) };
-    }
+  const hasMenu = currentList.length > 0 || waitingList.length > 0;
+  const canSwitch = currentList.length + waitingList.length > 1;
 
-    return { currentList: [], waitingList: queued };
-  }, [sessions, active]);
-
-  const updatePosition = useCallback(() => {
+  const updateMenuPosition = useCallback(() => {
     const el = triggerRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
@@ -81,42 +76,61 @@ export function UtPatientSwitcher({
 
   useEffect(() => {
     if (!open) return;
-    updatePosition();
-    window.addEventListener('resize', updatePosition);
-    window.addEventListener('scroll', updatePosition, true);
+    updateMenuPosition();
+    window.addEventListener('resize', updateMenuPosition);
+    window.addEventListener('scroll', updateMenuPosition, true);
     return () => {
-      window.removeEventListener('resize', updatePosition);
-      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', updateMenuPosition);
+      window.removeEventListener('scroll', updateMenuPosition, true);
     };
-  }, [open, updatePosition]);
+  }, [open, updateMenuPosition]);
 
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (triggerRef.current?.contains(t) || menuRef.current?.contains(t)) return;
+      const target = e.target as Node;
+      if (triggerRef.current?.contains(target) || menuRef.current?.contains(target)) return;
       setOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
     document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
   }, [open]);
 
-  if (sessions.length === 0) return null;
+  if (!hasMenu) return null;
+
+  const activeSubtitle = active?.status === 'IN_PROGRESS'
+    ? active.mtDoctor?.fullName || 'Jonli efir'
+    : active?.mtDoctor?.fullName || 'Navbatda';
 
   const menu = open && menuStyle && typeof document !== 'undefined'
     ? createPortal(
         <div
           ref={menuRef}
-          style={{ position: 'fixed', top: menuStyle.top, left: menuStyle.left, width: menuStyle.width, zIndex: 9999 }}
-          className="rounded-xl border border-white/60 bg-white/70 backdrop-blur-xl shadow-xl overflow-hidden max-h-[min(70vh,400px)] overflow-y-auto"
+          role="listbox"
+          style={{
+            position: 'fixed',
+            top: menuStyle.top,
+            left: menuStyle.left,
+            width: menuStyle.width,
+            zIndex: 9999,
+          }}
+          className="rounded-xl border border-white/60 bg-white/70 backdrop-blur-xl shadow-xl overflow-hidden max-h-[min(70vh,420px)] overflow-y-auto"
         >
           {currentList.length > 0 && (
             <Section title="Hozirgi">
               {currentList.map((c) => (
-                <PatientRow
+                <QueueRow
                   key={c.id}
                   c={c}
                   active={activeId === c.id}
+                  live
                   onSelect={() => { onSelect(c.id); setOpen(false); }}
                 />
               ))}
@@ -126,7 +140,7 @@ export function UtPatientSwitcher({
           {waitingList.length > 0 && (
             <Section title={`Navbat (${waitingList.length})`}>
               {waitingList.map((c) => (
-                <PatientRow
+                <QueueRow
                   key={c.id}
                   c={c}
                   active={activeId === c.id}
@@ -141,52 +155,34 @@ export function UtPatientSwitcher({
       )
     : null;
 
-  if (compact) {
-    return (
-      <>
-        <button
-          ref={triggerRef}
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className={cn(
-            'flex items-center gap-1.5 rounded-xl border border-white/60 bg-white/55 backdrop-blur-md px-2 py-1 text-left hover:bg-white/70 transition-all max-w-[120px] sm:max-w-[180px] shadow-sm',
-            className,
-          )}
-        >
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold bg-brand-100 text-brand-700">
-            {active ? patientInitial(active.patient.fullName) : <User size={13} />}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-slate-900 truncate leading-tight">
-              {active ? patientLabel(active) : 'Tanlang'}
-            </p>
-          </div>
-          <ChevronDown size={13} className={cn('text-slate-400 shrink-0 transition-transform', open && 'rotate-180')} />
-        </button>
-        {menu}
-      </>
-    );
-  }
-
   return (
     <>
       <button
         ref={triggerRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => canSwitch && setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="listbox"
         className={cn(
-          'flex items-center gap-2 rounded-xl border border-white/60 bg-white/55 backdrop-blur-md px-3 py-2 text-left hover:bg-white/70 hover:border-white/75 transition-all min-w-[200px] max-w-[320px] shadow-sm',
+          'flex items-center gap-1.5 rounded-xl border border-white/60 bg-white/55 backdrop-blur-md px-2 py-1 text-left hover:bg-white/70 transition-all shadow-sm max-w-[120px] sm:max-w-[180px]',
+          canSwitch && 'cursor-pointer',
           className,
         )}
       >
-        <div className="w-8 h-8 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center shrink-0 text-xs font-bold">
-          {active ? patientInitial(active.patient.fullName) : <User size={15} />}
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold bg-brand-100 text-brand-700">
+          {active ? patientInitial(active.patient.fullName) : <User size={13} />}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold text-slate-400 uppercase leading-none">Bemor</p>
-          <p className="text-sm font-bold text-slate-900 truncate">{active ? patientLabel(active) : 'Tanlang'}</p>
+          <p className="text-sm font-bold text-slate-900 truncate leading-tight">
+            {active ? active.patient.fullName : 'Tanlang'}
+          </p>
+          {active && (
+            <p className="text-[10px] text-slate-500 truncate hidden lg:block">{activeSubtitle}</p>
+          )}
         </div>
-        <ChevronDown size={14} className={cn('text-slate-400 shrink-0 transition-transform', open && 'rotate-180')} />
+        {canSwitch && (
+          <ChevronDown size={13} className={cn('text-slate-400 shrink-0 transition-transform', open && 'rotate-180')} />
+        )}
       </button>
       {menu}
     </>
@@ -204,47 +200,64 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function PatientRow({
+function QueueRow({
   c,
   active,
+  live,
   onSelect,
   onCancel,
 }: {
   c: Consultation;
   active: boolean;
+  live?: boolean;
   onSelect: () => void;
   onCancel?: () => void;
 }) {
   return (
     <div
       className={cn(
-        'flex items-center gap-1 rounded-lg',
-        active ? 'bg-brand-600 text-white' : 'hover:bg-slate-50 text-slate-800',
+        'flex items-center gap-1 rounded-lg transition-colors',
+        active ? 'bg-brand-600 text-white shadow-sm' : 'bg-white/70 hover:bg-white/90 text-slate-800 ring-1 ring-white/80',
       )}
     >
       <button
         type="button"
         onClick={onSelect}
-        className="flex-1 flex items-center gap-2 px-2.5 py-2 text-left text-sm transition-colors min-w-0"
+        className="flex-1 flex items-center gap-2 px-2.5 py-2 text-left min-w-0"
       >
+        <div
+          className={cn(
+            'w-7 h-7 rounded-md flex items-center justify-center shrink-0 text-xs font-bold',
+            active
+              ? 'bg-white/20 text-white'
+              : live
+                ? 'bg-emerald-100 text-emerald-700'
+                : 'bg-amber-100 text-amber-800',
+          )}
+        >
+          {patientInitial(c.patient.fullName)}
+        </div>
         <div className="min-w-0 flex-1">
-          <p className="font-semibold truncate">{c.patient.fullName}</p>
+          <p className="text-sm font-semibold truncate leading-tight">{c.patient.fullName}</p>
           {c.mtDoctor?.fullName && (
-            <p className={cn('text-xs truncate', active ? 'text-white/80' : 'text-slate-500')}>
+            <p className={cn('text-[11px] truncate', active ? 'text-white/75' : 'text-slate-500')}>
               {c.mtDoctor.fullName}
             </p>
           )}
         </div>
+        {live && !active && (
+          <Radio size={12} className="text-emerald-500 shrink-0 animate-pulse" />
+        )}
       </button>
       {onCancel && (
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onCancel(); }}
           className={cn(
-            'p-2 shrink-0 rounded-lg mr-1',
-            active ? 'hover:bg-white/20 text-white' : 'hover:bg-red-50 text-red-500',
+            'mr-1 shrink-0 inline-flex items-center justify-center rounded-md p-1.5',
+            active ? 'hover:bg-white/20 text-white/90' : 'hover:bg-red-50 text-red-500',
           )}
-          aria-label="Bekor qilish"
+          aria-label="Navbatdan bekor qilish"
         >
           <X size={14} />
         </button>
