@@ -37,7 +37,7 @@ function PageBar({
   );
 }
 
-/** Flux — brand + actions yuqorida, to'liq kenglik nav pastda */
+/** Flux (2) — bitta qator: logo | icon nav markazda | actions */
 export function UtHeader({
   facilityName,
   sessionCount,
@@ -55,22 +55,32 @@ export function UtHeader({
           <div className="w-8 h-8 rounded-lg gradient-btn flex items-center justify-center shadow-sm shrink-0">
             <Stethoscope className="w-3.5 h-3.5 text-white" />
           </div>
-          <div className="min-w-0 hidden md:block">
-            <p className="text-xs font-bold text-slate-900 truncate max-w-[120px] lg:max-w-[200px]">
+          <div className="min-w-0 hidden sm:block">
+            <p className="text-xs font-bold text-slate-900 truncate max-w-[120px] md:max-w-[180px] lg:max-w-[240px]">
               {facilityName || 'UT operator'}
             </p>
-            <p className="text-xs text-slate-500 truncate">Masofaviy qabul</p>
+            <p className="text-xs text-slate-500 truncate hidden md:block">Masofaviy qabul</p>
           </div>
         </div>
 
-        <div className="ut-shell-actions ml-auto">
+        <div className="flex-1 flex justify-center min-w-0 px-1 overflow-x-auto ut-nav-scroll">
+          <UtNavTabs
+            sessionCount={sessionCount}
+            liveCount={liveCount}
+            mode="icons"
+            className="flex-nowrap shrink-0"
+          />
+        </div>
+
+        <div className="ut-shell-actions shrink-0">
           {headerExtra}
           <Link
             href="/ut"
             className="gradient-btn !py-1.5 !px-2.5 !text-xs inline-flex items-center gap-1 shadow-sm"
           >
             <UserPlus size={13} />
-            <span className="hidden sm:inline">Yangi</span>
+            <span className="hidden sm:inline">Yangi bemor</span>
+            <span className="sm:hidden">Yangi</span>
           </Link>
           <button
             type="button"
@@ -81,10 +91,6 @@ export function UtHeader({
             <LogOut size={15} />
           </button>
         </div>
-      </div>
-
-      <div className="ut-shell-nav-wrap">
-        <UtNavTabs sessionCount={sessionCount} liveCount={liveCount} stretch mode="pill" />
       </div>
 
       <PageBar pageTitle={pageTitle} pageSubtitle={pageSubtitle} pageAction={pageAction} />
