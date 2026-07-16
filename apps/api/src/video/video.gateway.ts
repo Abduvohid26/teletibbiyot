@@ -451,6 +451,32 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     if (!this.isInRoom(client.id, data.roomId, client)) return;
     client.to(data.roomId).emit('peer-media-resumed', { socketId: client.id });
+    const participants = this.rooms.get(data.roomId) || [];
+    const self = participants.find((p) => p.socketId === client.id);
+    if (self) {
+      client.to(data.roomId).emit('participant-rejoined', self);
+    }
+    this.notifyOfferersToReconnect(data.roomId, client.id);
+  }
+
+  /** UT qayta ulanganda shifokorlarga aniq offer yuborish signal */
+  @SubscribeMessage('request-offers')
+  handleRequestOffers(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string },
+  ) {
+    if (!this.isInRoom(client.id, data.roomId, client)) return;
+    this.notifyOfferersToReconnect(data.roomId, client.id);
+  }
+
+  private notifyOfferersToReconnect(roomId: string, targetSocketId: string) {
+    const participants = this.rooms.get(roomId) || [];
+    const offerRoles = new Set(['MT_DOCTOR', 'MT_MANAGER', 'ADMIN']);
+    for (const p of participants) {
+      if (p.socketId === targetSocketId) continue;
+      if (!offerRoles.has(p.role)) continue;
+      this.server.to(p.socketId).emit('offer-requested', { targetSocketId });
+    }
   }
 
   @SubscribeMessage('ping-room')

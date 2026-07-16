@@ -67,6 +67,24 @@ export class ApiTestClient {
     return this.post(`/consultations/${id}/complete`, diagnosis);
   }
 
+  async cancelConsultation(id: string, reason?: string) {
+    return this.post(`/consultations/${id}/cancel`, { reason });
+  }
+
+  async completeActiveConsultationIfAny() {
+    const active = await this.get<{ id: string } | null>('/dashboard/active-consultation');
+    if (!active?.id) return;
+    try {
+      await this.cancelConsultation(active.id, 'E2E test cleanup');
+    } catch {
+      await this.completeConsultation(active.id, {
+        diagnosis: 'E2E test yakun',
+        icd10Code: 'Z00.0',
+        recommendations: 'Test',
+      }).catch(() => undefined);
+    }
+  }
+
   async getIntegrationsStatus() {
     return this.get<Record<string, unknown>>('/integrations/status');
   }

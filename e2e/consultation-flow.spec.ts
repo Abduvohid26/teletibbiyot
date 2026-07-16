@@ -14,6 +14,7 @@ test.describe('Full consultation flow (API)', () => {
 
     await ut.login('operator@ishifo.uz', PASSWORD);
     await mt.login('doctor@ishifo.uz', PASSWORD);
+    await mt.completeActiveConsultationIfAny();
 
     const patient = await ut.createPatient(buildTestPatient());
     expect(patient.id).toBeTruthy();
@@ -34,6 +35,7 @@ test.describe('Full consultation flow (API)', () => {
 
     await ut.login('operator@ishifo.uz', PASSWORD);
     await mt.login('doctor@ishifo.uz', PASSWORD);
+    await mt.completeActiveConsultationIfAny();
 
     const patient = await ut.createPatient(buildTestPatient());
     const consultation = await ut.createConsultation(buildTestConsultation(patient.id));
