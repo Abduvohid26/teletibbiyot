@@ -84,6 +84,8 @@ export function VideoConsultation({
     preflightPending,
     confirmPreflight,
     cancelPreflight,
+    cameraPermissionNeeded,
+    requestCameraAccess,
   } = useVideoRoom({
     consultationId,
     role,
@@ -299,9 +301,32 @@ export function VideoConsultation({
         </div>
         )}
 
-        {(error || recordingError) && (
+        {(error || recordingError) && !cameraPermissionNeeded && (
           <div className="absolute top-12 left-3 right-3 z-10 bg-red-500/90 text-white text-xs rounded-lg px-3 py-2">
             {error || recordingError}
+          </div>
+        )}
+
+        {cameraPermissionNeeded && !observeMode && (
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-sm px-4">
+            <VideoOff className="w-10 h-10 text-slate-300 mb-2" />
+            <p className={cn('font-semibold text-white text-center', compact ? 'text-xs' : 'text-sm')}>
+              Kamera ruxsati kerak
+            </p>
+            <p className="text-[11px] text-slate-300 text-center mt-1 max-w-xs leading-relaxed">
+              Konsultatsiya davom etadi. UT kameralarini ko&apos;rishingiz mumkin — shifokor kamerasi uchun ruxsat bering.
+            </p>
+            <button
+              type="button"
+              onClick={() => void requestCameraAccess()}
+              className={cn(
+                'mt-3 inline-flex items-center gap-1.5 bg-brand-600 hover:bg-brand-500 text-white font-semibold rounded-xl transition-all shadow-lg',
+                compact ? 'text-xs px-3 py-1.5' : 'text-sm px-5 py-2.5',
+              )}
+            >
+              <Video size={compact ? 14 : 16} />
+              Ruxsat berish
+            </button>
           </div>
         )}
 

@@ -62,6 +62,14 @@ export function getUtVideoConstraints(prefs: MediaPreferences, deviceId?: string
 }
 
 /** Brauzer xabarlarini o'zbekcha qisqa matnga aylantirish */
+export function isMediaPermissionError(err: unknown): boolean {
+  if (err instanceof DOMException) {
+    return err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError';
+  }
+  const lower = String(err instanceof Error ? err.message : err).toLowerCase();
+  return lower.includes('notallowed') || lower.includes('permission denied');
+}
+
 export function normalizeMediaError(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err ?? '');
   const lower = raw.toLowerCase();

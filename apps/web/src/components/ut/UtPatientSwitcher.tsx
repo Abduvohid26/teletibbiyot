@@ -124,7 +124,7 @@ export function UtPatientSwitcher({
           )}
 
           {waitingList.length > 0 && (
-            <Section title="Kutilmoqda">
+            <Section title={`Navbat (${waitingList.length})`}>
               {waitingList.map((c) => (
                 <PatientRow
                   key={c.id}

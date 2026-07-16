@@ -9,6 +9,7 @@ export interface UtHeaderProps {
   sessionCount: number;
   liveCount: number;
   headerExtra?: React.ReactNode;
+  headerQueue?: React.ReactNode;
   pageTitle?: string;
   pageSubtitle?: string;
   pageAction?: React.ReactNode;
@@ -16,16 +17,18 @@ export interface UtHeaderProps {
 }
 
 function PageBar({
+  headerQueue,
   pageTitle,
   pageSubtitle,
   pageAction,
-}: Pick<UtHeaderProps, 'pageTitle' | 'pageSubtitle' | 'pageAction'>) {
-  if (!pageTitle && !pageSubtitle && !pageAction) return null;
+}: Pick<UtHeaderProps, 'headerQueue' | 'pageTitle' | 'pageSubtitle' | 'pageAction'>) {
+  if (!headerQueue && !pageTitle && !pageSubtitle && !pageAction) return null;
 
   return (
     <div className="ut-shell-pagebar animate-fade-in">
-      <div className="min-w-0 flex items-baseline gap-2">
-        {pageTitle && (
+      <div className="min-w-0 flex items-center gap-2 flex-1">
+        {headerQueue}
+        {!headerQueue && pageTitle && (
           <h1 className="text-sm font-bold text-slate-900 tracking-tight truncate">{pageTitle}</h1>
         )}
         {pageSubtitle && (
@@ -43,6 +46,7 @@ export function UtHeader({
   sessionCount,
   liveCount,
   headerExtra,
+  headerQueue,
   pageTitle,
   pageSubtitle,
   pageAction,
@@ -93,7 +97,12 @@ export function UtHeader({
         </div>
       </div>
 
-      <PageBar pageTitle={pageTitle} pageSubtitle={pageSubtitle} pageAction={pageAction} />
+      <PageBar
+        headerQueue={headerQueue}
+        pageTitle={pageTitle}
+        pageSubtitle={pageSubtitle}
+        pageAction={pageAction}
+      />
     </header>
   );
 }

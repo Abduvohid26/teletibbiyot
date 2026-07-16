@@ -17,6 +17,7 @@ import { loadMediaPreferences, type MediaPreferences, type VideoQualityPreset } 
 import {
   applyAllSendersBitrate,
   acquireMtDoctorStream,
+  isMediaPermissionError,
   normalizeMediaError,
   QUALITY_PROFILES,
 } from '@/lib/webrtc-quality';
@@ -90,6 +91,7 @@ export function useVideoRoom({
   const [audioMissing, setAudioMissing] = useState(false);
   const [virtualCameraWarning, setVirtualCameraWarning] = useState<string[]>([]);
   const [error, setError] = useState('');
+  const [cameraPermissionNeeded, setCameraPermissionNeeded] = useState(false);
 
   const connectionStats = useWebRtcStats(pcsRef, mediaReady && roomJoined);
 
@@ -473,6 +475,7 @@ export function useVideoRoom({
     setVirtualCameraWarning([]);
     setMediaReady(false);
     setPreflightPending(false);
+    setCameraPermissionNeeded(false);
     setupStartedRef.current = false;
     pendingOfferTargetsRef.current.clear();
     pendingIncomingOffersRef.current.clear();
@@ -513,16 +516,24 @@ export function useVideoRoom({
           localStreamsRef.current.set(MT_DOCTOR_STREAM_ID, stream);
           if (videoOk) {
             setLocalPreview(stream);
+            setCameraPermissionNeeded(false);
             setError('');
           } else {
-            setError('Shifokor kamerasi yo\'q — faqat ovoz. UT kameralarini kuzatishingiz mumkin.');
+            setCameraPermissionNeeded(true);
+            setError('');
           }
         } catch (err) {
           const msg = normalizeMediaError(err);
-          if (prefs.videoDeviceId) {
-            saveMediaPreferences({ videoDeviceId: '' });
+          if (isMediaPermissionError(err)) {
+            setCameraPermissionNeeded(true);
+            setError('');
+          } else {
+            setCameraPermissionNeeded(false);
+            if (prefs.videoDeviceId) {
+              saveMediaPreferences({ videoDeviceId: '' });
+            }
+            setError(`${msg} UT kameralarini kuting — shifokor videosiz ham davom etadi.`);
           }
-          setError(`${msg} UT kameralarini kuting — shifokor videosiz ham davom etadi.`);
         }
       } else {
         const { streams, audioStream, usedVirtual, audioMissing: micMissing } = await captureUtCameraStreams(prefs);
@@ -964,6 +975,12 @@ export function useVideoRoom({
     flushPendingOffers();
   }, [flushPendingOffers, setupLocalMedia]);
 
+  const requestCameraAccess = useCallback(async () => {
+    setCameraPermissionNeeded(false);
+    setError('');
+    await reloadMedia();
+  }, [reloadMedia]);
+
   const uniqueRemoteStreams = role === 'ut' ? null : mapUniqueUtCameraStreams(remoteCameras);
   const utCameraStreams: CameraStreamView[] = UT_CAMERA_FEEDS.map((feed) => {
     const stream =
@@ -1006,6 +1023,8 @@ export function useVideoRoom({
     confirmPreflight,
     cancelPreflight,
     reloadMedia,
+    cameraPermissionNeeded,
+    requestCameraAccess,
     qualityPreset: qualityPresetRef.current,
     qualityLabel: QUALITY_PROFILES[qualityPresetRef.current].label,
   };

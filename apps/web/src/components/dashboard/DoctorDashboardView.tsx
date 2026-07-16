@@ -7,13 +7,7 @@ import { VideoConsultation } from '@/components/dashboard/VideoConsultation';
 import { AiAnalysisPanel } from '@/components/dashboard/AiAnalysisPanel';
 import { PatientDocumentsPanel } from '@/components/dashboard/PatientDocumentsPanel';
 import { CompleteDiagnosisModal } from '@/components/dashboard/CompleteDiagnosisModal';
-import {
-  DoctorLiveQueuePanel,
-} from '@/components/dashboard/DoctorLiveQueuePanel';
-import {
-  DoctorLiveQueueDrawer,
-  DoctorMobileQueueFab,
-} from '@/components/dashboard/DoctorLiveQueueDrawer';
+import { ConsultationSwitcher } from '@/components/dashboard/ConsultationSwitcher';
 import { Consultation } from '@/lib/api';
 
 interface DoctorDashboardViewProps {
@@ -48,7 +42,6 @@ export function DoctorDashboardView({
   onShowComplete,
 }: DoctorDashboardViewProps) {
   const [reconnectSignal, setReconnectSignal] = useState(0);
-  const [queueDrawerOpen, setQueueDrawerOpen] = useState(false);
   const queuedPatients = queue.filter((c) => c.status === 'QUEUED');
   const passiveRefresh = onRefresh ?? onReload;
   const activeConsultationId = selectedConsultationId ?? consultation?.id;
@@ -77,8 +70,31 @@ export function DoctorDashboardView({
     <DoctorShell
       liveCount={myInProgress.length}
       queueCount={queuedPatients.length}
+      headerQueue={
+        hasQueue ? (
+          <ConsultationSwitcher
+            activeId={activeConsultationId}
+            myInProgress={myInProgress}
+            queued={queuedPatients}
+            onSelect={handleSelectConsultation}
+            onStart={onStartConsultation}
+            onReconnect={handleSelectConsultation}
+          />
+        ) : undefined
+      }
+      pageAction={
+        showCompleteBtn ? (
+          <button
+            type="button"
+            onClick={() => onShowComplete(true)}
+            className="gradient-btn !py-1.5 !px-2.5 !text-xs shrink-0"
+          >
+            Yakuniy tashxis
+          </button>
+        ) : undefined
+      }
     >
-      <div className="ut-page pb-14 lg:pb-0">
+      <div className="ut-page">
         {error && (
           <div className="shrink-0 mb-2 ut-glass-banner border-red-200/70 bg-red-50/75 text-red-700 text-xs px-3 py-1.5 flex items-center justify-between">
             <span className="truncate">{error}</span>
@@ -99,94 +115,60 @@ export function DoctorDashboardView({
             </div>
           </div>
         ) : (
-          <div className="flex-1 min-h-0 flex gap-2 lg:gap-3 overflow-hidden">
-            <div className="flex-1 min-w-0 min-h-0 overflow-hidden doctor-main-grid">
-              <div className="doctor-video-col">
-                <VideoConsultation
-                  key={activeConsultationId ?? 'none'}
-                  facilityCode={activeConsultation?.utFacility?.code ?? consultation?.utFacility?.code}
-                  consultationId={activeConsultation?.status === 'IN_PROGRESS' ? activeConsultationId : undefined}
-                  clinicalVitals={activeConsultation?.clinicalRecord?.vitalSigns as Record<string, number> | undefined}
-                  reconnectSignal={reconnectSignal}
+          <div className="flex-1 min-h-0 overflow-hidden doctor-main-grid">
+            <div className="doctor-video-col">
+              <VideoConsultation
+                key={activeConsultationId ?? 'none'}
+                facilityCode={activeConsultation?.utFacility?.code ?? consultation?.utFacility?.code}
+                consultationId={activeConsultation?.status === 'IN_PROGRESS' ? activeConsultationId : undefined}
+                clinicalVitals={activeConsultation?.clinicalRecord?.vitalSigns as Record<string, number> | undefined}
+                reconnectSignal={reconnectSignal}
+                compact
+              />
+            </div>
+            <div className="doctor-side-col">
+              <div className="doctor-docs-col glass-panel overflow-hidden flex flex-col min-h-0">
+                <div className="shrink-0 glass-header py-1 px-2 flex items-center justify-between gap-1">
+                  <span className="text-[10px] font-semibold text-slate-700 uppercase tracking-wide truncate">
+                    Hujjatlar
+                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {documentsConsultationId && (
+                      <a
+                        href={`/dashboard/dicom?consultationId=${documentsConsultationId}`}
+                        className="text-[9px] font-semibold text-teal-700 hover:underline"
+                      >
+                        DICOM
+                      </a>
+                    )}
+                    {attachmentCount > 0 && (
+                      <span className="text-[9px] font-bold bg-brand-600 text-white px-1.5 py-0.5 rounded-full">
+                        {attachmentCount}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <PatientDocumentsPanel
+                  consultationId={documentsConsultationId}
+                  patient={activeConsultation?.patient ?? consultation?.patient}
+                  clinicalRecord={activeConsultation?.clinicalRecord ?? consultation?.clinicalRecord}
+                  allowUpload={false}
+                  compact
+                  className="flex-1 min-h-0 px-1.5 pb-1 overflow-hidden"
+                />
+              </div>
+              <div className="doctor-ai-col">
+                <AiAnalysisPanel
+                  analysis={activeConsultation?.aiAnalysis ?? consultation?.aiAnalysis}
+                  consultationId={activeConsultationId}
+                  onRefresh={passiveRefresh}
                   compact
                 />
               </div>
-              <div className="doctor-side-col">
-                <div className="doctor-docs-col glass-panel overflow-hidden flex flex-col min-h-0">
-                  <div className="shrink-0 glass-header py-1 px-2 flex items-center justify-between gap-1">
-                    <span className="text-[10px] font-semibold text-slate-700 uppercase tracking-wide truncate">
-                      Hujjatlar
-                    </span>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      {documentsConsultationId && (
-                        <a
-                          href={`/dashboard/dicom?consultationId=${documentsConsultationId}`}
-                          className="text-[9px] font-semibold text-teal-700 hover:underline"
-                        >
-                          DICOM
-                        </a>
-                      )}
-                      {attachmentCount > 0 && (
-                        <span className="text-[9px] font-bold bg-brand-600 text-white px-1.5 py-0.5 rounded-full">
-                          {attachmentCount}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <PatientDocumentsPanel
-                    consultationId={documentsConsultationId}
-                    patient={activeConsultation?.patient ?? consultation?.patient}
-                    clinicalRecord={activeConsultation?.clinicalRecord ?? consultation?.clinicalRecord}
-                    allowUpload={false}
-                    compact
-                    className="flex-1 min-h-0 px-1.5 pb-1 overflow-hidden"
-                  />
-                </div>
-                <div className="doctor-ai-col">
-                  <AiAnalysisPanel
-                    analysis={activeConsultation?.aiAnalysis ?? consultation?.aiAnalysis}
-                    consultationId={activeConsultationId}
-                    onRefresh={passiveRefresh}
-                    compact
-                  />
-                </div>
-              </div>
             </div>
-
-            {hasQueue && (
-              <DoctorLiveQueuePanel
-                activeId={activeConsultationId}
-                inProgress={myInProgress}
-                queued={queuedPatients}
-                onSelect={handleSelectConsultation}
-                onStart={onStartConsultation}
-                onComplete={showCompleteBtn ? () => onShowComplete(true) : undefined}
-                className="hidden lg:flex w-[220px] xl:w-[248px] shrink-0"
-              />
-            )}
           </div>
         )}
       </div>
-
-      {hasQueue && (
-        <>
-          <DoctorMobileQueueFab
-            queuedCount={queuedPatients.length}
-            totalCount={myInProgress.length + queuedPatients.length}
-            onOpen={() => setQueueDrawerOpen(true)}
-          />
-          <DoctorLiveQueueDrawer
-            open={queueDrawerOpen}
-            onClose={() => setQueueDrawerOpen(false)}
-            activeId={activeConsultationId}
-            inProgress={myInProgress}
-            queued={queuedPatients}
-            onSelect={handleSelectConsultation}
-            onStart={onStartConsultation}
-            onComplete={showCompleteBtn ? () => onShowComplete(true) : undefined}
-          />
-        </>
-      )}
 
       {showComplete && activeConsultation?.status === 'IN_PROGRESS' && (
         <CompleteDiagnosisModal

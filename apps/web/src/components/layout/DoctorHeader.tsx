@@ -8,29 +8,32 @@ import { DoctorNavTabs } from '@/components/dashboard/DoctorNavTabs';
 export interface DoctorHeaderProps {
   liveCount?: number;
   queueCount?: number;
+  headerQueue?: React.ReactNode;
   pageTitle?: string;
   pageSubtitle?: string;
   pageAction?: React.ReactNode;
 }
 
 function PageBar({
+  headerQueue,
   pageTitle,
   pageSubtitle,
   pageAction,
-}: Pick<DoctorHeaderProps, 'pageTitle' | 'pageSubtitle' | 'pageAction'>) {
-  if (!pageTitle && !pageSubtitle && !pageAction) return null;
+}: Pick<DoctorHeaderProps, 'headerQueue' | 'pageTitle' | 'pageSubtitle' | 'pageAction'>) {
+  if (!headerQueue && !pageTitle && !pageSubtitle && !pageAction) return null;
 
   return (
     <div className="ut-shell-pagebar animate-fade-in">
-      <div className="min-w-0 flex items-baseline gap-2">
-        {pageTitle && (
+      <div className="min-w-0 flex items-center gap-2 flex-1">
+        {headerQueue}
+        {!headerQueue && pageTitle && (
           <h1 className="text-sm font-bold text-slate-900 tracking-tight truncate">{pageTitle}</h1>
         )}
         {pageSubtitle && (
           <p className="text-xs text-slate-500 truncate hidden sm:block">{pageSubtitle}</p>
         )}
       </div>
-      {pageAction && <div className="shrink-0">{pageAction}</div>}
+      {pageAction && <div className="shrink-0 flex items-center gap-2">{pageAction}</div>}
     </div>
   );
 }
@@ -38,6 +41,7 @@ function PageBar({
 export function DoctorHeader({
   liveCount = 0,
   queueCount = 0,
+  headerQueue,
   pageTitle,
   pageSubtitle,
   pageAction,
@@ -77,7 +81,12 @@ export function DoctorHeader({
         </div>
       </div>
 
-      <PageBar pageTitle={pageTitle} pageSubtitle={pageSubtitle} pageAction={pageAction} />
+      <PageBar
+        headerQueue={headerQueue}
+        pageTitle={pageTitle}
+        pageSubtitle={pageSubtitle}
+        pageAction={pageAction}
+      />
     </header>
   );
 }
