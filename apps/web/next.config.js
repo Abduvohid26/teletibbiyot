@@ -15,15 +15,21 @@ const nextConfig = {
   },
   async rewrites() {
     const isProd = process.env.NODE_ENV === 'production';
-    const apiOrigin =
+    let origin =
       process.env.INTERNAL_API_URL ||
       process.env.NEXT_PUBLIC_API_URL;
-    if (isProd && !apiOrigin) {
+
+    // Local `next dev` hostda docker hostname `api` ishlamaydi
+    if (!isProd && origin && /^https?:\/\/api(?::|\/|$)/.test(origin)) {
+      origin = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    }
+
+    if (isProd && !origin) {
       throw new Error(
         'INTERNAL_API_URL yoki NEXT_PUBLIC_API_URL production build uchun majburiy',
       );
     }
-    const origin = apiOrigin || 'http://localhost:3001';
+    origin = origin || 'http://localhost:3001';
     return [
       { source: '/api/:path*', destination: `${origin}/api/:path*` },
       { source: '/socket.io/:path*', destination: `${origin}/socket.io/:path*` },

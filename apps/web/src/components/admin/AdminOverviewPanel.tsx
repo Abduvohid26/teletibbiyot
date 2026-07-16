@@ -8,6 +8,7 @@ import { getRoleLabel } from '@/lib/auth-utils';
 interface AdminOverviewPanelProps {
   overview: AdminOverview | null;
   loading: boolean;
+  onRetry?: () => void;
 }
 
 function StatCard({ icon: Icon, label, value, bg, text }: {
@@ -30,13 +31,22 @@ function StatCard({ icon: Icon, label, value, bg, text }: {
   );
 }
 
-export function AdminOverviewPanel({ overview, loading }: AdminOverviewPanelProps) {
+export function AdminOverviewPanel({ overview, loading, onRetry }: AdminOverviewPanelProps) {
   if (loading) {
     return <div className="text-sm text-slate-500 animate-pulse py-8">Statistika yuklanmoqda...</div>;
   }
 
   if (!overview) {
-    return <div className="text-sm text-slate-500 py-8">Statistika mavjud emas</div>;
+    return (
+      <div className="text-sm text-slate-500 py-8 flex flex-col items-center gap-3">
+        <p>Statistika yuklanmadi — API yangilangan bo&apos;lishi kerak</p>
+        {onRetry && (
+          <button type="button" onClick={onRetry} className="btn-secondary !text-xs">
+            Qayta urinish
+          </button>
+        )}
+      </div>
+    );
   }
 
   const { summary, operatorStats, doctorStats, facilityStats, recentAudit } = overview;

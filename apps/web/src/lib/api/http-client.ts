@@ -1,7 +1,14 @@
 import { ALLOW_CLIENT_TOKEN, REQUEST_TIMEOUT_MS, TOKEN_STORAGE_KEY } from './constants';
 
 export function resolveApiUrl(): string {
-  if (typeof window !== 'undefined') return '';
+  if (typeof window !== 'undefined') {
+    // Dev: Next proxy o'rniga to'g'ridan-to'g'ri API (docker hostname muammosini oldini oladi)
+    if (process.env.NODE_ENV === 'development') {
+      const direct = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '');
+      if (direct) return direct;
+    }
+    return '';
+  }
   return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 }
 

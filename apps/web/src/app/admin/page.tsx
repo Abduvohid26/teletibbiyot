@@ -112,6 +112,7 @@ export default function AdminPage() {
     if (loading || !user || !canAccessAdmin(user.role)) return;
 
     load();
+    loadOverview();
 
   }, [user, loading]);
 
@@ -120,21 +121,24 @@ export default function AdminPage() {
   const load = () => {
     setError('');
     setDataLoading(true);
-    Promise.all([
+    Promise.allSettled([
       api.getUsers(),
       api.getStats(),
       api.getFacilities(),
       api.getSpecialties(true),
-      api.getAdminOverview(),
     ])
-      .then(([u, s, f, sp, ov]) => {
-        setUsers(u);
-        setStats(s);
-        setFacilities(f);
-        setSpecialties(sp);
-        setOverview(ov);
+      .then((results) => {
+        const [usersR, statsR, facilitiesR, specialtiesR] = results;
+        if (usersR.status === 'fulfilled') setUsers(usersR.value);
+        if (statsR.status === 'fulfilled') setStats(statsR.value);
+        if (facilitiesR.status === 'fulfilled') setFacilities(facilitiesR.value);
+        if (specialtiesR.status === 'fulfilled') setSpecialties(specialtiesR.value);
+
+        if (usersR.status === 'rejected') {
+          const err = usersR.reason;
+          setError(err instanceof Error ? err.message : 'Foydalanuvchilar yuklanmadi');
+        }
       })
-      .catch((err) => setError(err instanceof Error ? err.message : 'Xatolik yuz berdi'))
       .finally(() => setDataLoading(false));
   };
 
@@ -142,7 +146,7 @@ export default function AdminPage() {
     setOverviewLoading(true);
     api.getAdminOverview()
       .then(setOverview)
-      .catch((err) => setError(err instanceof Error ? err.message : 'Statistika yuklanmadi'))
+      .catch(() => setOverview(null))
       .finally(() => setOverviewLoading(false));
   };
 
@@ -742,7 +746,7 @@ export default function AdminPage() {
         )}
 
         {activeTab === 'stats' && (
-          <AdminOverviewPanel overview={overview} loading={overviewLoading || dataLoading} />
+          <AdminOverviewPanel overview={overview} loading={overviewLoading} onRetry={loadOverview} />
         )}
 
       </main>

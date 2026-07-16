@@ -440,7 +440,7 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() data: { roomId: string },
   ) {
     if (!this.isInRoom(client.id, data.roomId, client)) return;
-    this.server.to(data.roomId).emit('call-ended', { socketId: client.id });
+    client.to(data.roomId).emit('call-ended', { socketId: client.id });
   }
 
   /** Qayta ulanganda boshqa ishtirokchilar WebRTC ni qayta ochadi */
