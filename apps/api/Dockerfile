@@ -26,9 +26,12 @@ COPY --from=builder /app/packages/shared/package.json ./packages/shared/
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
 COPY --from=builder /app/apps/api/package.json ./apps/api/
 COPY --from=builder /app/package.json ./
+COPY apps/api/docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 WORKDIR /app/apps/api
 USER nestjs
 EXPOSE 3001
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
   CMD wget -qO- http://localhost:3001/api/health/ready || exit 1
+ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["node", "dist/main.js"]
