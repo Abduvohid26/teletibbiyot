@@ -1,4 +1,4 @@
-import { api, Consultation, DashboardStats, DeviceStatus } from '@/lib/api';
+import { api, Consultation, DashboardStats } from '@/lib/api';
 import { safeAsync } from '@/lib/errors';
 
 export interface DashboardSnapshot {
@@ -6,7 +6,6 @@ export interface DashboardSnapshot {
   inProgressList: Consultation[];
   queue: Consultation[];
   stats: DashboardStats | null;
-  devices: DeviceStatus[];
   attachmentCount: number;
   notificationCount: number;
 }
@@ -39,12 +38,6 @@ export async function loadDashboardSnapshot(params: {
     : observerConsultation;
 
   const queued = queue.filter((c) => c.status === 'QUEUED');
-  const facilityId = consultation?.utFacility?.id ?? queued[0]?.utFacility?.id;
-
-  const devices = facilityId
-    ? await safeAsync('devices', () => api.getDevices(facilityId), [])
-    : [];
-
   const docId = consultation?.id ?? queued[0]?.id;
   const attachments = docId
     ? await safeAsync('attachments', () => api.getAttachments(docId), [])
@@ -55,7 +48,6 @@ export async function loadDashboardSnapshot(params: {
     inProgressList: inProgress,
     queue,
     stats,
-    devices,
     attachmentCount: attachments.length,
     notificationCount: notifications.length,
   };

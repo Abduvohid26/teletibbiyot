@@ -34,7 +34,11 @@ function SettingsPageContent() {
   const pageBody = <SettingsContent user={user} videoRole={videoRole} />;
 
   if (isMtStaff(user.role)) {
-    return <DoctorShell scrollable>{pageBody}</DoctorShell>;
+    return (
+      <DoctorShell scrollable pageTitle="Sozlamalar" pageSubtitle="Profil va video sozlamalari">
+        {pageBody}
+      </DoctorShell>
+    );
   }
 
   return pageBody;

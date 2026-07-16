@@ -288,7 +288,11 @@ export default function ReportsPage() {
   );
 
   if (isMtStaff(user.role)) {
-    return <DoctorShell scrollable>{pageBody}</DoctorShell>;
+    return (
+      <DoctorShell scrollable pageTitle="Analitika" pageSubtitle="Statistika va hisobotlar">
+        {pageBody}
+      </DoctorShell>
+    );
   }
 
   return (

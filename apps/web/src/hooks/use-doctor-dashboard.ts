@@ -143,14 +143,6 @@ export function useDoctorDashboard() {
       },
       onTriageUpdated: () => refresh(),
       onPriorityUpdated: () => refresh(),
-      onDeviceStatusUpdated: (facilityId) => {
-        const currentFacilityId =
-          consultation?.utFacility?.id ?? queuedPatients[0]?.utFacility?.id;
-        if (!facilityId || facilityId !== currentFacilityId) return;
-        void api.getDevices(facilityId).then((devices) => {
-          setSnapshot((prev) => (prev ? { ...prev, devices } : prev));
-        }).catch(() => refresh());
-      },
     },
     {
       notifyToasts: isMtStaff(user?.role || ''),
@@ -162,7 +154,9 @@ export function useDoctorDashboard() {
     setSelectedConsultationId(id);
     setSnapshot((prev) => {
       if (!prev) return prev;
-      const picked = prev.inProgressList.find((c) => c.id === id);
+      const picked =
+        prev.inProgressList.find((c) => c.id === id)
+        ?? prev.queue.find((c) => c.id === id);
       if (!picked) return prev;
       return { ...prev, consultation: picked };
     });
@@ -204,9 +198,7 @@ export function useDoctorDashboard() {
     documentsConsultationId,
     inProgressList: snapshot?.inProgressList ?? [],
     stats: snapshot?.stats ?? null,
-    devices: snapshot?.devices ?? [],
     attachmentCount: snapshot?.attachmentCount ?? 0,
-    notificationCount: snapshot?.notificationCount ?? 0,
     observedId,
     setObservedId,
     selectedConsultationId,

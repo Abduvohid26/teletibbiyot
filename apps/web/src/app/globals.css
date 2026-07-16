@@ -296,14 +296,8 @@ body {
     @apply flex-1 min-h-0 min-w-0 flex flex-col overflow-hidden;
   }
 
-  .doctor-workspace {
-    @apply flex-1 min-h-0 min-w-0 p-1.5 lg:p-2 gap-1.5 overflow-hidden relative z-10;
-    display: grid;
-    grid-template-rows: minmax(0, 1fr) clamp(13rem, 30vh, 19rem);
-  }
-
   .doctor-main-grid {
-    @apply min-h-0 overflow-hidden grid grid-cols-12 gap-1.5;
+    @apply min-h-0 h-full overflow-hidden grid grid-cols-12 gap-1.5;
   }
 
   .doctor-video-col {

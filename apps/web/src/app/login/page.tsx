@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Stethoscope, Eye, EyeOff, Shield, Activity, Lock } from 'lucide-react';
+import { Stethoscope, Eye, EyeOff, Activity, Lock } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { getRoleHomePath } from '@/lib/auth-utils';
 import { BrandName } from '@/components/brand/BrandName';
@@ -136,13 +136,6 @@ export default function LoginPage() {
               >
                 {loading ? 'Kirish...' : 'Kirish'}
               </button>
-
-              <a
-                href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/integrations/oneid/login`}
-                className="w-full btn-secondary py-3 rounded-xl text-center inline-flex items-center justify-center gap-2"
-              >
-                <Shield size={16} /> OneID orqali kirish
-              </a>
             </form>
           </div>
 
