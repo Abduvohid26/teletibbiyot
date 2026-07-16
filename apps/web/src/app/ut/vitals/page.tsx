@@ -57,13 +57,6 @@ export default function UtVitalsPage() {
           />
         ) : undefined
       }
-      pageSubtitle={
-        consultation
-          ? consultation.status === 'IN_PROGRESS'
-            ? `Jonli efir · ${consultation.mtDoctor?.fullName || 'Shifokor'}`
-            : consultation.mtDoctor?.fullName || undefined
-          : undefined
-      }
       pageAction={
         consultation ? (
           <button

@@ -31,8 +31,6 @@ export default function UtAnalyticsPage() {
     <UtShell
       sessionCount={sessions.length}
       liveCount={inProgressList.length}
-      pageTitle="Analitika"
-      pageSubtitle="UT bo'yicha statistika va hisobotlar"
     >
       <div className="ut-page overflow-y-auto pb-4">
         <UtAnalyticsContent />

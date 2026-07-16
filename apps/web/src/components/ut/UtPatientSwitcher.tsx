@@ -149,7 +149,7 @@ export function UtPatientSwitcher({
           type="button"
           onClick={() => setOpen((v) => !v)}
           className={cn(
-            'flex items-center gap-1.5 rounded-xl border border-white/60 bg-white/55 backdrop-blur-md px-2 py-1.5 text-left hover:bg-white/70 transition-all max-w-[180px] sm:max-w-[220px] shadow-sm',
+            'flex items-center gap-1.5 rounded-xl border border-white/60 bg-white/55 backdrop-blur-md px-2 py-1 text-left hover:bg-white/70 transition-all max-w-[120px] sm:max-w-[180px] shadow-sm',
             className,
           )}
         >

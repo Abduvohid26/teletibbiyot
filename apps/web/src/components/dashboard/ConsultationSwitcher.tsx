@@ -160,7 +160,7 @@ export function ConsultationSwitcher({
         aria-expanded={open}
         aria-haspopup="listbox"
         className={cn(
-          'flex items-center gap-1.5 rounded-xl border border-white/60 bg-white/55 backdrop-blur-md px-2 py-1.5 text-left hover:bg-white/70 transition-all shadow-sm max-w-[200px] sm:max-w-[260px]',
+          'flex items-center gap-1.5 rounded-xl border border-white/60 bg-white/55 backdrop-blur-md px-2 py-1 text-left hover:bg-white/70 transition-all shadow-sm max-w-[120px] sm:max-w-[180px]',
           canSwitch && 'cursor-pointer',
           className,
         )}
@@ -173,7 +173,7 @@ export function ConsultationSwitcher({
             {active ? active.patient.fullName : 'Tanlang'}
           </p>
           {active?.utFacility?.name && (
-            <p className="text-[10px] text-slate-500 truncate">{active.utFacility.name}</p>
+            <p className="text-[10px] text-slate-500 truncate hidden lg:block">{active.utFacility.name}</p>
           )}
         </div>
         {canSwitch && (

@@ -35,7 +35,7 @@ function SettingsPageContent() {
 
   if (isMtStaff(user.role)) {
     return (
-      <DoctorShell scrollable pageTitle="Sozlamalar" pageSubtitle="Profil va video sozlamalari">
+      <DoctorShell scrollable>
         {pageBody}
       </DoctorShell>
     );

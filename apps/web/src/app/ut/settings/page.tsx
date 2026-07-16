@@ -31,8 +31,6 @@ export default function UtSettingsPage() {
     <UtShell
       sessionCount={sessions.length}
       liveCount={inProgressList.length}
-      pageTitle="Sozlamalar"
-      pageSubtitle="Profil va 4 ta kamera biriktirish"
     >
       <div className="ut-page">
         <SettingsContent user={user} videoRole="ut" compact />

@@ -289,7 +289,7 @@ export default function ReportsPage() {
 
   if (isMtStaff(user.role)) {
     return (
-      <DoctorShell scrollable pageTitle="Analitika" pageSubtitle="Statistika va hisobotlar">
+      <DoctorShell scrollable>
         {pageBody}
       </DoctorShell>
     );

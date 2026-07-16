@@ -9,8 +9,6 @@ interface DoctorShellProps {
   liveCount?: number;
   queueCount?: number;
   headerQueue?: React.ReactNode;
-  pageTitle?: string;
-  pageSubtitle?: string;
   pageAction?: React.ReactNode;
 }
 
@@ -20,8 +18,6 @@ export function DoctorShell({
   liveCount = 0,
   queueCount = 0,
   headerQueue,
-  pageTitle,
-  pageSubtitle,
   pageAction,
 }: DoctorShellProps) {
   return (
@@ -35,8 +31,6 @@ export function DoctorShell({
         liveCount={liveCount}
         queueCount={queueCount}
         headerQueue={headerQueue}
-        pageTitle={pageTitle}
-        pageSubtitle={pageSubtitle}
         pageAction={pageAction}
       />
 

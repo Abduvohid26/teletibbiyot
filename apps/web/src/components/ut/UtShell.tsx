@@ -9,8 +9,6 @@ interface UtShellProps {
   liveCount?: number;
   headerExtra?: React.ReactNode;
   headerQueue?: React.ReactNode;
-  pageTitle?: string;
-  pageSubtitle?: string;
   pageAction?: React.ReactNode;
 }
 
@@ -20,8 +18,6 @@ export function UtShell({
   liveCount = 0,
   headerExtra,
   headerQueue,
-  pageTitle,
-  pageSubtitle,
   pageAction,
 }: UtShellProps) {
   const { user, logout } = useAuth();
@@ -39,8 +35,6 @@ export function UtShell({
         liveCount={liveCount}
         headerExtra={headerExtra}
         headerQueue={headerQueue}
-        pageTitle={pageTitle}
-        pageSubtitle={pageSubtitle}
         pageAction={pageAction}
         onLogout={logout}
       />

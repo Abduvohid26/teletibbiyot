@@ -2,8 +2,6 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { UserPlus } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { isUtRole } from '@ishifo/shared';
 import { getRoleHomePath } from '@/lib/auth-utils';
@@ -40,23 +38,16 @@ export default function UtPatientsPage() {
     <UtShell
       sessionCount={sessions.length}
       liveCount={inProgressList.length}
-      pageTitle="Bemorlar ro'yxati"
-      pageSubtitle="Navbatdagi va jonli efirdagi bemorlar"
       pageAction={
-        <div className="flex items-center gap-1.5">
-          {error && (
-            <button
-              type="button"
-              onClick={() => void refreshSessions()}
-              className="ut-glass-btn !text-xs !py-1 !px-2"
-            >
-              Yangilash
-            </button>
-          )}
-          <Link href="/ut" className="gradient-btn !text-xs !py-1.5 !px-2.5 inline-flex items-center gap-1">
-            <UserPlus size={12} /> Qabul
-          </Link>
-        </div>
+        error ? (
+          <button
+            type="button"
+            onClick={() => void refreshSessions()}
+            className="ut-glass-btn !text-xs !py-1 !px-2 shrink-0"
+          >
+            Yangilash
+          </button>
+        ) : undefined
       }
     >
       <div className="ut-page">
