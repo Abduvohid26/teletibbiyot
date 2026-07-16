@@ -141,6 +141,7 @@ const ROLE_PREFIXES: Record<string, string[]> = {
     '/ut/patients',
     '/ut/vitals',
     '/ut/settings',
+    '/ut/analytics',
     '/dashboard/appointments',
     '/dashboard/devices',
     '/dashboard/settings',
@@ -195,7 +196,7 @@ export function canAccessRoute(role: string, href: string): boolean {
   }
   if (canAccessMtDashboard(role)) return true;
   if (isUtRole(role)) {
-    return ['/dashboard/appointments', '/dashboard/devices', '/dashboard/settings', '/dashboard/messages', '/dashboard/dicom', '/dashboard/incidents', '/dashboard/reports'].some(
+    return ['/dashboard/appointments', '/dashboard/devices', '/dashboard/settings', '/dashboard/messages', '/dashboard/dicom', '/dashboard/incidents', '/dashboard/reports', '/ut/analytics'].some(
       (p) => href === p || href.startsWith(`${p}/`),
     );
   }

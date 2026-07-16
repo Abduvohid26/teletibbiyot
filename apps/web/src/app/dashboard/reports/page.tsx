@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { DoctorShell } from '@/components/layout/DoctorShell';
 import { useRequireAuth } from '@/hooks/use-require-auth';
@@ -30,9 +31,12 @@ import { isMtStaff, isUtRole, UserRole } from '@ishifo/shared';
 import { useFilterOptions } from '@/hooks/use-filter-options';
 import { safeAsync } from '@/lib/errors';
 import { UtShell } from '@/components/ut/UtShell';
+import { UtPatientSwitcher } from '@/components/ut/UtPatientSwitcher';
+import { useUtSessions } from '@/hooks/use-ut-sessions';
 import { cn } from '@/lib/utils';
 
 export default function ReportsPage() {
+  const router = useRouter();
   const { user, loading: authLoading } = useRequireAuth([...ROLES_MT_DASHBOARD, ...ROLES_UT]);
   const [filters, setFilters] = useState<AnalyticsFilters>({ period: '30d' });
   const [options, setOptions] = useState<FilterOptions | null>(null);
@@ -48,6 +52,21 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
 
   const filterQuery = useFilterOptions(!authLoading && !!user);
+
+  const isUt = user ? isUtRole(user.role) : false;
+  const {
+    consultation,
+    sessions,
+    inProgressList,
+    switchToConsultation,
+  } = useUtSessions(!!user && isUt);
+
+  useEffect(() => {
+    if (!user || !isUt) return;
+    if (window.location.pathname === '/dashboard/reports') {
+      router.replace('/ut/analytics');
+    }
+  }, [user, isUt, router]);
 
   useEffect(() => {
     if (filterQuery.data) setOptions(filterQuery.data);
@@ -103,7 +122,6 @@ export default function ReportsPage() {
 
   if (authLoading || !user) return null;
 
-  const isUt = isUtRole(user.role);
   const facilityOptions = [
     { value: '', label: 'Barcha UT' },
     ...(options?.facilities.map((f) => ({ value: f.id, label: `${f.code} — ${f.district || f.name}` })) ?? []),
@@ -280,7 +298,22 @@ export default function ReportsPage() {
 
   if (isUt) {
     return (
-      <UtShell pageTitle="Analitika" pageSubtitle="UT bo'yicha statistika va hisobotlar">
+      <UtShell
+        sessionCount={sessions.length}
+        liveCount={inProgressList.length}
+        pageTitle="Analitika"
+        pageSubtitle="UT bo'yicha statistika va hisobotlar"
+        headerExtra={
+          sessions.length > 0 ? (
+            <UtPatientSwitcher
+              compact
+              activeId={consultation?.id}
+              sessions={sessions}
+              onSelect={switchToConsultation}
+            />
+          ) : null
+        }
+      >
         <div className="ut-page overflow-y-auto">
           {pageBody}
         </div>

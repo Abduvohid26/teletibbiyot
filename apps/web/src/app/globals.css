@@ -374,6 +374,15 @@ body {
     @apply flex items-center gap-2 px-3 lg:px-4 py-2 min-h-[3.25rem];
   }
 
+  .ut-nav-scroll {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .ut-nav-scroll::-webkit-scrollbar {
+    display: none;
+  }
+
   .ut-shell-main {
     @apply relative z-10 flex-1 min-h-0 overflow-hidden px-3 py-2 lg:px-4 lg:py-2.5;
   }

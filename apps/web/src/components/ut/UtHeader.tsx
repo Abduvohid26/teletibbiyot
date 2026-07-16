@@ -63,8 +63,8 @@ export function UtHeader({
           </div>
         </div>
 
-        <div className="flex-1 flex justify-center min-w-0 px-1">
-          <UtNavTabs sessionCount={sessionCount} liveCount={liveCount} mode="icons" />
+        <div className="flex-1 flex justify-center min-w-0 px-1 overflow-x-auto ut-nav-scroll">
+          <UtNavTabs sessionCount={sessionCount} liveCount={liveCount} mode="icons" className="flex-nowrap shrink-0" />
         </div>
 
         <div className="ut-shell-actions">

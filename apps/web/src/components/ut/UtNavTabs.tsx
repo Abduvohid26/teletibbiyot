@@ -34,7 +34,7 @@ export const UT_NAV_TABS = [
     icon: Settings,
   },
   {
-    href: '/dashboard/reports',
+    href: '/ut/analytics',
     label: 'Analitika',
     shortLabel: 'Stat.',
     icon: BarChart3,
@@ -94,18 +94,19 @@ export function UtNavTabs({
               href={href}
               title={label}
               className={cn(
-                'relative flex flex-col items-center justify-center rounded-xl transition-all duration-200 w-10 h-10 sm:w-auto sm:h-auto sm:px-3 sm:py-2 sm:flex-row sm:gap-1.5',
+                'relative flex items-center justify-center rounded-xl transition-all duration-200 shrink-0',
+                'w-9 h-9 xl:w-auto xl:h-auto xl:px-3 xl:py-2 xl:gap-1.5',
                 active
                   ? 'bg-white/90 text-brand-700 shadow-sm ring-1 ring-brand-200/70'
                   : 'text-slate-500 hover:text-slate-800 hover:bg-white/50',
               )}
             >
-              <Icon size={18} className={cn('shrink-0', active && 'text-brand-600')} />
-              <span className="hidden lg:inline text-xs font-semibold truncate">{label}</span>
+              <Icon size={17} className={cn('shrink-0', active && 'text-brand-600')} />
+              <span className="hidden xl:inline text-xs font-semibold truncate max-w-[5.5rem]">{label}</span>
               {badge != null && (
                 <span
                   className={cn(
-                    'absolute -top-0.5 -right-0.5 sm:static sm:ml-0.5 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold inline-flex items-center justify-center',
+                    'absolute -top-0.5 -right-0.5 xl:static xl:ml-0.5 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold inline-flex items-center justify-center',
                     badgeKey === 'live' ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white',
                   )}
                 >
