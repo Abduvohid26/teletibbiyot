@@ -1,5 +1,7 @@
--- Faqat 3 ta role: UT_OPERATOR, MT_DOCTOR, ADMIN
--- Idempotent: qisman bajarilgan holatdan davom etadi
+-- Idempotent: 3 ta role migratsiyasini qo'lda yakunlash.
+-- Ishlatish: psql -f scripts/repair-three-roles-db.sql
+
+BEGIN;
 
 DO $$
 DECLARE
@@ -9,13 +11,14 @@ DECLARE
   old_enum_exists BOOLEAN;
   new_enum_exists BOOLEAN;
   old_enum_count INT;
+  final_enum_count INT;
 BEGIN
   SELECT id INTO doctor_id FROM "User" WHERE email = 'doctor@ishifo.uz' LIMIT 1;
   IF doctor_id IS NULL THEN
     SELECT id INTO doctor_id FROM "User" WHERE role::text = 'MT_DOCTOR' LIMIT 1;
   END IF;
   IF doctor_id IS NULL THEN
-    RAISE EXCEPTION 'MT shifokor topilmadi — migratsiyani davom ettirish mumkin emas';
+    RAISE EXCEPTION 'MT shifokor (doctor@ishifo.uz) topilmadi';
   END IF;
 
   SELECT udt_name INTO user_role_udt
@@ -38,10 +41,18 @@ BEGIN
     old_enum_count := 0;
   END IF;
 
-  IF old_enum_exists AND old_enum_count <= 3 AND user_role_udt = 'UserRole' AND msg_role_udt = 'UserRole' THEN
-    RETURN;
+  IF old_enum_exists AND old_enum_count <= 3 THEN
+    final_enum_count := old_enum_count;
+  ELSIF new_enum_exists THEN
+    SELECT COUNT(*) INTO final_enum_count
+    FROM pg_enum e
+    JOIN pg_type t ON t.oid = e.enumtypid
+    WHERE t.typname = 'UserRole_new';
+  ELSE
+    final_enum_count := 0;
   END IF;
 
+  -- Manager/auditor foydalanuvchilarga bog'liqlikni tozalash
   UPDATE "Consultation"
     SET "mtDoctorId" = doctor_id
     WHERE "mtDoctorId" IN (
@@ -116,8 +127,17 @@ BEGIN
   WHERE role::text IN ('MT_MANAGER', 'AUDITOR')
      OR email IN ('manager@ishifo.uz', 'auditor@ishifo.uz');
 
+  IF final_enum_count = 3 AND (
+    (old_enum_exists AND old_enum_count <= 3)
+    OR (user_role_udt = 'UserRole' AND msg_role_udt = 'UserRole')
+  ) THEN
+    RAISE NOTICE 'UserRole allaqachon 3 qiymatli — SQL qadamlari o''tkazildi';
+    RETURN;
+  END IF;
+
   IF NOT new_enum_exists THEN
     CREATE TYPE "UserRole_new" AS ENUM ('UT_OPERATOR', 'MT_DOCTOR', 'ADMIN');
+    new_enum_exists := TRUE;
   END IF;
 
   IF user_role_udt = 'UserRole' THEN
@@ -164,3 +184,5 @@ BEGIN
     ALTER TYPE "UserRole_new" RENAME TO "UserRole";
   END IF;
 END $$;
+
+COMMIT;
