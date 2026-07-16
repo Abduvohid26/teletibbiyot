@@ -76,10 +76,10 @@ export function UtPatientList({
         </div>
         <div>
           <h2 className="font-bold text-slate-800 text-sm mb-1">Hozircha bemor yo&apos;q</h2>
-          <p className="text-xs text-slate-500 max-w-xs">Yangi bemor qabul qiling yoki jonli efirga o&apos;ting</p>
+          <p className="text-sm text-slate-500 max-w-xs">Yangi bemor qabul qiling yoki jonli efirga o&apos;ting</p>
         </div>
         <UtQuickNav sessionCount={sessionCount} liveCount={liveCount} />
-        <Link href="/ut" className="gradient-btn !text-xs inline-flex items-center gap-1.5">
+        <Link href="/ut" className="gradient-btn !text-sm inline-flex items-center gap-1.5">
           <UserPlus size={14} /> Bemor qabul qilish
         </Link>
       </div>
@@ -105,7 +105,7 @@ export function UtPatientList({
                 {count}
               </span>
             </div>
-            <p className="text-[10px] font-semibold text-slate-500 mt-1">{label}</p>
+            <p className="text-xs font-semibold text-slate-500 mt-1">{label}</p>
           </button>
         ))}
       </div>
@@ -117,13 +117,13 @@ export function UtPatientList({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Ism, telefon yoki PINFL bo'yicha qidirish..."
-          className="form-input ut-glass-input !py-2 !pl-8 !text-xs w-full"
+          className="form-input ut-glass-input !py-2 !pl-8 !text-sm w-full"
         />
       </div>
 
       <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-2 gap-1.5 content-start overflow-hidden auto-rows-min">
         {filtered.length === 0 ? (
-          <p className="col-span-full text-xs text-slate-500 text-center py-6">Natija topilmadi</p>
+          <p className="col-span-full text-sm text-slate-500 text-center py-6">Natija topilmadi</p>
         ) : (
           filtered.map((c) => {
             const st = formatStatus(c.status);
@@ -148,13 +148,13 @@ export function UtPatientList({
                   {c.patient.fullName.charAt(0)}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-slate-900 truncate text-xs">{c.patient.fullName}</p>
-                  <p className="text-[10px] text-slate-500 truncate">
+                  <p className="font-semibold text-slate-900 truncate text-sm">{c.patient.fullName}</p>
+                  <p className="text-xs text-slate-500 truncate">
                     {c.patient.phone || '—'}
                     {c.mtDoctor?.fullName && ` · ${c.mtDoctor.fullName}`}
                   </p>
                 </div>
-                <span className={cn('status-badge shrink-0 !text-[9px]', st.className)}>{st.label}</span>
+                <span className={cn('status-badge shrink-0', st.className)}>{st.label}</span>
                 <ChevronRight size={14} className="text-slate-300 shrink-0" />
               </button>
             );

@@ -22,7 +22,7 @@ export function UtIntakeVitalsPanel({
     <div className="h-full flex flex-col gap-2 min-h-0">
       <div className="grid grid-cols-2 gap-2 shrink-0">
         <div>
-          <label className="label !text-xs !mb-1" htmlFor="ut-vazn">
+          <label className="label !text-sm !mb-1" htmlFor="ut-vazn">
             Vazn (kg) <span className="text-red-500">*</span>
           </label>
           <input
@@ -35,7 +35,7 @@ export function UtIntakeVitalsPanel({
           />
         </div>
         <div>
-          <label className="label !text-xs !mb-1" htmlFor="ut-boy">
+          <label className="label !text-sm !mb-1" htmlFor="ut-boy">
             Bo&apos;y (sm) <span className="text-red-500">*</span>
           </label>
           <input
@@ -56,10 +56,10 @@ export function UtIntakeVitalsPanel({
           </div>
           <p className="text-sm font-semibold leading-tight">Patient monitor kamerasi</p>
         </div>
-        <p className="text-xs text-slate-600 leading-relaxed">
+        <p className="text-sm text-slate-600 leading-relaxed">
           Puls, qon bosimi, SpO2, harorat va nafas — <strong className="text-slate-800">jonli efirda</strong> monitor ekranidan olinadi.
         </p>
-        <p className="text-[11px] text-slate-500 leading-snug">
+        <p className="text-xs text-slate-500 leading-snug">
           Qabulda faqat vazn va bo&apos;y kiritiladi.
         </p>
       </div>

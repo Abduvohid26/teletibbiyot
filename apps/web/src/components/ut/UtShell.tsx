@@ -61,7 +61,7 @@ export function UtPageHead({
     <div className="ut-page-head shrink-0 animate-fade-in">
       <div className="min-w-0 flex items-baseline gap-2">
         <h1 className="text-sm font-bold text-slate-900 tracking-tight truncate">{title}</h1>
-        {subtitle && <p className="text-[11px] text-slate-500 truncate hidden sm:block">{subtitle}</p>}
+        {subtitle && <p className="text-xs text-slate-500 truncate hidden sm:block">{subtitle}</p>}
       </div>
       {action && <div className="shrink-0">{action}</div>}
     </div>

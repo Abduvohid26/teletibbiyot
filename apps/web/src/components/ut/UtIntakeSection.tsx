@@ -103,7 +103,7 @@ export function UtIntakeSubCard({
     <div className={cn('glass-preview-card overflow-hidden flex flex-col min-h-0 h-full', className)}>
       <div className={cn('flex items-center gap-1.5 px-2 py-1.5 border-b border-white/50', styles.header)}>
         <Icon size={13} className={cn('shrink-0', styles.icon)} aria-hidden />
-        <span className="text-[11px] font-semibold text-slate-800 truncate">{title}</span>
+        <span className="text-xs font-semibold text-slate-800 truncate">{title}</span>
       </div>
       <div className="p-2 min-h-0 overflow-hidden flex-1">{children}</div>
     </div>

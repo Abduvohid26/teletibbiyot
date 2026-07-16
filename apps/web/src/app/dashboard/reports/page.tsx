@@ -26,18 +26,15 @@ import {
   Activity, Users, CheckCircle2, Clock, Brain, AlertTriangle,
   TrendingUp, Building2, Timer, Target,
 } from 'lucide-react';
-import { ROLES_MT_DASHBOARD, ROLES_UT } from '@/lib/roles';
+import { ROLES_MT_DASHBOARD } from '@/lib/roles';
 import { isMtStaff, isUtRole, UserRole } from '@ishifo/shared';
 import { useFilterOptions } from '@/hooks/use-filter-options';
 import { safeAsync } from '@/lib/errors';
-import { UtShell } from '@/components/ut/UtShell';
-import { UtPatientSwitcher } from '@/components/ut/UtPatientSwitcher';
-import { useUtSessions } from '@/hooks/use-ut-sessions';
 import { cn } from '@/lib/utils';
 
 export default function ReportsPage() {
   const router = useRouter();
-  const { user, loading: authLoading } = useRequireAuth([...ROLES_MT_DASHBOARD, ...ROLES_UT]);
+  const { user, loading: authLoading } = useRequireAuth([...ROLES_MT_DASHBOARD]);
   const [filters, setFilters] = useState<AnalyticsFilters>({ period: '30d' });
   const [options, setOptions] = useState<FilterOptions | null>(null);
   const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
@@ -53,20 +50,12 @@ export default function ReportsPage() {
 
   const filterQuery = useFilterOptions(!authLoading && !!user);
 
-  const isUt = user ? isUtRole(user.role) : false;
-  const {
-    consultation,
-    sessions,
-    inProgressList,
-    switchToConsultation,
-  } = useUtSessions(!!user && isUt);
-
   useEffect(() => {
-    if (!user || !isUt) return;
-    if (window.location.pathname === '/dashboard/reports') {
+    if (authLoading || !user) return;
+    if (isUtRole(user.role)) {
       router.replace('/ut/analytics');
     }
-  }, [user, isUt, router]);
+  }, [authLoading, user, router]);
 
   useEffect(() => {
     if (filterQuery.data) setOptions(filterQuery.data);
@@ -121,6 +110,7 @@ export default function ReportsPage() {
   const activeCount = countActiveFilters(filters as Record<string, string | undefined>, ['period']);
 
   if (authLoading || !user) return null;
+  if (isUtRole(user.role)) return null;
 
   const facilityOptions = [
     { value: '', label: 'Barcha UT' },
@@ -128,16 +118,14 @@ export default function ReportsPage() {
   ];
   const filterFields = [
     { key: 'period', label: 'Davr', type: 'select' as const, value: filters.period || '30d', options: PERIOD_OPTIONS },
-    ...(!isUt
-      ? [{
-          key: 'utId',
-          label: 'UT',
-          type: 'select' as const,
-          value: filters.utId || '',
-          options: facilityOptions,
-          className: 'min-w-[180px]',
-        }]
-      : []),
+    {
+      key: 'utId',
+      label: 'UT',
+      type: 'select' as const,
+      value: filters.utId || '',
+      options: facilityOptions,
+      className: 'min-w-[180px]',
+    },
   ];
 
   const pageBody = (
@@ -169,9 +157,7 @@ export default function ReportsPage() {
               <MetricCard icon={Brain} label="AI tahlillar" value={overview.withAiAnalysis} color="violet" />
               <MetricCard icon={Target} label="Yakuniy tashxis" value={overview.withFinalDiagnosis} color="indigo" />
               <MetricCard icon={Timer} label="O'rtacha davomiylik" value={overview.avgDurationMinutes ?? '—'} suffix={overview.avgDurationMinutes ? 'min' : ''} color="slate" />
-              {!isUt && (
-                <MetricCard icon={TrendingUp} label="Shifokorlar" value={overview.totalDoctors} color="brand" />
-              )}
+              <MetricCard icon={TrendingUp} label="Shifokorlar" value={overview.totalDoctors} color="brand" />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-slide-up">
@@ -191,22 +177,20 @@ export default function ReportsPage() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-slide-up">
-              {!isUt && (
-                <div className="panel p-5">
-                  <h3 className="panel-title mb-4 flex items-center gap-2">
-                    <Building2 size={16} className="text-brand-600" /> UT bo&apos;yicha statistika
-                  </h3>
-                  <BarChart
-                    data={facilities.map((f) => ({
-                      label: `${f.code} (${f.district || f.name})`,
-                      value: f.consultations,
-                      color: 'bg-brand-500',
-                    }))}
-                  />
-                </div>
-              )}
+              <div className="panel p-5">
+                <h3 className="panel-title mb-4 flex items-center gap-2">
+                  <Building2 size={16} className="text-brand-600" /> UT bo&apos;yicha statistika
+                </h3>
+                <BarChart
+                  data={facilities.map((f) => ({
+                    label: `${f.code} (${f.district || f.name})`,
+                    value: f.consultations,
+                    color: 'bg-brand-500',
+                  }))}
+                />
+              </div>
 
-              <div className={cn('panel p-5', isUt && 'lg:col-span-2')}>
+              <div className="panel p-5">
                 <h3 className="panel-title mb-4 flex items-center gap-2">
                   <Brain size={16} className="text-violet-600" /> Top AI tashxislar
                 </h3>
@@ -295,31 +279,6 @@ export default function ReportsPage() {
         )}
       </div>
   );
-
-  if (isUt) {
-    return (
-      <UtShell
-        sessionCount={sessions.length}
-        liveCount={inProgressList.length}
-        pageTitle="Analitika"
-        pageSubtitle="UT bo'yicha statistika va hisobotlar"
-        headerExtra={
-          sessions.length > 0 ? (
-            <UtPatientSwitcher
-              compact
-              activeId={consultation?.id}
-              sessions={sessions}
-              onSelect={switchToConsultation}
-            />
-          ) : null
-        }
-      >
-        <div className="ut-page overflow-y-auto">
-          {pageBody}
-        </div>
-      </UtShell>
-    );
-  }
 
   if (isMtStaff(user.role)) {
     return <DoctorShell scrollable>{pageBody}</DoctorShell>;

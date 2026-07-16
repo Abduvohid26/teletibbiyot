@@ -49,12 +49,12 @@ export default function UtPatientsPage() {
             <button
               type="button"
               onClick={() => void refreshSessions()}
-              className="ut-glass-btn !text-[10px] !py-1 !px-2"
+              className="ut-glass-btn !text-xs !py-1 !px-2"
             >
               Yangilash
             </button>
           )}
-          <Link href="/ut" className="gradient-btn !text-[10px] !py-1.5 !px-2.5 inline-flex items-center gap-1">
+          <Link href="/ut" className="gradient-btn !text-xs !py-1.5 !px-2.5 inline-flex items-center gap-1">
             <UserPlus size={12} /> Qabul
           </Link>
         </div>
@@ -72,7 +72,7 @@ export default function UtPatientsPage() {
     >
       <div className="ut-page">
         {error && (
-          <div className="shrink-0 mb-2 text-[11px] text-red-700 ut-glass-banner border-red-200/70 bg-red-50/75 px-3 py-1.5">
+          <div className="shrink-0 mb-2 text-xs text-red-700 ut-glass-banner border-red-200/70 bg-red-50/75 px-3 py-1.5">
             {error}
           </div>
         )}

@@ -85,7 +85,7 @@ export function UtPatientSwitcher({
           style={{ position: 'fixed', top: menuStyle.top, left: menuStyle.left, width: menuStyle.width, zIndex: 9999 }}
           className="rounded-xl border border-white/60 bg-white/70 backdrop-blur-xl shadow-xl overflow-hidden max-h-[min(70vh,400px)] overflow-y-auto"
         >
-          <div className="px-3 py-2 border-b border-white/50 text-[10px] font-medium text-slate-500 bg-white/40">
+          <div className="px-3 py-2 border-b border-white/50 text-xs font-medium text-slate-500 bg-white/40">
             {sessions.length} ta bemor · {live.length} jonli · {queued.length} navbat
           </div>
 
@@ -123,14 +123,14 @@ export function UtPatientSwitcher({
         >
           <div
             className={cn(
-              'w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-[11px] font-bold',
+              'w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold',
               isLive ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800',
             )}
           >
             {active ? patientInitial(active.patient.fullName) : <User size={13} />}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-bold text-slate-900 truncate leading-tight">
+            <p className="text-sm font-bold text-slate-900 truncate leading-tight">
               {active ? patientLabel(active) : 'Tanlang'}
             </p>
           </div>
@@ -156,11 +156,11 @@ export function UtPatientSwitcher({
           <User size={15} />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase leading-none">Faol bemor</p>
+          <p className="text-xs font-semibold text-slate-400 uppercase leading-none">Faol bemor</p>
           <p className="text-sm font-bold text-slate-900 truncate">{active ? patientLabel(active) : 'Tanlang'}</p>
         </div>
         {status && (
-          <span className={cn('status-badge !text-[9px] shrink-0', status.className)}>{status.label}</span>
+          <span className={cn('status-badge shrink-0', status.className)}>{status.label}</span>
         )}
         <ChevronDown size={14} className={cn('text-slate-400 shrink-0 transition-transform', open && 'rotate-180')} />
       </button>
@@ -186,8 +186,8 @@ function Section({
   };
   return (
     <div className="p-1.5">
-      <p className={cn('px-2 py-1 text-[10px] font-bold uppercase tracking-wide flex items-center gap-1', colors[color])}>
-        <Icon size={10} /> {title}
+      <p className={cn('px-2 py-1 text-xs font-bold uppercase tracking-wide flex items-center gap-1', colors[color])}>
+        <Icon size={12} /> {title}
       </p>
       {children}
     </div>
@@ -215,12 +215,12 @@ function PatientRow({
     >
       <div className="min-w-0 flex-1">
         <p className="font-semibold truncate">{c.patient.fullName}</p>
-        <p className={cn('text-[10px] truncate', active ? 'text-white/80' : 'text-slate-500')}>
+        <p className={cn('text-xs truncate', active ? 'text-white/80' : 'text-slate-500')}>
           {c.mtDoctor?.fullName || 'Shifokor kutilmoqda'}
         </p>
       </div>
-      {!active && <span className={cn('status-badge !text-[9px] shrink-0', st.className)}>{st.label}</span>}
-      {active && <span className="text-[10px] opacity-80 shrink-0">Tanlangan</span>}
+      {!active && <span className={cn('status-badge shrink-0', st.className)}>{st.label}</span>}
+      {active && <span className="text-xs opacity-80 shrink-0">Tanlangan</span>}
     </button>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { User, Building2, Video, Wifi } from 'lucide-react';
-import { MediaDevicePanel } from '@/components/video/MediaDevicePanel';
+import { MediaDevicePanel, MediaCameraPreview } from '@/components/video/MediaDevicePanel';
 import { clearIceCache } from '@/lib/video-config';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -49,43 +49,49 @@ export function SettingsContent({ user, videoRole, compact, className }: Setting
   if (compact) {
     return (
       <div className={cn('ut-settings-grid', className)}>
-        <div className="ut-settings-panel">
-          <div className="panel-header !py-2 !px-3">
-            <User size={15} className="text-brand-600" />
-            <span className="panel-title !text-xs">Profil</span>
-          </div>
-          <div className="panel-body !p-3 grid grid-cols-2 gap-x-2 gap-y-0 text-xs">
-            <InfoRow label="Ism" value={user.fullName} compact />
-            <InfoRow label="Email" value={user.email} compact />
-            <InfoRow label="Rol" value={user.role} compact />
-            <InfoRow label="Muassasa" value={user.facility?.name || '—'} icon={Building2} compact />
-          </div>
-        </div>
-
-        <div id="video-audio" className="ut-settings-panel scroll-mt-4">
+        <div id="video-audio" className="ut-settings-panel scroll-mt-4 min-w-0">
           <div className="panel-header !py-2 !px-3 bg-gradient-to-r from-violet-50/50 to-transparent">
             <Video size={15} className="text-violet-600" />
-            <span className="panel-title !text-xs">Video va ovoz</span>
+            <span className="panel-title">Video va ovoz</span>
           </div>
-          <div className="ut-settings-panel-body !p-2.5">
-            <p className="text-[10px] text-slate-500 mb-2 leading-snug">
+          <div className="ut-settings-panel-body !p-2.5 overflow-y-auto">
+            <p className="text-xs text-slate-500 mb-2 leading-snug">
               Kamera, mikrofon va video sifatini konsultatsiyadan oldin sozlang.
             </p>
-            <MediaDevicePanel role={videoRole} compact onPrefsChange={() => clearIceCache()} />
+            <MediaDevicePanel role={videoRole} compact showPreview={false} onPrefsChange={() => clearIceCache()} />
             <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 text-[11px] text-slate-600 min-w-0">
+              <div className="flex items-center gap-1.5 text-xs text-slate-600 min-w-0">
                 <Wifi size={14} className="shrink-0" />
                 <span className="truncate">TURN / WebRTC tekshiruvi</span>
               </div>
-              <button type="button" onClick={checkTurn} className="btn-secondary !py-1 !px-2 !text-[10px] shrink-0">
+              <button type="button" onClick={checkTurn} className="btn-secondary !py-1 !px-2 !text-xs shrink-0">
                 Tekshirish
               </button>
             </div>
             {turnStatus && (
-              <p className={cn('text-[11px] mt-1.5 font-medium', turnStatus.includes('✓') ? 'text-emerald-600' : 'text-amber-600')}>
+              <p className={cn('text-xs mt-1.5 font-medium', turnStatus.includes('✓') ? 'text-emerald-600' : 'text-amber-600')}>
                 {turnStatus}
               </p>
             )}
+          </div>
+        </div>
+
+        <div className="ut-settings-panel ut-settings-profile">
+          <div className="panel-header !py-2 !px-3">
+            <User size={15} className="text-brand-600" />
+            <span className="panel-title">Profil</span>
+          </div>
+          <div className="panel-body !p-3 flex flex-col gap-3 min-h-0 overflow-y-auto text-sm">
+            <div className="space-y-2">
+              <InfoRow label="Ism" value={user.fullName} compact />
+              <InfoRow label="Email" value={user.email} compact />
+              <InfoRow label="Rol" value={user.role} compact />
+              <InfoRow label="Muassasa" value={user.facility?.name || '—'} icon={Building2} compact />
+            </div>
+            <div className="mt-auto pt-1">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Kamera tekshiruvi</p>
+              <MediaCameraPreview role={videoRole} compact variant="card" />
+            </div>
           </div>
         </div>
       </div>
@@ -151,11 +157,11 @@ function InfoRow({
   if (compact) {
     return (
       <div className="flex flex-col gap-0.5 min-w-0 border-b border-slate-50 last:border-0 py-1">
-        <span className="text-slate-500 flex items-center gap-1 text-[10px]">
-          {Icon && <Icon size={10} />}
+        <span className="text-slate-500 flex items-center gap-1 text-xs">
+          {Icon && <Icon size={12} />}
           {label}
         </span>
-        <span className="font-medium text-slate-800 truncate text-[11px]">
+        <span className="font-medium text-slate-800 truncate text-sm">
           {value || '—'}
         </span>
       </div>

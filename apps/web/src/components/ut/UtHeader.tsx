@@ -29,7 +29,7 @@ function PageBar({
           <h1 className="text-sm font-bold text-slate-900 tracking-tight truncate">{pageTitle}</h1>
         )}
         {pageSubtitle && (
-          <p className="text-[11px] text-slate-500 truncate hidden sm:block">{pageSubtitle}</p>
+          <p className="text-xs text-slate-500 truncate hidden sm:block">{pageSubtitle}</p>
         )}
       </div>
       {pageAction && <div className="shrink-0">{pageAction}</div>}
@@ -37,7 +37,7 @@ function PageBar({
   );
 }
 
-/** Flux — bitta qator: logo | icon nav markazda | actions */
+/** Flux — brand + actions yuqorida, to'liq kenglik nav pastda */
 export function UtHeader({
   facilityName,
   sessionCount,
@@ -51,31 +51,26 @@ export function UtHeader({
   return (
     <header className="ut-shell-header ut-header-flux">
       <div className="ut-header-flux-row">
-        <div className="ut-shell-brand shrink-0">
-          <div className="w-8 h-8 rounded-lg gradient-btn flex items-center justify-center shadow-sm">
+        <div className="ut-shell-brand shrink-0 min-w-0">
+          <div className="w-8 h-8 rounded-lg gradient-btn flex items-center justify-center shadow-sm shrink-0">
             <Stethoscope className="w-3.5 h-3.5 text-white" />
           </div>
-          <div className="min-w-0 hidden sm:block">
-            <p className="text-xs font-bold text-slate-900 truncate max-w-[120px] md:max-w-[180px] lg:max-w-[240px]">
+          <div className="min-w-0 hidden md:block">
+            <p className="text-xs font-bold text-slate-900 truncate max-w-[120px] lg:max-w-[200px]">
               {facilityName || 'UT operator'}
             </p>
-            <p className="text-[10px] text-slate-500 truncate hidden md:block">Masofaviy qabul</p>
+            <p className="text-xs text-slate-500 truncate">Masofaviy qabul</p>
           </div>
         </div>
 
-        <div className="flex-1 flex justify-center min-w-0 px-1 overflow-x-auto ut-nav-scroll">
-          <UtNavTabs sessionCount={sessionCount} liveCount={liveCount} mode="icons" className="flex-nowrap shrink-0" />
-        </div>
-
-        <div className="ut-shell-actions">
+        <div className="ut-shell-actions ml-auto">
           {headerExtra}
           <Link
             href="/ut"
-            className="gradient-btn !py-1.5 !px-2.5 !text-[11px] inline-flex items-center gap-1 shadow-sm"
+            className="gradient-btn !py-1.5 !px-2.5 !text-xs inline-flex items-center gap-1 shadow-sm"
           >
             <UserPlus size={13} />
-            <span className="hidden sm:inline">Yangi bemor</span>
-            <span className="sm:hidden">Yangi</span>
+            <span className="hidden sm:inline">Yangi</span>
           </Link>
           <button
             type="button"
@@ -87,6 +82,11 @@ export function UtHeader({
           </button>
         </div>
       </div>
+
+      <div className="ut-shell-nav-wrap">
+        <UtNavTabs sessionCount={sessionCount} liveCount={liveCount} stretch mode="pill" />
+      </div>
+
       <PageBar pageTitle={pageTitle} pageSubtitle={pageSubtitle} pageAction={pageAction} />
     </header>
   );

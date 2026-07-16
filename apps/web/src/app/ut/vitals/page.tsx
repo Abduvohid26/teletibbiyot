@@ -65,7 +65,7 @@ export default function UtVitalsPage() {
         consultation ? (
           <span
             className={cn(
-              'text-[10px] font-bold px-2 py-0.5 rounded-full uppercase',
+              'text-xs font-bold px-2 py-0.5 rounded-full uppercase',
               consultation.status === 'IN_PROGRESS'
                 ? 'bg-emerald-100/90 text-emerald-700 ring-1 ring-emerald-200/60'
                 : 'bg-amber-100/90 text-amber-800 ring-1 ring-amber-200/60',
@@ -88,7 +88,7 @@ export default function UtVitalsPage() {
     >
       <div className="ut-page">
         {error && (
-          <div className="shrink-0 mb-2 ut-glass-banner border-red-200/70 bg-red-50/75 text-red-700 text-[11px] px-3 py-1.5">
+          <div className="shrink-0 mb-2 ut-glass-banner border-red-200/70 bg-red-50/75 text-red-700 text-xs px-3 py-1.5">
             {error}
           </div>
         )}
@@ -97,14 +97,14 @@ export default function UtVitalsPage() {
           <div className="shrink-0 mb-2 ut-glass-banner-live animate-fade-in">
             <div className="flex items-center gap-2 min-w-0">
               <Radio size={15} className="text-emerald-600 animate-pulse shrink-0" />
-              <p className="text-xs font-semibold text-emerald-900 truncate">
+              <p className="text-sm font-semibold text-emerald-900 truncate">
                 Jonli efir boshlandi{liveBanner.doctorName ? ` — ${liveBanner.doctorName}` : ''}
               </p>
             </div>
             <button
               type="button"
               onClick={() => setLiveBanner(null)}
-              className="text-[10px] text-emerald-700 font-bold px-2 py-0.5 rounded-md bg-emerald-100 shrink-0"
+              className="text-xs text-emerald-700 font-bold px-2 py-0.5 rounded-md bg-emerald-100 shrink-0"
             >
               OK
             </button>
@@ -118,12 +118,12 @@ export default function UtVitalsPage() {
             </div>
             <div>
               <h2 className="font-bold text-slate-800 text-sm mb-1">Faol bemor tanlanmagan</h2>
-              <p className="text-xs text-slate-500 max-w-xs">
+              <p className="text-sm text-slate-500 max-w-xs">
                 Avval bemor qabul qiling yoki ro&apos;yxatdan tanlang
               </p>
             </div>
             <UtQuickNav sessionCount={sessions.length} liveCount={inProgressList.length} />
-            <Link href="/ut" className="gradient-btn !text-xs">Bemor qabul qilish</Link>
+            <Link href="/ut" className="gradient-btn !text-sm">Bemor qabul qilish</Link>
           </div>
         ) : (
           <>
@@ -136,10 +136,10 @@ export default function UtVitalsPage() {
             </div>
 
             <details className="shrink-0 mt-1.5 ut-glass-details group">
-              <summary className="cursor-pointer px-3 py-1.5 text-[11px] font-semibold text-slate-600 hover:bg-white/40 list-none flex items-center gap-2">
-                <FileText size={13} className="text-slate-400" />
+              <summary className="cursor-pointer px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-white/40 list-none flex items-center gap-2">
+                <FileText size={14} className="text-slate-400" />
                 Hujjatlar
-                <span className="ml-auto text-[10px] font-normal text-slate-400 group-open:hidden">Ochish</span>
+                <span className="ml-auto text-xs font-normal text-slate-400 group-open:hidden">Ochish</span>
               </summary>
               <div className="border-t border-slate-100 max-h-28 overflow-hidden">
                 <AttachmentManager

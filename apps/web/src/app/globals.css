@@ -365,6 +365,10 @@ body {
     @apply flex items-center gap-1.5 shrink-0;
   }
 
+  .ut-shell-nav-wrap {
+    @apply px-3 lg:px-4 pb-2 pt-0 border-t border-white/35;
+  }
+
   .ut-shell-pagebar {
     @apply flex items-center justify-between gap-3 px-3 lg:px-4 py-1.5 border-t border-white/40;
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0.2) 100%);
@@ -385,6 +389,16 @@ body {
 
   .ut-shell-main {
     @apply relative z-10 flex-1 min-h-0 overflow-hidden px-3 py-2 lg:px-4 lg:py-2.5;
+    @apply text-sm leading-snug;
+  }
+
+  /* UT — bir xil shrift masshtab (min 12px = text-xs) */
+  .ut-shell .status-badge {
+    @apply !text-xs;
+  }
+
+  .ut-shell .panel-title {
+    @apply text-sm;
   }
 
   .ut-page {
@@ -461,7 +475,11 @@ body {
 
   .ut-settings-grid {
     @apply flex-1 min-h-0 grid gap-2 overflow-hidden;
-    grid-template-columns: minmax(0, 240px) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 280px);
+  }
+
+  .ut-settings-profile {
+    @apply shrink-0;
   }
 
   .ut-settings-panel {
@@ -475,12 +493,16 @@ body {
   @media (max-width: 900px) {
     .ut-settings-grid {
       grid-template-columns: minmax(0, 1fr);
-      grid-template-rows: auto minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr) auto;
+    }
+
+    .ut-settings-profile {
+      max-height: min(420px, 45vh);
     }
   }
 
   .ut-pill {
-    @apply inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full;
+    @apply inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full;
   }
 
   .ut-pill-live {

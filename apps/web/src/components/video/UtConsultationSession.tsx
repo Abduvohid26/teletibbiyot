@@ -11,7 +11,7 @@ interface UtConsultationSessionProps {
   patientName?: string;
 }
 
-/** UT tomonda bitta video hook — 4 kamera + vital + shifokor ko'rinishi */
+/** UT tomonda bitta video hook — 5 kamera sloti (4 UT + shifokor) + vital */
 export function UtConsultationSession({ consultation, patientName }: UtConsultationSessionProps) {
   const video = useVideoRoom({
     consultationId: consultation.id,

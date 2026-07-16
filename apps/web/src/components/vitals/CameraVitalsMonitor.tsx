@@ -153,7 +153,7 @@ export function CameraVitalsMonitor({
           {monitorMode ? 'Patient monitor' : 'Jonli vital'}
         </span>
         <span className={cn(
-          'shrink-0 ml-auto text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide',
+          'shrink-0 ml-auto text-xs font-bold px-2 py-0.5 rounded-full uppercase tracking-wide',
           connected ? 'live-badge !py-0.5' : 'bg-slate-100 text-slate-400',
         )}>
           {connected ? (
@@ -173,15 +173,24 @@ export function CameraVitalsMonitor({
           </div>
         )}
 
-        {sharedVideoStream ? (
+        {monitorMode || sharedVideoStream ? (
           <>
-            <div className="relative aspect-video bg-slate-950 rounded-lg overflow-hidden ring-1 ring-slate-800 max-h-36 shrink-0">
+            <div className="relative aspect-video bg-slate-950 rounded-lg overflow-hidden ring-1 ring-slate-800 max-h-32 shrink-0">
               <video ref={videoRef} muted playsInline className="w-full h-full object-cover" />
-              <span className="absolute top-1.5 left-1.5 bg-black/60 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded">
-                {monitorMode ? 'Monitor kamerasi' : 'Kamera'}
+              <span className="absolute top-1.5 left-1.5 min-w-[18px] h-[18px] px-1 rounded-md bg-black/70 text-white text-[10px] font-bold flex items-center justify-center">
+                4
               </span>
+              <span className="absolute top-1.5 right-1.5 bg-black/60 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded">
+                {monitorMode ? 'Monitor' : 'Kamera'}
+              </span>
+              {!sharedVideoStream && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-slate-900/85 pointer-events-none">
+                  <VideoOff size={16} className="text-slate-500" />
+                  <span className="text-xs text-slate-500">Kamera 4 — kutilmoqda</span>
+                </div>
+              )}
             </div>
-            <p className="text-[10px] text-slate-600 bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 leading-relaxed">
+            <p className="text-xs text-slate-600 bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 leading-relaxed">
               {monitorMode ? (
                 <>
                   Vital ko&apos;rsatkichlar <strong className="text-slate-800">patient monitor</strong> ekranidan kamerada ko&apos;rinadi.
@@ -197,11 +206,11 @@ export function CameraVitalsMonitor({
               )}
             </p>
           </>
-        ) : compact ? (
-          <p className="text-[10px] text-brand-800 bg-brand-50 border border-brand-100 rounded-lg px-2.5 py-2 leading-relaxed">
+        ) : compact && !monitorMode ? (
+          <p className="text-xs text-brand-800 bg-brand-50 border border-brand-100 rounded-lg px-2.5 py-2 leading-relaxed">
             Kamerani o&apos;ngdagi <strong>Video uzatish</strong> panelidagi kamera tugmasi orqali yoqing — vital avtomatik olinadi.
           </p>
-        ) : (
+        ) : compact ? null : (
           <>
             {!compact && patientName && (
               <p className="text-sm text-slate-600">
@@ -255,7 +264,7 @@ export function CameraVitalsMonitor({
         </div>
 
         {monitorMode && (
-          <p className="text-[9px] text-slate-400 text-center leading-snug">
+          <p className="text-xs text-slate-400 text-center leading-snug">
             Puls, bosim, harorat — monitor ekranida. Avtomatik o&apos;qish keyingi bosqichda qo&apos;shiladi.
           </p>
         )}
@@ -278,7 +287,7 @@ export function CameraVitalsMonitor({
 function VitalInput({ label, value, onChange, step = 1, compact, placeholder = '—' }: { label: string; value?: number; onChange: (v: number | undefined) => void; step?: number; compact?: boolean; placeholder?: string }) {
   return (
     <div className="rounded-lg border border-slate-100 bg-slate-50/80 px-2 py-1.5">
-      <label className={cn('text-slate-500 font-medium block', compact ? 'text-[9px]' : 'text-[10px]')}>{label}</label>
+      <label className={cn('text-slate-500 font-medium block', compact ? 'text-xs' : 'text-xs')}>{label}</label>
       <input type="number" step={step} className={cn('form-input w-full !bg-white !border-slate-200 mt-0.5 placeholder:text-slate-400', compact ? '!py-1 !text-sm !font-semibold' : '!py-1.5 !text-sm')} value={value ?? ''} onChange={(e) => onChange(e.target.value ? Number(e.target.value) : undefined)} placeholder={placeholder} />
     </div>
   );
@@ -288,13 +297,13 @@ function LiveStat({ icon: Icon, label, value, unit, color, live, compact }: { ic
   return (
     <div className="text-center py-0.5">
       <Icon size={compact ? 14 : 16} className={cn('mx-auto mb-0.5', color)} />
-      <p className={cn('text-slate-400 uppercase tracking-wide', compact ? 'text-[8px]' : 'text-[9px]')}>{label}</p>
+      <p className={cn('text-slate-400 uppercase tracking-wide', compact ? 'text-xs' : 'text-xs')}>{label}</p>
       <p className={cn('font-bold leading-tight', compact ? 'text-xl' : 'text-2xl')}>
         {value ?? '—'}
-        {value != null && <span className="text-[10px] font-normal text-slate-400 ml-0.5">{unit}</span>}
+        {value != null && <span className="text-xs font-normal text-slate-400 ml-0.5">{unit}</span>}
       </p>
       {live && (
-        <span className="inline-flex items-center gap-0.5 text-[8px] font-bold text-emerald-400 mt-0.5">
+        <span className="inline-flex items-center gap-0.5 text-xs font-bold text-emerald-400 mt-0.5">
           <span className="w-1 h-1 bg-emerald-400 rounded-full animate-pulse" />
           JONLI
         </span>

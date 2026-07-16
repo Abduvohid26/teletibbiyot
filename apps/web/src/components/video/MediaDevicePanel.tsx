@@ -17,29 +17,14 @@ import Link from 'next/link';
 interface MediaDevicePanelProps {
   role?: 'mt' | 'ut';
   compact?: boolean;
+  showPreview?: boolean;
   onPrefsChange?: (prefs: MediaPreferences) => void;
 }
 
-export function MediaDevicePanel({ role = 'mt', compact, onPrefsChange }: MediaDevicePanelProps) {
-  const {
-    videoInputs,
-    audioInputs,
-    permissionGranted,
-    error,
-    requestPermission,
-    refresh,
-  } = useMediaDevices();
-
-  const [prefs, setPrefs] = useState<MediaPreferences>(() => loadMediaPreferences());
+export function useMediaCameraPreview(role: 'mt' | 'ut' = 'mt') {
   const [testStream, setTestStream] = useState<MediaStream | null>(null);
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'ok' | 'fail'>('idle');
   const videoRef = useRef<HTMLVideoElement>(null);
-
-  const updatePrefs = (patch: Partial<MediaPreferences>) => {
-    const next = saveMediaPreferences(patch);
-    setPrefs(next);
-    onPrefsChange?.(next);
-  };
 
   useEffect(() => {
     const video = videoRef.current;
@@ -57,6 +42,7 @@ export function MediaDevicePanel({ role = 'mt', compact, onPrefsChange }: MediaD
     setTestStatus('testing');
     testStream?.getTracks().forEach((t) => t.stop());
     try {
+      const prefs = loadMediaPreferences();
       const profile = QUALITY_PROFILES[prefs.qualityPreset];
       const stream = await acquireUserMedia(
         { video: getVideoConstraints(prefs, prefs.videoDeviceId || undefined), audio: getAudioConstraints(prefs) },
@@ -67,6 +53,86 @@ export function MediaDevicePanel({ role = 'mt', compact, onPrefsChange }: MediaD
     } catch {
       setTestStatus('fail');
     }
+  };
+
+  const stopTest = () => {
+    testStream?.getTracks().forEach((t) => t.stop());
+    setTestStream(null);
+    setTestStatus('idle');
+  };
+
+  return { videoRef, testStream, testStatus, runTest, stopTest };
+}
+
+interface MediaCameraPreviewProps {
+  role?: 'mt' | 'ut';
+  compact?: boolean;
+  /** Profil kartasida — to'g'ri nisbat */
+  variant?: 'bar' | 'card';
+  className?: string;
+}
+
+export function MediaCameraPreview({
+  role = 'mt',
+  compact,
+  variant = 'bar',
+  className,
+}: MediaCameraPreviewProps) {
+  const { refresh } = useMediaDevices();
+  const { videoRef, testStream, testStatus, runTest } = useMediaCameraPreview(role);
+  const isCard = variant === 'card';
+
+  return (
+    <div className={cn('rounded-xl border border-slate-200 overflow-hidden bg-slate-950', className)}>
+      <div
+        className={cn(
+          'relative w-full',
+          isCard ? 'aspect-video max-h-40' : compact ? 'aspect-video max-h-36' : 'aspect-video max-h-48',
+        )}
+      >
+        <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover mirror" />
+        {!testStream && (
+          <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-xs text-center px-3">
+            Kamera ko&apos;rinishi — &quot;Tekshirish&quot; ni bosing
+          </div>
+        )}
+      </div>
+      <div className={cn('flex items-center justify-between gap-2 bg-slate-50 border-t border-slate-200', compact || isCard ? 'p-2' : 'p-3')}>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={runTest} className={cn('btn-primary', compact || isCard ? '!py-1 !px-2 !text-xs' : '!py-1.5 !text-xs')}>
+            Tekshirish
+          </button>
+          <button type="button" onClick={() => refresh(true)} className={cn('btn-secondary', compact || isCard ? '!py-1 !px-2 !text-xs' : '!py-1.5 !text-xs')}>
+            <RefreshCw size={12} /> Yangilash
+          </button>
+        </div>
+        {testStatus === 'ok' && (
+          <span className="flex items-center gap-1 text-emerald-600 font-medium text-xs">
+            <CheckCircle2 size={12} /> Tayyor
+          </span>
+        )}
+        {testStatus === 'fail' && (
+          <span className="text-red-600 font-medium text-xs">Xatolik</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function MediaDevicePanel({ role = 'mt', compact, showPreview = true, onPrefsChange }: MediaDevicePanelProps) {
+  const [prefs, setPrefs] = useState<MediaPreferences>(() => loadMediaPreferences());
+  const {
+    videoInputs,
+    audioInputs,
+    permissionGranted,
+    error,
+    requestPermission,
+  } = useMediaDevices();
+
+  const updatePrefs = (patch: Partial<MediaPreferences>) => {
+    const next = saveMediaPreferences(patch);
+    setPrefs(next);
+    onPrefsChange?.(next);
   };
 
   return (
@@ -103,8 +169,8 @@ export function MediaDevicePanel({ role = 'mt', compact, onPrefsChange }: MediaD
                   : 'border-slate-200 hover:border-slate-300 bg-white',
               )}
             >
-              <p className={cn('font-semibold text-slate-800', compact ? 'text-[11px]' : 'text-sm')}>{QUALITY_PROFILES[key].label}</p>
-              <p className={cn('text-slate-500 mt-0.5', compact ? 'text-[9px] leading-tight' : 'text-[11px]')}>{QUALITY_PROFILES[key].description}</p>
+              <p className={cn('font-semibold text-slate-800', compact ? 'text-xs' : 'text-sm')}>{QUALITY_PROFILES[key].label}</p>
+              <p className={cn('text-slate-500 mt-0.5', compact ? 'text-xs leading-tight' : 'text-xs')}>{QUALITY_PROFILES[key].description}</p>
             </button>
           ))}
         </div>
@@ -133,10 +199,10 @@ export function MediaDevicePanel({ role = 'mt', compact, onPrefsChange }: MediaD
 
       {role === 'ut' && (
         <div className={cn(compact ? 'space-y-1.5' : 'space-y-2')}>
-          <p className={cn('font-semibold text-slate-500 uppercase tracking-wide', compact ? 'text-[10px]' : 'text-xs')}>
+          <p className={cn('font-semibold text-slate-500 uppercase tracking-wide', compact ? 'text-xs' : 'text-xs')}>
             UT kameralar biriktirish
           </p>
-          <p className="text-[11px] text-slate-500 leading-relaxed">
+          <p className="text-xs text-slate-500 leading-relaxed">
             &quot;Bemor yaqindan&quot; — bemor ko&apos;rinishi. &quot;Qurilmalar&quot; — patient monitor ekrani uchun kamera.
           </p>
           <div className={cn('grid gap-2', compact ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2')}>
@@ -165,34 +231,7 @@ export function MediaDevicePanel({ role = 'mt', compact, onPrefsChange }: MediaD
         <Toggle label="Konsultatsiya oldidan tekshiruv" checked={prefs.preflightEnabled} onChange={(v) => updatePrefs({ preflightEnabled: v })} compact={compact} />
       </div>
 
-      <div className="rounded-xl border border-slate-200 overflow-hidden bg-slate-950">
-        <div className={cn('relative w-full', compact ? 'h-24' : 'aspect-video max-h-48')}>
-          <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover mirror" />
-          {!testStream && (
-            <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-xs">
-              Kamera ko&apos;rinishi — &quot;Tekshirish&quot; ni bosing
-            </div>
-          )}
-        </div>
-        <div className={cn('flex items-center justify-between gap-2 bg-slate-50 border-t border-slate-200', compact ? 'p-2' : 'p-3')}>
-          <div className="flex items-center gap-2">
-            <button type="button" onClick={runTest} className={cn('btn-primary', compact ? '!py-1 !px-2 !text-[10px]' : '!py-1.5 !text-xs')}>
-              Tekshirish
-            </button>
-            <button type="button" onClick={() => refresh(true)} className={cn('btn-secondary', compact ? '!py-1 !px-2 !text-[10px]' : '!py-1.5 !text-xs')}>
-              <RefreshCw size={compact ? 10 : 12} /> Yangilash
-            </button>
-          </div>
-          {testStatus === 'ok' && (
-            <span className={cn('flex items-center gap-1 text-emerald-600 font-medium', compact ? 'text-[10px]' : 'text-xs')}>
-              <CheckCircle2 size={compact ? 12 : 14} /> Tayyor
-            </span>
-          )}
-          {testStatus === 'fail' && (
-            <span className={cn('text-red-600 font-medium', compact ? 'text-[10px]' : 'text-xs')}>Xatolik — qurilmani tekshiring</span>
-          )}
-        </div>
-      </div>
+      {showPreview && <MediaCameraPreview role={role} compact={compact} />}
     </div>
   );
 }
@@ -214,11 +253,11 @@ function DeviceSelect({
 }) {
   return (
     <div className="min-w-0">
-      <label className={cn('flex items-center gap-1.5 font-medium text-slate-600 mb-0.5 truncate', compact ? 'text-[10px]' : 'text-xs mb-1')}>
-        <Icon size={compact ? 10 : 12} className="shrink-0" /> {label}
+      <label className={cn('flex items-center gap-1.5 font-medium text-slate-600 mb-0.5 truncate', compact ? 'text-xs mb-1' : 'text-xs mb-1')}>
+        <Icon size={compact ? 12 : 12} className="shrink-0" /> {label}
       </label>
       <select
-        className={cn('input w-full', compact ? '!py-1.5 !px-2 !text-[11px]' : '!py-2 !text-sm')}
+        className={cn('input w-full', compact ? '!py-1.5 !px-2 !text-sm' : '!py-2 !text-sm')}
         value={value}
         onChange={(e) => onChange(e.target.value)}
       >
@@ -243,7 +282,7 @@ function Toggle({
   compact?: boolean;
 }) {
   return (
-    <label className={cn('flex items-center gap-1.5 cursor-pointer select-none min-w-0', compact && 'text-[10px]')}>
+    <label className={cn('flex items-center gap-1.5 cursor-pointer select-none min-w-0 text-sm', compact && 'text-xs')}>
       <input
         type="checkbox"
         checked={checked}

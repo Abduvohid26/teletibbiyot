@@ -495,11 +495,11 @@ export default function UTClientPage() {
               <UtIntakeSubCard title="Diagnostika" icon={ScanLine} accent="teal" className="min-h-0 flex flex-col">
                 <label className="flex-1 border border-dashed border-slate-200 rounded-lg p-1.5 text-center text-slate-400 hover:border-teal-300 cursor-pointer flex flex-col items-center justify-center gap-0.5 min-h-[4.75rem]">
                   <Upload className="w-4 h-4 text-slate-300" />
-                  <span className="text-[12px] leading-tight">Fayl yuklash</span>
+                  <span className="text-sm leading-tight">Fayl yuklash</span>
                   <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.bmp,.tiff,.tif,.heic,.dcm,.dicom,image/*,application/pdf" className="hidden" onChange={handleFileSelect} />
                 </label>
                 {files.length > 0 && (
-                  <p className="text-[12px] text-teal-700 mt-0.5 truncate">{files.length} ta fayl tanlandi</p>
+                  <p className="text-sm text-teal-700 mt-0.5 truncate">{files.length} ta fayl tanlandi</p>
                 )}
               </UtIntakeSubCard>
 
@@ -519,10 +519,10 @@ export default function UTClientPage() {
 
           <div className="ut-intake-footer">
             <div className="ut-intake-footer-inner">
-            <p className="text-[11px] font-bold text-slate-500 uppercase shrink-0 hidden sm:block">Protokol</p>
+            <p className="text-xs font-bold text-slate-500 uppercase shrink-0 hidden sm:block">Protokol</p>
             <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-x-1.5 gap-y-0 min-w-0">
               {checklist.map((item) => (
-                <label key={item.id} className="flex items-center gap-1 text-[11px] text-slate-600 min-w-0">
+                <label key={item.id} className="flex items-center gap-1 text-xs text-slate-600 min-w-0">
                   <input
                     type="checkbox"
                     checked={item.checked}
@@ -544,7 +544,7 @@ export default function UTClientPage() {
                 onChange={(e) => setConsentAccepted(e.target.checked)}
                 className="rounded border-slate-300 text-brand-600 scale-90"
               />
-              <span className="text-[12px] text-slate-600 whitespace-nowrap">Rozilik</span>
+              <span className="text-sm text-slate-600 whitespace-nowrap">Rozilik</span>
             </label>
             <button
               type="button"
