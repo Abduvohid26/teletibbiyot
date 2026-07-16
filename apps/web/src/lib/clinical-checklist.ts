@@ -21,7 +21,6 @@ export function autoCheckFromForm(
     height?: string;
     allergies: string;
     hasAttachments: boolean;
-    pinfl?: string;
     passport?: string;
   },
 ): ChecklistItem[] {
@@ -30,7 +29,7 @@ export function autoCheckFromForm(
       case 'consent':
         return { ...item, checked: data.consent };
       case 'identity':
-        return { ...item, checked: !!(data.pinfl?.trim() || data.passport?.trim()) };
+        return { ...item, checked: !!data.passport?.trim() };
       case 'complaints':
         return { ...item, checked: !!data.complaints.trim() };
       case 'vitals':

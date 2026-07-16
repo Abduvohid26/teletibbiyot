@@ -93,7 +93,7 @@ export enum AiAnalysisStepStatus {
 /** UT klinik protokol checklist */
 export const CLINICAL_CHECKLIST_ITEMS = [
   { id: 'consent', label: 'Bemor roziligi olingan', required: true },
-  { id: 'identity', label: 'Shaxs tasdiqlangan (passport/JSHSHIR)', required: true },
+  { id: 'identity', label: 'Shaxs tasdiqlangan (passport)', required: true },
   { id: 'complaints', label: 'Asosiy shikoyatlar yozilgan', required: true },
   { id: 'vitals', label: 'Vital ko\'rsatkichlar o\'lchangan', required: true },
   { id: 'allergies', label: 'Allergiyalar so\'ralgan', required: true },

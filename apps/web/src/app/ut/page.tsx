@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState, isValidElement, cloneElement } from 'react';
+import { useEffect, useMemo, useState, isValidElement, cloneElement } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Stethoscope, Send, CheckCircle2, Upload, Activity,
-  User, HeartPulse, FlaskConical, ScanLine, FileText,
+  User, HeartPulse, ScanLine, FileText,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
@@ -28,8 +28,9 @@ import { useConsultationRealtime } from '@/hooks/use-consultation-realtime';
 import { toast } from '@/lib/toast';
 import { isUtRole, type ChecklistItem } from '@ishifo/shared';
 import { getRoleHomePath } from '@/lib/auth-utils';
-import { validatePinfl, normalizePinfl } from '@/lib/pinfl';
 import { isValidUzPhone, normalizeUzPhone } from '@/lib/phone';
+import { UZ_REGION_NAMES, getDistrictsForRegion } from '@/lib/uz-locations';
+import { SearchableSelect } from '@/components/ut/SearchableSelect';
 
 const IN = 'input ut-glass-input !py-2 !px-3 !text-sm !min-h-[2.5rem] leading-snug placeholder:text-slate-400 placeholder:font-normal';
 const TA = 'input ut-glass-input !py-2 !px-3 !text-sm !min-h-0 !h-[2.875rem] resize-none leading-snug placeholder:text-slate-400 placeholder:font-normal';
@@ -39,14 +40,12 @@ function emptyPatientData() {
   return {
     fullName: '',
     passportNumber: '',
-    pinfl: '',
     birthDate: '',
     gender: 'MALE',
     region: '',
     district: '',
     address: '',
     phone: '',
-    emergencyContact: '',
   };
 }
 
@@ -54,14 +53,12 @@ function emptyClinicalData() {
   return {
     complaints: '',
     anamnesisMorbi: '',
-    anamnesisVitae: '',
     medications: '',
     allergies: '',
     weight: '',
     height: '',
     familyHistory: '',
     socialHistory: '',
-    labResults: '',
   };
 }
 
@@ -124,17 +121,7 @@ export default function UTClientPage() {
     flushOfflineQueue(async (payload) => {
       const p = payload as OfflineConsultationPayload;
       const patientPayload = p.patient as Parameters<typeof api.createPatient>[0];
-      let patient;
-      if (patientPayload.pinfl) {
-        try {
-          const existing = await api.findPatientByPinfl(patientPayload.pinfl);
-          patient = await api.updatePatient(existing.id, patientPayload);
-        } catch {
-          patient = await api.createPatient(patientPayload);
-        }
-      } else {
-        patient = await api.createPatient(patientPayload);
-      }
+      const patient = await api.createPatient(patientPayload);
       const consultation = await api.createConsultation({
         ...(p.consultation as Parameters<typeof api.createConsultation>[0]),
         patientId: patient.id,
@@ -154,6 +141,11 @@ export default function UTClientPage() {
       if (r.failed > 0) toast(`${r.failed} ta offline ma'lumot sinxronlanmadi`, 'error');
     });
   }, []);
+
+  const districtOptions = useMemo(
+    () => getDistrictsForRegion(patientData.region),
+    [patientData.region],
+  );
 
   useConsultationRealtime(
     createdConsultationId ? [createdConsultationId] : [],
@@ -179,13 +171,8 @@ export default function UTClientPage() {
     if (!isValidUzPhone(patientData.phone)) {
       return 'Telefon: +998 XX XXX XX XX yoki 9 ta raqam kiriting';
     }
-    if (patientData.pinfl) {
-      const pinflCheck = validatePinfl(patientData.pinfl);
-      if (!pinflCheck.valid) return pinflCheck.error ?? 'PINFL noto\'g\'ri';
-    }
     if (!clinicalData.complaints.trim()) return 'Shikoyatlar kiritilishi shart';
     if (!clinicalData.anamnesisMorbi.trim()) return 'Anamnesis morbi kiritilishi shart';
-    if (!clinicalData.anamnesisVitae.trim()) return 'Anamnesis vitae kiritilishi shart';
     return null;
   };
 
@@ -221,7 +208,6 @@ export default function UTClientPage() {
       height: clinicalData.height,
       allergies: clinicalData.allergies,
       hasAttachments: files.length > 0,
-      pinfl: patientData.pinfl,
       passport: patientData.passportNumber,
     });
     setChecklist(updatedChecklist);
@@ -240,9 +226,7 @@ export default function UTClientPage() {
       district: patientData.district.trim(),
       phone: normalizeUzPhone(patientData.phone.trim()),
       ...(patientData.passportNumber.trim() && { passportNumber: patientData.passportNumber.trim() }),
-      ...(patientData.pinfl.trim() && { pinfl: normalizePinfl(patientData.pinfl.trim()) }),
       ...(patientData.address.trim() && { address: patientData.address.trim() }),
-      ...(patientData.emergencyContact.trim() && { emergencyContact: patientData.emergencyContact.trim() }),
     };
     const consultationPayload = {
       patientId: '',
@@ -253,14 +237,13 @@ export default function UTClientPage() {
       clinicalRecord: {
         complaints: clinicalData.complaints,
         anamnesisMorbi: clinicalData.anamnesisMorbi,
-        anamnesisVitae: clinicalData.anamnesisVitae,
+        anamnesisVitae: '',
         medications: clinicalData.medications || undefined,
         allergies: clinicalData.allergies || undefined,
         weight: clinicalData.weight ? parseFloat(clinicalData.weight) : undefined,
         height: clinicalData.height ? parseFloat(clinicalData.height) : undefined,
         familyHistory: clinicalData.familyHistory || undefined,
         socialHistory: clinicalData.socialHistory || undefined,
-        labResults: clinicalData.labResults || undefined,
         vitalSigns: {
           heartRate: vitals.heartRate ? parseInt(vitals.heartRate) : undefined,
           bloodPressureSystolic: vitals.bloodPressureSystolic ? parseInt(vitals.bloodPressureSystolic) : undefined,
@@ -292,17 +275,7 @@ export default function UTClientPage() {
         return;
       }
 
-      let patient;
-      if (patientPayload.pinfl) {
-        try {
-          const existing = await api.findPatientByPinfl(patientPayload.pinfl);
-          patient = await api.updatePatient(existing.id, patientPayload);
-        } catch {
-          patient = await api.createPatient(patientPayload);
-        }
-      } else {
-        patient = await api.createPatient(patientPayload);
-      }
+      const patient = await api.createPatient(patientPayload);
       const consultation = await api.createConsultation({ ...consultationPayload, patientId: patient.id });
 
       for (const file of files) {
@@ -401,17 +374,6 @@ export default function UTClientPage() {
               <FormField label="Passport" dense>
                 <input className={IN} value={patientData.passportNumber} onChange={(e) => setPatientData({ ...patientData, passportNumber: e.target.value })} placeholder="AA 1234567" />
               </FormField>
-              <FormField label="PINFL" dense>
-                <input
-                  className={IN}
-                  value={patientData.pinfl}
-                  onChange={(e) => setPatientData({ ...patientData, pinfl: e.target.value })}
-                  onBlur={(e) => setPatientData((p) => ({ ...p, pinfl: normalizePinfl(e.target.value) }))}
-                  placeholder="3030 1010 1000 05"
-                  inputMode="numeric"
-                  maxLength={17}
-                />
-              </FormField>
               <FormField label="Tug'ilgan sana" required dense>
                 <input type="date" className={IN} value={patientData.birthDate} onChange={(e) => setPatientData({ ...patientData, birthDate: e.target.value })} />
               </FormField>
@@ -422,10 +384,23 @@ export default function UTClientPage() {
                 </select>
               </FormField>
               <FormField label="Viloyat" required dense>
-                <input className={IN} value={patientData.region} onChange={(e) => setPatientData({ ...patientData, region: e.target.value })} placeholder="Toshkent viloyati" />
+                <SearchableSelect
+                  className={IN}
+                  value={patientData.region}
+                  options={UZ_REGION_NAMES}
+                  placeholder="Masalan: far → Farg'ona"
+                  onChange={(region) => setPatientData({ ...patientData, region, district: '' })}
+                />
               </FormField>
               <FormField label="Tuman" required dense>
-                <input className={IN} value={patientData.district} onChange={(e) => setPatientData({ ...patientData, district: e.target.value })} placeholder="Chilonzor tumani" />
+                <SearchableSelect
+                  className={IN}
+                  value={patientData.district}
+                  options={districtOptions}
+                  placeholder={patientData.region ? 'Tuman tanlang' : 'Avval viloyat tanlang'}
+                  disabled={!patientData.region}
+                  onChange={(district) => setPatientData({ ...patientData, district })}
+                />
               </FormField>
               <FormField label="Telefon" required dense>
                 <input
@@ -440,9 +415,6 @@ export default function UTClientPage() {
                   }}
                   placeholder="+998 90 123 45 67"
                 />
-              </FormField>
-              <FormField label="Favq. aloqa" dense>
-                <input className={IN} value={patientData.emergencyContact} onChange={(e) => setPatientData({ ...patientData, emergencyContact: e.target.value })} placeholder="+998 90 000 00 00" />
               </FormField>
               <div className="col-span-2">
                 <FormField label="Manzil" dense>
@@ -467,9 +439,6 @@ export default function UTClientPage() {
               </div>
               <FormField label="Anamnez morbi" required dense>
                 <textarea className={TA} value={clinicalData.anamnesisMorbi} onChange={(e) => setClinicalData({ ...clinicalData, anamnesisMorbi: e.target.value })} placeholder="Kasallik tarixi..." />
-              </FormField>
-              <FormField label="Anamnez vitae" required dense>
-                <textarea className={TA} value={clinicalData.anamnesisVitae} onChange={(e) => setClinicalData({ ...clinicalData, anamnesisVitae: e.target.value })} placeholder="Hayot tarixi..." />
               </FormField>
               <FormField label="Dorilar" dense>
                 <textarea className={TA_SM} value={clinicalData.medications} onChange={(e) => setClinicalData({ ...clinicalData, medications: e.target.value })} placeholder="Qabul qilinayotgan dorilar" />
@@ -502,7 +471,7 @@ export default function UTClientPage() {
             accent="teal"
             className="ut-intake-tekshiruv"
           >
-            <div className="grid grid-cols-4 gap-1.5 h-full min-h-0">
+            <div className="grid grid-cols-3 gap-1.5 h-full min-h-0">
               <UtIntakeSubCard title="Diagnostika" icon={ScanLine} accent="teal" className="min-h-0 flex flex-col">
                 <label className="flex-1 border border-dashed border-slate-200 rounded-lg p-1.5 text-center text-slate-400 hover:border-teal-300 cursor-pointer flex flex-col items-center justify-center gap-0.5 min-h-[4.75rem]">
                   <Upload className="w-4 h-4 text-slate-300" />
@@ -512,10 +481,6 @@ export default function UTClientPage() {
                 {files.length > 0 && (
                   <p className="text-sm text-teal-700 mt-0.5 truncate">{files.length} ta fayl tanlandi</p>
                 )}
-              </UtIntakeSubCard>
-
-              <UtIntakeSubCard title="Laboratoriya" icon={FlaskConical} accent="green" className="min-h-0">
-                <textarea className={TA} value={clinicalData.labResults} onChange={(e) => setClinicalData({ ...clinicalData, labResults: e.target.value })} placeholder="Glyukoza, Hb..." />
               </UtIntakeSubCard>
 
               <UtIntakeSubCard title="Oilaviy" icon={User} accent="amber" className="min-h-0">
