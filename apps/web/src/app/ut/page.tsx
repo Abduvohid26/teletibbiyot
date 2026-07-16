@@ -10,7 +10,6 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { api } from '@/lib/api';
 import { UT_ACTIVE_CONSULTATION_KEY } from '@/lib/api/constants';
-import { buildDefaultChecklist, autoCheckFromForm } from '@/lib/clinical-checklist';
 import {
   flushOfflineQueue,
   queueOfflineSubmission,
@@ -26,7 +25,7 @@ import { UtPatientSwitcher } from '@/components/ut/UtPatientSwitcher';
 import { useUtSessions } from '@/hooks/use-ut-sessions';
 import { useConsultationRealtime } from '@/hooks/use-consultation-realtime';
 import { toast } from '@/lib/toast';
-import { isUtRole, type ChecklistItem } from '@ishifo/shared';
+import { isUtRole } from '@ishifo/shared';
 import { getRoleHomePath } from '@/lib/auth-utils';
 import { isValidUzPhone, normalizeUzPhone } from '@/lib/phone';
 import { UZ_REGION_NAMES, getDistrictsForRegion } from '@/lib/uz-locations';
@@ -52,7 +51,6 @@ function emptyPatientData() {
 function emptyClinicalData() {
   return {
     complaints: '',
-    anamnesisMorbi: '',
     medications: '',
     allergies: '',
     weight: '',
@@ -92,7 +90,6 @@ export default function UTClientPage() {
   const [files, setFiles] = useState<File[]>([]);
   const [uploadedFileCount, setUploadedFileCount] = useState(0);
   const [consentAccepted, setConsentAccepted] = useState(false);
-  const [checklist, setChecklist] = useState<ChecklistItem[]>(buildDefaultChecklist());
   const [offlineNotice, setOfflineNotice] = useState('');
   const [doctors, setDoctors] = useState<Array<{ id: string; fullName: string; specialty?: string | null; specialtyRef?: { name: string } | null }>>([]);
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
@@ -172,7 +169,6 @@ export default function UTClientPage() {
       return 'Telefon: +998 XX XXX XX XX yoki 9 ta raqam kiriting';
     }
     if (!clinicalData.complaints.trim()) return 'Shikoyatlar kiritilishi shart';
-    if (!clinicalData.anamnesisMorbi.trim()) return 'Anamnesis morbi kiritilishi shart';
     if (!clinicalData.weight.trim()) return 'Vazn kiritilishi shart';
     if (!clinicalData.height.trim()) return 'Bo\'y kiritilishi shart';
     return null;
@@ -184,7 +180,6 @@ export default function UTClientPage() {
     setVitals(emptyVitals());
     setFiles([]);
     setConsentAccepted(false);
-    setChecklist(buildDefaultChecklist());
     setSuccess(false);
     setCreatedConsultationId(null);
     setSelectedDoctorId('');
@@ -201,18 +196,6 @@ export default function UTClientPage() {
       toast('Davom etish uchun ma\'lumotlarni qayta ishlashga rozilik berishingiz kerak', 'error');
       return;
     }
-
-    const updatedChecklist = autoCheckFromForm(checklist, {
-      consent: consentAccepted,
-      complaints: clinicalData.complaints,
-      vitals,
-      weight: clinicalData.weight,
-      height: clinicalData.height,
-      allergies: clinicalData.allergies,
-      hasAttachments: files.length > 0,
-      passport: patientData.passportNumber,
-    }).map((item) => (item.required ? { ...item, checked: true } : item));
-    setChecklist(updatedChecklist);
 
     setSubmitting(true);
     const clientRequestId = crypto.randomUUID();
@@ -231,10 +214,9 @@ export default function UTClientPage() {
       consentGiven: true,
       clientRequestId,
       ...(selectedDoctorId ? { mtDoctorId: selectedDoctorId } : {}),
-      checklistData: updatedChecklist,
       clinicalRecord: {
         complaints: clinicalData.complaints,
-        anamnesisMorbi: clinicalData.anamnesisMorbi,
+        anamnesisMorbi: '',
         anamnesisVitae: '',
         medications: clinicalData.medications || undefined,
         allergies: clinicalData.allergies || undefined,
@@ -338,32 +320,15 @@ export default function UTClientPage() {
       sessionCount={sessions.length}
       liveCount={inProgressList.length}
       headerExtra={
-        <div className="flex items-center gap-2 min-w-0">
-          {sessions.length > 0 && (
-            <UtPatientSwitcher
-              compact
-              activeId={consultation?.id}
-              sessions={sessions}
-              onSelect={switchToConsultation}
-              onCancel={(id) => void cancelSession(id)}
-            />
-          )}
-          <label className="flex items-center gap-1.5 shrink-0">
-            <span className="text-xs text-slate-500 whitespace-nowrap hidden md:inline">Shifokor</span>
-            <select
-              className={`${IN} !w-[9rem] sm:!w-[11rem] !min-h-[2rem] !py-1`}
-              value={selectedDoctorId}
-              onChange={(e) => setSelectedDoctorId(e.target.value)}
-            >
-              <option value="">Navbat (avto)</option>
-              {doctors.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.fullName}{d.specialtyRef?.name || d.specialty ? ` — ${d.specialtyRef?.name || d.specialty}` : ''}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+        sessions.length > 0 ? (
+          <UtPatientSwitcher
+            compact
+            activeId={consultation?.id}
+            sessions={sessions}
+            onSelect={switchToConsultation}
+            onCancel={(id) => void cancelSession(id)}
+          />
+        ) : null
       }
     >
       <div className="ut-page">
@@ -451,9 +416,6 @@ export default function UTClientPage() {
                   <textarea className={TA} value={clinicalData.complaints} onChange={(e) => setClinicalData({ ...clinicalData, complaints: e.target.value })} placeholder="Bemor shikoyatlarini kiriting..." />
                 </FormField>
               </div>
-              <FormField label="Anamnez morbi" required dense>
-                <textarea className={TA} value={clinicalData.anamnesisMorbi} onChange={(e) => setClinicalData({ ...clinicalData, anamnesisMorbi: e.target.value })} placeholder="Kasallik tarixi..." />
-              </FormField>
               <FormField label="Dorilar" dense>
                 <textarea className={TA_SM} value={clinicalData.medications} onChange={(e) => setClinicalData({ ...clinicalData, medications: e.target.value })} placeholder="Qabul qilinayotgan dorilar" />
               </FormField>
@@ -504,7 +466,22 @@ export default function UTClientPage() {
           </UtIntakeSection>
 
           <div className="ut-intake-footer">
-            <div className="ut-intake-footer-inner justify-end gap-3">
+            <div className="ut-intake-footer-inner justify-end gap-3 flex-wrap">
+            <label className="flex items-center gap-1.5 shrink-0">
+              <span className="text-sm text-slate-600 whitespace-nowrap">Shifokor</span>
+              <select
+                className={`${IN} !w-[10rem] sm:!w-[12rem] !min-h-[2rem] !py-1`}
+                value={selectedDoctorId}
+                onChange={(e) => setSelectedDoctorId(e.target.value)}
+              >
+                <option value="">Navbat (avto)</option>
+                {doctors.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.fullName}{d.specialtyRef?.name || d.specialty ? ` — ${d.specialtyRef?.name || d.specialty}` : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label className="flex items-center gap-1.5 shrink-0 cursor-pointer">
               <input
                 type="checkbox"

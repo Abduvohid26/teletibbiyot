@@ -54,23 +54,11 @@ export class ConsultationsService {
   ) {}
 
   private buildChecklist(dto: CreateConsultationDto) {
-    const provided = dto.checklistData ?? [];
-    const merged = CLINICAL_CHECKLIST_ITEMS.map((item) => {
-      const match = provided.find((p) => p.id === item.id);
-      return { ...item, checked: match?.checked ?? false, notes: match?.notes };
-    });
-
-    if (dto.consentGiven === true) {
-      merged.find((i) => i.id === 'consent')!.checked = true;
-    }
-    merged.find((i) => i.id === 'complaints')!.checked = !!dto.clinicalRecord.complaints?.trim();
-    const vitals = dto.clinicalRecord.vitalSigns as Record<string, unknown> | undefined;
-    merged.find((i) => i.id === 'vitals')!.checked = !!vitals && Object.values(vitals).some((v) => v != null && v !== '');
-    merged.find((i) => i.id === 'allergies')!.checked =
-      dto.clinicalRecord.allergies !== undefined && dto.clinicalRecord.allergies !== null;
-
-    const checklistCompleted = merged.filter((i) => i.required).every((i) => i.checked);
-    return { merged, checklistCompleted };
+    const merged = CLINICAL_CHECKLIST_ITEMS.map((item) => ({
+      ...item,
+      checked: dto.consentGiven === true,
+    }));
+    return { merged, checklistCompleted: dto.consentGiven === true };
   }
 
   async create(dto: CreateConsultationDto, utId: string, userId: string) {
@@ -117,14 +105,11 @@ export class ConsultationsService {
         ? clinicalRecord.weight / Math.pow(clinicalRecord.height / 100, 2)
         : undefined;
 
-    const { merged: checklistData, checklistCompleted } = this.buildChecklist(dto);
-
     if (!dto.consentGiven) {
       throw new BadRequestException('Bemor roziligi talab qilinadi');
     }
-    if (!checklistCompleted) {
-      throw new BadRequestException('Majburiy klinik protokol bandlari to\'ldirilmagan');
-    }
+
+    const { merged: checklistData, checklistCompleted } = this.buildChecklist(dto);
 
     let assignedDoctorId: string | undefined;
     if (dto.mtDoctorId) {
