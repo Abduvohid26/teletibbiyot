@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Stethoscope, Radio, FileText } from 'lucide-react';
+import { Stethoscope, Radio, FileText, Clock } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { isUtRole } from '@ishifo/shared';
 import { getRoleHomePath } from '@/lib/auth-utils';
@@ -20,6 +20,7 @@ export default function UtVitalsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [showDocuments, setShowDocuments] = useState(false);
+  const [waitingBanner, setWaitingBanner] = useState(false);
   const {
     consultation,
     sessions,
@@ -28,6 +29,7 @@ export default function UtVitalsPage() {
     liveBanner,
     setLiveBanner,
     switchToConsultation,
+    cancelSession,
   } = useUtSessions(!!user && isUtRole(user?.role || ''));
 
   useEffect(() => {
@@ -37,10 +39,17 @@ export default function UtVitalsPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (!window.location.search.includes('submitted=1')) return;
-    toast('Bemor navbatga qo\'shildi', 'success');
-    router.replace('/ut/vitals', { scroll: false });
+    if (window.location.search.includes('waiting=1')) {
+      setWaitingBanner(true);
+      router.replace('/ut/vitals', { scroll: false });
+    }
   }, [router]);
+
+  useEffect(() => {
+    if (consultation?.status === 'IN_PROGRESS') {
+      setWaitingBanner(false);
+    }
+  }, [consultation?.status]);
 
   if (loading || !user) {
     return (
@@ -49,6 +58,8 @@ export default function UtVitalsPage() {
       </div>
     );
   }
+
+  const isWaiting = consultation?.status === 'QUEUED';
 
   return (
     <UtShell
@@ -59,7 +70,7 @@ export default function UtVitalsPage() {
         consultation
           ? consultation.status === 'IN_PROGRESS'
             ? `Jonli efir · ${consultation.mtDoctor?.fullName || 'Shifokor'}`
-            : 'Navbatda — shifokor boshlaguncha kameraga tayyor turing'
+            : 'Shifokor qabul qilishini kuting — kamera tayyor'
           : undefined
       }
       pageAction={
@@ -81,7 +92,7 @@ export default function UtVitalsPage() {
                   : 'bg-amber-100/90 text-amber-800 ring-1 ring-amber-200/60',
               )}
             >
-              {consultation.status === 'IN_PROGRESS' ? '● Jonli' : '○ Navbat'}
+              {consultation.status === 'IN_PROGRESS' ? '● Qabul qilindi' : '○ Kutilmoqda'}
             </span>
           </div>
         ) : undefined
@@ -93,6 +104,7 @@ export default function UtVitalsPage() {
             activeId={consultation?.id}
             sessions={sessions}
             onSelect={switchToConsultation}
+            onCancel={(id) => void cancelSession(id)}
           />
         ) : null
       }
@@ -104,12 +116,24 @@ export default function UtVitalsPage() {
           </div>
         )}
 
+        {(waitingBanner || isWaiting) && consultation && (
+          <div className="shrink-0 mb-2 ut-glass-banner border-amber-200/70 bg-amber-50/90 text-amber-900 text-sm px-3 py-2 flex items-start gap-2 animate-fade-in">
+            <Clock size={16} className="shrink-0 mt-0.5 text-amber-600" />
+            <div>
+              <p className="font-semibold">Yuborildi — shifokor qabul qilishini kuting</p>
+              <p className="text-xs text-amber-800 mt-0.5">
+                Kameralar tayyor. Boshqa bemorga o&apos;tish uchun yuqoridagi ro&apos;yxatdan tanlang. Shifokor qabul qilganda yashil belgi chiqadi va jonli efir boshlanadi.
+              </p>
+            </div>
+          </div>
+        )}
+
         {liveBanner && (
           <div className="shrink-0 mb-2 ut-glass-banner-live animate-fade-in">
             <div className="flex items-center gap-2 min-w-0">
               <Radio size={15} className="text-emerald-600 animate-pulse shrink-0" />
               <p className="text-sm font-semibold text-emerald-900 truncate">
-                Jonli efir boshlandi{liveBanner.doctorName ? ` — ${liveBanner.doctorName}` : ''}
+                Shifokor qabul qildi{liveBanner.doctorName ? ` — ${liveBanner.doctorName}` : ''}. Jonli efir boshlandi.
               </p>
             </div>
             <button
@@ -149,10 +173,9 @@ export default function UtVitalsPage() {
         {consultation && (
           <UtDocumentsModal
             open={showDocuments}
+            onClose={() => setShowDocuments(false)}
             consultationId={consultation.id}
             patientName={consultation.patient.fullName}
-            onClose={() => setShowDocuments(false)}
-            onChange={() => void switchToConsultation(consultation.id)}
           />
         )}
       </div>

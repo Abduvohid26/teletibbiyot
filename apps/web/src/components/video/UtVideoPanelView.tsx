@@ -226,8 +226,9 @@ export function UtVideoPanelView({
         )}
 
         {consultationStatus === 'QUEUED' && (
-          <div className="text-xs text-amber-800 bg-amber-50 rounded-lg px-2.5 py-2">
-            Navbatda — shifokor boshlaguncha {liveTotal} ta kamera uzatilmoqda.
+          <div className="text-xs text-amber-900 bg-amber-50 border border-amber-200/80 rounded-lg px-2.5 py-2 leading-relaxed">
+            <strong>Yuborildi — shifokor qabul qilishini kuting.</strong>
+            {' '}Kameralar tayyor ({liveTotal} ta uzatilmoqda). Shifokor qabul qilganda jonli efir avtomatik boshlanadi.
           </div>
         )}
 

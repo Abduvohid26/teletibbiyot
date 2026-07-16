@@ -18,6 +18,7 @@ export function UtConsultationSession({ consultation, patientName }: UtConsultat
     consultationId: consultation.id,
     role: 'ut',
     enabled: true,
+    skipPreflight: consultation.status === 'QUEUED',
   });
 
   const vitals = consultation.clinicalRecord?.vitalSigns || {};

@@ -10,7 +10,7 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { api } from '@/lib/api';
 import { UT_ACTIVE_CONSULTATION_KEY } from '@/lib/api/constants';
-import { buildDefaultChecklist, autoCheckFromForm, isChecklistComplete } from '@/lib/clinical-checklist';
+import { buildDefaultChecklist, autoCheckFromForm } from '@/lib/clinical-checklist';
 import {
   flushOfflineQueue,
   queueOfflineSubmission,
@@ -58,7 +58,6 @@ function emptyClinicalData() {
     weight: '',
     height: '',
     familyHistory: '',
-    socialHistory: '',
   };
 }
 
@@ -103,6 +102,7 @@ export default function UTClientPage() {
     sessions,
     inProgressList,
     switchToConsultation,
+    cancelSession,
     refreshSessions,
   } = useUtSessions(!!user && isUtRole(user?.role || ''));
 
@@ -173,6 +173,8 @@ export default function UTClientPage() {
     }
     if (!clinicalData.complaints.trim()) return 'Shikoyatlar kiritilishi shart';
     if (!clinicalData.anamnesisMorbi.trim()) return 'Anamnesis morbi kiritilishi shart';
+    if (!clinicalData.weight.trim()) return 'Vazn kiritilishi shart';
+    if (!clinicalData.height.trim()) return 'Bo\'y kiritilishi shart';
     return null;
   };
 
@@ -209,12 +211,8 @@ export default function UTClientPage() {
       allergies: clinicalData.allergies,
       hasAttachments: files.length > 0,
       passport: patientData.passportNumber,
-    });
+    }).map((item) => (item.required ? { ...item, checked: true } : item));
     setChecklist(updatedChecklist);
-    if (!isChecklistComplete(updatedChecklist)) {
-      toast('Majburiy klinik protokol bandlarini to\'ldiring', 'error');
-      return;
-    }
 
     setSubmitting(true);
     const clientRequestId = crypto.randomUUID();
@@ -243,7 +241,6 @@ export default function UTClientPage() {
         weight: clinicalData.weight ? parseFloat(clinicalData.weight) : undefined,
         height: clinicalData.height ? parseFloat(clinicalData.height) : undefined,
         familyHistory: clinicalData.familyHistory || undefined,
-        socialHistory: clinicalData.socialHistory || undefined,
         vitalSigns: {
           heartRate: vitals.heartRate ? parseInt(vitals.heartRate) : undefined,
           bloodPressureSystolic: vitals.bloodPressureSystolic ? parseInt(vitals.bloodPressureSystolic) : undefined,
@@ -289,11 +286,10 @@ export default function UTClientPage() {
       if (typeof window !== 'undefined') {
         sessionStorage.setItem(UT_ACTIVE_CONSULTATION_KEY, consultation.id);
       }
-      setUploadedFileCount(files.length);
       setFiles([]);
       setConsentAccepted(false);
-      toast('Bemor navbatga qo\'shildi — jonli efir sahifasiga o\'tilmoqda', 'success');
-      router.push('/ut/vitals?submitted=1');
+      toast('Navbatga yuborildi — shifokor qabul qilishini kuting', 'success');
+      router.push('/ut/vitals?waiting=1');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Xatolik yuz berdi';
       toast(message, 'error');
@@ -342,14 +338,32 @@ export default function UTClientPage() {
       sessionCount={sessions.length}
       liveCount={inProgressList.length}
       headerExtra={
-        sessions.length > 0 ? (
-          <UtPatientSwitcher
-            compact
-            activeId={consultation?.id}
-            sessions={sessions}
-            onSelect={switchToConsultation}
-          />
-        ) : null
+        <div className="flex items-center gap-2 min-w-0">
+          {sessions.length > 0 && (
+            <UtPatientSwitcher
+              compact
+              activeId={consultation?.id}
+              sessions={sessions}
+              onSelect={switchToConsultation}
+              onCancel={(id) => void cancelSession(id)}
+            />
+          )}
+          <label className="flex items-center gap-1.5 shrink-0">
+            <span className="text-xs text-slate-500 whitespace-nowrap hidden md:inline">Shifokor</span>
+            <select
+              className={`${IN} !w-[9rem] sm:!w-[11rem] !min-h-[2rem] !py-1`}
+              value={selectedDoctorId}
+              onChange={(e) => setSelectedDoctorId(e.target.value)}
+            >
+              <option value="">Navbat (avto)</option>
+              {doctors.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.fullName}{d.specialtyRef?.name || d.specialty ? ` — ${d.specialtyRef?.name || d.specialty}` : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
       }
     >
       <div className="ut-page">
@@ -471,7 +485,7 @@ export default function UTClientPage() {
             accent="teal"
             className="ut-intake-tekshiruv"
           >
-            <div className="grid grid-cols-3 gap-1.5 h-full min-h-0">
+            <div className="grid grid-cols-2 gap-1.5 h-full min-h-0">
               <UtIntakeSubCard title="Diagnostika" icon={ScanLine} accent="teal" className="min-h-0 flex flex-col">
                 <label className="flex-1 border border-dashed border-slate-200 rounded-lg p-1.5 text-center text-slate-400 hover:border-teal-300 cursor-pointer flex flex-col items-center justify-center gap-0.5 min-h-[4.75rem]">
                   <Upload className="w-4 h-4 text-slate-300" />
@@ -486,56 +500,19 @@ export default function UTClientPage() {
               <UtIntakeSubCard title="Oilaviy" icon={User} accent="amber" className="min-h-0">
                 <textarea className={TA_SM} value={clinicalData.familyHistory} onChange={(e) => setClinicalData({ ...clinicalData, familyHistory: e.target.value })} placeholder="Oilaviy anamnez..." />
               </UtIntakeSubCard>
-
-              <UtIntakeSubCard title="Ijtimoiy" icon={User} accent="blue" className="min-h-0">
-                <textarea className={TA_SM} value={clinicalData.socialHistory} onChange={(e) => setClinicalData({ ...clinicalData, socialHistory: e.target.value })} placeholder="Kasbi, yashash sharoiti..." />
-              </UtIntakeSubCard>
             </div>
           </UtIntakeSection>
 
           <div className="ut-intake-footer">
-            <div className="ut-intake-footer-inner">
-            <p className="text-xs font-bold text-slate-500 uppercase shrink-0 hidden sm:block">Protokol</p>
-            <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-x-1.5 gap-y-0 min-w-0">
-              {checklist.map((item) => (
-                <label key={item.id} className="flex items-center gap-1 text-xs text-slate-600 min-w-0">
-                  <input
-                    type="checkbox"
-                    checked={item.checked}
-                    onChange={(e) =>
-                      setChecklist((prev) =>
-                        prev.map((c) => (c.id === item.id ? { ...c, checked: e.target.checked } : c)),
-                      )
-                    }
-                    className="rounded border-slate-300 text-brand-600 shrink-0 scale-90"
-                  />
-                  <span className="truncate">{item.label.split(' ')[0]}{item.required && '*'}</span>
-                </label>
-              ))}
-            </div>
-            <label className="flex items-center gap-1.5 shrink-0 cursor-pointer border-l border-slate-200 pl-2">
-              <span className="text-sm text-slate-600 whitespace-nowrap hidden lg:inline">Shifokor</span>
-              <select
-                className={`${IN} !w-[11rem] !min-h-[2rem] !py-1`}
-                value={selectedDoctorId}
-                onChange={(e) => setSelectedDoctorId(e.target.value)}
-              >
-                <option value="">Navbat (avto)</option>
-                {doctors.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.fullName}{d.specialtyRef?.name || d.specialty ? ` — ${d.specialtyRef?.name || d.specialty}` : ''}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex items-center gap-1.5 shrink-0 cursor-pointer border-l border-slate-200 pl-2">
+            <div className="ut-intake-footer-inner justify-end gap-3">
+            <label className="flex items-center gap-1.5 shrink-0 cursor-pointer">
               <input
                 type="checkbox"
                 checked={consentAccepted}
                 onChange={(e) => setConsentAccepted(e.target.checked)}
                 className="rounded border-slate-300 text-brand-600 scale-90"
               />
-              <span className="text-sm text-slate-600 whitespace-nowrap">Rozilik</span>
+              <span className="text-sm text-slate-600 whitespace-nowrap">Ma&apos;lumotlarni qayta ishlashga roziman</span>
             </label>
             <button
               type="button"
@@ -544,7 +521,7 @@ export default function UTClientPage() {
               className="gradient-btn !py-2 !px-4 !text-sm disabled:opacity-50 flex items-center gap-1.5 shrink-0 shadow-sm"
             >
               <Send size={16} />
-              {submitting ? '...' : 'Yuborish'}
+              {submitting ? 'Yuborilmoqda...' : 'Shifokorga yuborish'}
             </button>
             </div>
           </div>

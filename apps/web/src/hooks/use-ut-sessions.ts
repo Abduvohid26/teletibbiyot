@@ -84,7 +84,7 @@ export function useUtSessions(enabled = true) {
       onConsultationStarted: (payload) => {
         const name = payload.doctorName || 'Shifokor';
         setLiveBanner({ doctorName: name });
-        toast(`${name} jonli efirni boshladi`, 'success');
+        toast(`${name} qabul qildi — jonli efir boshlandi`, 'success');
         if (payload.consultationId) {
           void switchToConsultation(payload.consultationId);
         } else {
@@ -104,7 +104,7 @@ export function useUtSessions(enabled = true) {
       const detail = (e as CustomEvent<{ consultationId?: string; doctorName?: string }>).detail;
       const name = detail?.doctorName || 'Shifokor';
       setLiveBanner({ doctorName: name });
-      toast(`${name} jonli efirni boshladi`, 'success');
+      toast(`${name} qabul qildi — jonli efir boshlandi`, 'success');
       if (detail?.consultationId) {
         void switchToConsultation(detail.consultationId);
       } else {
@@ -114,6 +114,27 @@ export function useUtSessions(enabled = true) {
     window.addEventListener('consultation-started', onStarted);
     return () => window.removeEventListener('consultation-started', onStarted);
   }, [enabled, load, switchToConsultation]);
+
+  const cancelSession = useCallback(async (consultationId: string) => {
+    await api.cancelConsultation(consultationId, 'UT operator tomonidan bekor qilindi');
+    if (typeof window !== 'undefined') {
+      const active = sessionStorage.getItem(UT_ACTIVE_CONSULTATION_KEY);
+      if (active === consultationId) {
+        sessionStorage.removeItem(UT_ACTIVE_CONSULTATION_KEY);
+      }
+    }
+    if (consultation?.id === consultationId) {
+      setConsultation(null);
+    }
+    await refreshSessions();
+    const remaining = await fetchUtSessionConsultations();
+    setSessions(remaining);
+    const next = remaining[0];
+    if (next) {
+      await switchToConsultation(next.id);
+    }
+    toast('Navbatdan bekor qilindi', 'info');
+  }, [consultation?.id, refreshSessions, switchToConsultation]);
 
   return {
     consultation,
@@ -126,6 +147,7 @@ export function useUtSessions(enabled = true) {
     setLiveBanner,
     load,
     switchToConsultation,
+    cancelSession,
     refreshSessions,
   };
 }
