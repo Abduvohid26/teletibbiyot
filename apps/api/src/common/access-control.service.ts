@@ -65,6 +65,62 @@ export class AccessControlService {
     return { id: ACCESS_DENIED_ID };
   }
 
+  /** Analitika: shifokor faqat o'z konsultatsiyalarini, UT faqat o'z muassasasini ko'radi */
+  analyticsConsultationFilter(user: AuthUser): Prisma.ConsultationWhereInput | undefined {
+    if (hasGlobalMtAccess(user.role)) return undefined;
+
+    if (isAuditor(user.role)) {
+      return { id: ACCESS_AUDITOR_DENIED_ID };
+    }
+
+    if (isMtDoctor(user.role)) {
+      return { mtDoctorId: user.id };
+    }
+
+    if (isUtRole(user.role) && user.facilityId) {
+      return { utId: user.facilityId };
+    }
+
+    return { id: ACCESS_DENIED_ID };
+  }
+
+  analyticsPatientFilter(user: AuthUser): Prisma.PatientWhereInput | undefined {
+    if (hasGlobalMtAccess(user.role)) return undefined;
+
+    if (isMtDoctor(user.role)) {
+      return {
+        consultations: {
+          some: { mtDoctorId: user.id },
+        },
+      };
+    }
+
+    if (isUtRole(user.role) && user.facilityId) {
+      return {
+        consultations: { some: { utId: user.facilityId } },
+      };
+    }
+
+    if (isAuditor(user.role)) {
+      return { id: ACCESS_AUDITOR_DENIED_ID };
+    }
+
+    return { id: ACCESS_DENIED_ID };
+  }
+
+  analyticsScopeMeta(user: AuthUser): { scope: 'global' | 'doctor' | 'facility'; scopeLabel: string } {
+    if (hasGlobalMtAccess(user.role)) {
+      return { scope: 'global', scopeLabel: 'Butun platforma bo\'yicha' };
+    }
+    if (isMtDoctor(user.role)) {
+      return { scope: 'doctor', scopeLabel: 'Faqat sizning konsultatsiyalaringiz' };
+    }
+    if (isUtRole(user.role)) {
+      return { scope: 'facility', scopeLabel: 'Sizning muassasangiz bo\'yicha' };
+    }
+    return { scope: 'global', scopeLabel: 'Statistika' };
+  }
+
   patientFilter(user: AuthUser): Prisma.PatientWhereInput | undefined {
     if (hasGlobalMtAccess(user.role)) return undefined;
 

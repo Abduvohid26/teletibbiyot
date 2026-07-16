@@ -39,6 +39,8 @@ export interface AnalyticsFilters {
 
 export interface AnalyticsOverview {
   period: { from: string; to: string };
+  scope?: 'global' | 'doctor' | 'facility';
+  scopeLabel?: string;
   totalConsultations: number;
   inProgress: number;
   queued: number;

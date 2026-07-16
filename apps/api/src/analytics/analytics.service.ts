@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ConsultationStatus, Gender, Prisma, TriageLevel, UserRole } from '@prisma/client';
 import { isMtDoctor } from '../common/roles.constants';
-import { MT_DOCTOR_ROLES } from '../common/roles.constants';
 import { AnalyticsQueryDto } from './dto/analytics-query.dto';
 import { AccessControlService, AuthUser } from '../common/access-control.service';
 import { FieldCryptoService } from '../common/field-crypto.service';
@@ -45,7 +44,7 @@ export class AnalyticsService {
       ...(query.doctorId ? [{ mtDoctorId: query.doctorId }] : []),
     ];
     if (user) {
-      const scope = this.access.consultationFilter(user);
+      const scope = this.access.analyticsConsultationFilter(user);
       if (scope) filters.push(scope);
     }
     return filters.length === 1 ? filters[0] : { AND: filters };
@@ -53,12 +52,29 @@ export class AnalyticsService {
 
   private patientWhere(user?: AuthUser): Prisma.PatientWhereInput | undefined {
     if (!user) return undefined;
-    return this.access.patientFilter(user);
+    return this.access.analyticsPatientFilter(user);
+  }
+
+  private async countDistinctPatients(where: Prisma.ConsultationWhereInput): Promise<number> {
+    const groups = await this.prisma.consultation.groupBy({
+      by: ['patientId'],
+      where,
+    });
+    return groups.length;
+  }
+
+  private async countDistinctDoctors(where: Prisma.ConsultationWhereInput): Promise<number> {
+    const groups = await this.prisma.consultation.groupBy({
+      by: ['mtDoctorId'],
+      where: { ...where, mtDoctorId: { not: null } },
+    });
+    return groups.length;
   }
 
   async getOverview(query: AnalyticsQueryDto, user?: AuthUser) {
     const where = this.consultationWhere(query, user);
     const { from, to } = this.dateRange(query);
+    const scopeMeta = user ? this.access.analyticsScopeMeta(user) : { scope: 'global' as const, scopeLabel: 'Butun platforma bo\'yicha' };
 
     const [
       totalConsultations,
@@ -77,13 +93,8 @@ export class AnalyticsService {
       this.prisma.consultation.count({ where: { ...where, status: ConsultationStatus.QUEUED } }),
       this.prisma.consultation.count({ where: { ...where, status: ConsultationStatus.COMPLETED } }),
       this.prisma.consultation.count({ where: { ...where, status: ConsultationStatus.CANCELLED } }),
-      this.prisma.patient.count({
-        where: {
-          createdAt: { gte: from, lte: to },
-          ...(this.patientWhere(user) ?? {}),
-        },
-      }),
-      this.prisma.user.count({ where: { role: { in: MT_DOCTOR_ROLES }, isActive: true } }),
+      this.countDistinctPatients(where),
+      this.countDistinctDoctors(where),
       this.prisma.consultation.count({ where: { ...where, aiAnalysis: { isNot: null } } }),
       this.prisma.consultation.count({ where: { ...where, finalDiagnosis: { isNot: null } } }),
       this.getAvgDuration(where),
@@ -95,6 +106,8 @@ export class AnalyticsService {
 
     return {
       period: { from: from.toISOString(), to: to.toISOString() },
+      scope: scopeMeta.scope,
+      scopeLabel: scopeMeta.scopeLabel,
       totalConsultations,
       inProgress,
       queued,

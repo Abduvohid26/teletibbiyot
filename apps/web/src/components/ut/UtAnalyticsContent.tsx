@@ -120,6 +120,12 @@ export function UtAnalyticsContent({ className }: UtAnalyticsContentProps) {
         </div>
       )}
 
+      {overview?.scopeLabel && (
+        <p className="text-xs text-slate-500 bg-white/60 border border-white/80 rounded-lg px-3 py-2">
+          Ko&apos;rinish: <span className="font-medium text-slate-700">{overview.scopeLabel}</span>
+        </p>
+      )}
+
       {loading ? (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[1, 2, 3, 4].map((i) => (
@@ -132,7 +138,7 @@ export function UtAnalyticsContent({ className }: UtAnalyticsContentProps) {
             <MetricCard icon={Activity} label="Jami konsultatsiyalar" value={overview.totalConsultations} color="brand" />
             <MetricCard icon={CheckCircle2} label="Yakunlangan" value={overview.completed} sub={`${overview.completionRate}%`} color="emerald" />
             <MetricCard icon={Clock} label="Navbatda / Jarayonda" value={overview.queued + overview.inProgress} color="amber" />
-            <MetricCard icon={Users} label="Yangi bemorlar" value={overview.totalPatients} color="cyan" />
+            <MetricCard icon={Users} label="Bemorlar (davr)" value={overview.totalPatients} color="cyan" />
             <MetricCard icon={Brain} label="AI tahlillar" value={overview.withAiAnalysis} color="violet" />
             <MetricCard icon={Target} label="Yakuniy tashxis" value={overview.withFinalDiagnosis} color="indigo" />
             <MetricCard icon={Timer} label="O'rtacha davomiylik" value={overview.avgDurationMinutes ?? '—'} suffix={overview.avgDurationMinutes ? 'min' : ''} color="slate" />

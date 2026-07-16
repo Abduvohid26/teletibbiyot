@@ -85,4 +85,16 @@ describe('AccessControlService', () => {
       ).toThrow(ForbiddenException);
     });
   });
+
+  describe('analyticsConsultationFilter', () => {
+    it('MT shifokor analitikada faqat o\'z konsultatsiyalarini ko\'radi', () => {
+      const filter = service.analyticsConsultationFilter(mtDoctor);
+      expect(filter).toEqual({ mtDoctorId: 'd1' });
+    });
+
+    it('UT operator muassasa bo\'yicha ko\'radi', () => {
+      const filter = service.analyticsConsultationFilter(utUser);
+      expect(filter).toEqual({ utId: 'fac-ut' });
+    });
+  });
 });

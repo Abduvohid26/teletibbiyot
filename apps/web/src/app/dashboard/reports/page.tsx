@@ -141,6 +141,12 @@ export default function ReportsPage() {
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl p-3.5">{error}</div>
         )}
 
+        {overview?.scopeLabel && (
+          <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+            Ko&apos;rinish: <span className="font-medium text-slate-700">{overview.scopeLabel}</span>
+          </p>
+        )}
+
         {loading ? (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[1, 2, 3, 4].map((i) => (
@@ -153,11 +159,13 @@ export default function ReportsPage() {
               <MetricCard icon={Activity} label="Jami konsultatsiyalar" value={overview.totalConsultations} color="brand" />
               <MetricCard icon={CheckCircle2} label="Yakunlangan" value={overview.completed} sub={`${overview.completionRate}%`} color="emerald" />
               <MetricCard icon={Clock} label="Navbatda / Jarayonda" value={overview.queued + overview.inProgress} color="amber" />
-              <MetricCard icon={Users} label="Yangi bemorlar" value={overview.totalPatients} color="cyan" />
+              <MetricCard icon={Users} label="Bemorlar (davr)" value={overview.totalPatients} color="cyan" />
               <MetricCard icon={Brain} label="AI tahlillar" value={overview.withAiAnalysis} color="violet" />
               <MetricCard icon={Target} label="Yakuniy tashxis" value={overview.withFinalDiagnosis} color="indigo" />
               <MetricCard icon={Timer} label="O'rtacha davomiylik" value={overview.avgDurationMinutes ?? '—'} suffix={overview.avgDurationMinutes ? 'min' : ''} color="slate" />
-              <MetricCard icon={TrendingUp} label="Shifokorlar" value={overview.totalDoctors} color="brand" />
+              {(overview.scope === 'global' || overview.scope === 'facility') && (
+                <MetricCard icon={TrendingUp} label="Shifokorlar (davr)" value={overview.totalDoctors} color="brand" />
+              )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-slide-up">
