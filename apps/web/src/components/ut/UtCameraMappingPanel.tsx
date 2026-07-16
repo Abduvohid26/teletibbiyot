@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Mic, RefreshCw, AlertTriangle, CheckCircle2, VideoOff, Camera,
+  RefreshCw, AlertTriangle, CheckCircle2, VideoOff, Camera,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMediaDevices } from '@/hooks/use-media-devices';
@@ -23,7 +23,6 @@ export function UtCameraMappingPanel({ compact, onPrefsChange }: UtCameraMapping
   const [prefs, setPrefs] = useState<MediaPreferences>(() => loadMediaPreferences());
   const {
     videoInputs,
-    audioInputs,
     permissionGranted,
     error,
     refresh,
@@ -54,7 +53,7 @@ export function UtCameraMappingPanel({ compact, onPrefsChange }: UtCameraMapping
   const mappedCount = UT_CAMERA_SLOTS.filter((s) => prefs.utCameraMapping[s.id]?.trim()).length;
 
   return (
-    <div className={cn('flex flex-col gap-3 min-h-0', compact && 'gap-2')}>
+    <div className={cn('flex flex-col gap-3 shrink-0', compact && 'gap-2')}>
       {permissionGranted === false && (
         <div className="flex items-start gap-2 text-xs text-amber-800 bg-amber-50 rounded-xl p-2.5 ring-1 ring-amber-100">
           <AlertTriangle size={15} className="shrink-0 mt-0.5" />
@@ -102,26 +101,10 @@ export function UtCameraMappingPanel({ compact, onPrefsChange }: UtCameraMapping
       </div>
 
       <div className={cn(
-        'rounded-xl border border-slate-200 bg-slate-50/80 p-2.5 flex flex-col sm:flex-row sm:items-end gap-2',
+        'rounded-xl border border-slate-200 bg-slate-50/80 p-2.5 flex items-center justify-center shrink-0',
       )}>
-        <div className="flex-1 min-w-0">
-          <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 mb-1">
-            <Mic size={12} />
-            Mikrofon (shifokor eshitadi)
-          </label>
-          <select
-            className="input w-full !py-1.5 !text-sm"
-            value={prefs.audioDeviceId}
-            onChange={(e) => updatePrefs({ audioDeviceId: e.target.value })}
-          >
-            <option value="">Standart mikrofon</option>
-            {audioInputs.map((d) => (
-              <option key={d.deviceId} value={d.deviceId}>{d.label}</option>
-            ))}
-          </select>
-        </div>
         <div className={cn(
-          'shrink-0 flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg',
+          'flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg',
           mappedCount >= 4 ? 'bg-emerald-100 text-emerald-800' : mappedCount > 0 ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-600',
         )}>
           {mappedCount >= 4 ? <CheckCircle2 size={14} /> : <Camera size={14} />}

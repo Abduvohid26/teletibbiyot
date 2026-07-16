@@ -30,8 +30,8 @@ export class UsersController {
 
   @Post()
   @Roles(...ROLES_ADMIN)
-  create(@Body() body: CreateUserDto) {
-    return this.usersService.create(body);
+  create(@Body() body: CreateUserDto, @Request() req: { user: { id: string } }) {
+    return this.usersService.create(body, req.user.id);
   }
 
   @Patch(':id')

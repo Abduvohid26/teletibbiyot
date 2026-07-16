@@ -71,4 +71,10 @@ export class DashboardController {
   getSlaMetrics(@Request() req: { user: AuthUser }) {
     return this.dashboardService.getSlaMetrics(req.user);
   }
+
+  @Get('admin-overview')
+  @Roles(UserRole.ADMIN)
+  getAdminOverview() {
+    return this.dashboardService.getAdminOverview();
+  }
 }

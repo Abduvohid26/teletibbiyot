@@ -57,15 +57,17 @@ export function SettingsContent({ user, videoRole, compact, className }: Setting
             {isUt ? <Camera size={15} className="text-violet-600" /> : <Video size={15} className="text-violet-600" />}
             <span className="panel-title">{isUt ? '4 ta kamera biriktirish' : 'Video va ovoz'}</span>
           </div>
-          <div className="ut-settings-panel-body !p-2.5 overflow-y-auto flex flex-col gap-3">
+          <div className="ut-settings-panel-body !p-2.5 overflow-y-auto flex flex-col gap-4 min-h-0">
             {isUt ? (
               <>
                 <UtCameraMappingPanel
                   compact
                   onPrefsChange={() => clearIceCache()}
                 />
-                <div className="border-t border-slate-100 pt-2">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Qo&apos;shimcha</p>
+                <section className="shrink-0 border-t border-slate-200 pt-4 space-y-3">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                    Qo&apos;shimcha sozlamalar
+                  </p>
                   <MediaDevicePanel
                     role="ut"
                     compact
@@ -73,7 +75,7 @@ export function SettingsContent({ user, videoRole, compact, className }: Setting
                     hideUtCameraMapping
                     onPrefsChange={() => clearIceCache()}
                   />
-                </div>
+                </section>
               </>
             ) : (
               <>
@@ -83,7 +85,7 @@ export function SettingsContent({ user, videoRole, compact, className }: Setting
                 <MediaDevicePanel role={videoRole} compact showPreview={false} onPrefsChange={() => clearIceCache()} />
               </>
             )}
-            <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+            <div className="shrink-0 pt-2 border-t border-slate-200 flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5 text-xs text-slate-600 min-w-0">
                 <Wifi size={14} className="shrink-0" />
                 <span className="truncate">TURN / WebRTC tekshiruvi</span>

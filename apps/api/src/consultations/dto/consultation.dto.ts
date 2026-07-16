@@ -148,6 +148,11 @@ export class CreateConsultationDto {
   @ApiProperty({ required: false, description: 'Klinik checklist JSON' })
   @IsOptional()
   checklistData?: Array<{ id: string; label: string; required: boolean; checked: boolean; notes?: string }>;
+
+  @ApiProperty({ required: false, description: 'Tanlangan shifokor (navbatda ushbu shifokorga)' })
+  @IsOptional()
+  @IsString()
+  mtDoctorId?: string;
 }
 
 

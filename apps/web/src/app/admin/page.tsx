@@ -8,15 +8,17 @@ import { useRouter } from 'next/navigation';
 
 import Link from 'next/link';
 
-import { Stethoscope, Users, Building2, Activity, LogOut, Shield, FileText, UserPlus, X } from 'lucide-react';
+import { Stethoscope, Users, Building2, Activity, LogOut, Shield, FileText, UserPlus, X, GraduationCap, BarChart3 } from 'lucide-react';
 
 import { useAuth } from '@/lib/auth-context';
-import { api, User, DashboardStats, Facility } from '@/lib/api';
+import { api, User, DashboardStats, Facility, Specialty, AdminOverview } from '@/lib/api';
 import { canAccessAdmin } from '@ishifo/shared';
 import { UserRole } from '@ishifo/shared';
 import { getRoleHomePath, getRoleLabel } from '@/lib/auth-utils';
 import { BrandName } from '@/components/brand/BrandName';
 import { PlatformFooter } from '@/components/layout/PlatformFooter';
+import { AdminSpecialtiesPanel } from '@/components/admin/AdminSpecialtiesPanel';
+import { AdminOverviewPanel } from '@/components/admin/AdminOverviewPanel';
 
 
 
@@ -48,12 +50,15 @@ export default function AdminPage() {
 
   const [editingUser, setEditingUser] = useState<User | null>(null);
 
-  const [editUserForm, setEditUserForm] = useState({ fullName: '', role: '', facilityId: '', password: '' });
-
   const [savingUser, setSavingUser] = useState(false);
 
   const [savingFacility, setSavingFacility] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'users' | 'specialties' | 'facilities' | 'stats'>('users');
+  const [specialties, setSpecialties] = useState<Specialty[]>([]);
+  const [overview, setOverview] = useState<AdminOverview | null>(null);
+  const [overviewLoading, setOverviewLoading] = useState(false);
+  const [roleFilter, setRoleFilter] = useState<string>('all');
 
   const [form, setForm] = useState({
 
@@ -67,6 +72,19 @@ export default function AdminPage() {
 
     facilityId: '',
 
+    specialtyId: '',
+
+    phone: '',
+
+  });
+
+  const [editUserForm, setEditUserForm] = useState({
+    fullName: '',
+    role: '',
+    facilityId: '',
+    specialtyId: '',
+    phone: '',
+    password: '',
   });
 
 
@@ -102,11 +120,41 @@ export default function AdminPage() {
   const load = () => {
     setError('');
     setDataLoading(true);
-    Promise.all([api.getUsers(), api.getStats(), api.getFacilities()])
-      .then(([u, s, f]) => { setUsers(u); setStats(s); setFacilities(f); })
+    Promise.all([
+      api.getUsers(),
+      api.getStats(),
+      api.getFacilities(),
+      api.getSpecialties(true),
+      api.getAdminOverview(),
+    ])
+      .then(([u, s, f, sp, ov]) => {
+        setUsers(u);
+        setStats(s);
+        setFacilities(f);
+        setSpecialties(sp);
+        setOverview(ov);
+      })
       .catch((err) => setError(err instanceof Error ? err.message : 'Xatolik yuz berdi'))
       .finally(() => setDataLoading(false));
   };
+
+  const loadOverview = () => {
+    setOverviewLoading(true);
+    api.getAdminOverview()
+      .then(setOverview)
+      .catch((err) => setError(err instanceof Error ? err.message : 'Statistika yuklanmadi'))
+      .finally(() => setOverviewLoading(false));
+  };
+
+  const facilitiesForRole = (role: string) => {
+    if (role === UserRole.UT_OPERATOR) return facilities.filter((f) => f.type === 'UT');
+    if (role === UserRole.MT_DOCTOR || role === UserRole.MT_MANAGER) return facilities.filter((f) => f.type === 'MT');
+    return facilities;
+  };
+
+  const isMtRole = (role: string) => role === UserRole.MT_DOCTOR || role === UserRole.MT_MANAGER;
+
+  const filteredUsers = roleFilter === 'all' ? users : users.filter((u) => u.role === roleFilter);
 
 
 
@@ -158,11 +206,15 @@ export default function AdminPage() {
 
         facilityId: form.facilityId || undefined,
 
+        specialtyId: isMtRole(form.role) && form.specialtyId ? form.specialtyId : undefined,
+
+        phone: form.phone || undefined,
+
       });
 
       setShowCreate(false);
 
-      setForm({ email: '', password: '', fullName: '', role: UserRole.UT_OPERATOR, facilityId: '' });
+      setForm({ email: '', password: '', fullName: '', role: UserRole.UT_OPERATOR, facilityId: '', specialtyId: '', phone: '' });
 
       load();
 
@@ -184,7 +236,14 @@ export default function AdminPage() {
 
     setEditingUser(u);
 
-    setEditUserForm({ fullName: u.fullName, role: u.role, facilityId: u.facility?.id || '', password: '' });
+    setEditUserForm({
+      fullName: u.fullName,
+      role: u.role,
+      facilityId: u.facility?.id || '',
+      specialtyId: u.specialtyId || u.specialtyRef?.id || '',
+      phone: u.phone || '',
+      password: '',
+    });
 
   };
 
@@ -209,6 +268,10 @@ export default function AdminPage() {
         role: editUserForm.role,
 
         facilityId: editUserForm.facilityId || null,
+
+        specialtyId: isMtRole(editUserForm.role) ? (editUserForm.specialtyId || null) : null,
+
+        phone: editUserForm.phone || null,
 
       });
 
@@ -397,7 +460,7 @@ export default function AdminPage() {
           <div className="text-sm text-slate-500 animate-pulse mb-4">Ma&apos;lumotlar yuklanmoqda...</div>
         )}
 
-        {stats && (
+        {stats && activeTab === 'users' && (
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
 
@@ -413,15 +476,52 @@ export default function AdminPage() {
 
         )}
 
+        <div className="flex flex-wrap gap-2 mb-6">
+          {([
+            ['users', 'Foydalanuvchilar', Users],
+            ['specialties', 'Yo\'nalishlar', GraduationCap],
+            ['facilities', 'Muassasalar', Building2],
+            ['stats', 'Statistika', BarChart3],
+          ] as const).map(([id, label, Icon]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => {
+                setActiveTab(id);
+                if (id === 'stats') loadOverview();
+              }}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                activeTab === id
+                  ? 'bg-brand-600 text-white shadow-sm'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <Icon size={16} />
+              {label}
+            </button>
+          ))}
+        </div>
 
-
+        {activeTab === 'users' && (
         <div className="panel overflow-hidden animate-slide-up">
 
           <div className="panel-header bg-gradient-to-r from-slate-50 to-transparent">
 
             <Users size={18} className="text-brand-600" />
 
-            <span className="panel-title">Foydalanuvchilar ({users.length})</span>
+            <span className="panel-title">Foydalanuvchilar ({filteredUsers.length})</span>
+
+            <select
+              className="form-input !py-1 !text-xs !w-auto ml-2"
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+            >
+              <option value="all">Barcha rollar</option>
+              <option value={UserRole.UT_OPERATOR}>UT Operator</option>
+              <option value={UserRole.MT_DOCTOR}>MT Shifokor</option>
+              <option value={UserRole.MT_MANAGER}>MT Manager</option>
+              <option value={UserRole.ADMIN}>Admin</option>
+            </select>
 
             <button
 
@@ -453,7 +553,11 @@ export default function AdminPage() {
 
                   <th>Rol</th>
 
+                  <th>Yo&apos;nalish</th>
+
                   <th>Muassasa</th>
+
+                  <th>Telefon</th>
 
                   <th>Holat</th>
 
@@ -465,7 +569,7 @@ export default function AdminPage() {
 
               <tbody>
 
-                {users.map((u) => (
+                {filteredUsers.map((u) => (
 
                   <tr key={u.id}>
 
@@ -483,7 +587,11 @@ export default function AdminPage() {
 
                     </td>
 
+                    <td className="text-slate-500">{u.specialtyRef?.name || u.specialty || '—'}</td>
+
                     <td className="text-slate-500">{u.facility?.name || '—'}</td>
+
+                    <td className="text-slate-500">{u.phone || '—'}</td>
 
                     <td>
 
@@ -548,10 +656,21 @@ export default function AdminPage() {
           </div>
 
         </div>
+        )}
 
+        {activeTab === 'specialties' && (
+          <AdminSpecialtiesPanel
+            specialties={specialties}
+            onRefresh={() => {
+              api.getSpecialties(true).then(setSpecialties).catch(() => {});
+              loadOverview();
+            }}
+            onError={setError}
+          />
+        )}
 
-
-        <div className="panel overflow-hidden animate-slide-up mt-8">
+        {activeTab === 'facilities' && (
+        <div className="panel overflow-hidden animate-slide-up">
 
           <div className="panel-header bg-gradient-to-r from-slate-50 to-transparent">
 
@@ -620,6 +739,11 @@ export default function AdminPage() {
           </div>
 
         </div>
+        )}
+
+        {activeTab === 'stats' && (
+          <AdminOverviewPanel overview={overview} loading={overviewLoading || dataLoading} />
+        )}
 
       </main>
 
@@ -673,7 +797,7 @@ export default function AdminPage() {
 
                 <label className="label">Rol</label>
 
-                <select className="form-input" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as UserRole })}>
+                <select className="form-input" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as UserRole, facilityId: '', specialtyId: '' })}>
                   <option value={UserRole.UT_OPERATOR}>UT Operator</option>
                   <option value={UserRole.MT_DOCTOR}>MT Shifokor</option>
                   <option value={UserRole.MT_MANAGER}>MT Manager</option>
@@ -683,15 +807,27 @@ export default function AdminPage() {
 
               </div>
 
+              {isMtRole(form.role) && (
+                <div>
+                  <label className="label">Yo&apos;nalish</label>
+                  <select className="form-input" value={form.specialtyId} onChange={(e) => setForm({ ...form, specialtyId: e.target.value })}>
+                    <option value="">— Tanlanmagan —</option>
+                    {specialties.filter((s) => s.isActive).map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div>
 
-                <label className="label">Muassasa</label>
+                <label className="label">Muassasa {form.role !== UserRole.ADMIN && form.role !== UserRole.AUDITOR ? '*' : ''}</label>
 
-                <select className="form-input" value={form.facilityId} onChange={(e) => setForm({ ...form, facilityId: e.target.value })}>
+                <select className="form-input" value={form.facilityId} onChange={(e) => setForm({ ...form, facilityId: e.target.value })} required={form.role !== UserRole.ADMIN && form.role !== UserRole.AUDITOR}>
 
                   <option value="">— Tanlanmagan —</option>
 
-                  {facilities.map((f) => (
+                  {facilitiesForRole(form.role).map((f) => (
 
                     <option key={f.id} value={f.id}>{f.name} ({f.code})</option>
 
@@ -699,6 +835,11 @@ export default function AdminPage() {
 
                 </select>
 
+              </div>
+
+              <div>
+                <label className="label">Telefon</label>
+                <input className="form-input" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+998 90 123 45 67" />
               </div>
 
               <div className="flex gap-3 pt-2">
@@ -737,7 +878,7 @@ export default function AdminPage() {
               </div>
               <div>
                 <label className="label">Rol</label>
-                <select className="form-input" value={editUserForm.role} onChange={(e) => setEditUserForm({ ...editUserForm, role: e.target.value })}>
+                <select className="form-input" value={editUserForm.role} onChange={(e) => setEditUserForm({ ...editUserForm, role: e.target.value, facilityId: '', specialtyId: '' })}>
                   <option value={UserRole.UT_OPERATOR}>UT Operator</option>
                   <option value={UserRole.MT_DOCTOR}>MT Shifokor</option>
                   <option value={UserRole.MT_MANAGER}>MT Manager</option>
@@ -745,14 +886,29 @@ export default function AdminPage() {
                   <option value={UserRole.AUDITOR}>Auditor</option>
                 </select>
               </div>
+              {isMtRole(editUserForm.role) && (
+                <div>
+                  <label className="label">Yo&apos;nalish</label>
+                  <select className="form-input" value={editUserForm.specialtyId} onChange={(e) => setEditUserForm({ ...editUserForm, specialtyId: e.target.value })}>
+                    <option value="">— Tanlanmagan —</option>
+                    {specialties.filter((s) => s.isActive).map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="label">Muassasa</label>
                 <select className="form-input" value={editUserForm.facilityId} onChange={(e) => setEditUserForm({ ...editUserForm, facilityId: e.target.value })}>
                   <option value="">— Tanlanmagan —</option>
-                  {facilities.map((f) => (
+                  {facilitiesForRole(editUserForm.role).map((f) => (
                     <option key={f.id} value={f.id}>{f.name} ({f.code})</option>
                   ))}
                 </select>
+              </div>
+              <div>
+                <label className="label">Telefon</label>
+                <input className="form-input" value={editUserForm.phone} onChange={(e) => setEditUserForm({ ...editUserForm, phone: e.target.value })} />
               </div>
               <div>
                 <label className="label">Yangi parol (ixtiyoriy, min 8)</label>

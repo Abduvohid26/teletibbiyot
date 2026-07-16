@@ -1,5 +1,5 @@
 import type { HttpClient } from './http-client';
-import type { User, Facility, AuditLog } from './types';
+import type { User, Facility, AuditLog, Specialty, DoctorOption, AdminOverview } from './types';
 
 export function defineAdminApi(client: HttpClient) {
   return {
@@ -11,7 +11,15 @@ export function defineAdminApi(client: HttpClient) {
       return client.request<Facility[]>('/facilities');
     },
 
-    createUser(data: { email: string; password: string; fullName: string; role: string; facilityId?: string }) {
+    createUser(data: {
+      email: string;
+      password: string;
+      fullName: string;
+      role: string;
+      facilityId?: string;
+      specialtyId?: string;
+      phone?: string;
+    }) {
       return client.request('/users', { method: 'POST', body: JSON.stringify(data) });
     },
 
@@ -28,7 +36,27 @@ export function defineAdminApi(client: HttpClient) {
     },
 
     getDoctors() {
-      return client.request<Array<{ id: string; fullName: string; specialty?: string }>>('/users/doctors');
+      return client.request<DoctorOption[]>('/users/doctors');
+    },
+
+    getSpecialties(all = false) {
+      return client.request<Specialty[]>(`/specialties${all ? '?all=1' : ''}`);
+    },
+
+    createSpecialty(data: { name: string; sortOrder?: number }) {
+      return client.request<Specialty>('/specialties', { method: 'POST', body: JSON.stringify(data) });
+    },
+
+    updateSpecialty(id: string, data: { name?: string; sortOrder?: number; isActive?: boolean }) {
+      return client.request<Specialty>(`/specialties/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+    },
+
+    deleteSpecialty(id: string) {
+      return client.request(`/specialties/${id}`, { method: 'DELETE' });
+    },
+
+    getAdminOverview() {
+      return client.request<AdminOverview>('/dashboard/admin-overview');
     },
 
     createFacility(data: { name: string; code: string; type: string; address: string; region?: string; district?: string; phone?: string }) {

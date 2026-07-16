@@ -126,10 +126,21 @@ export class ConsultationsService {
       throw new BadRequestException('Majburiy klinik protokol bandlari to\'ldirilmagan');
     }
 
+    let assignedDoctorId: string | undefined;
+    if (dto.mtDoctorId) {
+      const doctor = await this.prisma.user.findFirst({
+        where: { id: dto.mtDoctorId, role: UserRole.MT_DOCTOR, isActive: true },
+        select: { id: true, fullName: true, email: true },
+      });
+      if (!doctor) throw new BadRequestException('Tanlangan shifokor topilmadi yoki faol emas');
+      assignedDoctorId = doctor.id;
+    }
+
     const consultation = await this.prisma.consultation.create({
       data: {
         patientId: rest.patientId,
         utId,
+        mtDoctorId: assignedDoctorId,
         status: ConsultationStatus.QUEUED,
         consentGiven: dto.consentGiven,
         clientRequestId: dto.clientRequestId,
@@ -185,7 +196,11 @@ export class ConsultationsService {
           action: 'PATIENT_CONSENT',
           entity: 'Consultation',
           entityId: consultation.id,
-          details: { consentGiven: true, patientId: dto.patientId },
+          details: {
+            consentGiven: true,
+            patientId: dto.patientId,
+            ...(assignedDoctorId ? { mtDoctorId: assignedDoctorId } : {}),
+          },
         },
       ],
     });
@@ -200,10 +215,15 @@ export class ConsultationsService {
       utId: consultation.utId,
     });
 
-    const doctors = await this.prisma.user.findMany({
-      where: { role: { in: MT_NOTIFY_ROLES }, isActive: true },
-      select: { id: true, email: true },
-    });
+    const doctors = assignedDoctorId
+      ? await this.prisma.user.findMany({
+          where: { id: assignedDoctorId, isActive: true },
+          select: { id: true, email: true },
+        })
+      : await this.prisma.user.findMany({
+          where: { role: { in: MT_NOTIFY_ROLES }, isActive: true },
+          select: { id: true, email: true },
+        });
     if (doctors.length) {
       this.notifications
         .notifyConsultationQueued(
@@ -350,6 +370,10 @@ export class ConsultationsService {
 
     if (existing.status === ConsultationStatus.IN_PROGRESS && existing.mtDoctorId && existing.mtDoctorId !== doctorId) {
       throw new ForbiddenException('Konsultatsiya boshqa shifokor tomonidan olib borilmoqda');
+    }
+
+    if (existing.status === ConsultationStatus.QUEUED && existing.mtDoctorId && existing.mtDoctorId !== doctorId) {
+      throw new ForbiddenException('Bu bemor boshqa shifokorga tayinlangan');
     }
 
     const otherActive = await this.prisma.consultation.findFirst({

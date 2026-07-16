@@ -144,7 +144,7 @@ export function MediaDevicePanel({
   };
 
   return (
-    <div className={cn('space-y-4', compact && 'space-y-2')}>
+    <div className={cn('space-y-4', compact && 'space-y-3')}>
       {permissionGranted === false && (
         <div className="flex items-start gap-2 text-sm text-amber-700 bg-amber-50 rounded-xl p-3">
           <AlertTriangle size={16} className="shrink-0 mt-0.5" />
@@ -161,9 +161,9 @@ export function MediaDevicePanel({
         <div className="text-sm text-red-600 bg-red-50 rounded-xl p-3">{error}</div>
       )}
 
-      <div>
-        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Video sifati</label>
-        <div className={cn('grid gap-2 mt-2', compact ? 'grid-cols-3' : 'grid-cols-3')}>
+      <div className="block shrink-0">
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Video sifati</p>
+        <div className={cn('grid gap-2', compact ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-3')}>
           {(Object.keys(QUALITY_PROFILES) as VideoQualityPreset[]).map((key) => (
             <button
               key={key}
@@ -183,6 +183,17 @@ export function MediaDevicePanel({
           ))}
         </div>
       </div>
+
+      {role === 'ut' && hideUtCameraMapping && (
+        <DeviceSelect
+          label="Mikrofon (shifokor eshitadi)"
+          icon={Mic}
+          value={prefs.audioDeviceId}
+          devices={audioInputs}
+          compact={compact}
+          onChange={(id) => updatePrefs({ audioDeviceId: id })}
+        />
+      )}
 
       {role === 'mt' && (
         <div className="grid gap-3 sm:grid-cols-2">

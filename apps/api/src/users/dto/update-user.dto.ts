@@ -27,6 +27,11 @@ export class UpdateUserDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
+  @IsUUID()
+  specialtyId?: string | null;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
   @IsString()
   @MaxLength(20)
   phone?: string | null;

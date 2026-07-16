@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { api, SecondOpinion } from '@/lib/api';
+import { api, SecondOpinion, DoctorOption } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { isMtDoctor } from '@ishifo/shared';
 import { MessageSquarePlus } from 'lucide-react';
@@ -16,7 +16,7 @@ export function SecondOpinionPanel({ consultationId, onRequested }: SecondOpinio
   const { user } = useAuth();
   const [question, setQuestion] = useState('');
   const [assignedDoctorId, setAssignedDoctorId] = useState('');
-  const [doctors, setDoctors] = useState<Array<{ id: string; fullName: string; specialty?: string }>>([]);
+  const [doctors, setDoctors] = useState<DoctorOption[]>([]);
   const [opinions, setOpinions] = useState<SecondOpinion[]>([]);
   const [loading, setLoading] = useState(false);
   const [respondingId, setRespondingId] = useState<string | null>(null);

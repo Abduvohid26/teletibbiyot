@@ -3,8 +3,68 @@ export interface User {
   email: string;
   fullName: string;
   role: string;
+  specialty?: string | null;
+  specialtyId?: string | null;
+  specialtyRef?: { id: string; name: string } | null;
+  phone?: string | null;
   facility?: { id: string; name: string; code: string; type: string };
   isActive?: boolean;
+}
+
+export interface Specialty {
+  id: string;
+  name: string;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+export interface DoctorOption {
+  id: string;
+  fullName: string;
+  specialty?: string | null;
+  specialtyRef?: { id: string; name: string } | null;
+  facility?: { id: string; name: string; code: string };
+}
+
+export interface AdminOverview {
+  summary: {
+    totalConsultations: number;
+    inProgress: number;
+    queued: number;
+    completed: number;
+    totalPatients: number;
+    utOperators: number;
+    mtDoctors: number;
+    utFacilities: number;
+    mtFacilities: number;
+  };
+  operatorStats: Array<{
+    id: string;
+    fullName: string;
+    email: string;
+    isActive: boolean;
+    facility?: { id: string; name: string; code: string } | null;
+    intakes: number;
+  }>;
+  doctorStats: Array<{
+    id: string;
+    fullName: string;
+    email: string;
+    isActive: boolean;
+    specialty: string | null;
+    facility?: { name: string; code: string } | null;
+    total: number;
+    completed: number;
+    inProgress: number;
+    queued: number;
+  }>;
+  facilityStats: Array<{
+    id: string;
+    name: string;
+    code: string;
+    intakes: number;
+  }>;
+  recentAudit: AuditLog[];
 }
 
 export interface Attachment {
@@ -188,6 +248,7 @@ export interface CreateConsultationData {
   patientId: string;
   consentGiven: boolean;
   clientRequestId?: string;
+  mtDoctorId?: string;
   checklistData?: Array<{ id: string; label: string; required: boolean; checked: boolean; notes?: string }>;
   clinicalRecord: {
     complaints: string;

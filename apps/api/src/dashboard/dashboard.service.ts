@@ -2,7 +2,7 @@ import { Injectable } from "@nestjs/common";
 
 import { PrismaService } from "../prisma/prisma.service";
 
-import { ConsultationStatus, Prisma } from "@prisma/client";
+import { ConsultationStatus, FacilityType, Prisma, UserRole } from "@prisma/client";
 import { MT_DOCTOR_ROLES } from "../common/roles.constants";
 
 import { AuthUser } from "../common/access-control.service";
@@ -83,6 +83,156 @@ export class DashboardService {
       totalPatients,
 
       totalDoctors,
+    };
+  }
+
+  async getAdminOverview() {
+    const [
+      totalConsultations,
+      inProgress,
+      queued,
+      completed,
+      totalPatients,
+      utOperators,
+      mtDoctors,
+      utFacilities,
+      mtFacilities,
+      operatorIntakes,
+      doctorStatusGroups,
+      facilityIntakes,
+      recentAudit,
+    ] = await Promise.all([
+      this.prisma.consultation.count(),
+      this.prisma.consultation.count({ where: { status: ConsultationStatus.IN_PROGRESS } }),
+      this.prisma.consultation.count({ where: { status: ConsultationStatus.QUEUED } }),
+      this.prisma.consultation.count({ where: { status: ConsultationStatus.COMPLETED } }),
+      this.prisma.patient.count(),
+      this.prisma.user.count({ where: { role: UserRole.UT_OPERATOR, isActive: true } }),
+      this.prisma.user.count({ where: { role: UserRole.MT_DOCTOR, isActive: true } }),
+      this.prisma.facility.count({ where: { type: FacilityType.UT } }),
+      this.prisma.facility.count({ where: { type: FacilityType.MT } }),
+      this.prisma.auditLog.groupBy({
+        by: ['userId'],
+        where: {
+          action: 'CREATE_CONSULTATION',
+          user: { role: UserRole.UT_OPERATOR },
+        },
+        _count: { id: true },
+      }),
+      this.prisma.consultation.groupBy({
+        by: ['mtDoctorId', 'status'],
+        where: { mtDoctorId: { not: null } },
+        _count: { id: true },
+      }),
+      this.prisma.consultation.groupBy({
+        by: ['utId'],
+        _count: { id: true },
+      }),
+      this.prisma.auditLog.findMany({
+        take: 40,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: { select: { fullName: true, email: true, role: true } },
+        },
+      }),
+    ]);
+
+    const [operators, doctors, facilities] = await Promise.all([
+      this.prisma.user.findMany({
+        where: { role: UserRole.UT_OPERATOR },
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          isActive: true,
+          facility: { select: { id: true, name: true, code: true } },
+        },
+        orderBy: { fullName: 'asc' },
+      }),
+      this.prisma.user.findMany({
+        where: { role: UserRole.MT_DOCTOR },
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          isActive: true,
+          specialty: true,
+          specialtyRef: { select: { name: true } },
+          facility: { select: { name: true, code: true } },
+        },
+        orderBy: { fullName: 'asc' },
+      }),
+      this.prisma.facility.findMany({
+        where: { type: FacilityType.UT },
+        select: { id: true, name: true, code: true },
+        orderBy: { name: 'asc' },
+      }),
+    ]);
+
+    const intakeByUser = new Map(operatorIntakes.map((row) => [row.userId, row._count.id]));
+
+    const doctorCounts = new Map<string, { total: number; completed: number; inProgress: number; queued: number }>();
+    for (const row of doctorStatusGroups) {
+      if (!row.mtDoctorId) continue;
+      const current = doctorCounts.get(row.mtDoctorId) ?? {
+        total: 0,
+        completed: 0,
+        inProgress: 0,
+        queued: 0,
+      };
+      current.total += row._count.id;
+      if (row.status === ConsultationStatus.COMPLETED) current.completed += row._count.id;
+      if (row.status === ConsultationStatus.IN_PROGRESS) current.inProgress += row._count.id;
+      if (row.status === ConsultationStatus.QUEUED) current.queued += row._count.id;
+      doctorCounts.set(row.mtDoctorId, current);
+    }
+
+    const intakeByFacility = new Map(facilityIntakes.map((row) => [row.utId, row._count.id]));
+
+    return {
+      summary: {
+        totalConsultations,
+        inProgress,
+        queued,
+        completed,
+        totalPatients,
+        utOperators,
+        mtDoctors,
+        utFacilities,
+        mtFacilities,
+      },
+      operatorStats: operators.map((op) => ({
+        id: op.id,
+        fullName: op.fullName,
+        email: op.email,
+        isActive: op.isActive,
+        facility: op.facility,
+        intakes: intakeByUser.get(op.id) ?? 0,
+      })),
+      doctorStats: doctors.map((doc) => {
+        const counts = doctorCounts.get(doc.id) ?? {
+          total: 0,
+          completed: 0,
+          inProgress: 0,
+          queued: 0,
+        };
+        return {
+          id: doc.id,
+          fullName: doc.fullName,
+          email: doc.email,
+          isActive: doc.isActive,
+          specialty: doc.specialtyRef?.name ?? doc.specialty ?? null,
+          facility: doc.facility,
+          ...counts,
+        };
+      }),
+      facilityStats: facilities.map((f) => ({
+        id: f.id,
+        name: f.name,
+        code: f.code,
+        intakes: intakeByFacility.get(f.id) ?? 0,
+      })),
+      recentAudit,
     };
   }
 

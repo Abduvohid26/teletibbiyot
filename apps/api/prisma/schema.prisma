@@ -195,6 +195,28 @@ model Facility {
 
 
 
+model Specialty {
+
+  id        String   @id @default(uuid())
+
+  name      String   @unique
+
+  isActive  Boolean  @default(true)
+
+  sortOrder Int      @default(0)
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+
+
+  users User[]
+
+}
+
+
+
 model User {
 
   id           String    @id @default(uuid())
@@ -220,6 +242,10 @@ model User {
   tokenVersion Int       @default(0)
 
   specialty    String?
+
+  specialtyId  String?
+
+  specialtyRef Specialty? @relation(fields: [specialtyId], references: [id])
 
   phone        String?
 

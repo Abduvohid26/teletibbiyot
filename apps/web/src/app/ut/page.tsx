@@ -98,6 +98,8 @@ export default function UTClientPage() {
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [checklist, setChecklist] = useState<ChecklistItem[]>(buildDefaultChecklist());
   const [offlineNotice, setOfflineNotice] = useState('');
+  const [doctors, setDoctors] = useState<Array<{ id: string; fullName: string; specialty?: string | null; specialtyRef?: { name: string } | null }>>([]);
+  const [selectedDoctorId, setSelectedDoctorId] = useState('');
 
   const {
     consultation,
@@ -110,6 +112,13 @@ export default function UTClientPage() {
   useEffect(() => {
     if (success) void refreshSessions();
   }, [success, refreshSessions]);
+
+  useEffect(() => {
+    if (!user || !isUtRole(user.role)) return;
+    api.getDoctors()
+      .then(setDoctors)
+      .catch(() => setDoctors([]));
+  }, [user]);
 
   useEffect(() => {
     flushOfflineQueue(async (payload) => {
@@ -189,6 +198,7 @@ export default function UTClientPage() {
     setChecklist(buildDefaultChecklist());
     setSuccess(false);
     setCreatedConsultationId(null);
+    setSelectedDoctorId('');
   };
 
   const handleSubmit = async () => {
@@ -238,6 +248,7 @@ export default function UTClientPage() {
       patientId: '',
       consentGiven: true,
       clientRequestId,
+      ...(selectedDoctorId ? { mtDoctorId: selectedDoctorId } : {}),
       checklistData: updatedChecklist,
       clinicalRecord: {
         complaints: clinicalData.complaints,
@@ -537,6 +548,21 @@ export default function UTClientPage() {
                 </label>
               ))}
             </div>
+            <label className="flex items-center gap-1.5 shrink-0 cursor-pointer border-l border-slate-200 pl-2">
+              <span className="text-sm text-slate-600 whitespace-nowrap hidden lg:inline">Shifokor</span>
+              <select
+                className={`${IN} !w-[11rem] !min-h-[2rem] !py-1`}
+                value={selectedDoctorId}
+                onChange={(e) => setSelectedDoctorId(e.target.value)}
+              >
+                <option value="">Navbat (avto)</option>
+                {doctors.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.fullName}{d.specialtyRef?.name || d.specialty ? ` — ${d.specialtyRef?.name || d.specialty}` : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label className="flex items-center gap-1.5 shrink-0 cursor-pointer border-l border-slate-200 pl-2">
               <input
                 type="checkbox"

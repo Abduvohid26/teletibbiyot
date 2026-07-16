@@ -497,7 +497,7 @@ body {
   }
 
   .ut-settings-panel-body {
-    @apply panel-body flex-1 min-h-0 overflow-hidden;
+    @apply panel-body flex-1 min-h-0 overflow-y-auto overflow-x-hidden;
   }
 
   @media (max-width: 900px) {

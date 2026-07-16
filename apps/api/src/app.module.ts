@@ -25,6 +25,7 @@ import { RecordingsModule } from './recordings/recordings.module';
 import { MessagesModule } from './messages/messages.module';
 import { AppointmentsModule } from './appointments/appointments.module';
 import { TemplatesModule } from './templates/templates.module';
+import { SpecialtiesModule } from './specialties/specialties.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { ComplianceModule } from './compliance/compliance.module';
 import { IntegrationsModule } from './integrations/integrations.module';
@@ -65,6 +66,7 @@ const throttleLimit =
     MessagesModule,
     AppointmentsModule,
     TemplatesModule,
+    SpecialtiesModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
