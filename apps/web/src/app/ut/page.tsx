@@ -21,7 +21,6 @@ import { AuthLoadingScreen } from '@/components/auth/AuthLoadingScreen';
 import { UtIntakeSection, UtIntakeSubCard } from '@/components/ut/UtIntakeSection';
 import { UtIntakeVitalsPanel } from '@/components/ut/UtIntakeVitalsPanel';
 import { UtShell } from '@/components/ut/UtShell';
-import { UtPatientSwitcher } from '@/components/ut/UtPatientSwitcher';
 import { useUtSessions } from '@/hooks/use-ut-sessions';
 import { useConsultationRealtime } from '@/hooks/use-consultation-realtime';
 import { toast } from '@/lib/toast';
@@ -95,11 +94,8 @@ export default function UTClientPage() {
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
 
   const {
-    consultation,
     sessions,
     inProgressList,
-    switchToConsultation,
-    cancelSession,
     refreshSessions,
   } = useUtSessions(!!user && isUtRole(user?.role || ''));
 
@@ -319,17 +315,6 @@ export default function UTClientPage() {
     <UtShell
       sessionCount={sessions.length}
       liveCount={inProgressList.length}
-      headerExtra={
-        sessions.length > 0 ? (
-          <UtPatientSwitcher
-            compact
-            activeId={consultation?.id}
-            sessions={sessions}
-            onSelect={switchToConsultation}
-            onCancel={(id) => void cancelSession(id)}
-          />
-        ) : null
-      }
     >
       <div className="ut-page">
         {offlineNotice && (

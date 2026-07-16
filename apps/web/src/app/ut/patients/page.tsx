@@ -9,7 +9,6 @@ import { isUtRole } from '@ishifo/shared';
 import { getRoleHomePath } from '@/lib/auth-utils';
 import { UtShell } from '@/components/ut/UtShell';
 import { UtPatientList } from '@/components/ut/UtPatientList';
-import { UtPatientSwitcher } from '@/components/ut/UtPatientSwitcher';
 import { useUtSessions } from '@/hooks/use-ut-sessions';
 
 export default function UtPatientsPage() {
@@ -58,16 +57,6 @@ export default function UtPatientsPage() {
             <UserPlus size={12} /> Qabul
           </Link>
         </div>
-      }
-      headerExtra={
-        sessions.length > 0 ? (
-          <UtPatientSwitcher
-            compact
-            activeId={consultation?.id}
-            sessions={sessions}
-            onSelect={switchToConsultation}
-          />
-        ) : null
       }
     >
       <div className="ut-page">

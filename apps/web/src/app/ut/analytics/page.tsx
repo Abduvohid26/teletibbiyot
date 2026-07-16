@@ -6,19 +6,13 @@ import { useAuth } from '@/lib/auth-context';
 import { isUtRole } from '@ishifo/shared';
 import { getRoleHomePath } from '@/lib/auth-utils';
 import { UtShell } from '@/components/ut/UtShell';
-import { UtPatientSwitcher } from '@/components/ut/UtPatientSwitcher';
 import { UtAnalyticsContent } from '@/components/ut/UtAnalyticsContent';
 import { useUtSessions } from '@/hooks/use-ut-sessions';
 
 export default function UtAnalyticsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const {
-    consultation,
-    sessions,
-    inProgressList,
-    switchToConsultation,
-  } = useUtSessions(!!user && isUtRole(user?.role || ''));
+  const { sessions, inProgressList } = useUtSessions(!!user && isUtRole(user?.role || ''));
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
@@ -39,16 +33,6 @@ export default function UtAnalyticsPage() {
       liveCount={inProgressList.length}
       pageTitle="Analitika"
       pageSubtitle="UT bo'yicha statistika va hisobotlar"
-      headerExtra={
-        sessions.length > 0 ? (
-          <UtPatientSwitcher
-            compact
-            activeId={consultation?.id}
-            sessions={sessions}
-            onSelect={switchToConsultation}
-          />
-        ) : null
-      }
     >
       <div className="ut-page overflow-y-auto pb-4">
         <UtAnalyticsContent />

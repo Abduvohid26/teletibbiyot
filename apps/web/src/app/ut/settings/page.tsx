@@ -6,19 +6,13 @@ import { useAuth } from '@/lib/auth-context';
 import { isUtRole } from '@ishifo/shared';
 import { getRoleHomePath } from '@/lib/auth-utils';
 import { UtShell } from '@/components/ut/UtShell';
-import { UtPatientSwitcher } from '@/components/ut/UtPatientSwitcher';
 import { SettingsContent } from '@/components/settings/SettingsContent';
 import { useUtSessions } from '@/hooks/use-ut-sessions';
 
 export default function UtSettingsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
-  const {
-    consultation,
-    sessions,
-    inProgressList,
-    switchToConsultation,
-  } = useUtSessions(!!user && isUtRole(user?.role || ''));
+  const { sessions, inProgressList } = useUtSessions(!!user && isUtRole(user?.role || ''));
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
@@ -39,16 +33,6 @@ export default function UtSettingsPage() {
       liveCount={inProgressList.length}
       pageTitle="Sozlamalar"
       pageSubtitle="Profil va 4 ta kamera biriktirish"
-      headerExtra={
-        sessions.length > 0 ? (
-          <UtPatientSwitcher
-            compact
-            activeId={consultation?.id}
-            sessions={sessions}
-            onSelect={switchToConsultation}
-          />
-        ) : null
-      }
     >
       <div className="ut-page">
         <SettingsContent user={user} videoRole="ut" compact />

@@ -8,20 +8,23 @@ import { useAuth } from '@/lib/auth-context';
 import { isUtRole } from '@ishifo/shared';
 import { getRoleHomePath } from '@/lib/auth-utils';
 import { UtShell } from '@/components/ut/UtShell';
-import { UtPatientSwitcher } from '@/components/ut/UtPatientSwitcher';
 import { UtQuickNav } from '@/components/ut/UtNavTabs';
 import { UtConsultationSession } from '@/components/video/UtConsultationSession';
 import { UtDocumentsModal } from '@/components/ut/UtDocumentsModal';
+import { UtLiveQueuePanel, UtQueueCountPill } from '@/components/ut/UtLiveQueuePanel';
+import { UtLiveQueueDrawer, UtMobileQueueFab } from '@/components/ut/UtLiveQueueDrawer';
 import { useUtSessions } from '@/hooks/use-ut-sessions';
 
 export default function UtVitalsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [showDocuments, setShowDocuments] = useState(false);
+  const [queueDrawerOpen, setQueueDrawerOpen] = useState(false);
   const {
     consultation,
     sessions,
     inProgressList,
+    queuedList,
     error,
     liveBanner,
     setLiveBanner,
@@ -55,30 +58,24 @@ export default function UtVitalsPage() {
           : undefined
       }
       pageAction={
-        consultation ? (
-          <button
-            type="button"
-            onClick={() => setShowDocuments(true)}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg bg-white/90 text-slate-700 ring-1 ring-slate-200 hover:bg-brand-50 hover:text-brand-700 hover:ring-brand-200 transition-colors shrink-0"
-          >
-            <FileText size={13} />
-            Hujjatlar
-          </button>
+        consultation || queuedList.length > 0 ? (
+          <div className="flex items-center gap-2 shrink-0">
+            <UtQueueCountPill count={queuedList.length} />
+            {consultation && (
+              <button
+                type="button"
+                onClick={() => setShowDocuments(true)}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg bg-white/90 text-slate-700 ring-1 ring-slate-200 hover:bg-brand-50 hover:text-brand-700 hover:ring-brand-200 transition-colors"
+              >
+                <FileText size={13} />
+                Hujjatlar
+              </button>
+            )}
+          </div>
         ) : undefined
       }
-      headerExtra={
-        sessions.length > 0 ? (
-          <UtPatientSwitcher
-            compact
-            activeId={consultation?.id}
-            sessions={sessions}
-            onSelect={switchToConsultation}
-            onCancel={(id) => void cancelSession(id)}
-          />
-        ) : null
-      }
     >
-      <div className="ut-page">
+      <div className="ut-page pb-14 lg:pb-0">
         {error && (
           <div className="shrink-0 mb-2 ut-glass-banner border-red-200/70 bg-red-50/75 text-red-700 text-xs px-3 py-1.5">
             {error}
@@ -111,19 +108,31 @@ export default function UtVitalsPage() {
             <div>
               <h2 className="font-bold text-slate-800 text-sm mb-1">Faol bemor tanlanmagan</h2>
               <p className="text-sm text-slate-500 max-w-xs">
-                Avval bemor qabul qiling yoki ro&apos;yxatdan tanlang
+                Bemorlar ro&apos;yxatidan tanlang yoki yangi qabul qiling
               </p>
             </div>
             <UtQuickNav sessionCount={sessions.length} liveCount={inProgressList.length} />
             <Link href="/ut" className="gradient-btn !text-sm">Bemor qabul qilish</Link>
           </div>
         ) : (
-          <div className="flex-1 min-h-0 overflow-hidden">
-            <UtConsultationSession
-              key={consultation.id}
-              consultation={consultation}
-              patientName={consultation.patient.fullName}
-            />
+          <div className="flex-1 min-h-0 flex gap-2 lg:gap-3 overflow-hidden">
+            <div className="flex-1 min-w-0 min-h-0 overflow-hidden">
+              <UtConsultationSession
+                key={consultation.id}
+                consultation={consultation}
+                patientName={consultation.patient.fullName}
+              />
+            </div>
+
+            {sessions.length > 0 && (
+              <UtLiveQueuePanel
+                activeId={consultation.id}
+                sessions={sessions}
+                onSelect={switchToConsultation}
+                onCancel={(id) => void cancelSession(id)}
+                className="hidden lg:flex w-[220px] xl:w-[248px] shrink-0"
+              />
+            )}
           </div>
         )}
 
@@ -136,6 +145,24 @@ export default function UtVitalsPage() {
           />
         )}
       </div>
+
+      {sessions.length > 0 && (
+        <>
+          <UtMobileQueueFab
+            queuedCount={queuedList.length}
+            sessionCount={sessions.length}
+            onOpen={() => setQueueDrawerOpen(true)}
+          />
+          <UtLiveQueueDrawer
+            open={queueDrawerOpen}
+            onClose={() => setQueueDrawerOpen(false)}
+            activeId={consultation?.id}
+            sessions={sessions}
+            onSelect={switchToConsultation}
+            onCancel={(id) => void cancelSession(id)}
+          />
+        </>
+      )}
     </UtShell>
   );
 }
