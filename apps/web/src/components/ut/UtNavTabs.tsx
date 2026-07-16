@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { Stethoscope, Users, Radio, Settings, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const TABS = [
+export const UT_NAV_TABS = [
   {
     href: '/ut',
     label: 'Qabul',
@@ -41,12 +41,25 @@ const TABS = [
   },
 ] as const;
 
+export type UtNavMode = 'pill' | 'icons';
+
 interface UtNavTabsProps {
   sessionCount?: number;
   liveCount?: number;
   className?: string;
   compact?: boolean;
   stretch?: boolean;
+  mode?: UtNavMode;
+}
+
+function getBadge(
+  badgeKey: 'patients' | 'live' | null,
+  sessionCount: number,
+  liveCount: number,
+) {
+  if (badgeKey === 'patients' && sessionCount > 0) return sessionCount;
+  if (badgeKey === 'live' && liveCount > 0) return liveCount;
+  return null;
 }
 
 export function UtNavTabs({
@@ -55,28 +68,53 @@ export function UtNavTabs({
   className,
   compact,
   stretch,
+  mode = 'pill',
 }: UtNavTabsProps) {
   const pathname = usePathname();
 
+  const navShell = cn(
+    mode === 'pill' && 'flex items-stretch gap-0.5 p-0.5 rounded-xl bg-white/40 backdrop-blur-md border border-white/55 shadow-sm',
+    mode === 'icons' && 'flex items-center justify-center gap-1',
+    stretch && 'w-full',
+    className,
+  );
+
   return (
-    <nav
-      className={cn(
-        'flex items-stretch gap-0.5 p-0.5 rounded-xl bg-white/40 backdrop-blur-md border border-white/55 shadow-sm',
-        stretch && 'w-full',
-        className,
-      )}
-      aria-label="UT navigatsiya"
-    >
-      {TABS.map(({ href, label, shortLabel, icon: Icon, ...rest }) => {
+    <nav className={navShell} aria-label="UT navigatsiya">
+      {UT_NAV_TABS.map(({ href, label, shortLabel, icon: Icon, ...rest }) => {
         const exact = 'exact' in rest && rest.exact;
         const active = exact ? pathname === href : pathname.startsWith(href);
         const badgeKey = 'badgeKey' in rest ? rest.badgeKey : null;
-        const badge =
-          badgeKey === 'patients' && sessionCount > 0
-            ? sessionCount
-            : badgeKey === 'live' && liveCount > 0
-              ? liveCount
-              : null;
+        const badge = getBadge(badgeKey, sessionCount, liveCount);
+
+        if (mode === 'icons') {
+          return (
+            <Link
+              key={href}
+              href={href}
+              title={label}
+              className={cn(
+                'relative flex flex-col items-center justify-center rounded-xl transition-all duration-200 w-10 h-10 sm:w-auto sm:h-auto sm:px-3 sm:py-2 sm:flex-row sm:gap-1.5',
+                active
+                  ? 'bg-white/90 text-brand-700 shadow-sm ring-1 ring-brand-200/70'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-white/50',
+              )}
+            >
+              <Icon size={18} className={cn('shrink-0', active && 'text-brand-600')} />
+              <span className="hidden lg:inline text-xs font-semibold truncate">{label}</span>
+              {badge != null && (
+                <span
+                  className={cn(
+                    'absolute -top-0.5 -right-0.5 sm:static sm:ml-0.5 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold inline-flex items-center justify-center',
+                    badgeKey === 'live' ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white',
+                  )}
+                >
+                  {badge}
+                </span>
+              )}
+            </Link>
+          );
+        }
 
         return (
           <Link
@@ -100,9 +138,7 @@ export function UtNavTabs({
               <span
                 className={cn(
                   'shrink-0 min-w-[17px] h-[17px] px-1 rounded-full text-[9px] font-bold inline-flex items-center justify-center',
-                  badgeKey === 'live'
-                    ? 'bg-emerald-500 text-white'
-                    : 'bg-amber-500 text-white',
+                  badgeKey === 'live' ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white',
                 )}
               >
                 {badge}
@@ -125,21 +161,12 @@ export function UtQuickNav({
 }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 w-full max-w-3xl">
-      {TABS.map(({ href, label, shortLabel, icon: Icon, ...rest }) => {
+      {UT_NAV_TABS.map(({ href, label, icon: Icon, ...rest }) => {
         const badgeKey = 'badgeKey' in rest ? rest.badgeKey : null;
-        const badge =
-          badgeKey === 'patients' && sessionCount > 0
-            ? sessionCount
-            : badgeKey === 'live' && liveCount > 0
-              ? liveCount
-              : null;
+        const badge = getBadge(badgeKey, sessionCount, liveCount);
 
         return (
-          <Link
-            key={href}
-            href={href}
-            className="ut-quick-nav-btn group"
-          >
+          <Link key={href} href={href} className="ut-quick-nav-btn group">
             <Icon size={20} className="text-brand-600 group-hover:scale-110 transition-transform" />
             <span className="font-bold text-slate-800 text-sm">{label}</span>
             {badge != null && (
@@ -172,17 +199,11 @@ export function UtSessionSummary({
   const queuedCount = sessionCount - liveCount;
 
   return (
-    <p className={cn('text-[10px] text-slate-500 font-medium', className)}>
-      {liveCount > 0 && (
-        <span className="text-emerald-700 font-semibold">{liveCount} jonli</span>
-      )}
+    <p className={cn('text-[10px] font-medium', className)}>
+      {liveCount > 0 && <span className="text-emerald-600 font-semibold">{liveCount} jonli</span>}
       {liveCount > 0 && queuedCount > 0 && ' · '}
-      {queuedCount > 0 && (
-        <span className="text-amber-700 font-semibold">{queuedCount} navbat</span>
-      )}
-      {liveCount === 0 && (
-        <span className="text-amber-700 font-semibold">{sessionCount} navbatda</span>
-      )}
+      {queuedCount > 0 && <span className="text-amber-600 font-semibold">{queuedCount} navbat</span>}
+      {liveCount === 0 && <span className="text-amber-600 font-semibold">{sessionCount} navbatda</span>}
     </p>
   );
 }

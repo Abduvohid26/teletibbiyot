@@ -357,14 +357,6 @@ body {
     box-shadow: 0 1px 3px rgb(15 23 42 / 0.05), inset 0 1px 0 rgb(255 255 255 / 0.7);
   }
 
-  .ut-shell-topbar {
-    @apply flex items-center justify-between gap-3 px-3 lg:px-4 py-2;
-  }
-
-  .ut-shell-nav-wrap {
-    @apply px-3 lg:px-4 pb-2 pt-0 border-t border-white/35;
-  }
-
   .ut-shell-brand {
     @apply flex items-center gap-2.5 min-w-0;
   }
@@ -376,6 +368,10 @@ body {
   .ut-shell-pagebar {
     @apply flex items-center justify-between gap-3 px-3 lg:px-4 py-1.5 border-t border-white/40;
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0.2) 100%);
+  }
+
+  .ut-header-flux-row {
+    @apply flex items-center gap-2 px-3 lg:px-4 py-2 min-h-[3.25rem];
   }
 
   .ut-shell-main {
