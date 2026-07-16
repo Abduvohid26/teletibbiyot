@@ -6,7 +6,7 @@ import { AnalyticsQueryDto } from './dto/analytics-query.dto';
 import { AccessControlService, AuthUser } from '../common/access-control.service';
 import { FieldCryptoService } from '../common/field-crypto.service';
 import { buildPatientSearchOr } from '../common/patient-search.util';
-import { hasGlobalMtAccess, isUtRole } from '../common/roles.constants';
+import { isAdmin, isUtRole } from '../common/roles.constants';
 
 @Injectable()
 export class AnalyticsService {

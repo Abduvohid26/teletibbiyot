@@ -6,7 +6,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { ResetPasswordDto } from '../common/dto/common.dto';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guard';
 import { Roles } from '../auth/roles.decorator';
-import { ROLES_ADMIN, ROLES_ADMIN_MANAGER, ROLES_CLINICAL } from '../common/roles.constants';
+import { ROLES_ADMIN, ROLES_CLINICAL } from '../common/roles.constants';
 
 @ApiTags('Users')
 @Controller('users')
@@ -16,7 +16,7 @@ export class UsersController {
   constructor(private usersService: UsersService) {}
 
   @Get()
-  @Roles(...ROLES_ADMIN_MANAGER)
+  @Roles(...ROLES_ADMIN)
   findAll() {
     return this.usersService.findAll();
   }

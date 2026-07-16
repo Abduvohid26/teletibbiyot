@@ -1,17 +1,13 @@
 export enum UserRole {
   UT_OPERATOR = 'UT_OPERATOR',
   MT_DOCTOR = 'MT_DOCTOR',
-  MT_MANAGER = 'MT_MANAGER',
   ADMIN = 'ADMIN',
-  AUDITOR = 'AUDITOR',
 }
 
 export const ROLE_LABELS: Record<UserRole, string> = {
   [UserRole.UT_OPERATOR]: 'UT Operator',
   [UserRole.MT_DOCTOR]: 'MT Shifokor',
-  [UserRole.MT_MANAGER]: 'MT Manager',
   [UserRole.ADMIN]: 'Administrator',
-  [UserRole.AUDITOR]: 'Auditor',
 };
 
 export function isUtRole(role: string): boolean {
@@ -22,20 +18,12 @@ export function isMtDoctor(role: string): boolean {
   return role === UserRole.MT_DOCTOR;
 }
 
-export function isMtManager(role: string): boolean {
-  return role === UserRole.MT_MANAGER;
-}
-
 export function isMtStaff(role: string): boolean {
-  return isMtDoctor(role) || isMtManager(role);
+  return isMtDoctor(role);
 }
 
 export function isAdminRole(role: string): boolean {
   return role === UserRole.ADMIN;
-}
-
-export function isAuditorRole(role: string): boolean {
-  return role === UserRole.AUDITOR;
 }
 
 export function canAccessAdmin(role: string): boolean {
@@ -43,11 +31,12 @@ export function canAccessAdmin(role: string): boolean {
 }
 
 export function canAccessAudit(role: string): boolean {
-  return role === UserRole.ADMIN || role === UserRole.AUDITOR;
+  return role === UserRole.ADMIN;
 }
 
+/** Faqat shifokor klinik dashboardga kiradi — admin emas */
 export function canAccessMtDashboard(role: string): boolean {
-  return isMtStaff(role) || role === UserRole.ADMIN;
+  return isMtDoctor(role);
 }
 
 export enum FacilityType {

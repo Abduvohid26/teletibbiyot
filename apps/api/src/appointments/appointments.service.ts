@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, ForbiddenException 
 import { PrismaService } from '../prisma/prisma.service';
 import { AccessControlService, AuthUser } from '../common/access-control.service';
 import { AppointmentStatus, ConsultationStatus, Prisma, UserRole } from '@prisma/client';
-import { hasGlobalMtAccess, isMtDoctor, isUtRole } from '../common/roles.constants';
+import { isAdmin, isMtDoctor, isUtRole } from '../common/roles.constants';
 import { NotificationsService } from '../notifications/notifications.service';
 import { FieldCryptoService } from '../common/field-crypto.service';
 import { isAccessDeniedScope } from '../common/access-scope.constants';
@@ -53,7 +53,7 @@ export class AppointmentsService {
     let doctorId = data.doctorId;
     if (isMtDoctor(user.role)) {
       doctorId = user.id;
-    } else if (doctorId && !hasGlobalMtAccess(user.role)) {
+    } else if (doctorId && !isAdmin(user.role)) {
       throw new ForbiddenException('Shifokor tayinlash ruxsati yo\'q');
     }
 
@@ -150,7 +150,7 @@ export class AppointmentsService {
       if (!user.facilityId || user.facilityId !== appt.facilityId) {
         throw new ForbiddenException('Ruxsat yo\'q');
       }
-    } else if (!hasGlobalMtAccess(user.role) && !isMtDoctor(user.role)) {
+    } else if (!isAdmin(user.role) && !isMtDoctor(user.role)) {
       throw new ForbiddenException('Ruxsat yo\'q');
     }
 

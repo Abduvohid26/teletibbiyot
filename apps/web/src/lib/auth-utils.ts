@@ -4,8 +4,6 @@ import {
   isUtRole,
   isMtStaff,
   isAdminRole,
-  isAuditorRole,
-  isMtManager,
   canAccessAdmin,
   canAccessAudit,
   canAccessMtDashboard,
@@ -17,8 +15,6 @@ export {
   isUtRole,
   isMtStaff,
   isAdminRole,
-  isAuditorRole,
-  isMtManager,
   canAccessAdmin,
   canAccessAudit,
   canAccessMtDashboard,
@@ -27,8 +23,6 @@ export {
 export function getRoleHomePath(role: string): string {
   if (isUtRole(role)) return '/ut';
   if (canAccessAdmin(role)) return '/admin';
-  if (isAuditorRole(role)) return '/admin/audit';
-  if (isMtManager(role)) return '/dashboard/manager';
   if (canAccessMtDashboard(role)) return '/dashboard';
   return '/login';
 }
@@ -154,18 +148,8 @@ const ROLE_PREFIXES: Record<string, string[]> = {
     '/dashboard',
     '/dashboard/incidents',
   ],
-  [UserRole.MT_MANAGER]: [
-    '/dashboard',
-    '/dashboard/manager',
-    '/dashboard/incidents',
-  ],
   [UserRole.ADMIN]: [
     '/admin',
-    '/dashboard',
-    '/dashboard/incidents',
-  ],
-  [UserRole.AUDITOR]: [
-    '/admin/audit',
   ],
 };
 
@@ -181,18 +165,9 @@ export function getRoleLabel(role: string): string {
 
 /** Sidebar menyu elementlari uchun rol filtri */
 export function canAccessRoute(role: string, href: string): boolean {
-  if (href.startsWith('/admin/audit')) return canAccessAudit(role);
   if (href.startsWith('/admin')) return canAccessAdmin(role);
   if (href === '/dashboard/incidents') {
-    return (
-      role === UserRole.UT_OPERATOR ||
-      role === UserRole.MT_DOCTOR ||
-      role === UserRole.MT_MANAGER ||
-      role === UserRole.ADMIN
-    );
-  }
-  if (href === '/dashboard/manager') {
-    return role === UserRole.MT_MANAGER || role === UserRole.ADMIN;
+    return role === UserRole.UT_OPERATOR || role === UserRole.MT_DOCTOR;
   }
   if (canAccessMtDashboard(role)) return true;
   if (isUtRole(role)) {

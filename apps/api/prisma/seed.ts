@@ -90,15 +90,22 @@ async function main() {
     }),
   ]);
 
+  const terapevt = await prisma.specialty.findFirst({ where: { name: 'Terapevt' } });
+
   await prisma.user.upsert({
     where: { email: 'doctor@ishifo.uz' },
-    update: { role: UserRole.MT_DOCTOR },
+    update: {
+      role: UserRole.MT_DOCTOR,
+      facilityId: mtFacility.id,
+      specialtyId: terapevt?.id ?? null,
+    },
     create: {
       email: 'doctor@ishifo.uz',
       passwordHash,
       fullName: 'Dr. Akmal Karimov',
       role: UserRole.MT_DOCTOR,
       facilityId: mtFacility.id,
+      specialtyId: terapevt?.id ?? null,
       specialty: 'Terapevt',
       phone: '+998901112233',
     },
@@ -106,7 +113,7 @@ async function main() {
 
   await prisma.user.upsert({
     where: { email: 'operator@ishifo.uz' },
-    update: { role: UserRole.UT_OPERATOR },
+    update: { role: UserRole.UT_OPERATOR, facilityId: utFacilities[0].id },
     create: {
       email: 'operator@ishifo.uz',
       passwordHash,
@@ -117,39 +124,19 @@ async function main() {
   });
 
   await prisma.user.upsert({
-    where: { email: 'manager@ishifo.uz' },
-    update: { role: UserRole.MT_MANAGER },
-    create: {
-      email: 'manager@ishifo.uz',
-      passwordHash,
-      fullName: 'Sardor Rahimov',
-      role: UserRole.MT_MANAGER,
-      facilityId: mtFacility.id,
-    },
-  });
-
-  await prisma.user.upsert({
     where: { email: 'admin@ishifo.uz' },
-    update: { role: UserRole.ADMIN },
+    update: { role: UserRole.ADMIN, facilityId: null },
     create: {
       email: 'admin@ishifo.uz',
       passwordHash,
       fullName: 'Tizim Administratori',
       role: UserRole.ADMIN,
-      facilityId: mtFacility.id,
+      facilityId: null,
     },
   });
 
-  await prisma.user.upsert({
-    where: { email: 'auditor@ishifo.uz' },
-    update: { role: UserRole.AUDITOR },
-    create: {
-      email: 'auditor@ishifo.uz',
-      passwordHash,
-      fullName: 'Gulnoza Audit',
-      role: UserRole.AUDITOR,
-      facilityId: mtFacility.id,
-    },
+  await prisma.user.deleteMany({
+    where: { email: { in: ['manager@ishifo.uz', 'auditor@ishifo.uz'] } },
   });
 
   for (const ut of utFacilities) {
@@ -173,11 +160,9 @@ async function main() {
   console.log('');
   console.log('=== Test hisoblar (barcha hisoblar bir xil parol) ===');
   console.log(`Parol: ${seedPassword}`);
-  console.log('MT Shifokor: doctor@ishifo.uz');
   console.log('UT Operator: operator@ishifo.uz');
-  console.log('MT Manager: manager@ishifo.uz');
+  console.log('MT Shifokor: doctor@ishifo.uz');
   console.log('Admin: admin@ishifo.uz');
-  console.log('Auditor: auditor@ishifo.uz');
   console.log('');
   console.log('Eslatma: demo bemor/konsultatsiya yaratilmaydi — faqat real UT yuborishlari ishlatiladi.');
 }

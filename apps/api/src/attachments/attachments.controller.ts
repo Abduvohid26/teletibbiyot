@@ -18,7 +18,7 @@ import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '@prisma/client';
 import { Request as ExpressRequest } from 'express';
-import { ROLES_CLINICAL_ADMIN } from '../common/roles.constants';
+import { ROLES_CLINICAL } from '../common/roles.constants';
 
 @ApiTags('Attachments')
 @Controller('attachments')
@@ -28,7 +28,7 @@ export class AttachmentsController {
   constructor(private attachmentsService: AttachmentsService) {}
 
   @Post('consultation/:consultationId')
-  @Roles(...ROLES_CLINICAL_ADMIN)
+  @Roles(...ROLES_CLINICAL)
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 20 * 1024 * 1024 } }))
   upload(
@@ -44,7 +44,7 @@ export class AttachmentsController {
 
   @Get('consultation/:consultationId')
   @SkipThrottle()
-  @Roles(...ROLES_CLINICAL_ADMIN)
+  @Roles(...ROLES_CLINICAL)
   list(
     @Param('consultationId') consultationId: string,
     @Request() req: { user: { id: string; role: UserRole; facilityId: string | null } },
@@ -53,7 +53,7 @@ export class AttachmentsController {
   }
 
   @Post('consultation/:consultationId/finalize')
-  @Roles(...ROLES_CLINICAL_ADMIN)
+  @Roles(...ROLES_CLINICAL)
   finalize(
     @Param('consultationId') consultationId: string,
     @Request() req: { user: { id: string; role: UserRole; facilityId: string | null } },
@@ -63,7 +63,7 @@ export class AttachmentsController {
 
   @Get(':id/download')
   @SkipThrottle()
-  @Roles(...ROLES_CLINICAL_ADMIN)
+  @Roles(...ROLES_CLINICAL)
   download(
     @Param('id') id: string,
     @Request() req: { user: { id: string; role: UserRole; facilityId: string | null } },

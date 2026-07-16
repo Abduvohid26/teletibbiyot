@@ -21,11 +21,7 @@ enum UserRole {
 
   MT_DOCTOR
 
-  MT_MANAGER
-
   ADMIN
-
-  AUDITOR
 
 }
 

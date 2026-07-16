@@ -37,7 +37,7 @@ export class UsersService {
   } as const;
 
   private async validateRoleFacility(role: UserRole, facilityId?: string | null) {
-    if (role === UserRole.ADMIN || role === UserRole.AUDITOR) return;
+    if (role === UserRole.ADMIN) return;
     if (!facilityId) {
       throw new BadRequestException('Ish joyi (muassasa) tanlanishi shart');
     }
@@ -46,8 +46,8 @@ export class UsersService {
     if (role === UserRole.UT_OPERATOR && facility.type !== FacilityType.UT) {
       throw new BadRequestException('UT operator faqat UT muassasasiga biriktiriladi');
     }
-    if ((role === UserRole.MT_DOCTOR || role === UserRole.MT_MANAGER) && facility.type !== FacilityType.MT) {
-      throw new BadRequestException('Shifokor/menejer faqat MT markaziga biriktiriladi');
+    if (role === UserRole.MT_DOCTOR && facility.type !== FacilityType.MT) {
+      throw new BadRequestException('Shifokor faqat MT markaziga biriktiriladi');
     }
   }
 
@@ -56,7 +56,7 @@ export class UsersService {
     specialtyId?: string | null;
     specialty?: string | null;
   }) {
-    if (data.role !== UserRole.MT_DOCTOR && data.role !== UserRole.MT_MANAGER) {
+    if (data.role !== UserRole.MT_DOCTOR) {
       return { specialtyId: null, specialty: null };
     }
     if (data.specialtyId) {

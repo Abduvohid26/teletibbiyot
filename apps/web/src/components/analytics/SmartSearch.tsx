@@ -10,7 +10,7 @@ import { formatStatus } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { UserRole, isMtStaff } from '@ishifo/shared';
 
-const SEARCH_ROLES = new Set<string>([UserRole.MT_DOCTOR, UserRole.MT_MANAGER, UserRole.ADMIN]);
+const SEARCH_ROLES = new Set<string>([UserRole.MT_DOCTOR]);
 
 export function SmartSearch({ className }: { className?: string }) {
   const { user } = useAuth();

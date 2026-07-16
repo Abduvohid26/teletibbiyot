@@ -6,7 +6,7 @@ import { PatientQueryDto } from './dto/patient-query.dto';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '@prisma/client';
-import { ROLES_CLINICAL_ADMIN } from '../common/roles.constants';
+import { ROLES_CLINICAL } from '../common/roles.constants';
 
 @ApiTags('Patients')
 @Controller('patients')
@@ -16,7 +16,7 @@ export class PatientsController {
   constructor(private patientsService: PatientsService) {}
 
   @Post()
-  @Roles(...ROLES_CLINICAL_ADMIN)
+  @Roles(...ROLES_CLINICAL)
   @ApiOperation({ summary: 'Yangi bemor ro\'yxatdan o\'tkazish' })
   create(
     @Body() dto: CreatePatientDto,
@@ -27,7 +27,7 @@ export class PatientsController {
   }
 
   @Get()
-  @Roles(...ROLES_CLINICAL_ADMIN)
+  @Roles(...ROLES_CLINICAL)
   findAll(
     @Query() query: PatientQueryDto,
     @Request() req: { user: { id: string; role: UserRole; facilityId: string | null } },
@@ -36,7 +36,7 @@ export class PatientsController {
   }
 
   @Get('pinfl/:pinfl')
-  @Roles(...ROLES_CLINICAL_ADMIN)
+  @Roles(...ROLES_CLINICAL)
   @ApiOperation({ summary: 'PINFL bo\'yicha bemor qidirish' })
   findByPinfl(
     @Param('pinfl') pinfl: string,
@@ -46,7 +46,7 @@ export class PatientsController {
   }
 
   @Get(':id')
-  @Roles(...ROLES_CLINICAL_ADMIN)
+  @Roles(...ROLES_CLINICAL)
   findOne(
     @Param('id') id: string,
     @Request() req: { user: { id: string; role: UserRole; facilityId: string | null } },
@@ -55,7 +55,7 @@ export class PatientsController {
   }
 
   @Patch(':id')
-  @Roles(...ROLES_CLINICAL_ADMIN)
+  @Roles(...ROLES_CLINICAL)
   @ApiOperation({ summary: 'Bemor ma\'lumotlarini yangilash' })
   update(
     @Param('id') id: string,

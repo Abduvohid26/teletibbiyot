@@ -70,8 +70,7 @@ export default function ReportsPage() {
     if (!user) return;
     setLoading(true);
     setError('');
-    const canViewAiAgreement =
-      user.role === UserRole.MT_MANAGER || user.role === UserRole.ADMIN;
+    const canViewAiAgreement = user.role === UserRole.ADMIN;
     try {
       const [ov, tr, tri, fac, diag, ai, agreement] = await Promise.all([
         api.getAnalyticsOverview(filters),

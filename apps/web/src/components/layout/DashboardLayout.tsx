@@ -7,7 +7,7 @@ import { PlatformFooter } from './PlatformFooter';
 import { SidebarProvider } from './sidebar-context';
 import { useAuth } from '@/lib/auth-context';
 import { cn } from '@/lib/utils';
-import { canAccessMtDashboard, isUtRole, isAuditorRole } from '@ishifo/shared';
+import { canAccessMtDashboard, isUtRole } from '@ishifo/shared';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -18,11 +18,7 @@ interface DashboardLayoutProps {
 
 function DashboardLayoutInner({ children, title, subtitle, actions }: DashboardLayoutProps) {
   const { user } = useAuth();
-  const showSidebar = !!user && (
-    canAccessMtDashboard(user.role) ||
-    isUtRole(user.role) ||
-    isAuditorRole(user.role)
-  );
+  const showSidebar = !!user && (canAccessMtDashboard(user.role) || isUtRole(user.role));
 
   return (
     <div className="page-shell">

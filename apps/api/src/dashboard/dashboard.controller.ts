@@ -21,13 +21,13 @@ export class DashboardController {
   constructor(private dashboardService: DashboardService) {}
 
   @Get('stats')
-  @Roles(...ROLES_MT_STAFF, ...ROLES_ADMIN)
+  @Roles(...ROLES_MT_STAFF)
   getStats(@Request() req: { user: AuthUser }) {
     return this.dashboardService.getStats(req.user);
   }
 
   @Get('active-consultation')
-  @Roles(UserRole.MT_DOCTOR, UserRole.ADMIN)
+  @Roles(UserRole.MT_DOCTOR)
   getActiveConsultation(
     @Request() req: { user: { id: string } },
     @Query('id') preferredId?: string,
@@ -61,13 +61,13 @@ export class DashboardController {
   }
 
   @Get('in-progress-consultations')
-  @Roles(...ROLES_MT_STAFF, ...ROLES_ADMIN)
+  @Roles(...ROLES_MT_STAFF)
   getInProgressConsultations(@Request() req: { user: AuthUser }) {
     return this.dashboardService.getInProgressConsultations(req.user);
   }
 
   @Get('sla-metrics')
-  @Roles(UserRole.MT_MANAGER, UserRole.ADMIN)
+  @Roles(UserRole.ADMIN)
   getSlaMetrics(@Request() req: { user: AuthUser }) {
     return this.dashboardService.getSlaMetrics(req.user);
   }

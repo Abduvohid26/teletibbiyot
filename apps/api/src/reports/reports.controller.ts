@@ -5,7 +5,7 @@ import { ReportsService } from './reports.service';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { AuthUser } from '../common/access-control.service';
-import { ROLES_ADMIN, ROLES_CLINICAL_ADMIN, ROLES_MT_DOCTOR } from '../common/roles.constants';
+import { ROLES_ADMIN, ROLES_CLINICAL, ROLES_MT_DOCTOR } from '../common/roles.constants';
 
 @ApiTags('Reports')
 @Controller('reports')
@@ -22,7 +22,7 @@ export class ReportsController {
   }
 
   @Get(':consultationId/link')
-  @Roles(...ROLES_CLINICAL_ADMIN)
+  @Roles(...ROLES_CLINICAL)
   @ApiOperation({ summary: 'Hisobot havolasini olish' })
   async getLink(@Param('consultationId') consultationId: string, @Request() req: { user: AuthUser }) {
     const url = await this.reports.getDownloadUrl(consultationId, req.user);
@@ -30,7 +30,7 @@ export class ReportsController {
   }
 
   @Get(':consultationId/download')
-  @Roles(...ROLES_CLINICAL_ADMIN)
+  @Roles(...ROLES_CLINICAL)
   @ApiOperation({ summary: 'Hisobotni yuklab olish' })
   async download(
     @Param('consultationId') consultationId: string,

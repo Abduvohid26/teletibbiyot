@@ -30,7 +30,7 @@ export function useDoctorDashboard() {
   const selectedConsultationIdRef = useRef(selectedConsultationId);
   selectedConsultationIdRef.current = selectedConsultationId;
 
-  const isDoctor = isMtDoctor(user?.role || '') || user?.role === UserRole.ADMIN;
+  const isDoctor = isMtDoctor(user?.role || '');
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
@@ -153,7 +153,7 @@ export function useDoctorDashboard() {
       },
     },
     {
-      notifyToasts: isMtStaff(user?.role || '') || user?.role === UserRole.ADMIN,
+      notifyToasts: isMtStaff(user?.role || ''),
       staffFeed: isDoctor,
     },
   );

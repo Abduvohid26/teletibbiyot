@@ -38,7 +38,7 @@ export class ComplianceController {
   constructor(private compliance: ComplianceFacade) {}
 
   @Get('retention/status')
-  @Roles(UserRole.ADMIN, UserRole.AUDITOR)
+  @Roles(UserRole.ADMIN)
   retentionStatus() {
     return this.compliance.retentionStatus();
   }
@@ -60,13 +60,13 @@ export class ComplianceController {
   }
 
   @Get('consent-audit')
-  @Roles(UserRole.ADMIN, UserRole.AUDITOR)
+  @Roles(UserRole.ADMIN)
   consentAudit(@Query() query: ConsentAuditQuery) {
     return this.compliance.consentAudit(query.limit);
   }
 
   @Post('incidents')
-  @Roles(UserRole.ADMIN, UserRole.MT_MANAGER, UserRole.MT_DOCTOR, UserRole.UT_OPERATOR)
+  @Roles(UserRole.MT_DOCTOR, UserRole.UT_OPERATOR)
   reportIncident(
     @Body() dto: IncidentDto,
     @Request() req: { user: AuthUser },

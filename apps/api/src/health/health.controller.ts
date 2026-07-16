@@ -8,7 +8,7 @@ import { StorageService } from '../storage/storage.service';
 import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guard';
 import { Roles } from '../auth/roles.decorator';
-import { ROLES_CLINICAL_ADMIN } from '../common/roles.constants';
+import { ROLES_CLINICAL } from '../common/roles.constants';
 import { StartupValidationService } from '../common/startup-validation.service';
 import { resolvePublicTurnUrl } from '../common/turn-url.util';
 
@@ -85,7 +85,7 @@ export class HealthController {
 
   @Get('video-check')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(...ROLES_CLINICAL_ADMIN)
+  @Roles(...ROLES_CLINICAL)
   videoCheck() {
     const turnUrl = resolvePublicTurnUrl(this.config);
     const redisUrl = process.env.REDIS_URL;

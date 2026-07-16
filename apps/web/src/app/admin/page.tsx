@@ -152,11 +152,11 @@ export default function AdminPage() {
 
   const facilitiesForRole = (role: string) => {
     if (role === UserRole.UT_OPERATOR) return facilities.filter((f) => f.type === 'UT');
-    if (role === UserRole.MT_DOCTOR || role === UserRole.MT_MANAGER) return facilities.filter((f) => f.type === 'MT');
+    if (role === UserRole.MT_DOCTOR) return facilities.filter((f) => f.type === 'MT');
     return facilities;
   };
 
-  const isMtRole = (role: string) => role === UserRole.MT_DOCTOR || role === UserRole.MT_MANAGER;
+  const isMtRole = (role: string) => role === UserRole.MT_DOCTOR;
 
   const filteredUsers = roleFilter === 'all' ? users : users.filter((u) => u.role === roleFilter);
 
@@ -523,7 +523,6 @@ export default function AdminPage() {
               <option value="all">Barcha rollar</option>
               <option value={UserRole.UT_OPERATOR}>UT Operator</option>
               <option value={UserRole.MT_DOCTOR}>MT Shifokor</option>
-              <option value={UserRole.MT_MANAGER}>MT Manager</option>
               <option value={UserRole.ADMIN}>Admin</option>
             </select>
 
@@ -804,9 +803,7 @@ export default function AdminPage() {
                 <select className="form-input" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as UserRole, facilityId: '', specialtyId: '' })}>
                   <option value={UserRole.UT_OPERATOR}>UT Operator</option>
                   <option value={UserRole.MT_DOCTOR}>MT Shifokor</option>
-                  <option value={UserRole.MT_MANAGER}>MT Manager</option>
                   <option value={UserRole.ADMIN}>Administrator</option>
-                  <option value={UserRole.AUDITOR}>Auditor</option>
                 </select>
 
               </div>
@@ -825,9 +822,9 @@ export default function AdminPage() {
 
               <div>
 
-                <label className="label">Muassasa {form.role !== UserRole.ADMIN && form.role !== UserRole.AUDITOR ? '*' : ''}</label>
+                <label className="label">Muassasa {form.role !== UserRole.ADMIN ? '*' : ''}</label>
 
-                <select className="form-input" value={form.facilityId} onChange={(e) => setForm({ ...form, facilityId: e.target.value })} required={form.role !== UserRole.ADMIN && form.role !== UserRole.AUDITOR}>
+                <select className="form-input" value={form.facilityId} onChange={(e) => setForm({ ...form, facilityId: e.target.value })} required={form.role !== UserRole.ADMIN}>
 
                   <option value="">— Tanlanmagan —</option>
 
@@ -885,9 +882,7 @@ export default function AdminPage() {
                 <select className="form-input" value={editUserForm.role} onChange={(e) => setEditUserForm({ ...editUserForm, role: e.target.value, facilityId: '', specialtyId: '' })}>
                   <option value={UserRole.UT_OPERATOR}>UT Operator</option>
                   <option value={UserRole.MT_DOCTOR}>MT Shifokor</option>
-                  <option value={UserRole.MT_MANAGER}>MT Manager</option>
                   <option value={UserRole.ADMIN}>Administrator</option>
-                  <option value={UserRole.AUDITOR}>Auditor</option>
                 </select>
               </div>
               {isMtRole(editUserForm.role) && (

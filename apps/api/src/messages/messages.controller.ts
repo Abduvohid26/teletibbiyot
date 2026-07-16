@@ -5,7 +5,7 @@ import { SendMessageDto } from '../common/dto/common.dto';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { AuthUser } from '../common/access-control.service';
-import { ROLES_CLINICAL_ADMIN } from '../common/roles.constants';
+import { ROLES_CLINICAL } from '../common/roles.constants';
 
 @ApiTags('Messages')
 @Controller('consultations/:consultationId/messages')
@@ -15,14 +15,14 @@ export class MessagesController {
   constructor(private messages: MessagesService) {}
 
   @Get()
-  @Roles(...ROLES_CLINICAL_ADMIN)
+  @Roles(...ROLES_CLINICAL)
   @ApiOperation({ summary: 'Konsultatsiya chat tarixi' })
   list(@Param('consultationId') consultationId: string, @Request() req: { user: AuthUser }) {
     return this.messages.list(consultationId, req.user);
   }
 
   @Post()
-  @Roles(...ROLES_CLINICAL_ADMIN)
+  @Roles(...ROLES_CLINICAL)
   send(
     @Param('consultationId') consultationId: string,
     @Body() dto: SendMessageDto,

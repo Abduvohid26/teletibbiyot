@@ -37,7 +37,6 @@ import { UserRole } from '@prisma/client';
 import {
   ROLES_ADMIN,
   ROLES_CLINICAL,
-  ROLES_CLINICAL_ADMIN,
   ROLES_MT_DOCTOR,
   ROLES_MT_STAFF,
   ROLES_UT,
@@ -67,14 +66,14 @@ export class ConsultationsController {
   }
 
   @Get('list')
-  @Roles(...ROLES_CLINICAL_ADMIN)
+  @Roles(...ROLES_CLINICAL)
   @ApiOperation({ summary: 'Konsultatsiyalar ro\'yxati (filter va qidiruv)' })
   findAll(@Query() query: ConsultationQueryDto, @Request() req: { user: AuthUser }) {
     return this.consultationsService.findAll(query, req.user);
   }
 
   @Get('export/csv')
-  @Roles(UserRole.MT_MANAGER, UserRole.ADMIN)
+  @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Konsultatsiyalar CSV eksport' })
   async exportCsv(
     @Query('from') from: string | undefined,
@@ -89,14 +88,14 @@ export class ConsultationsController {
   }
 
   @Get('patient/:patientId/history')
-  @Roles(...ROLES_CLINICAL_ADMIN)
+  @Roles(...ROLES_CLINICAL)
   @ApiOperation({ summary: 'Bemor konsultatsiya tarixi' })
   getHistory(@Param('patientId') patientId: string, @Request() req: { user: AuthUser }) {
     return this.consultationsService.getHistory(patientId, req.user);
   }
 
   @Get(':id')
-  @Roles(...ROLES_CLINICAL_ADMIN)
+  @Roles(...ROLES_CLINICAL)
   @ApiOperation({ summary: 'Konsultatsiya tafsilotlari' })
   findOne(@Param('id') id: string, @Request() req: { user: AuthUser }) {
     return this.consultationsService.findOne(id, req.user);
@@ -121,7 +120,7 @@ export class ConsultationsController {
   }
 
   @Post(':id/cancel')
-  @Roles(...ROLES_CLINICAL_ADMIN)
+  @Roles(...ROLES_CLINICAL)
   @ApiOperation({ summary: 'Konsultatsiyani bekor qilish' })
   cancel(
     @Param('id') id: string,
@@ -198,7 +197,7 @@ export class ConsultationsController {
   }
 
   @Patch(':id/follow-up')
-  @Roles(...ROLES_CLINICAL_ADMIN)
+  @Roles(...ROLES_CLINICAL)
   @ApiOperation({ summary: 'Qayta ko\'rik sanasini belgilash' })
   scheduleFollowUp(
     @Param('id') id: string,

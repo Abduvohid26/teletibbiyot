@@ -19,7 +19,6 @@ const menuItems = [
   { href: '/dashboard/triage', icon: AlertTriangle, label: 'Triage navbat' },
   { href: '/dashboard/patients', icon: Users, label: 'Bemorlar' },
   { href: '/dashboard/ai', icon: Brain, label: 'AI Tahlil' },
-  { href: '/dashboard/manager', icon: BarChart3, label: 'SLA / KPI' },
   { href: '/dashboard/messages', icon: Bell, label: 'Xabarlar' },
   { href: '/dashboard/appointments', icon: Calendar, label: 'Uchrashuvlar' },
   { href: '/dashboard/recordings', icon: Film, label: 'Video yozuvlar' },
@@ -27,8 +26,6 @@ const menuItems = [
   { href: '/dashboard/reports', icon: BarChart3, label: 'Hisobotlar' },
   { href: '/dashboard/dicom', icon: Scan, label: 'DICOM ko\'rish' },
   { href: '/dashboard/incidents', icon: AlertTriangle, label: 'Incident' },
-  { href: '/admin', icon: Shield, label: 'Boshqaruv' },
-  { href: '/admin/audit', icon: Shield, label: 'Audit jurnali' },
   { href: '/dashboard/settings', icon: Settings, label: 'Sozlamalar' },
 ];
 
@@ -55,12 +52,9 @@ export function Sidebar({ visible = true }: SidebarProps) {
   if (!visible || !user) return null;
 
   const isUt = user.role === UserRole.UT_OPERATOR;
-  const isAuditor = user.role === UserRole.AUDITOR;
   const items = isUt
     ? utMenuItems
-    : isAuditor
-      ? menuItems.filter((item) => item.href.startsWith('/admin/audit'))
-      : menuItems.filter((item) => canAccessRoute(user.role, item.href));
+    : menuItems.filter((item) => canAccessRoute(user.role, item.href));
 
   const close = () => setOpen(false);
 
@@ -84,7 +78,7 @@ export function Sidebar({ visible = true }: SidebarProps) {
       >
         <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-2">
           <Link
-            href={isUt ? '/ut' : isAuditor ? '/admin/audit' : '/dashboard'}
+            href={isUt ? '/ut' : '/dashboard'}
             className="flex items-center gap-3 group min-w-0"
             onClick={close}
           >

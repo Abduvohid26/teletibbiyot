@@ -2,7 +2,7 @@ import { ForbiddenException, Injectable, Logger, NotFoundException, OnModuleDest
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/access-control.service';
-import { hasGlobalMtAccess, isAdmin, isMtStaff, isUtRole } from '../common/roles.constants';
+import { isUtRole } from '../common/roles.constants';
 import { createDeviceAdapter, DeviceAdapter } from './device.adapter';
 import { VideoGateway } from '../video/video.gateway';
 
@@ -106,8 +106,6 @@ export class DevicesService implements OnModuleInit, OnModuleDestroy {
   }
 
   assertFacilityAccess(user: AuthUser, facilityId: string) {
-    if (hasGlobalMtAccess(user.role) || isMtStaff(user.role)) return;
-    if (isAdmin(user.role)) return;
     if (isUtRole(user.role)) {
       if (user.facilityId !== facilityId) {
         throw new ForbiddenException('Bu muassasa qurilmalariga kirish huquqi yo\'q');
@@ -160,7 +158,7 @@ export class DevicesService implements OnModuleInit, OnModuleDestroy {
       if (user.facilityId !== device.facilityId) {
         throw new ForbiddenException('Bu qurilmani yangilash huquqi yo\'q');
       }
-    } else if (!hasGlobalMtAccess(user.role) && !isMtStaff(user.role) && !isAdmin(user.role)) {
+    } else {
       throw new ForbiddenException('Kirish huquqi yo\'q');
     }
 

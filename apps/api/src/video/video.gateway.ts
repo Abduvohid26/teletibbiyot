@@ -12,7 +12,6 @@ import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccessControlService } from '../common/access-control.service';
-import { hasGlobalMtAccess } from '../common/roles.constants';
 import { canPerformClinicalMtActions } from '../common/roles.constants';
 import { ConsultationStatus } from '@prisma/client';
 
@@ -254,7 +253,7 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return { success: false, error };
     }
 
-    const allowedRoles = ['MT_DOCTOR', 'MT_MANAGER', 'ADMIN', 'UT_OPERATOR'];
+    const allowedRoles = ['MT_DOCTOR', 'UT_OPERATOR'];
     if (!allowedRoles.includes(dbUser.role)) {
       const error = 'Kirish huquqi yo\'q';
       client.emit('join-failed', { roomId: VideoGateway.STAFF_FEED_ROOM, error });
@@ -264,8 +263,6 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const rooms: string[] = [];
     if (dbUser.role === 'UT_OPERATOR' && dbUser.facilityId) {
       rooms.push(VideoGateway.staffFeedUtRoom(dbUser.facilityId));
-    } else if (hasGlobalMtAccess(dbUser.role)) {
-      rooms.push(VideoGateway.STAFF_FEED_MT_GLOBAL);
     } else if (dbUser.role === 'MT_DOCTOR') {
       rooms.push(VideoGateway.STAFF_FEED_MT_QUEUE);
       rooms.push(VideoGateway.staffFeedMtDoctorRoom(dbUser.id));
@@ -408,7 +405,7 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (!this.isInRoom(client.id, data.roomId, client)) return;
 
     const participant = this.rooms.get(data.roomId)?.find((p) => p.socketId === client.id);
-    if (!participant || !['UT_OPERATOR', 'MT_DOCTOR', 'MT_MANAGER', 'ADMIN'].includes(participant.role)) {
+    if (!participant || !['UT_OPERATOR', 'MT_DOCTOR'].includes(participant.role)) {
       return;
     }
 
@@ -471,7 +468,7 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private notifyOfferersToReconnect(roomId: string, targetSocketId: string) {
     const participants = this.rooms.get(roomId) || [];
-    const offerRoles = new Set(['MT_DOCTOR', 'MT_MANAGER', 'ADMIN']);
+    const offerRoles = new Set(['MT_DOCTOR']);
     for (const p of participants) {
       if (p.socketId === targetSocketId) continue;
       if (!offerRoles.has(p.role)) continue;

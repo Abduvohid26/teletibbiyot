@@ -6,7 +6,7 @@ import { FieldCryptoService } from '../common/field-crypto.service';
 import { CreatePatientDto, UpdatePatientDto } from './dto/patient.dto';
 import { PatientQueryDto } from './dto/patient-query.dto';
 import { Gender, Prisma } from '@prisma/client';
-import { hasGlobalMtAccess, isMtStaff, isUtRole } from '../common/roles.constants';
+import { isAdmin, isMtStaff, isUtRole } from '../common/roles.constants';
 import { validatePinfl, normalizePinfl } from '../common/pinfl.util';
 import { buildPatientSearchOr, normalizePhoneForLookup } from '../common/patient-search.util';
 import { isAccessDeniedScope } from '../common/access-scope.constants';
@@ -188,7 +188,7 @@ export class PatientsService {
     const patient = await this.prisma.patient.findUnique({ where: { id } });
     if (!patient) throw new NotFoundException('Bemor topilmadi');
 
-    if (hasGlobalMtAccess(user.role) || isMtStaff(user.role)) return;
+    if (isAdmin(user.role) || isMtStaff(user.role)) return;
 
     if (isUtRole(user.role)) {
       if (!user.facilityId) throw new ForbiddenException('Muassasa biriktirilmagan');

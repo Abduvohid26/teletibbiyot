@@ -6,7 +6,7 @@ import { RecordingsService } from './recordings.service';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { AuthUser } from '../common/access-control.service';
-import { ROLES_ADMIN, ROLES_CLINICAL_ADMIN, ROLES_MT_STAFF } from '../common/roles.constants';
+import { ROLES_ADMIN, ROLES_CLINICAL, ROLES_MT_STAFF } from '../common/roles.constants';
 
 @ApiTags('Recordings')
 @Controller('recordings')
@@ -17,14 +17,14 @@ export class RecordingsController {
   constructor(private recordings: RecordingsService) {}
 
   @Post(':consultationId/start')
-  @Roles(...ROLES_CLINICAL_ADMIN)
+  @Roles(...ROLES_CLINICAL)
   @ApiOperation({ summary: 'Konsultatsiya yozuvini boshlash' })
   start(@Param('consultationId') consultationId: string, @Request() req: { user: AuthUser }) {
     return this.recordings.startRecording(consultationId, req.user);
   }
 
   @Post(':consultationId/complete')
-  @Roles(...ROLES_CLINICAL_ADMIN)
+  @Roles(...ROLES_CLINICAL)
   @ApiOperation({ summary: 'Yozuvni yakunlash' })
   complete(
     @Param('consultationId') consultationId: string,
@@ -35,7 +35,7 @@ export class RecordingsController {
   }
 
   @Post(':consultationId/upload')
-  @Roles(...ROLES_CLINICAL_ADMIN)
+  @Roles(...ROLES_CLINICAL)
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Video yozuvni yuklash' })
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 100 * 1024 * 1024 } }))
@@ -58,7 +58,7 @@ export class RecordingsController {
   }
 
   @Get(':consultationId')
-  @Roles(...ROLES_CLINICAL_ADMIN)
+  @Roles(...ROLES_CLINICAL)
   @ApiOperation({ summary: 'Yozuv ma\'lumotlari' })
   get(@Param('consultationId') consultationId: string, @Request() req: { user: AuthUser }) {
     return this.recordings.getRecording(consultationId, req.user);

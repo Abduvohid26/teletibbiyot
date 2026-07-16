@@ -20,7 +20,7 @@ export default function DevicesPage() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [facilityLabel, setFacilityLabel] = useState('');
 
-  const canEdit = isUtRole(user?.role || '') || user?.role === UserRole.ADMIN;
+  const canEdit = isUtRole(user?.role || '');
 
   const loadDevices = async (facilityId: string, facilityName?: string) => {
     if (!facilityId) {

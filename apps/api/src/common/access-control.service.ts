@@ -1,7 +1,7 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { ConsultationStatus, Prisma, UserRole } from '@prisma/client';
-import { hasGlobalMtAccess, isAuditor, isMtDoctor, isUtRole } from './roles.constants';
-import { ACCESS_AUDITOR_DENIED_ID, ACCESS_DENIED_ID } from './access-scope.constants';
+import { canPerformClinicalMtActions, isAdmin, isMtDoctor, isUtRole } from './roles.constants';
+import { ACCESS_DENIED_ID } from './access-scope.constants';
 
 export interface AuthUser {
   id: string;
@@ -15,9 +15,7 @@ export class AccessControlService {
     user: AuthUser,
     consultation: { utId: string; mtDoctorId: string | null; status: string },
   ) {
-    if (hasGlobalMtAccess(user.role)) return true;
-
-    if (isAuditor(user.role)) return false;
+    if (isAdmin(user.role)) return false;
 
     if (isMtDoctor(user.role)) {
       return (
@@ -43,10 +41,8 @@ export class AccessControlService {
   }
 
   consultationFilter(user: AuthUser): Prisma.ConsultationWhereInput | undefined {
-    if (hasGlobalMtAccess(user.role)) return undefined;
-
-    if (isAuditor(user.role)) {
-      return { id: ACCESS_AUDITOR_DENIED_ID };
+    if (isAdmin(user.role)) {
+      return { id: ACCESS_DENIED_ID };
     }
 
     if (isMtDoctor(user.role)) {
@@ -67,10 +63,8 @@ export class AccessControlService {
 
   /** Analitika: shifokor faqat o'z konsultatsiyalarini, UT faqat o'z muassasasini ko'radi */
   analyticsConsultationFilter(user: AuthUser): Prisma.ConsultationWhereInput | undefined {
-    if (hasGlobalMtAccess(user.role)) return undefined;
-
-    if (isAuditor(user.role)) {
-      return { id: ACCESS_AUDITOR_DENIED_ID };
+    if (isAdmin(user.role)) {
+      return undefined;
     }
 
     if (isMtDoctor(user.role)) {
@@ -85,7 +79,9 @@ export class AccessControlService {
   }
 
   analyticsPatientFilter(user: AuthUser): Prisma.PatientWhereInput | undefined {
-    if (hasGlobalMtAccess(user.role)) return undefined;
+    if (isAdmin(user.role)) {
+      return undefined;
+    }
 
     if (isMtDoctor(user.role)) {
       return {
@@ -101,15 +97,11 @@ export class AccessControlService {
       };
     }
 
-    if (isAuditor(user.role)) {
-      return { id: ACCESS_AUDITOR_DENIED_ID };
-    }
-
     return { id: ACCESS_DENIED_ID };
   }
 
   analyticsScopeMeta(user: AuthUser): { scope: 'global' | 'doctor' | 'facility'; scopeLabel: string } {
-    if (hasGlobalMtAccess(user.role)) {
+    if (isAdmin(user.role)) {
       return { scope: 'global', scopeLabel: 'Butun platforma bo\'yicha' };
     }
     if (isMtDoctor(user.role)) {
@@ -122,7 +114,9 @@ export class AccessControlService {
   }
 
   patientFilter(user: AuthUser): Prisma.PatientWhereInput | undefined {
-    if (hasGlobalMtAccess(user.role)) return undefined;
+    if (isAdmin(user.role)) {
+      return { id: ACCESS_DENIED_ID };
+    }
 
     if (isMtDoctor(user.role)) {
       return {
@@ -143,10 +137,12 @@ export class AccessControlService {
       };
     }
 
-    if (isAuditor(user.role)) {
-      return { id: ACCESS_AUDITOR_DENIED_ID };
-    }
-
     return { id: ACCESS_DENIED_ID };
+  }
+
+  assertClinicalMtRole(user: AuthUser) {
+    if (!canPerformClinicalMtActions(user.role)) {
+      throw new ForbiddenException('Bu amal faqat shifokor uchun');
+    }
   }
 }

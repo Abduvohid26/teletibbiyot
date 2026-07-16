@@ -4,7 +4,7 @@ import { Response } from 'express';
 import { AuditService } from './audit.service';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guard';
 import { Roles } from '../auth/roles.decorator';
-import { ROLES_ADMIN_AUDITOR } from '../common/roles.constants';
+import { ROLES_ADMIN } from '../common/roles.constants';
 
 @ApiTags('Audit')
 @Controller('audit')
@@ -14,7 +14,7 @@ export class AuditController {
   constructor(private auditService: AuditService) {}
 
   @Get('logs')
-  @Roles(...ROLES_ADMIN_AUDITOR)
+  @Roles(...ROLES_ADMIN)
   findAll(
     @Query('limit') limit?: string,
     @Query('action') action?: string,
@@ -34,7 +34,7 @@ export class AuditController {
   }
 
   @Get('export/csv')
-  @Roles(...ROLES_ADMIN_AUDITOR)
+  @Roles(...ROLES_ADMIN)
   @ApiOperation({ summary: 'Audit jurnalini CSV eksport' })
   async exportCsv(
     @Query('action') action: string | undefined,

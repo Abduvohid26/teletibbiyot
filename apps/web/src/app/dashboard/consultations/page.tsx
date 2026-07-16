@@ -191,7 +191,7 @@ export default function ConsultationsPage() {
                       </td>
                       <td className="text-right">
                         <div className="flex items-center justify-end gap-2">
-                          {c.status === 'QUEUED' && tab === 'queue' && (isMtDoctor(user.role) || user.role === UserRole.ADMIN) && (
+                          {c.status === 'QUEUED' && tab === 'queue' && isMtDoctor(user.role) && (
                             <button onClick={() => handleStart(c.id)} className="inline-flex items-center gap-1 btn-primary !py-1.5 !px-3 !text-xs">
                               <Play size={14} /> Boshlash
                             </button>

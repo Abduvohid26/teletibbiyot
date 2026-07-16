@@ -5,7 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { ICE_SERVERS } from '../common/video-ice.config';
-import { ROLES_CLINICAL_ADMIN } from '../common/roles.constants';
+import { ROLES_CLINICAL } from '../common/roles.constants';
 import { resolvePublicTurnUrl } from '../common/turn-url.util';
 
 @ApiTags('Video')
@@ -17,7 +17,7 @@ export class VideoController {
   constructor(private config: ConfigService) {}
 
   @Get('ice-config')
-  @Roles(...ROLES_CLINICAL_ADMIN)
+  @Roles(...ROLES_CLINICAL)
   @ApiOperation({ summary: 'WebRTC ICE serverlar (STUN/TURN)' })
   getIceConfig() {
     const turnUrl = resolvePublicTurnUrl(this.config);

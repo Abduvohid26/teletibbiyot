@@ -8,7 +8,6 @@ describe('AccessControlService', () => {
   const utUser = { id: 'u1', role: UserRole.UT_OPERATOR, facilityId: 'fac-ut' };
   const mtDoctor = { id: 'd1', role: UserRole.MT_DOCTOR, facilityId: 'fac-mt' };
   const admin = { id: 'a1', role: UserRole.ADMIN, facilityId: null };
-  const auditor = { id: 'au1', role: UserRole.AUDITOR, facilityId: null };
 
   describe('canAccessConsultation', () => {
     it('UT faqat o\'z muassasasidagi konsultatsiyaga kiradi', () => {
@@ -55,18 +54,10 @@ describe('AccessControlService', () => {
       ).toBe(false);
     });
 
-    it('Admin va auditor', () => {
+    it('Admin klinik konsultatsiyaga kira olmaydi', () => {
       expect(
         service.canAccessConsultation(admin, {
-          utId: 'x',
-          mtDoctorId: null,
-          status: ConsultationStatus.QUEUED,
-        }),
-      ).toBe(true);
-
-      expect(
-        service.canAccessConsultation(auditor, {
-          utId: 'x',
+          utId: 'fac-ut',
           mtDoctorId: null,
           status: ConsultationStatus.QUEUED,
         }),
@@ -75,9 +66,9 @@ describe('AccessControlService', () => {
   });
 
   describe('assertConsultationAccess', () => {
-    it('auditor uchun ForbiddenException', () => {
+    it('admin uchun ForbiddenException', () => {
       expect(() =>
-        service.assertConsultationAccess(auditor, {
+        service.assertConsultationAccess(admin, {
           utId: 'x',
           mtDoctorId: null,
           status: ConsultationStatus.QUEUED,
@@ -88,13 +79,15 @@ describe('AccessControlService', () => {
 
   describe('analyticsConsultationFilter', () => {
     it('MT shifokor analitikada faqat o\'z konsultatsiyalarini ko\'radi', () => {
-      const filter = service.analyticsConsultationFilter(mtDoctor);
-      expect(filter).toEqual({ mtDoctorId: 'd1' });
+      expect(service.analyticsConsultationFilter(mtDoctor)).toEqual({ mtDoctorId: 'd1' });
     });
 
     it('UT operator muassasa bo\'yicha ko\'radi', () => {
-      const filter = service.analyticsConsultationFilter(utUser);
-      expect(filter).toEqual({ utId: 'fac-ut' });
+      expect(service.analyticsConsultationFilter(utUser)).toEqual({ utId: 'fac-ut' });
+    });
+
+    it('Admin analitikada global ko\'rinish oladi', () => {
+      expect(service.analyticsConsultationFilter(admin)).toBeUndefined();
     });
   });
 });

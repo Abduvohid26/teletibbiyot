@@ -33,7 +33,7 @@ function SettingsPageContent() {
 
   const pageBody = <SettingsContent user={user} videoRole={videoRole} />;
 
-  if (isMtStaff(user.role) || user.role === UserRole.ADMIN) {
+  if (isMtStaff(user.role)) {
     return <DoctorShell scrollable>{pageBody}</DoctorShell>;
   }
 

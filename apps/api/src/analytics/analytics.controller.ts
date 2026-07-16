@@ -68,7 +68,7 @@ export class AnalyticsController {
   }
 
   @Get('ai-agreement/doctors')
-  @Roles(UserRole.MT_MANAGER, UserRole.ADMIN)
+  @Roles(UserRole.ADMIN)
   @ApiOperation({ summary: 'Shifokorlar bo\'yicha AI tashxis mosligi' })
   aiAgreementByDoctor(@Query() query: AnalyticsQueryDto, @Request() req: AuthReq) {
     return this.analyticsService.getAiAgreementByDoctor(query, req.user);

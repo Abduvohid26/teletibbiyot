@@ -29,7 +29,7 @@ import { ReportsService } from '../reports/reports.service';
 import { BRAND, CLINICAL_CHECKLIST_ITEMS } from '@ishifo/shared';
 import {
   canPerformClinicalMtActions,
-  hasGlobalMtAccess,
+  isAdmin,
   isMtDoctor,
   isUtRole,
   MT_NOTIFY_ROLES,
@@ -684,7 +684,6 @@ export class ConsultationsService {
     }
 
     const canCancel =
-      hasGlobalMtAccess(user.role) ||
       (isMtDoctor(user.role) && consultation.mtDoctorId === user.id) ||
       (isUtRole(user.role) &&
         user.facilityId === consultation.utId &&

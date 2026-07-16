@@ -150,11 +150,9 @@ export default function LoginPage() {
             <div className="mt-6 panel p-4 border-dashed">
               <p className="text-xs font-semibold text-slate-600 mb-2">Test hisoblar (faqat dev):</p>
               <div className="space-y-1 text-xs text-slate-500">
-                <p>MT Shifokor: doctor@ishifo.uz</p>
                 <p>UT Operator: operator@ishifo.uz</p>
-                <p>MT Manager: manager@ishifo.uz</p>
+                <p>MT Shifokor: doctor@ishifo.uz</p>
                 <p>Admin: admin@ishifo.uz</p>
-                <p>Auditor: auditor@ishifo.uz</p>
                 <p>Parol: password123</p>
               </div>
             </div>

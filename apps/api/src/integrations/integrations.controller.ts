@@ -37,7 +37,7 @@ export class IntegrationsController {
   @Get('status')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBearerAuth()
-  @Roles(...ROLES_ADMIN, UserRole.MT_MANAGER, UserRole.AUDITOR)
+  @Roles(...ROLES_ADMIN)
   status() {
     return {
       oneId: { enabled: this.oneId.isEnabled(), mock: this.config.get('ONEID_MOCK') === 'true' },

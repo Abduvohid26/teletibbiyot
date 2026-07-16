@@ -9,12 +9,7 @@ import { toUserMessage } from '@/lib/utils';
 import { AlertTriangle, Send } from 'lucide-react';
 import { UserRole } from '@ishifo/shared';
 
-const INCIDENT_ROLES = [
-  UserRole.UT_OPERATOR,
-  UserRole.MT_DOCTOR,
-  UserRole.MT_MANAGER,
-  UserRole.ADMIN,
-] as const;
+const INCIDENT_ROLES = [UserRole.UT_OPERATOR, UserRole.MT_DOCTOR] as const;
 
 const SEVERITY_OPTIONS = [
   { value: 'LOW', label: 'Past' },

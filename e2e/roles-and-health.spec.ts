@@ -3,25 +3,23 @@ import { DEFAULT_PASSWORD, loginAs } from './helpers/login';
 
 test.describe('Role-based access', () => {
   test('MT doctor login redirects to dashboard', async ({ page }) => {
-    await loginAs(page, 'doctor@ishifo.uz', DEFAULT_PASSWORD, /\/(dashboard|consultations)/);
+    await loginAs(page, 'doctor@ishifo.uz', DEFAULT_PASSWORD, /\/dashboard/);
   });
 
-  test('Admin can open admin page', async ({ page }) => {
-    await loginAs(page, 'admin@ishifo.uz', DEFAULT_PASSWORD, /\/(admin|dashboard)/);
-    await page.goto('/admin');
+  test('Admin login redirects to admin panel', async ({ page }) => {
+    await loginAs(page, 'admin@ishifo.uz', DEFAULT_PASSWORD, /\/admin/);
     await expect(page.getByRole('heading', { name: /Admin Panel/i })).toBeVisible({ timeout: 10000 });
   });
 
-  test('Auditor can access audit journal', async ({ page }) => {
-    test.setTimeout(90000);
-    await loginAs(page, 'auditor@ishifo.uz', DEFAULT_PASSWORD, /\/admin\/audit/);
-    await expect(page.getByRole('heading', { name: /Audit jurnali/i })).toBeVisible({ timeout: 15000 });
+  test('Admin cannot access doctor dashboard', async ({ page }) => {
+    await loginAs(page, 'admin@ishifo.uz', DEFAULT_PASSWORD, /\/admin/);
+    await page.goto('/dashboard');
+    await page.waitForURL(/\/(admin|unauthorized|login)/, { timeout: 10000 });
+    expect(page.url()).not.toMatch(/\/dashboard$/);
   });
 
-  test('Auditor cannot access admin users page', async ({ page }) => {
-    await loginAs(page, 'auditor@ishifo.uz', DEFAULT_PASSWORD, /\/(audit|dashboard)/);
-    await page.goto('/admin');
-    await page.waitForURL(/\/(login|dashboard|audit|403|unauthorized)/, { timeout: 10000 });
+  test('UT operator login redirects to UT workspace', async ({ page }) => {
+    await loginAs(page, 'operator@ishifo.uz', DEFAULT_PASSWORD, /\/ut/);
   });
 });
 
