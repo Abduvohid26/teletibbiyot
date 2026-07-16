@@ -2,7 +2,7 @@ import { ForbiddenException, Injectable, Logger, NotFoundException, OnModuleDest
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/access-control.service';
-import { isUtRole } from '../common/roles.constants';
+import { isAdmin, isMtDoctor, isUtRole } from '../common/roles.constants';
 import { createDeviceAdapter, DeviceAdapter } from './device.adapter';
 import { VideoGateway } from '../video/video.gateway';
 
@@ -110,6 +110,9 @@ export class DevicesService implements OnModuleInit, OnModuleDestroy {
       if (user.facilityId !== facilityId) {
         throw new ForbiddenException('Bu muassasa qurilmalariga kirish huquqi yo\'q');
       }
+      return;
+    }
+    if (isMtDoctor(user.role) || isAdmin(user.role)) {
       return;
     }
     throw new ForbiddenException('Kirish huquqi yo\'q');

@@ -42,7 +42,7 @@ export async function loadDashboardSnapshot(params: {
   const facilityId = consultation?.utFacility?.id ?? queued[0]?.utFacility?.id;
 
   const devices = facilityId
-    ? await api.getDevices(facilityId)
+    ? await safeAsync('devices', () => api.getDevices(facilityId), [])
     : [];
 
   const docId = consultation?.id ?? queued[0]?.id;
