@@ -207,7 +207,7 @@ services:
     ports:
       - '${API_PUBLISH}:3001'
     environment:
-      NODE_ENV: production
+      NODE_ENV: ${NODE_ENV:-development}
       DATABASE_URL: ${DATABASE_URL_DOCKER}
       REDIS_URL: ${REDIS_URL_DOCKER}
       S3_ENDPOINT: ${S3_ENDPOINT_DOCKER}
@@ -251,7 +251,7 @@ services:
     ports:
       - '${WEB_PUBLISH}:3000'
     environment:
-      NODE_ENV: production
+      NODE_ENV: ${NODE_ENV:-development}
       HOSTNAME: 0.0.0.0
       PORT: 3000
       INTERNAL_API_URL: ${INTERNAL_API_URL}

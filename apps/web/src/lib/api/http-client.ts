@@ -132,7 +132,7 @@ export class HttpClient {
     }
 
     if (res.status === 401) {
-      const err = await res.json().catch(() => ({ message: 'Sessiya tugagan yoki ruxsat yo\'q' }));
+      const err = await this.parseJsonBody<{ message?: string | string[] }>(res).catch(() => ({ message: 'Sessiya tugagan yoki ruxsat yo\'q' }));
       const msg = err.message;
       const message = Array.isArray(msg)
         ? msg.join(', ')
@@ -155,11 +155,23 @@ export class HttpClient {
     }
 
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ message: 'Xatolik yuz berdi' }));
+      const err = await this.parseJsonBody<{ message?: string | string[] }>(res).catch(() => ({ message: 'Xatolik yuz berdi' }));
       const msg = err.message;
       throw new Error(Array.isArray(msg) ? msg.join(', ') : (msg || 'Xatolik yuz berdi'));
     }
 
-    return res.json();
+    return this.parseJsonBody<T>(res);
+  }
+
+  /** NestJS null/204 — bo'sh body; JSON.parse xatosiz */
+  private async parseJsonBody<T>(res: Response): Promise<T> {
+    if (res.status === 204) return null as T;
+    const text = await res.text();
+    if (!text.trim()) return null as T;
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      throw new Error('Server javobi noto\'g\'ri formatda');
+    }
   }
 }
