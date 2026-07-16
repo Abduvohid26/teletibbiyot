@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Stethoscope, Radio, FileText, Clock } from 'lucide-react';
+import { Stethoscope, Radio, FileText } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { isUtRole } from '@ishifo/shared';
 import { getRoleHomePath } from '@/lib/auth-utils';
@@ -13,14 +13,11 @@ import { UtQuickNav } from '@/components/ut/UtNavTabs';
 import { UtConsultationSession } from '@/components/video/UtConsultationSession';
 import { UtDocumentsModal } from '@/components/ut/UtDocumentsModal';
 import { useUtSessions } from '@/hooks/use-ut-sessions';
-import { toast } from '@/lib/toast';
-import { cn } from '@/lib/utils';
 
 export default function UtVitalsPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [showDocuments, setShowDocuments] = useState(false);
-  const [waitingBanner, setWaitingBanner] = useState(false);
   const {
     consultation,
     sessions,
@@ -37,20 +34,6 @@ export default function UtVitalsPage() {
     if (user && !isUtRole(user.role)) router.replace(getRoleHomePath(user.role));
   }, [user, loading, router]);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (window.location.search.includes('waiting=1')) {
-      setWaitingBanner(true);
-      router.replace('/ut/vitals', { scroll: false });
-    }
-  }, [router]);
-
-  useEffect(() => {
-    if (consultation?.status === 'IN_PROGRESS') {
-      setWaitingBanner(false);
-    }
-  }, [consultation?.status]);
-
   if (loading || !user) {
     return (
       <div className="min-h-screen bg-surface flex items-center justify-center">
@@ -58,8 +41,6 @@ export default function UtVitalsPage() {
       </div>
     );
   }
-
-  const isWaiting = consultation?.status === 'QUEUED';
 
   return (
     <UtShell
@@ -70,31 +51,19 @@ export default function UtVitalsPage() {
         consultation
           ? consultation.status === 'IN_PROGRESS'
             ? `Jonli efir · ${consultation.mtDoctor?.fullName || 'Shifokor'}`
-            : 'Shifokor qabul qilishini kuting — kamera tayyor'
+            : consultation.mtDoctor?.fullName || undefined
           : undefined
       }
       pageAction={
         consultation ? (
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => setShowDocuments(true)}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg bg-white/90 text-slate-700 ring-1 ring-slate-200 hover:bg-brand-50 hover:text-brand-700 hover:ring-brand-200 transition-colors"
-            >
-              <FileText size={13} />
-              Hujjatlar
-            </button>
-            <span
-              className={cn(
-                'text-xs font-bold px-2 py-0.5 rounded-full uppercase',
-                consultation.status === 'IN_PROGRESS'
-                  ? 'bg-emerald-100/90 text-emerald-700 ring-1 ring-emerald-200/60'
-                  : 'bg-amber-100/90 text-amber-800 ring-1 ring-amber-200/60',
-              )}
-            >
-              {consultation.status === 'IN_PROGRESS' ? '● Qabul qilindi' : '○ Kutilmoqda'}
-            </span>
-          </div>
+          <button
+            type="button"
+            onClick={() => setShowDocuments(true)}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg bg-white/90 text-slate-700 ring-1 ring-slate-200 hover:bg-brand-50 hover:text-brand-700 hover:ring-brand-200 transition-colors shrink-0"
+          >
+            <FileText size={13} />
+            Hujjatlar
+          </button>
         ) : undefined
       }
       headerExtra={
@@ -113,18 +82,6 @@ export default function UtVitalsPage() {
         {error && (
           <div className="shrink-0 mb-2 ut-glass-banner border-red-200/70 bg-red-50/75 text-red-700 text-xs px-3 py-1.5">
             {error}
-          </div>
-        )}
-
-        {(waitingBanner || isWaiting) && consultation && (
-          <div className="shrink-0 mb-2 ut-glass-banner border-amber-200/70 bg-amber-50/90 text-amber-900 text-sm px-3 py-2 flex items-start gap-2 animate-fade-in">
-            <Clock size={16} className="shrink-0 mt-0.5 text-amber-600" />
-            <div>
-              <p className="font-semibold">Yuborildi — shifokor qabul qilishini kuting</p>
-              <p className="text-xs text-amber-800 mt-0.5">
-                Kameralar tayyor. Boshqa bemorga o&apos;tish uchun yuqoridagi ro&apos;yxatdan tanlang. Shifokor qabul qilganda yashil belgi chiqadi va jonli efir boshlanadi.
-              </p>
-            </div>
           </div>
         )}
 

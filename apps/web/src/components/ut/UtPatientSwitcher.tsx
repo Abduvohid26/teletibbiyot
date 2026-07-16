@@ -1,11 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, Clock, Radio, User, X } from 'lucide-react';
+import { ChevronDown, User, X } from 'lucide-react';
 import { Consultation } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { formatStatus } from '@/lib/utils';
 
 interface UtPatientSwitcherProps {
   activeId?: string;
@@ -24,6 +23,12 @@ function patientInitial(name: string) {
   return name.trim().charAt(0).toUpperCase() || '?';
 }
 
+function sortByRecent(a: Consultation, b: Consultation) {
+  const aTime = a.startedAt || a.createdAt || '';
+  const bTime = b.startedAt || b.createdAt || '';
+  return new Date(bTime).getTime() - new Date(aTime).getTime();
+}
+
 export function UtPatientSwitcher({
   activeId,
   sessions,
@@ -38,8 +43,29 @@ export function UtPatientSwitcher({
   const menuRef = useRef<HTMLDivElement>(null);
 
   const active = sessions.find((c) => c.id === activeId) ?? sessions[0] ?? null;
-  const live = sessions.filter((c) => c.status === 'IN_PROGRESS');
-  const queued = sessions.filter((c) => c.status === 'QUEUED');
+
+  const { currentList, waitingList } = useMemo(() => {
+    const inProgress = sessions.filter((c) => c.status === 'IN_PROGRESS').sort(sortByRecent);
+    const queued = sessions.filter((c) => c.status === 'QUEUED').sort(sortByRecent);
+
+    if (active?.status === 'QUEUED') {
+      const waiting = queued.filter((c) => c.id !== active.id);
+      return { currentList: [active], waitingList: waiting };
+    }
+
+    if (inProgress.length > 0) {
+      const ordered = active
+        ? [active, ...inProgress.filter((c) => c.id !== active.id)]
+        : inProgress;
+      return { currentList: ordered, waitingList: queued };
+    }
+
+    if (active) {
+      return { currentList: [active], waitingList: queued.filter((c) => c.id !== active.id) };
+    }
+
+    return { currentList: [], waitingList: queued };
+  }, [sessions, active]);
 
   const updatePosition = useCallback(() => {
     const el = triggerRef.current;
@@ -77,9 +103,6 @@ export function UtPatientSwitcher({
 
   if (sessions.length === 0) return null;
 
-  const isLive = active?.status === 'IN_PROGRESS';
-  const isWaiting = active?.status === 'QUEUED';
-
   const menu = open && menuStyle && typeof document !== 'undefined'
     ? createPortal(
         <div
@@ -87,13 +110,9 @@ export function UtPatientSwitcher({
           style={{ position: 'fixed', top: menuStyle.top, left: menuStyle.left, width: menuStyle.width, zIndex: 9999 }}
           className="rounded-xl border border-white/60 bg-white/70 backdrop-blur-xl shadow-xl overflow-hidden max-h-[min(70vh,400px)] overflow-y-auto"
         >
-          <div className="px-3 py-2 border-b border-white/50 text-xs font-medium text-slate-500 bg-white/40">
-            {sessions.length} ta bemor · {live.length} qabul qilindi · {queued.length} kutilmoqda
-          </div>
-
-          {live.length > 0 && (
-            <Section title="Qabul qilindi" icon={Radio} color="emerald">
-              {live.map((c) => (
+          {currentList.length > 0 && (
+            <Section title="Hozirgi">
+              {currentList.map((c) => (
                 <PatientRow
                   key={c.id}
                   c={c}
@@ -104,9 +123,9 @@ export function UtPatientSwitcher({
             </Section>
           )}
 
-          {queued.length > 0 && (
-            <Section title="Kutilmoqda" icon={Clock} color="amber">
-              {queued.map((c) => (
+          {waitingList.length > 0 && (
+            <Section title="Kutilmoqda">
+              {waitingList.map((c) => (
                 <PatientRow
                   key={c.id}
                   c={c}
@@ -131,27 +150,16 @@ export function UtPatientSwitcher({
           onClick={() => setOpen((v) => !v)}
           className={cn(
             'flex items-center gap-1.5 rounded-xl border border-white/60 bg-white/55 backdrop-blur-md px-2 py-1.5 text-left hover:bg-white/70 transition-all max-w-[180px] sm:max-w-[220px] shadow-sm',
-            isLive && 'ring-2 ring-emerald-400/80',
             className,
           )}
         >
-          <div
-            className={cn(
-              'w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold',
-              isLive ? 'bg-emerald-500 text-white' : isWaiting ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600',
-            )}
-          >
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold bg-brand-100 text-brand-700">
             {active ? patientInitial(active.patient.fullName) : <User size={13} />}
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-bold text-slate-900 truncate leading-tight">
               {active ? patientLabel(active) : 'Tanlang'}
             </p>
-            {active && (
-              <p className={cn('text-[10px] font-semibold truncate leading-tight', isLive ? 'text-emerald-600' : 'text-amber-700')}>
-                {isLive ? 'Qabul qilindi' : 'Kutilmoqda'}
-              </p>
-            )}
           </div>
           <ChevronDown size={13} className={cn('text-slate-400 shrink-0 transition-transform', open && 'rotate-180')} />
         </button>
@@ -168,31 +176,16 @@ export function UtPatientSwitcher({
         onClick={() => setOpen((v) => !v)}
         className={cn(
           'flex items-center gap-2 rounded-xl border border-white/60 bg-white/55 backdrop-blur-md px-3 py-2 text-left hover:bg-white/70 hover:border-white/75 transition-all min-w-[200px] max-w-[320px] shadow-sm',
-          isLive && 'ring-2 ring-emerald-400/80',
           className,
         )}
       >
-        <div
-          className={cn(
-            'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold',
-            isLive ? 'bg-emerald-500 text-white' : 'bg-brand-100 text-brand-700',
-          )}
-        >
+        <div className="w-8 h-8 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center shrink-0 text-xs font-bold">
           {active ? patientInitial(active.patient.fullName) : <User size={15} />}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold text-slate-400 uppercase leading-none">Faol bemor</p>
+          <p className="text-xs font-semibold text-slate-400 uppercase leading-none">Bemor</p>
           <p className="text-sm font-bold text-slate-900 truncate">{active ? patientLabel(active) : 'Tanlang'}</p>
         </div>
-        {active && (
-          <span className={cn(
-            'text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0',
-            isLive ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-800',
-          )}
-          >
-            {isLive ? 'Qabul' : 'Kutish'}
-          </span>
-        )}
         <ChevronDown size={14} className={cn('text-slate-400 shrink-0 transition-transform', open && 'rotate-180')} />
       </button>
       {menu}
@@ -200,27 +193,13 @@ export function UtPatientSwitcher({
   );
 }
 
-function Section({
-  title,
-  icon: Icon,
-  color,
-  children,
-}: {
-  title: string;
-  icon: React.ElementType;
-  color: 'emerald' | 'amber';
-  children: React.ReactNode;
-}) {
-  const colors = {
-    emerald: 'text-emerald-600',
-    amber: 'text-amber-600',
-  };
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="p-1.5">
-      <p className={cn('px-2 py-1 text-xs font-bold uppercase tracking-wide flex items-center gap-1', colors[color])}>
-        <Icon size={12} /> {title}
+    <div className="border-b border-white/40 last:border-b-0">
+      <p className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-white/30">
+        {title}
       </p>
-      {children}
+      <div className="p-1.5 pt-0">{children}</div>
     </div>
   );
 }
@@ -236,9 +215,6 @@ function PatientRow({
   onSelect: () => void;
   onCancel?: () => void;
 }) {
-  const isLive = c.status === 'IN_PROGRESS';
-  const st = formatStatus(c.status);
-
   return (
     <div
       className={cn(
@@ -249,33 +225,18 @@ function PatientRow({
       <button
         type="button"
         onClick={onSelect}
-        className={cn(
-          'flex-1 flex items-center gap-2 px-2.5 py-2 text-left text-sm transition-colors min-w-0',
-          active ? 'text-white' : '',
-        )}
+        className="flex-1 flex items-center gap-2 px-2.5 py-2 text-left text-sm transition-colors min-w-0"
       >
-        <div
-          className={cn(
-            'w-2 h-2 rounded-full shrink-0',
-            isLive ? 'bg-emerald-400' : 'bg-amber-400',
-            active && isLive && 'bg-white',
-          )}
-        />
         <div className="min-w-0 flex-1">
           <p className="font-semibold truncate">{c.patient.fullName}</p>
-          <p className={cn('text-xs truncate', active ? 'text-white/80' : 'text-slate-500')}>
-            {isLive
-              ? (c.mtDoctor?.fullName || 'Shifokor ulangan')
-              : (c.mtDoctor?.fullName ? `${c.mtDoctor.fullName} — kutilyapti` : 'Shifokor kutilmoqda')}
-          </p>
+          {c.mtDoctor?.fullName && (
+            <p className={cn('text-xs truncate', active ? 'text-white/80' : 'text-slate-500')}>
+              {c.mtDoctor.fullName}
+            </p>
+          )}
         </div>
-        {!active && (
-          <span className={cn('status-badge shrink-0', st.className, isLive && 'bg-emerald-100 text-emerald-700')}>
-            {isLive ? 'Qabul' : st.label}
-          </span>
-        )}
       </button>
-      {onCancel && c.status === 'QUEUED' && (
+      {onCancel && (
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onCancel(); }}

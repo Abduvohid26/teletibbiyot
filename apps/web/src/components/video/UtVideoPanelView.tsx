@@ -9,12 +9,16 @@ import { ConnectionQualityBadge } from '@/components/video/ConnectionQualityBadg
 import { applyUtPtzAction, isPtzAction } from '@/lib/ut-ptz-state';
 import { UT_CAMERA_FEEDS } from '@/lib/video-config';
 import { isUtStreamLive } from '@/lib/ut-camera-streams';
+import { VitalReading } from '@/lib/camera-vitals';
+import { VitalsOverlayBar } from '@/components/vitals/VitalsOverlayBar';
 
 interface UtVideoPanelViewProps {
   video: ReturnType<typeof useVideoRoom>;
   doctorName?: string;
-  consultationStatus?: string;
   patientName?: string;
+  vitalsReading?: VitalReading;
+  onVitalsChange?: (reading: VitalReading) => void;
+  defaultView?: 'close' | 'main' | 'room' | 'equipment' | 'doctor' | 'all';
 }
 
 const ALL_VIEW = 'all';
@@ -96,11 +100,14 @@ function CameraSlot({
 export function UtVideoPanelView({
   video,
   doctorName,
-  consultationStatus,
   patientName,
+  vitalsReading,
+  onVitalsChange,
+  defaultView = 'close',
 }: UtVideoPanelViewProps) {
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
-  const [activeView, setActiveView] = useState<ViewId>('close');
+  const initialView: ViewId = defaultView === 'all' ? ALL_VIEW : defaultView;
+  const [activeView, setActiveView] = useState<ViewId>(initialView);
   const [ptzHint, setPtzHint] = useState('');
 
   const {
@@ -143,6 +150,7 @@ export function UtVideoPanelView({
   const activeSlot = VIEW_SLOTS.find((s) => s.id === activeView);
   const mainStream = isAllView ? null : getStream(activeView);
   const mainLive = isAllView ? false : isActive(activeView);
+  const showVitalsOverlay = activeView === 'equipment' && vitalsReading;
 
   useEffect(() => {
     const el = remoteAudioRef.current;
@@ -225,13 +233,6 @@ export function UtVideoPanelView({
           </div>
         )}
 
-        {consultationStatus === 'QUEUED' && (
-          <div className="text-xs text-amber-900 bg-amber-50 border border-amber-200/80 rounded-lg px-2.5 py-2 leading-relaxed">
-            <strong>Yuborildi — shifokor qabul qilishini kuting.</strong>
-            {' '}Kameralar tayyor ({liveTotal} ta uzatilmoqda). Shifokor qabul qilganda jonli efir avtomatik boshlanadi.
-          </div>
-        )}
-
         {/* Tanlangan kamera — katta ko'rinish */}
         <div className="relative flex-[2] min-h-[180px] lg:min-h-[220px] rounded-xl overflow-hidden bg-slate-950 ring-2 ring-brand-500/90">
           {isAllView ? (
@@ -291,7 +292,10 @@ export function UtVideoPanelView({
               <VideoTile
                 stream={mainStream}
                 muted
-                className="absolute inset-0 w-full h-full [&_video]:object-cover"
+                className={cn(
+                  'absolute inset-0 w-full h-full',
+                  activeView === 'equipment' ? '[&_video]:object-contain' : '[&_video]:object-cover',
+                )}
                 placeholder={`${activeSlot?.label ?? 'Kamera'} — kutilmoqda`}
                 live={mainLive}
               />
@@ -299,6 +303,15 @@ export function UtVideoPanelView({
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-slate-900/60 pointer-events-none">
                   <VideoOff size={22} className="text-slate-500" />
                   <span className="text-xs text-slate-400">{activeSlot?.label} — ulanmagan</span>
+                </div>
+              )}
+              {showVitalsOverlay && (
+                <div className="absolute bottom-2 left-2 right-2 z-10 pointer-events-auto">
+                  <VitalsOverlayBar
+                    reading={vitalsReading!}
+                    onChange={onVitalsChange}
+                    editable={!!onVitalsChange}
+                  />
                 </div>
               )}
             </>

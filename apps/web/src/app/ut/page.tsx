@@ -271,7 +271,7 @@ export default function UTClientPage() {
       setFiles([]);
       setConsentAccepted(false);
       toast('Navbatga yuborildi — shifokor qabul qilishini kuting', 'success');
-      router.push('/ut/vitals?waiting=1');
+      router.push('/ut/vitals');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Xatolik yuz berdi';
       toast(message, 'error');
