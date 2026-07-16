@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
@@ -7,6 +7,8 @@ import { LoginDto } from './dto/login.dto';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -37,15 +39,19 @@ export class AuthService {
 
     const token = this.jwtService.sign(payload);
 
-    await this.prisma.auditLog.create({
-      data: {
-        userId: user.id,
-        action: 'LOGIN',
-        entity: 'User',
-        entityId: user.id,
-        ipAddress: ip,
-      },
-    });
+    try {
+      await this.prisma.auditLog.create({
+        data: {
+          userId: user.id,
+          action: 'LOGIN',
+          entity: 'User',
+          entityId: user.id,
+          ipAddress: ip?.slice(0, 128) ?? null,
+        },
+      });
+    } catch (err) {
+      this.logger.warn(`Login audit yozilmadi (${user.email}): ${err instanceof Error ? err.message : err}`);
+    }
 
     return {
       accessToken: token,
@@ -84,15 +90,19 @@ export class AuthService {
       data: { tokenVersion: { increment: 1 } },
     });
 
-    await this.prisma.auditLog.create({
-      data: {
-        userId,
-        action: 'LOGOUT',
-        entity: 'User',
-        entityId: userId,
-        ipAddress: ip,
-      },
-    });
+    try {
+      await this.prisma.auditLog.create({
+        data: {
+          userId,
+          action: 'LOGOUT',
+          entity: 'User',
+          entityId: userId,
+          ipAddress: ip?.slice(0, 128) ?? null,
+        },
+      });
+    } catch (err) {
+      this.logger.warn(`Logout audit yozilmadi (${userId}): ${err instanceof Error ? err.message : err}`);
+    }
 
     return { success: true };
   }

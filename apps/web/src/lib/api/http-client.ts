@@ -1,14 +1,8 @@
 import { ALLOW_CLIENT_TOKEN, REQUEST_TIMEOUT_MS, TOKEN_STORAGE_KEY } from './constants';
 
 export function resolveApiUrl(): string {
-  if (typeof window !== 'undefined') {
-    // Dev: Next proxy o'rniga to'g'ridan-to'g'ri API (docker hostname muammosini oldini oladi)
-    if (process.env.NODE_ENV === 'development') {
-      const direct = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '');
-      if (direct) return direct;
-    }
-    return '';
-  }
+  // Brauzerda har doim same-origin /api proxy — CORS va noto'g'ri hostname muammosini oldini oladi
+  if (typeof window !== 'undefined') return '';
   return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 }
 
@@ -123,6 +117,9 @@ export class HttpClient {
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
         throw new Error('Server javob bermadi. Internet yoki API holatini tekshiring.');
+      }
+      if (err instanceof TypeError) {
+        throw new Error('API ga ulanib bo\'lmadi. Docker/API ishlayotganini tekshiring (localhost:3001).');
       }
       throw err;
     } finally {
