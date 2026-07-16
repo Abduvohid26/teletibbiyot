@@ -18,6 +18,8 @@ interface MediaDevicePanelProps {
   role?: 'mt' | 'ut';
   compact?: boolean;
   showPreview?: boolean;
+  /** UT: alohida UtCameraMappingPanel ishlatilsa */
+  hideUtCameraMapping?: boolean;
   onPrefsChange?: (prefs: MediaPreferences) => void;
 }
 
@@ -119,7 +121,13 @@ export function MediaCameraPreview({
   );
 }
 
-export function MediaDevicePanel({ role = 'mt', compact, showPreview = true, onPrefsChange }: MediaDevicePanelProps) {
+export function MediaDevicePanel({
+  role = 'mt',
+  compact,
+  showPreview = true,
+  hideUtCameraMapping = false,
+  onPrefsChange,
+}: MediaDevicePanelProps) {
   const [prefs, setPrefs] = useState<MediaPreferences>(() => loadMediaPreferences());
   const {
     videoInputs,
@@ -197,7 +205,7 @@ export function MediaDevicePanel({ role = 'mt', compact, showPreview = true, onP
         </div>
       )}
 
-      {role === 'ut' && (
+      {role === 'ut' && !hideUtCameraMapping && (
         <div className={cn(compact ? 'space-y-1.5' : 'space-y-2')}>
           <p className={cn('font-semibold text-slate-500 uppercase tracking-wide', compact ? 'text-xs' : 'text-xs')}>
             UT kameralar biriktirish

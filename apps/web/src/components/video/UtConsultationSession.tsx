@@ -30,9 +30,9 @@ export function UtConsultationSession({ consultation, patientName }: UtConsultat
       {video.preflightPending && (
         <VideoPreflightModal role="ut" onConfirm={video.confirmPreflight} onCancel={video.cancelPreflight} />
       )}
-      <div className="h-full min-h-0 grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-2 lg:gap-3 items-stretch">
+      <div className="h-full min-h-0 grid grid-cols-1 xl:grid-cols-[minmax(0,320px)_1fr] gap-2 xl:gap-3 items-stretch">
         {!video.preflightPending && (
-          <div className="min-h-0 flex flex-col">
+          <div className="min-h-0 flex flex-col max-xl:max-h-[34vh]">
             <CameraVitalsMonitor
               consultationId={consultation.id}
               patientName={patientName ?? consultation.patient.fullName}

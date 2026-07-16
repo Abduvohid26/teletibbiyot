@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { User, Building2, Video, Wifi } from 'lucide-react';
+import { User, Building2, Video, Wifi, Camera } from 'lucide-react';
 import { MediaDevicePanel, MediaCameraPreview } from '@/components/video/MediaDevicePanel';
+import { UtCameraMappingPanel } from '@/components/ut/UtCameraMappingPanel';
 import { clearIceCache } from '@/lib/video-config';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
@@ -47,19 +48,42 @@ export function SettingsContent({ user, videoRole, compact, className }: Setting
   };
 
   if (compact) {
+    const isUt = videoRole === 'ut';
+
     return (
-      <div className={cn('ut-settings-grid', className)}>
+      <div className={cn('ut-settings-grid', isUt && 'ut-settings-grid-cameras', className)}>
         <div id="video-audio" className="ut-settings-panel scroll-mt-4 min-w-0">
           <div className="panel-header !py-2 !px-3 bg-gradient-to-r from-violet-50/50 to-transparent">
-            <Video size={15} className="text-violet-600" />
-            <span className="panel-title">Video va ovoz</span>
+            {isUt ? <Camera size={15} className="text-violet-600" /> : <Video size={15} className="text-violet-600" />}
+            <span className="panel-title">{isUt ? '4 ta kamera biriktirish' : 'Video va ovoz'}</span>
           </div>
-          <div className="ut-settings-panel-body !p-2.5 overflow-y-auto">
-            <p className="text-xs text-slate-500 mb-2 leading-snug">
-              Kamera, mikrofon va video sifatini konsultatsiyadan oldin sozlang.
-            </p>
-            <MediaDevicePanel role={videoRole} compact showPreview={false} onPrefsChange={() => clearIceCache()} />
-            <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+          <div className="ut-settings-panel-body !p-2.5 overflow-y-auto flex flex-col gap-3">
+            {isUt ? (
+              <>
+                <UtCameraMappingPanel
+                  compact
+                  onPrefsChange={() => clearIceCache()}
+                />
+                <div className="border-t border-slate-100 pt-2">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Qo&apos;shimcha</p>
+                  <MediaDevicePanel
+                    role="ut"
+                    compact
+                    showPreview={false}
+                    hideUtCameraMapping
+                    onPrefsChange={() => clearIceCache()}
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-slate-500 leading-snug">
+                  Kamera, mikrofon va video sifatini konsultatsiyadan oldin sozlang.
+                </p>
+                <MediaDevicePanel role={videoRole} compact showPreview={false} onPrefsChange={() => clearIceCache()} />
+              </>
+            )}
+            <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
               <div className="flex items-center gap-1.5 text-xs text-slate-600 min-w-0">
                 <Wifi size={14} className="shrink-0" />
                 <span className="truncate">TURN / WebRTC tekshiruvi</span>
@@ -69,7 +93,7 @@ export function SettingsContent({ user, videoRole, compact, className }: Setting
               </button>
             </div>
             {turnStatus && (
-              <p className={cn('text-xs mt-1.5 font-medium', turnStatus.includes('✓') ? 'text-emerald-600' : 'text-amber-600')}>
+              <p className={cn('text-xs font-medium', turnStatus.includes('✓') ? 'text-emerald-600' : 'text-amber-600')}>
                 {turnStatus}
               </p>
             )}
@@ -88,10 +112,12 @@ export function SettingsContent({ user, videoRole, compact, className }: Setting
               <InfoRow label="Rol" value={user.role} compact />
               <InfoRow label="Muassasa" value={user.facility?.name || '—'} icon={Building2} compact />
             </div>
-            <div className="mt-auto pt-1">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Kamera tekshiruvi</p>
-              <MediaCameraPreview role={videoRole} compact variant="card" />
-            </div>
+            {!isUt && (
+              <div className="mt-auto pt-1">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Kamera tekshiruvi</p>
+                <MediaCameraPreview role={videoRole} compact variant="card" />
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -116,13 +142,27 @@ export function SettingsContent({ user, videoRole, compact, className }: Setting
       <div id="video-audio" className="panel overflow-hidden scroll-mt-24">
         <div className="panel-header bg-gradient-to-r from-violet-50/50 to-transparent">
           <Video size={18} className="text-violet-600" />
-          <span className="panel-title">Video va ovoz sozlamalari</span>
+          <span className="panel-title">
+            {videoRole === 'ut' ? '4 ta kamera biriktirish' : 'Video va ovoz sozlamalari'}
+          </span>
         </div>
         <div className="panel-body">
-          <p className="text-sm text-slate-500 mb-4">
-            Kamera, mikrofon va video sifatini konsultatsiyadan oldin sozlang. Tanlovlar brauzerda saqlanadi.
-          </p>
-          <MediaDevicePanel role={videoRole} onPrefsChange={() => clearIceCache()} />
+          {videoRole === 'ut' ? (
+            <div className="space-y-6">
+              <UtCameraMappingPanel onPrefsChange={() => clearIceCache()} />
+              <div className="border-t border-slate-100 pt-4">
+                <p className="text-sm font-semibold text-slate-700 mb-3">Video sifati va ovoz</p>
+                <MediaDevicePanel role="ut" showPreview={false} hideUtCameraMapping onPrefsChange={() => clearIceCache()} />
+              </div>
+            </div>
+          ) : (
+            <>
+              <p className="text-sm text-slate-500 mb-4">
+                Kamera, mikrofon va video sifatini konsultatsiyadan oldin sozlang. Tanlovlar brauzerda saqlanadi.
+              </p>
+              <MediaDevicePanel role={videoRole} onPrefsChange={() => clearIceCache()} />
+            </>
+          )}
           <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-sm text-slate-600">
               <Wifi size={16} />

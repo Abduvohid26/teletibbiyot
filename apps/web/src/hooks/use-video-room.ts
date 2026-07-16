@@ -70,6 +70,7 @@ export function useVideoRoom({
   const qualityPresetRef = useRef<VideoQualityPreset>(prefsRef.current.qualityPreset);
   const setupStartedRef = useRef(false);
   const preflightConfirmedRef = useRef(false);
+  const remoteDoctorSocketRef = useRef<string | null>(null);
 
   const [videoPaused, setVideoPaused] = useState(false);
   const [connectNonce, setConnectNonce] = useState(0);
@@ -229,6 +230,7 @@ export function useVideoRoom({
         }
 
         updateRemoteCamera(MT_DOCTOR_STREAM_ID, stream);
+        remoteDoctorSocketRef.current = remoteSocketId;
       };
 
       pc.onconnectionstatechange = () => {
@@ -314,14 +316,30 @@ export function useVideoRoom({
       }
 
       try {
-        const pc = createPeerConnection(fromSocketId);
-        if (pc.signalingState === 'have-local-offer') {
-          await pc.setLocalDescription({ type: 'rollback' } as RTCSessionDescriptionInit);
+        let pc = pcsRef.current.get(fromSocketId);
+        if (
+          pc
+          && (
+            pc.connectionState === 'closed'
+            || pc.connectionState === 'failed'
+            || pc.signalingState === 'have-local-offer'
+          )
+        ) {
+          pc.close();
+          pcsRef.current.delete(fromSocketId);
+          remoteTrackIdsRef.current.delete(fromSocketId);
+          socketToCamerasRef.current.delete(fromSocketId);
+          pc = undefined;
         }
-        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+
+        const activePc = pc ?? createPeerConnection(fromSocketId);
+        if (activePc.signalingState === 'have-local-offer') {
+          await activePc.setLocalDescription({ type: 'rollback' } as RTCSessionDescriptionInit);
+        }
+        await activePc.setRemoteDescription(new RTCSessionDescription(offer));
         await flushIceCandidates(fromSocketId);
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
+        const answer = await activePc.createAnswer();
+        await activePc.setLocalDescription(answer);
         socket.emit('answer', {
           roomId: consultationId,
           targetSocketId: fromSocketId,
@@ -391,6 +409,33 @@ export function useVideoRoom({
     pendingIceCandidatesRef.current.clear();
     makingOfferRef.current.clear();
   }, []);
+
+  const removeRemotePeer = useCallback((socketId: string) => {
+    const pc = pcsRef.current.get(socketId);
+    if (pc) {
+      pc.close();
+      pcsRef.current.delete(socketId);
+    }
+    remoteTrackIdsRef.current.delete(socketId);
+    makingOfferRef.current.delete(socketId);
+    knownParticipantsRef.current.delete(socketId);
+    pendingIceCandidatesRef.current.delete(socketId);
+
+    const cameraIds = socketToCamerasRef.current.get(socketId) ?? [];
+    socketToCamerasRef.current.delete(socketId);
+    setRemoteCameras((prev) => {
+      const next = { ...prev };
+      cameraIds.forEach((id) => delete next[id]);
+      if (role === 'ut' && remoteDoctorSocketRef.current === socketId) {
+        delete next[MT_DOCTOR_STREAM_ID];
+        remoteDoctorSocketRef.current = null;
+      }
+      return next;
+    });
+    if (pcsRef.current.size === 0) {
+      setRemoteAudio(null);
+    }
+  }, [role]);
 
   const setupLocalMedia = useCallback(async () => {
     if (!isPublisher) {
@@ -503,6 +548,29 @@ export function useVideoRoom({
   ]);
 
   useEffect(() => {
+    if (!connectNonce || !mediaReady || videoPaused || !roomJoined || !consultationId) return;
+    const socket = socketRef.current;
+    if (socket) {
+      socket.emit('media-resumed', { roomId: consultationId });
+    }
+    if (isOfferer) {
+      knownParticipantsRef.current.forEach((socketId) => {
+        pendingOfferTargetsRef.current.add(socketId);
+      });
+      flushPendingOffers();
+    }
+  }, [
+    connectNonce,
+    consultationId,
+    flushPendingOffers,
+    isOfferer,
+    mediaReady,
+    roomJoined,
+    socketRef,
+    videoPaused,
+  ]);
+
+  useEffect(() => {
     if (!mediaReady || !roomJoined) return;
     flushPendingOffers();
     flushPendingIncomingOffers();
@@ -572,35 +640,22 @@ export function useVideoRoom({
       window.dispatchEvent(new CustomEvent('remote-media-toggled', { detail: data }));
     };
 
-    const onCallEndedEvent = () => {
-      setupStartedRef.current = false;
-      setVideoPaused(true);
-      cleanupMedia();
-      onCallEnded?.();
+    const onCallEndedEvent = (data?: { socketId?: string }) => {
+      const peerId = data?.socketId;
+      if (!peerId) return;
+      removeRemotePeer(peerId);
     };
 
     const onParticipantLeft = (data: { socketId: string }) => {
-      const pc = pcsRef.current.get(data.socketId);
-      if (pc) {
-        pc.close();
-        pcsRef.current.delete(data.socketId);
-      }
-      remoteTrackIdsRef.current.delete(data.socketId);
-      makingOfferRef.current.delete(data.socketId);
-      knownParticipantsRef.current.delete(data.socketId);
-      pendingIceCandidatesRef.current.delete(data.socketId);
+      removeRemotePeer(data.socketId);
+    };
 
-      const cameraIds = socketToCamerasRef.current.get(data.socketId) ?? [];
-      socketToCamerasRef.current.delete(data.socketId);
-      if (cameraIds.length) {
-        setRemoteCameras((prev) => {
-          const next = { ...prev };
-          cameraIds.forEach((id) => delete next[id]);
-          return next;
-        });
-      }
-      if (pcsRef.current.size === 0) {
-        setRemoteAudio(null);
+    const onPeerMediaResumed = (data: { socketId?: string }) => {
+      if (!data?.socketId) return;
+      knownParticipantsRef.current.add(data.socketId);
+      if (isOfferer) {
+        pendingOfferTargetsRef.current.add(data.socketId);
+        if (mediaReady) flushPendingOffers();
       }
     };
 
@@ -660,6 +715,7 @@ export function useVideoRoom({
     socket.on('ptz-control', onPtz);
     socket.on('media-toggled', onMediaToggled);
     socket.on('call-ended', onCallEndedEvent);
+    socket.on('peer-media-resumed', onPeerMediaResumed);
     socket.on('signal-error', onSignalError);
 
     return () => {
@@ -675,10 +731,10 @@ export function useVideoRoom({
       socket.off('ptz-control', onPtz);
       socket.off('media-toggled', onMediaToggled);
       socket.off('call-ended', onCallEndedEvent);
+      socket.off('peer-media-resumed', onPeerMediaResumed);
       socket.off('signal-error', onSignalError);
     };
   }, [
-    cleanupMedia,
     consultationId,
     enabled,
     flushPendingIncomingOffers,
@@ -688,7 +744,8 @@ export function useVideoRoom({
     handleOffer,
     isOfferer,
     makeOffer,
-    onCallEnded,
+    mediaReady,
+    removeRemotePeer,
     role,
     socketRef,
     roomJoined,

@@ -478,6 +478,16 @@ body {
     grid-template-columns: minmax(0, 1fr) minmax(0, 280px);
   }
 
+  .ut-settings-grid-cameras {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 240px);
+  }
+
+  @media (min-width: 1100px) {
+    .ut-settings-grid-cameras {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 260px);
+    }
+  }
+
   .ut-settings-profile {
     @apply shrink-0;
   }

@@ -433,6 +433,7 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.to(data.roomId).emit('media-toggled', { socketId: client.id, ...data });
   }
 
+  /** Ishtirokchi faqat o'z video oqimini to'xtatdi — boshqalar sessiyada qoladi */
   @SubscribeMessage('end-call')
   handleEndCall(
     @ConnectedSocket() client: Socket,
@@ -440,6 +441,16 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     if (!this.isInRoom(client.id, data.roomId, client)) return;
     this.server.to(data.roomId).emit('call-ended', { socketId: client.id });
+  }
+
+  /** Qayta ulanganda boshqa ishtirokchilar WebRTC ni qayta ochadi */
+  @SubscribeMessage('media-resumed')
+  handleMediaResumed(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string },
+  ) {
+    if (!this.isInRoom(client.id, data.roomId, client)) return;
+    client.to(data.roomId).emit('peer-media-resumed', { socketId: client.id });
   }
 
   @SubscribeMessage('ping-room')

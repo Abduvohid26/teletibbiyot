@@ -38,7 +38,7 @@ export default function UtSettingsPage() {
       sessionCount={sessions.length}
       liveCount={inProgressList.length}
       pageTitle="Sozlamalar"
-      pageSubtitle="Profil va video sozlamalari"
+      pageSubtitle="Profil va 4 ta kamera biriktirish"
       headerExtra={
         sessions.length > 0 ? (
           <UtPatientSwitcher

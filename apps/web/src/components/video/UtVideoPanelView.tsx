@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Mic, MicOff, Video, VideoOff, Radio, Move, Volume2, VolumeX, AlertTriangle, LayoutGrid } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, Radio, Move, Volume2, VolumeX, AlertTriangle, LayoutGrid, Phone, PhoneOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useVideoRoom } from '@/hooks/use-video-room';
 import { VideoTile } from '@/components/video/VideoTile';
@@ -83,10 +83,10 @@ function CameraSlot({
           <span className="text-xs text-slate-500 font-medium">Ulanmagan</span>
         </div>
       )}
-      <span className="absolute top-1 left-1 min-w-[18px] h-[18px] px-1 rounded-md bg-black/70 text-white text-[10px] font-bold flex items-center justify-center pointer-events-none">
+      <span className="absolute top-1 left-1 min-w-[20px] h-[20px] px-1 rounded-md bg-black/70 text-white text-[11px] font-bold flex items-center justify-center pointer-events-none">
         {num}
       </span>
-      <span className="absolute bottom-0 inset-x-0 bg-black/75 text-white text-xs font-medium px-1.5 py-0.5 truncate pointer-events-none">
+      <span className="absolute bottom-0 inset-x-0 bg-black/75 text-white text-xs font-semibold px-1.5 py-1 truncate pointer-events-none">
         {label}
       </span>
     </Tag>
@@ -105,6 +105,7 @@ export function UtVideoPanelView({
 
   const {
     connected,
+    videoPaused,
     error,
     micOn,
     camOn,
@@ -114,6 +115,8 @@ export function UtVideoPanelView({
     remoteAudio,
     toggleMic,
     toggleCam,
+    endCall,
+    reconnectCall,
     connectionStats,
     audioMissing,
     utCameraStreams,
@@ -192,7 +195,11 @@ export function UtVideoPanelView({
           )}
         </div>
         <div className="flex items-center gap-1.5 shrink-0 ml-auto">
-          {connected && (
+          {videoPaused ? (
+            <span className="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-0.5 rounded-full">
+              Uzilgan
+            </span>
+          ) : connected ? (
             <>
               <ConnectionQualityBadge quality={connectionStats.quality} bitrateKbps={connectionStats.bitrateKbps} compact />
               <span className="live-badge !text-xs !py-0.5" title="Jonli kameralar (1–5)">
@@ -200,6 +207,8 @@ export function UtVideoPanelView({
                 {liveTotal}/5
               </span>
             </>
+          ) : (
+            <span className="text-xs text-slate-400 font-medium">Ulanmoqda...</span>
           )}
         </div>
       </div>
@@ -223,9 +232,9 @@ export function UtVideoPanelView({
         )}
 
         {/* Tanlangan kamera — katta ko'rinish */}
-        <div className="relative flex-[1.4] min-h-[140px] rounded-xl overflow-hidden bg-slate-950 ring-2 ring-brand-500/90">
+        <div className="relative flex-[2] min-h-[180px] lg:min-h-[220px] rounded-xl overflow-hidden bg-slate-950 ring-2 ring-brand-500/90">
           {isAllView ? (
-            <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-0.5 p-0.5 bg-slate-950">
+            <div className="absolute inset-0 grid grid-cols-3 grid-rows-2 gap-0.5 p-0.5 bg-slate-950">
               {UT_CAMERA_FEEDS.map((feed) => {
                 const stream = streamFor(feed.id)?.stream ?? null;
                 const live = isUtStreamLive(stream);
@@ -243,7 +252,7 @@ export function UtVideoPanelView({
                       placeholder={feed.label}
                       live={live}
                     />
-                    <span className="absolute top-1 left-1 bg-black/60 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded pointer-events-none">
+                    <span className="absolute top-1 left-1 bg-black/60 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded pointer-events-none">
                       {shortLabel(feed.id, feed.label)}
                     </span>
                     {!live && (
@@ -254,6 +263,27 @@ export function UtVideoPanelView({
                   </button>
                 );
               })}
+              <button
+                type="button"
+                onClick={() => setActiveView('doctor')}
+                className="relative min-h-0 min-w-0 rounded-md overflow-hidden ring-1 ring-white/10 hover:ring-brand-400/60 transition-shadow"
+              >
+                <VideoTile
+                  stream={mtDoctorStream}
+                  muted
+                  className="absolute inset-0 w-full h-full [&_video]:object-cover"
+                  placeholder="Shifokor"
+                  live={doctorActive}
+                />
+                <span className="absolute top-1 left-1 bg-violet-600/90 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded pointer-events-none">
+                  Shifokor
+                </span>
+                {!doctorActive && (
+                  <span className="absolute inset-0 flex items-center justify-center bg-slate-900/40 pointer-events-none">
+                    <VideoOff className="w-5 h-5 text-slate-500" />
+                  </span>
+                )}
+              </button>
             </div>
           ) : (
             <>
@@ -284,8 +314,25 @@ export function UtVideoPanelView({
           )}
           {isAllView && (
             <span className="absolute top-2 right-2 bg-brand-600/90 text-white text-xs font-bold px-2 py-0.5 rounded-md">
-              Hammasi — 4 kamera
+              Hammasi — {liveTotal}/5
             </span>
+          )}
+          {videoPaused && (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-sm px-4">
+              <VideoOff className="w-10 h-10 text-slate-400 mb-2" />
+              <p className="text-sm font-semibold text-white text-center">Video uzildi</p>
+              <p className="text-xs text-slate-300 text-center mt-1 max-w-xs">
+                Konsultatsiya davom etadi — qayta ulang
+              </p>
+              <button
+                type="button"
+                onClick={() => reconnectCall()}
+                className="mt-3 inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold px-4 py-2 rounded-xl"
+              >
+                <Phone size={16} />
+                Qayta ulash
+              </button>
+            </div>
           )}
           {remoteAudio && (
             <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
@@ -293,7 +340,7 @@ export function UtVideoPanelView({
         </div>
 
         {/* Kameralar 1–5 + Hammasi */}
-        <div className="flex gap-1.5 shrink-0 overflow-x-auto pb-0.5">
+        <div className="flex gap-2 shrink-0 overflow-x-auto pb-0.5">
           {VIEW_SLOTS.map((slot) => {
             const stream = slot.isDoctor ? mtDoctorStream : (streamFor(slot.id)?.stream ?? null);
             const active = slot.isDoctor ? doctorActive : isActive(slot.id);
@@ -307,15 +354,16 @@ export function UtVideoPanelView({
                 active={active}
                 selected={activeView === slot.id}
                 onClick={() => setActiveView(slot.id)}
-                className="aspect-video w-[4.5rem] sm:w-[5rem] shrink-0"
+                className="aspect-video w-[5.5rem] sm:w-[6.5rem] md:w-[7rem] shrink-0"
               />
             );
           })}
           <AllCamerasButton
             active={isAllView}
-            liveCount={utActiveCount}
+            liveCount={liveTotal}
+            doctorLive={doctorActive}
             onClick={() => setActiveView(ALL_VIEW)}
-            className="aspect-video w-[4.5rem] sm:w-[5rem] shrink-0"
+            className="aspect-video w-[5.5rem] sm:w-[6.5rem] md:w-[7rem] shrink-0"
           />
         </div>
 
@@ -330,6 +378,24 @@ export function UtVideoPanelView({
           <ControlBtn active={micOn} onClick={toggleMic} icon={micOn ? Mic : MicOff} label="Mic" short />
           <ControlBtn active={speakerOn} onClick={toggleSpeaker} icon={speakerOn ? Volume2 : VolumeX} label="Ovoz" short />
           <ControlBtn active={camOn} onClick={toggleCam} icon={camOn ? Video : VideoOff} label="Kamera" short />
+          <button
+            type="button"
+            onClick={() => endCall()}
+            className="inline-flex items-center gap-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold px-3 py-2 rounded-xl"
+          >
+            <PhoneOff size={14} />
+            Uzish
+          </button>
+          {videoPaused && (
+            <button
+              type="button"
+              onClick={() => reconnectCall()}
+              className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3 py-2 rounded-xl"
+            >
+              <Phone size={14} />
+              Qayta ulash
+            </button>
+          )}
         </div>
 
         {qualityLabel && (
@@ -343,18 +409,28 @@ export function UtVideoPanelView({
 function AllCamerasButton({
   active,
   liveCount,
+  doctorLive,
   onClick,
   className,
 }: {
   active: boolean;
   liveCount: number;
+  doctorLive?: boolean;
   onClick: () => void;
   className?: string;
 }) {
+  const cells = [
+    liveCount > 0,
+    liveCount > 1,
+    liveCount > 2,
+    liveCount > 3,
+    !!doctorLive,
+  ];
+
   return (
     <button
       type="button"
-      title="Hammasi — 4 ta kamera bir vaqtda"
+      title="Hammasi — barcha kameralar bir vaqtda"
       onClick={onClick}
       className={cn(
         'relative rounded-lg overflow-hidden border-2 transition-all bg-slate-900 min-h-0',
@@ -362,13 +438,13 @@ function AllCamerasButton({
         className,
       )}
     >
-      <div className="absolute inset-1 grid grid-cols-2 grid-rows-2 gap-0.5">
-        {[0, 1, 2, 3].map((i) => (
-          <span key={i} className={cn('rounded-sm', i < liveCount ? 'bg-emerald-500/70' : 'bg-slate-700')} />
+      <div className="absolute inset-1 grid grid-cols-3 grid-rows-2 gap-0.5">
+        {cells.map((live, i) => (
+          <span key={i} className={cn('rounded-sm', live ? 'bg-emerald-500/70' : 'bg-slate-700')} />
         ))}
       </div>
       <LayoutGrid size={12} className="absolute top-1 right-1 text-white/40" />
-      <span className="absolute bottom-0 inset-x-0 bg-black/75 text-white text-[10px] font-medium px-1 py-0.5 truncate">
+      <span className="absolute bottom-0 inset-x-0 bg-black/75 text-white text-xs font-semibold px-1 py-1 truncate">
         Hammasi
       </span>
     </button>
