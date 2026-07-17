@@ -1,4 +1,4 @@
-import { IsEnum, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { TriageLevel } from '@prisma/client';
 
@@ -54,7 +54,7 @@ export class AiChatDto {
 export class ReadMonitorVitalsDto {
   @ApiProperty({ description: 'Base64 JPEG/PNG (data URL yoki xom base64)' })
   @IsString()
-  @Min(10)
+  @MinLength(10)
   image: string;
 
   @ApiProperty({ required: false })
