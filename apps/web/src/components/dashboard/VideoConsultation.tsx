@@ -295,7 +295,10 @@ export function VideoConsultation({
         </div>
 
         {(error || recordingError) && !cameraPermissionNeeded && (
-          <div className="absolute top-12 left-3 right-3 z-10 bg-red-500/90 text-white text-xs rounded-lg px-3 py-2">
+          <div className={cn(
+            'absolute top-12 left-3 right-3 z-10 text-white text-xs rounded-lg px-3 py-2',
+            recordingError && !error ? 'bg-amber-600/90' : 'bg-red-500/90',
+          )}>
             {error || recordingError}
           </div>
         )}

@@ -42,7 +42,14 @@ export function useSessionRecording({ consultationId, stream, enabled = true }: 
             await api.uploadRecording(cid, blob);
             await api.completeRecording(cid, duration);
           } catch (err) {
-            setError(err instanceof Error ? err.message : 'Yozuv yuklashda xatolik');
+            if (process.env.NODE_ENV !== 'production') {
+              setError(err instanceof Error ? err.message : 'Yozuv yuklashda xatolik');
+            }
+            try {
+              await api.completeRecording(cid, duration);
+            } catch {
+              /* yozuv yakunlanmasa ham konsultatsiya davom etadi */
+            }
           } finally {
             setUploading(false);
           }

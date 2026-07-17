@@ -1,5 +1,9 @@
 import { ALLOW_CLIENT_TOKEN, REQUEST_TIMEOUT_MS, TOKEN_STORAGE_KEY } from './constants';
 
+export interface ApiRequestOptions extends RequestInit {
+  timeoutMs?: number;
+}
+
 export function resolveApiUrl(): string {
   // Brauzerda har doim same-origin /api proxy — CORS va noto'g'ri hostname muammosini oldini oladi
   if (typeof window !== 'undefined') return '';
@@ -89,13 +93,14 @@ export class HttpClient {
     return null;
   }
 
-  async fetchApi(path: string, options: RequestInit = {}, authHeader = true): Promise<Response> {
+  async fetchApi(path: string, options: ApiRequestOptions = {}, authHeader = true): Promise<Response> {
+    const { timeoutMs = REQUEST_TIMEOUT_MS, ...fetchOptions } = options;
     const headers: Record<string, string> = {
       'X-Ishifo-Client': 'web',
-      ...(options.headers as Record<string, string>),
+      ...(fetchOptions.headers as Record<string, string>),
     };
 
-    if (!(options.body instanceof FormData)) {
+    if (!(fetchOptions.body instanceof FormData)) {
       headers['Content-Type'] = headers['Content-Type'] || 'application/json';
     }
 
@@ -105,18 +110,23 @@ export class HttpClient {
     }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
       return await fetch(`${resolveApiUrl()}/api${path}`, {
-        ...options,
+        ...fetchOptions,
         headers,
         credentials: 'include',
         signal: controller.signal,
       });
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
-        throw new Error('Server javob bermadi. Internet yoki API holatini tekshiring.');
+        const isUpload = path.includes('/upload') || fetchOptions.body instanceof FormData;
+        throw new Error(
+          isUpload
+            ? 'Yozuv yuklash vaqti tugadi — internet sekin yoki fayl katta. Konsultatsiya davom etadi.'
+            : 'Server javob bermadi. Internet yoki API holatini tekshiring.',
+        );
       }
       if (err instanceof TypeError) {
         const hint =
@@ -131,7 +141,7 @@ export class HttpClient {
     }
   }
 
-  async request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  async request<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
     let res = await this.fetchApi(path, options);
 
     if (res.status === 401 && path === '/auth/me') {

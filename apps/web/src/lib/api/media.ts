@@ -1,5 +1,6 @@
 import type { HttpClient } from './http-client';
 import type { Attachment, SessionRecording } from './types';
+import { UPLOAD_TIMEOUT_MS } from './constants';
 
 export function defineMediaApi(client: HttpClient) {
   return {
@@ -69,7 +70,11 @@ export function defineMediaApi(client: HttpClient) {
     uploadRecording(consultationId: string, blob: Blob) {
       const form = new FormData();
       form.append('file', blob, `session-${consultationId}.webm`);
-      return client.request(`/recordings/${consultationId}/upload`, { method: 'POST', body: form });
+      return client.request(`/recordings/${consultationId}/upload`, {
+        method: 'POST',
+        body: form,
+        timeoutMs: UPLOAD_TIMEOUT_MS,
+      });
     },
 
     getCompletedRecordings(limit = 50) {

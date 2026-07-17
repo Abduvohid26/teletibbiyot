@@ -27,6 +27,8 @@ JSON formatida javob bering:
 detected=true faqat ekranda kamida bitta vital raqam aniq ko'rinsa.
 Ko'rinmasa null va detected=false.`;
 
+const VISION_MODEL = 'gpt-4o-mini';
+
 @Injectable()
 export class MonitorVitalsService {
   private readonly logger = new Logger(MonitorVitalsService.name);
@@ -38,9 +40,13 @@ export class MonitorVitalsService {
     const cfg = this.getOpenAiConfig();
     if (!cfg) return empty;
 
-    const dataUrl = imageBase64.startsWith('data:')
-      ? imageBase64
-      : `data:${mime};base64,${imageBase64}`;
+    const rawBase64 = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
+    if (!rawBase64 || rawBase64.length > 6 * 1024 * 1024) {
+      this.logger.warn('Monitor vision: rasm juda katta yoki bo\'sh');
+      return empty;
+    }
+
+    const dataUrl = `data:${mime};base64,${rawBase64}`;
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -50,8 +56,8 @@ export class MonitorVitalsService {
           Authorization: `Bearer ${cfg.apiKey}`,
         },
         body: JSON.stringify({
-          model: cfg.model.includes('gpt-4') ? cfg.model : 'gpt-4o-mini',
-          max_tokens: 400,
+          model: VISION_MODEL,
+          max_tokens: 300,
           temperature: 0.1,
           response_format: { type: 'json_object' },
           messages: [
@@ -63,7 +69,7 @@ export class MonitorVitalsService {
                   type: 'text',
                   text: 'Patient monitor ekranidagi vital ko\'rsatkichlarni o\'qing. Faqat ekranda ko\'rinadigan raqamlar.',
                 },
-                { type: 'image_url', image_url: { url: dataUrl, detail: 'high' } },
+                { type: 'image_url', image_url: { url: dataUrl, detail: 'low' } },
               ],
             },
           ],
@@ -71,7 +77,8 @@ export class MonitorVitalsService {
       });
 
       if (!response.ok) {
-        this.logger.warn(`Monitor vision HTTP ${response.status}`);
+        const errBody = await response.text().catch(() => '');
+        this.logger.warn(`Monitor vision HTTP ${response.status}: ${errBody.slice(0, 300)}`);
         return empty;
       }
 
@@ -143,6 +150,6 @@ export class MonitorVitalsService {
   private getOpenAiConfig(): { apiKey: string; model: string } | null {
     const apiKey = this.config.get<string>('OPENAI_API_KEY');
     if (!apiKey || apiKey === 'your-openai-api-key-here') return null;
-    return { apiKey, model: this.config.get('OPENAI_MODEL') || 'gpt-4o-mini' };
+    return { apiKey, model: this.config.get('OPENAI_MODEL') || VISION_MODEL };
   }
 }

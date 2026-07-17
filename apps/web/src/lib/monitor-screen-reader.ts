@@ -13,7 +13,7 @@ export const EMPTY_MONITOR_VITALS: VitalReading = {
 
 export function captureStreamFrame(
   stream: MediaStream,
-  maxWidth = 960,
+  maxWidth = 640,
 ): Promise<string | null> {
   return new Promise((resolve) => {
     const track = stream.getVideoTracks()[0];
@@ -62,7 +62,7 @@ export function captureStreamFrame(
           return;
         }
         ctx.drawImage(video, 0, 0, w, h);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.72);
         cleanup();
         resolve(dataUrl);
       };

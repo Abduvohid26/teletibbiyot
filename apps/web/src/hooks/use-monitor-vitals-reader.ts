@@ -47,7 +47,16 @@ export function useMonitorVitalsReader({
 
       try {
         const result = await api.readMonitorVitals(consultationId, frame);
-        setReading(monitorResultToReading(result));
+        if (result.detected) {
+          setReading(monitorResultToReading(result));
+        } else {
+          const local = await parseMonitorFrameLocally(frame);
+          const hasLocal =
+            (local.heartRate ?? 0) > 0
+            || (local.spo2 ?? 0) > 0
+            || (local.bloodPressureSystolic ?? 0) > 0;
+          setReading(hasLocal ? local : monitorResultToReading(result));
+        }
       } catch {
         const local = await parseMonitorFrameLocally(frame);
         setReading(local);

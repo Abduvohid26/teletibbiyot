@@ -1,5 +1,6 @@
 import type { HttpClient } from './http-client';
 import type { AiAnalysisStep, DeviceStatus, Appointment, PrescriptionTemplate } from './types';
+import { VISION_TIMEOUT_MS } from './constants';
 
 export function defineIntegrationsApi(client: HttpClient) {
   return {
@@ -29,6 +30,7 @@ export function defineIntegrationsApi(client: HttpClient) {
     },
 
     readMonitorVitals(consultationId: string, image: string, mimeType = 'image/jpeg') {
+      const payload = image.startsWith('data:') ? image.split(',')[1] ?? image : image;
       return client.request<{
         heartRate: number | null;
         bloodPressureSystolic: number | null;
@@ -40,7 +42,8 @@ export function defineIntegrationsApi(client: HttpClient) {
         source: string;
       }>(`/ai/consultations/${consultationId}/monitor-vitals`, {
         method: 'POST',
-        body: JSON.stringify({ image, mimeType }),
+        body: JSON.stringify({ image: payload, mimeType }),
+        timeoutMs: VISION_TIMEOUT_MS,
       });
     },
 
