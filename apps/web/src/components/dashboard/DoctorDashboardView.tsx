@@ -150,7 +150,6 @@ export function DoctorDashboardView({
                 key={activeConsultationId ?? 'none'}
                 facilityCode={activeConsultation?.utFacility?.code ?? consultation?.utFacility?.code}
                 consultationId={activeConsultation?.status === 'IN_PROGRESS' ? activeConsultationId : undefined}
-                clinicalVitals={activeConsultation?.clinicalRecord?.vitalSigns as Record<string, number> | undefined}
                 reconnectSignal={reconnectSignal}
                 compact
               />

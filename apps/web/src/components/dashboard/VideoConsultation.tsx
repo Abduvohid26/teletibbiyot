@@ -21,7 +21,6 @@ import { useVitalsStream } from '@/hooks/use-vitals-stream';
 interface VideoConsultationProps {
   facilityCode?: string;
   consultationId?: string;
-  clinicalVitals?: Record<string, number>;
   onEndCall?: () => void;
   observeMode?: boolean;
   compact?: boolean;
@@ -43,7 +42,6 @@ function isStreamLive(stream: MediaStream | null | undefined) {
 export function VideoConsultation({
   facilityCode = 'UT-001',
   consultationId,
-  clinicalVitals,
   onEndCall,
   observeMode = false,
   compact = false,
@@ -54,9 +52,13 @@ export function VideoConsultation({
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
 
   const { liveVitals } = useVitalsStream(consultationId, 'receive');
+  // "Qurilmalar" kamerasidan OCR orqali o'qilgan JONLI ko'rsatkichlar — bemor
+  // kartasidagi statik (intake) qiymatlar bilan aralashtirilmaydi, aks holda
+  // eskirgan/qo'lda kiritilgan raqam "live" sifatida ko'rsatilib qolishi mumkin.
+  // Live ma'lumot kelmasa, VitalsOverlayBar showZeroDefaults orqali 0 ko'rsatadi.
   const vitalsReading = useMemo(
-    () => mergeVitalsReading(clinicalVitals ?? {}, liveVitals),
-    [clinicalVitals, liveVitals],
+    () => mergeVitalsReading({}, liveVitals),
+    [liveVitals],
   );
   const showVitalsOverlay = !!consultationId && !observeMode && activeCamera === 'equipment';
 
@@ -243,7 +245,7 @@ export function VideoConsultation({
 
         {!observeMode && localPreview && (
           <div className={cn(
-            'absolute w-24 aspect-video rounded-lg overflow-hidden ring-2 ring-white/20 shadow-lg z-10',
+            'absolute w-36 sm:w-44 aspect-video rounded-lg overflow-hidden ring-2 ring-white/20 shadow-lg z-10',
             showVitalsOverlay ? 'bottom-16 right-2' : 'bottom-3 right-3',
           )}>
             <VideoTile stream={localPreview} mirror muted label="Siz" />
@@ -267,39 +269,30 @@ export function VideoConsultation({
           </div>
         )}
 
-        <div className="absolute top-3 right-3 z-10">
-          {connected ? (
-            <span className="live-badge">
-              <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-              JONLI
-            </span>
-          ) : videoPaused ? (
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" title="Uzilgan" />
-          ) : (
-            <span className="w-2.5 h-2.5 rounded-full bg-slate-400 animate-pulse" title="Ulanmoqda" />
+        <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+          {(recording || uploading || skipped) && (
+            <span
+              className={cn(
+                'w-2.5 h-2.5 rounded-full ring-2 ring-black/20',
+                recording ? 'bg-red-500 animate-pulse' : uploading ? 'bg-amber-500 animate-pulse' : 'bg-slate-400',
+              )}
+              title={
+                recording
+                  ? 'Yozuv olinmoqda'
+                  : uploading
+                    ? 'Yozuv yuklanmoqda...'
+                    : 'Yozuv o\'tkazildi (rozilik yo\'q)'
+              }
+            />
           )}
+          <span
+            className={cn(
+              'w-2.5 h-2.5 rounded-full animate-pulse ring-2 ring-black/20',
+              connected ? 'bg-emerald-500' : videoPaused ? 'bg-amber-500' : 'bg-slate-400',
+            )}
+            title={connected ? 'Jonli' : videoPaused ? 'Uzilgan' : 'Ulanmoqda'}
+          />
         </div>
-
-        {(recording || uploading || skipped) && (
-        <div className="absolute top-3 right-12 z-10 flex flex-col items-end gap-1">
-          {recording && (
-            <span className="bg-red-600/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
-              <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-              YOZUV
-            </span>
-          )}
-          {uploading && (
-            <span className="bg-amber-600/90 text-white text-[10px] font-medium px-2 py-0.5 rounded-md">
-              Yuklanmoqda...
-            </span>
-          )}
-          {skipped && !recording && (
-            <span className="bg-slate-700/90 text-slate-200 text-[10px] font-medium px-2 py-0.5 rounded-md">
-              Yozuv o&apos;tkazildi (rozilik yo&apos;q)
-            </span>
-          )}
-        </div>
-        )}
 
         {(error || recordingError) && !cameraPermissionNeeded && (
           <div className="absolute top-12 left-3 right-3 z-10 bg-red-500/90 text-white text-xs rounded-lg px-3 py-2">

@@ -301,7 +301,7 @@ body {
   }
 
   .doctor-video-col {
-    @apply col-span-12 lg:col-span-4 min-h-0 overflow-hidden flex flex-col;
+    @apply col-span-12 lg:col-span-5 min-h-0 overflow-hidden flex flex-col;
   }
 
   .doctor-docs-col {
@@ -309,7 +309,7 @@ body {
   }
 
   .doctor-ai-col {
-    @apply col-span-12 lg:col-span-5 min-h-[320px] lg:min-h-0 lg:h-full overflow-hidden;
+    @apply col-span-12 lg:col-span-4 min-h-[320px] lg:min-h-0 lg:h-full overflow-hidden;
   }
 
   .doctor-bottom-row {

@@ -57,21 +57,22 @@ Javobni faqat quyidagi JSON formatida bering:
   }
 }
 
-clinicalConclusion bo'limi TO'LIQ va BATAFSIL bo'lsin — hech qanday bo'sh massiv qoldirmang:
-- consensusDiagnoses: 1 ta asosiy (confidence, protocolReference, justification 4+ jumla, logicChain 5+ band)
-- alternativeDiagnoses: kamida 1 ta muqobil
-- scientificArticles: kamida 5 ta (lex.uz, ssv.uz, PubMed, Cochrane, Lancet/NEJM — haqiqiy qidiruv URL bilan)
-- treatmentSteps: kamida 3 ta "qadam: ..." formatida
-- medications: kamida 1 ta (dose, tradeNames, instructions)
-- medicationWarnings: kamida 3 ta (DDI va ogohlantirishlar)
-- additionalTests: kamida 3 ta
-- recommendedSpecialists: kamida 1 ta
-- riskFactors: kamida 1 ta, riskSeverity to'ldirilsin
-- prognosisShort, prognosisLong, prognosisFactors (kamida 3 ta)
-- dietGeneral: kamida 5 ta, dietByDiagnosis to'liq (allowed, restricted, notes)
-- preventionTips: kamida 5 ta
-- herbalMedicine: kamida 1 ta
-- qualityScore, recordedFindings, rejectedHypotheses: kamida 1 tadan
+MUHIM — SOXTA MA'LUMOT TAQIQLANADI:
+Faqat bemorning haqiqiy shikoyatlari, anamnezi va biriktirilgan hujjatlari (tahlil natijalari,
+rasmlar, hujjatlar) asosida xulosa chiqaring. Klinik asos bo'lmagan bo'limni TO'LDIRISH SHART EMAS —
+bunday holda o'sha maydonni bo'sh massiv ([]) yoki umuman qoldirib keting. Har bir bandning soni
+oldindan belgilanmagan — nechta tashxis, tavsiya yoki dalil bo'lsa, faqat o'shancha yozing:
+- consensusDiagnoses: faqat haqiqatan dalillar tasdiqlagan tashxis(lar); har biri uchun
+  confidence, justification va logicChain aniq shikoyat/anamnez/hujjatga bog'langan bo'lsin
+- alternativeDiagnoses: faqat differensial diagnostikada real ko'rib chiqilgan bo'lsa
+- scientificArticles: faqat aniq shu tashxis/holat uchun haqiqatan mavjud manba (lex.uz, ssv.uz,
+  PubMed, Cochrane, Lancet/NEJM) bo'lsa qo'shing — mavhum yoki noaniq URL o'ylab topmang
+- treatmentSteps, medications, medicationWarnings, additionalTests, recommendedSpecialists:
+  faqat aniq shu bemorning holatiga tegishli bo'lsa
+- dietGeneral, preventionTips, herbalMedicine: faqat aniq shu tashxisga bevosita aloqador va
+  klinik jihatdan asoslangan bo'lsa qo'shing — umumiy/shablon maslahat yozmang
+- riskFactors, riskSeverity, prognosisShort/Long/Factors, qualityScore, recordedFindings,
+  rejectedHypotheses: faqat mavjud ma'lumotlar asosida xulosa chiqarish mumkin bo'lsa
 diagnoses massivida eng yuqori ishonchli tashxis birinchi.`;
 
 const CHAT_SYSTEM_PROMPT = `Siz ${BRAND.name} telemedicine platformasining AI klinik yordamchisisiz.
