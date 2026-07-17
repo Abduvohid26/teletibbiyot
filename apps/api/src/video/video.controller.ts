@@ -33,18 +33,21 @@ export class VideoController {
     const iceServers: Array<{ urls: string | string[]; username?: string; credential?: string }> = [...ICE_SERVERS];
 
     if (turnUrl) {
+      const creds = { username: turnUser || undefined, credential: turnPass || undefined };
+      const hostPart = turnUrl.replace(/^turns?:/i, '').split('@').pop()?.replace(/^\//, '') ?? turnUrl;
       iceServers.push({
-        urls: turnUrl,
-        username: turnUser || undefined,
-        credential: turnPass || undefined,
+        urls: [
+          `turn:${hostPart}?transport=udp`,
+          `turn:${hostPart}?transport=tcp`,
+        ],
+        ...creds,
       });
-      if (turnUrl.startsWith('turn:') && !turnUrl.startsWith('turns:')) {
-        iceServers.push({
-          urls: turnUrl.replace('turn:', 'turns:'),
-          username: turnUser || undefined,
-          credential: turnPass || undefined,
-        });
-      }
+      iceServers.push({
+        urls: [
+          `turns:${hostPart}?transport=tcp`,
+        ],
+        ...creds,
+      });
     }
 
     return {

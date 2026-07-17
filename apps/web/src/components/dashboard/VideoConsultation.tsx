@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Mic, MicOff, Video, VideoOff, PhoneOff, Phone, MoreHorizontal,
   ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Eye, Volume2, VolumeX, AlertTriangle,
@@ -15,8 +15,6 @@ import { countLiveUtCameraStreams, isUtStreamLive, mapUniqueUtCameraStreams } fr
 import { VideoTile } from '@/components/video/VideoTile';
 import { VideoPreflightModal } from '@/components/video/VideoPreflightModal';
 import { MediaSettingsLink } from '@/components/video/MediaDevicePanel';
-import { VitalsOverlayBar, mergeVitalsReading } from '@/components/vitals/VitalsOverlayBar';
-import { useVitalsStream } from '@/hooks/use-vitals-stream';
 
 interface VideoConsultationProps {
   facilityCode?: string;
@@ -50,17 +48,6 @@ export function VideoConsultation({
   const [activeCamera, setActiveCamera] = useState(compact ? 'equipment' : 'close');
   const [showPtz, setShowPtz] = useState(false);
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
-
-  const { liveVitals } = useVitalsStream(consultationId, 'receive');
-  // "Qurilmalar" kamerasidan OCR orqali o'qilgan JONLI ko'rsatkichlar — bemor
-  // kartasidagi statik (intake) qiymatlar bilan aralashtirilmaydi, aks holda
-  // eskirgan/qo'lda kiritilgan raqam "live" sifatida ko'rsatilib qolishi mumkin.
-  // Live ma'lumot kelmasa, VitalsOverlayBar showZeroDefaults orqali 0 ko'rsatadi.
-  const vitalsReading = useMemo(
-    () => mergeVitalsReading({}, liveVitals),
-    [liveVitals],
-  );
-  const showVitalsOverlay = !!consultationId && !observeMode && activeCamera === 'equipment';
 
   const role: VideoRole = observeMode ? 'observe' : 'mt';
 
@@ -232,11 +219,6 @@ export function VideoConsultation({
               live={!!mainStream}
               resolution={connectionStats.resolution}
             />
-            {showVitalsOverlay && (
-              <div className="absolute bottom-2 left-2 right-2 z-10 pointer-events-none">
-                <VitalsOverlayBar reading={vitalsReading} variant="doctor" showZeroDefaults />
-              </div>
-            )}
           </>
           )}
         {remoteAudio && (
@@ -244,10 +226,7 @@ export function VideoConsultation({
         )}
 
         {!observeMode && localPreview && (
-          <div className={cn(
-            'absolute w-36 sm:w-44 aspect-video rounded-lg overflow-hidden ring-2 ring-white/20 shadow-lg z-10',
-            showVitalsOverlay ? 'bottom-16 right-2' : 'bottom-3 right-3',
-          )}>
+          <div className="absolute w-36 sm:w-44 aspect-video rounded-lg overflow-hidden ring-2 ring-white/20 shadow-lg z-10 bottom-3 right-3">
             <VideoTile stream={localPreview} mirror muted label="Siz" />
             {!camOn && (
               <div className="absolute inset-0 bg-slate-800/80 flex items-center justify-center">

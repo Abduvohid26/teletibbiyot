@@ -112,6 +112,7 @@ export function useVideoRoom({
 
   const isOfferer = role === 'mt' || role === 'observe';
   const isPublisher = role === 'mt' || role === 'ut';
+  const flushPendingOffersRef = useRef<() => void>(() => undefined);
 
   const updateRemoteCamera = useCallback((cameraId: string, stream: MediaStream) => {
     setRemoteCameras((prev) => ({ ...prev, [cameraId]: stream }));
@@ -291,7 +292,11 @@ export function useVideoRoom({
 
       pc.onconnectionstatechange = () => {
         if (pc.connectionState === 'failed') {
-          pc.restartIce?.();
+          void pc.restartIce?.();
+          if (isOfferer) {
+            pendingOfferTargetsRef.current.add(remoteSocketId);
+            setTimeout(() => flushPendingOffersRef.current(), 1200);
+          }
         }
         if (pc.connectionState === 'closed') {
           pcsRef.current.delete(remoteSocketId);
@@ -305,7 +310,7 @@ export function useVideoRoom({
       }
       return pc;
     },
-    [addLocalTracks, attachRemoteVideoTrack, consultationId, flushIceCandidates, socketRef],
+    [addLocalTracks, attachRemoteVideoTrack, consultationId, flushIceCandidates, isOfferer, socketRef],
   );
 
   const makeOffer = useCallback(
@@ -317,10 +322,14 @@ export function useVideoRoom({
         return;
       }
       if (makingOfferRef.current.get(remoteSocketId)) return;
-      // Ulanish allaqachon sog'lom bo'lsa (connected/connecting), qayta buzib qurmaymiz —
-      // aks holda ketma-ket qayta urinishlar (scheduleOfferToPeer) muzokarani "thrash" qiladi.
-      const existingState = pcsRef.current.get(remoteSocketId)?.connectionState;
-      if (existingState === 'connected' || existingState === 'connecting') return;
+
+      const existingPc = pcsRef.current.get(remoteSocketId);
+      if (existingPc?.connectionState === 'connected') {
+        const hasLiveVideo = existingPc.getReceivers().some(
+          (receiver) => receiver.track?.kind === 'video' && receiver.track.readyState === 'live',
+        );
+        if (hasLiveVideo) return;
+      }
 
       makingOfferRef.current.set(remoteSocketId, true);
       try {
@@ -349,6 +358,8 @@ export function useVideoRoom({
     pendingOfferTargetsRef.current.clear();
     targets.forEach((socketId) => void makeOffer(socketId));
   }, [isOfferer, makeOffer, mediaReady]);
+
+  flushPendingOffersRef.current = flushPendingOffers;
 
   const clearReconnectTimers = useCallback((socketId?: string) => {
     if (socketId) {
@@ -663,7 +674,10 @@ export function useVideoRoom({
     if (!mediaReady || !roomJoined) return;
     flushPendingOffers();
     flushPendingIncomingOffers();
-  }, [flushPendingIncomingOffers, flushPendingOffers, mediaReady, roomJoined]);
+    if (!isOfferer) {
+      emitReconnectSignals();
+    }
+  }, [emitReconnectSignals, flushPendingIncomingOffers, flushPendingOffers, isOfferer, mediaReady, roomJoined]);
 
   useEffect(() => {
     if (!enabled || !consultationId || !roomJoined || !mediaReady || !isOfferer) return;
@@ -698,7 +712,7 @@ export function useVideoRoom({
     const onRoomParticipants = (participants: RoomParticipant[]) => {
       participants.forEach((p) => {
         knownParticipantsRef.current.add(p.socketId);
-        if (isOfferer) void makeOffer(p.socketId);
+        if (isOfferer) scheduleOfferToPeer(p.socketId);
       });
     };
 

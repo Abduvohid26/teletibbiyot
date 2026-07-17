@@ -9,16 +9,11 @@ import { ConnectionQualityBadge } from '@/components/video/ConnectionQualityBadg
 import { applyUtPtzAction, isPtzAction } from '@/lib/ut-ptz-state';
 import { UT_CAMERA_FEEDS } from '@/lib/video-config';
 import { isUtStreamLive } from '@/lib/ut-camera-streams';
-import { VitalReading } from '@/lib/camera-vitals';
-import { VitalsOverlayBar } from '@/components/vitals/VitalsOverlayBar';
 
 interface UtVideoPanelViewProps {
   video: ReturnType<typeof useVideoRoom>;
   doctorName?: string;
   patientName?: string;
-  vitalsReading?: VitalReading;
-  onVitalsChange?: (reading: VitalReading) => void;
-  vitalsAnalyzing?: boolean;
   defaultView?: 'close' | 'main' | 'room' | 'equipment' | 'doctor' | 'all';
 }
 
@@ -102,9 +97,6 @@ export function UtVideoPanelView({
   video,
   doctorName,
   patientName,
-  vitalsReading,
-  onVitalsChange,
-  vitalsAnalyzing,
   defaultView = 'close',
 }: UtVideoPanelViewProps) {
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
@@ -152,7 +144,6 @@ export function UtVideoPanelView({
   const activeSlot = VIEW_SLOTS.find((s) => s.id === activeView);
   const mainStream = isAllView ? null : getStream(activeView);
   const mainLive = isAllView ? false : isActive(activeView);
-  const showVitalsOverlay = activeView === 'equipment' && vitalsReading;
 
   useEffect(() => {
     const el = remoteAudioRef.current;
@@ -305,22 +296,6 @@ export function UtVideoPanelView({
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-slate-900/60 pointer-events-none">
                   <VideoOff size={22} className="text-slate-500" />
                   <span className="text-xs text-slate-400">{activeSlot?.label} — ulanmagan</span>
-                </div>
-              )}
-              {showVitalsOverlay && (
-                <div className="absolute bottom-2 left-2 right-2 z-10 pointer-events-none">
-                  {vitalsAnalyzing && (
-                    <p className="text-[10px] text-emerald-300 bg-black/50 rounded px-2 py-0.5 mb-1 inline-block">
-                      AI monitor o&apos;qilmoqda...
-                    </p>
-                  )}
-                  <VitalsOverlayBar
-                    reading={vitalsReading!}
-                    onChange={onVitalsChange}
-                    editable={false}
-                    showZeroDefaults
-                    variant="doctor"
-                  />
                 </div>
               )}
             </>
