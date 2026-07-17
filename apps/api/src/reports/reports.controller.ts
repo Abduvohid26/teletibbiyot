@@ -38,7 +38,17 @@ export class ReportsController {
     @Res() res: Response,
     @Req() expressReq: { ip?: string },
   ) {
-    const url = await this.reports.getDownloadUrl(consultationId, req.user, expressReq.ip);
-    return res.redirect(url);
+    const { stream, contentType, fileName } = await this.reports.streamReport(
+      consultationId,
+      req.user,
+      expressReq.ip,
+    );
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`);
+    stream.on('error', () => {
+      if (!res.headersSent) res.status(500).end();
+      else res.end();
+    });
+    stream.pipe(res);
   }
 }

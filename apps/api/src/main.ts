@@ -8,7 +8,7 @@ import { getJwtSecret } from './common/jwt-config';
 import { RedisIoAdapter } from './video/redis-io.adapter';
 import { BRAND } from '@ishifo/shared';
 import helmet from 'helmet';
-import * as cookieParser from 'cookie-parser';
+import cookieParser from 'cookie-parser';
 import { Request, Response, NextFunction } from 'express';
 
 async function bootstrap() {

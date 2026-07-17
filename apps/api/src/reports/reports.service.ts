@@ -88,7 +88,23 @@ export class ReportsService {
     return { ...report, downloadUrl: `/api/reports/${consultationId}/download` };
   }
 
-  async getDownloadUrl(consultationId: string, user: AuthUser, ip?: string) {
+  /**
+   * MinIO presigned URL o'rniga API'ning o'z (cookie orqali autentifikatsiyalanadigan)
+   * yo'lini qaytaradi — presigned URL ichki docker hostname (masalan "minio:9000") bilan
+   * imzolanib, brauzerdan ochib bo'lmas edi.
+   */
+  async getDownloadUrl(consultationId: string, user: AuthUser): Promise<string> {
+    await this.assertAccess(consultationId, user);
+    const report = await this.prisma.consultationReport.findUnique({ where: { consultationId } });
+    if (!report) throw new NotFoundException('Hisobot topilmadi');
+    return `/api/reports/${consultationId}/download`;
+  }
+
+  async streamReport(
+    consultationId: string,
+    user: AuthUser,
+    ip?: string,
+  ): Promise<{ stream: NodeJS.ReadableStream; contentType: string; fileName: string }> {
     await this.assertAccess(consultationId, user);
     const report = await this.prisma.consultationReport.findUnique({ where: { consultationId } });
     if (!report) throw new NotFoundException('Hisobot topilmadi');
@@ -104,7 +120,8 @@ export class ReportsService {
       },
     });
 
-    return this.storage.getPresignedUrl(report.fileKey);
+    const { stream, contentType } = await this.storage.getObjectStream(report.fileKey);
+    return { stream, contentType: contentType || 'application/pdf', fileName: report.fileName };
   }
 
   private buildPdfBuffer(data: {

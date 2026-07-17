@@ -55,13 +55,6 @@ export function ClinicalConclusionReport({ analysis, compact, expanded }: Clinic
         </div>
       </div>
 
-      <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2">
-        <AlertTriangle size={14} className="text-amber-600 shrink-0 mt-0.5" />
-        <p className="text-xs text-amber-800 leading-relaxed">
-          Bu AI konsensus xulosasi. Yakuniy tibbiy qaror faqat malakali shifokorga tegishli.
-        </p>
-      </div>
-
       {cc.mainConclusion && (
         <Section title="Asosiy xulosa" subtitle="Konsensus tashxis va kritik topilmalar" icon={Stethoscope} compact={dense}>
           <p className={cn('text-slate-700 leading-relaxed', dense ? 'text-xs' : 'text-sm')}>
