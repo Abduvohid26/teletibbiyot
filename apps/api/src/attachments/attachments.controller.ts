@@ -9,7 +9,9 @@ import {
   Request,
   BadRequestException,
   Req,
+  Res,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { SkipThrottle } from '@nestjs/throttler';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
@@ -71,5 +73,31 @@ export class AttachmentsController {
   ) {
     const ip = expressReq.ip || expressReq.headers['x-forwarded-for']?.toString();
     return this.attachmentsService.getDownloadUrl(id, req.user, ip);
+  }
+
+  @Get(':id/file')
+  @SkipThrottle()
+  @Roles(...ROLES_CLINICAL)
+  async file(
+    @Param('id') id: string,
+    @Request() req: { user: { id: string; role: UserRole; facilityId: string | null } },
+    @Req() expressReq: ExpressRequest,
+    @Res() res: Response,
+  ) {
+    const ip = expressReq.ip || expressReq.headers['x-forwarded-for']?.toString();
+    const { stream, contentType, contentLength, fileName } = await this.attachmentsService.streamFile(
+      id,
+      req.user,
+      ip,
+    );
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(fileName)}"`);
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    if (contentLength != null) res.setHeader('Content-Length', String(contentLength));
+    stream.on('error', () => {
+      if (!res.headersSent) res.status(500).end();
+      else res.end();
+    });
+    stream.pipe(res);
   }
 }

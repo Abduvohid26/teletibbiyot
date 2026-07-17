@@ -30,8 +30,8 @@ export function defineConsultationsApi(client: HttpClient) {
       return client.request<Consultation>(`/consultations/${id}/start`, { method: 'POST' });
     },
 
-    completeConsultation(id: string, data: FinalDiagnosisData) {
-      return client.request(`/consultations/${id}/complete`, {
+    completeConsultation(id: string, data: Partial<FinalDiagnosisData> = {}) {
+      return client.request<Consultation>(`/consultations/${id}/complete`, {
         method: 'POST',
         body: JSON.stringify(data),
       });

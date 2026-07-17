@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Download, Loader2, ZoomIn } from 'lucide-react';
 import { api, Attachment } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { downloadBlob, triggerDownload } from '@/lib/download';
 
 interface AttachmentViewerProps {
   attachment: Attachment | null;
@@ -14,21 +16,47 @@ interface AttachmentViewerProps {
 export function AttachmentViewer({ attachment, previewUrl, onClose }: AttachmentViewerProps) {
   const [url, setUrl] = useState(previewUrl || '');
   const [loading, setLoading] = useState(!previewUrl && !!attachment);
+  const [error, setError] = useState('');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (previewUrl) {
       setUrl(previewUrl);
       setLoading(false);
+      setError('');
       return;
     }
     if (!attachment) return;
 
+    let objectUrl = '';
+    let cancelled = false;
+
     setLoading(true);
+    setError('');
     api
-      .getAttachmentDownload(attachment.id)
-      .then((res) => setUrl(res.url))
-      .catch(() => setUrl(''))
-      .finally(() => setLoading(false));
+      .fetchAttachmentFile(attachment.id)
+      .then(({ blob }) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setUrl(objectUrl);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setUrl('');
+        setError(err instanceof Error ? err.message : 'Faylni yuklab bo\'lmadi');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
   }, [attachment, previewUrl]);
 
   useEffect(() => {
@@ -40,14 +68,32 @@ export function AttachmentViewer({ attachment, previewUrl, onClose }: Attachment
   }, [onClose]);
 
   if (!attachment && !previewUrl) return null;
+  if (!mounted) return null;
 
   const fileName = attachment?.fileName || 'Ko\'rish';
   const fileType = attachment?.fileType || '';
   const isImage = fileType.startsWith('image/') || /\.(jpe?g|png|gif|webp|bmp|tiff?|heic)$/i.test(fileName);
   const isPdf = fileType === 'application/pdf' || fileName.toLowerCase().endsWith('.pdf');
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
+  const handleDownload = async () => {
+    if (previewUrl && url) {
+      triggerDownload(url, fileName);
+      return;
+    }
+    if (!attachment) return;
+    try {
+      const { blob, fileName: name } = await api.fetchAttachmentFile(attachment.id);
+      downloadBlob(blob, name);
+    } catch {
+      /* xato */
+    }
+  };
+
+  const modal = (
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+      onClick={onClose}
+    >
       <div
         className="relative w-full max-w-5xl max-h-[92vh] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
@@ -60,17 +106,15 @@ export function AttachmentViewer({ attachment, previewUrl, onClose }: Attachment
             )}
           </div>
           <div className="flex items-center gap-1 shrink-0">
-            {url && (
-              <a
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-                download={fileName}
+            {(url || attachment) && (
+              <button
+                type="button"
+                onClick={handleDownload}
                 className="p-2 rounded-lg text-slate-500 hover:bg-slate-100"
                 title="Yuklab olish"
               >
                 <Download size={18} />
-              </a>
+              </button>
             )}
             <button type="button" onClick={onClose} className="p-2 rounded-lg text-slate-500 hover:bg-slate-100">
               <X size={18} />
@@ -82,7 +126,7 @@ export function AttachmentViewer({ attachment, previewUrl, onClose }: Attachment
           {loading ? (
             <Loader2 className="animate-spin text-brand-500" size={32} />
           ) : !url ? (
-            <p className="text-sm text-slate-500">Faylni yuklab bo&apos;lmadi</p>
+            <p className="text-sm text-slate-500">{error || 'Faylni yuklab bo\'lmadi'}</p>
           ) : isImage ? (
             <img
               src={url}
@@ -95,9 +139,9 @@ export function AttachmentViewer({ attachment, previewUrl, onClose }: Attachment
             <div className="text-center py-12">
               <ZoomIn className="w-12 h-12 text-slate-300 mx-auto mb-3" />
               <p className="text-sm text-slate-600 mb-4">Ushbu format brauzerda ko&apos;rinmaydi</p>
-              <a href={url} target="_blank" rel="noopener noreferrer" className="btn-primary">
+              <button type="button" onClick={handleDownload} className="btn-primary">
                 Yuklab olish
-              </a>
+              </button>
             </div>
           )}
         </div>
@@ -108,6 +152,8 @@ export function AttachmentViewer({ attachment, previewUrl, onClose }: Attachment
       </div>
     </div>
   );
+
+  return createPortal(modal, document.body);
 }
 
 function AiFindingsBar({ findings }: { findings: Record<string, unknown> }) {

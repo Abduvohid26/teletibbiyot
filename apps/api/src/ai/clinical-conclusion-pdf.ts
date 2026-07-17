@@ -28,6 +28,7 @@ export interface AiAnalysisPdfInput {
   patientPhone?: string | null;
   birthDate: string;
   gender?: string;
+  patientAge?: number;
   facilityName: string;
   facilityCode: string;
   doctorName?: string | null;
@@ -37,6 +38,14 @@ export interface AiAnalysisPdfInput {
   recommendations: string[];
   redFlags: string[];
   rawResponse?: Record<string, unknown> | null;
+  complaints?: string;
+  anamnesisMorbi?: string;
+  medications?: string | null;
+  labResults?: string | null;
+  weight?: number | null;
+  height?: number | null;
+  bmi?: number | null;
+  vitalSigns?: Record<string, number>;
 }
 
 function ensureSpace(doc: InstanceType<typeof PDFDocument>, needed = 60) {
@@ -67,9 +76,43 @@ function bulletList(doc: InstanceType<typeof PDFDocument>, items: string[]) {
   doc.moveDown(0.15);
 }
 
+function genderLabel(g?: string) {
+  if (!g) return '—';
+  const u = g.toUpperCase();
+  if (u === 'MALE' || u === 'ERKAK') return 'Erkak';
+  if (u === 'FEMALE' || u === 'AYOL') return 'Ayol';
+  return g;
+}
+
+function fmtVital(v: number | undefined, unit: string) {
+  return v != null && v > 0 ? `${v} ${unit}` : `— ${unit}`;
+}
+
+function addPageFooters(doc: InstanceType<typeof PDFDocument>) {
+  const range = doc.bufferedPageRange();
+  for (let i = range.start; i < range.start + range.count; i++) {
+    doc.switchToPage(i);
+    const bottom = doc.page.height - doc.page.margins.bottom + 10;
+    doc.fontSize(7).fillColor('#64748b');
+    doc.text(
+      `${BRAND.name} | ${BRAND.domain} | Raqamli tizim yordamida shakllantirilgan. Faqat ma'lumot uchun.`,
+      doc.page.margins.left,
+      bottom,
+      { width: 495, align: 'center', lineBreak: false },
+    );
+    doc.text(
+      `Sahifa ${i - range.start + 1}/${range.count}`,
+      doc.page.margins.left,
+      bottom + 10,
+      { width: 495, align: 'center', lineBreak: false },
+    );
+  }
+  doc.fillColor('#0f172a');
+}
+
 export function buildAiAnalysisPdfBuffer(data: AiAnalysisPdfInput): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    const doc = new PDFDocument({ margin: 50, size: 'A4', bufferPages: true });
     const chunks: Buffer[] = [];
     doc.on('data', (chunk: Buffer) => chunks.push(chunk));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
@@ -78,46 +121,57 @@ export function buildAiAnalysisPdfBuffer(data: AiAnalysisPdfInput): Promise<Buff
     const cc = parseClinicalConclusion(data.rawResponse?.clinicalConclusion);
     const consensus = (cc?.consensusDiagnoses as unknown[]) ?? [];
     const alternatives = (cc?.alternativeDiagnoses as unknown[]) ?? [];
-    const generatedAt = new Date().toLocaleString('uz-UZ');
+    const generatedAt = new Date().toLocaleDateString('uz-UZ');
 
-    doc.fontSize(16).fillColor('#4f46e5').text('YAKUNIY KLINIK XULOSA', { align: 'center' });
-    doc.fontSize(10).fillColor('#64748b').text('Konsilium konsensusi asosida — AI tibbiy hujjat', { align: 'center' });
-    doc.moveDown(0.5);
-    doc.fontSize(9).fillColor('#64748b').text(`${BRAND.name} | ${generatedAt}`, { align: 'center' });
-    doc.moveDown();
+    doc.fontSize(15).fillColor('#4f46e5').text('KONSILIUM: Yakuniy Klinik Xulosa', { align: 'center' });
+    doc.fontSize(9).fillColor('#64748b').text(
+      'Rasmiy tibbiy maslahat hujjati — doktor tavsiyasi sifatida. Faqat ma\'lumot uchun.',
+      { align: 'center' },
+    );
+    doc.text(`Sana: ${generatedAt}`, { align: 'center' });
+    doc.moveDown(0.6);
 
-    sectionTitle(doc, 'Bemor ma\'lumotlari');
-    doc.text(`F.I.Sh.: ${data.patientName}`);
-    doc.text(`Telefon: ${data.patientPhone || '—'}`);
-    doc.text(`Tug'ilgan sana: ${data.birthDate}`);
-    if (data.gender) doc.text(`Jins: ${data.gender}`);
+    sectionTitle(doc, 'BEMOR MA\'LUMOTLARI');
+    doc.fontSize(10).fillColor('#0f172a');
+    doc.text(`Bemor: ${data.patientName}`);
+    if (data.patientAge != null) doc.text(`Yoshi: ${data.patientAge} yosh`);
+    doc.text(`Jinsi: ${genderLabel(data.gender)}`);
+    doc.moveDown(0.2);
+    doc.fontSize(10).fillColor('#334155').text('Ob\'ektiv:', { underline: true });
+    doc.fillColor('#0f172a');
+    if (data.weight != null) doc.text(`Tana vazni: ${data.weight} kg`);
+    if (data.height != null) doc.text(`Bo'y: ${data.height} cm`);
+    if (data.bmi != null) doc.text(`Tana massasi indeksi (TMI): ${data.bmi.toFixed(1)}`);
+    const vs = data.vitalSigns ?? {};
+    if (vs.bloodPressureSystolic && vs.bloodPressureDiastolic) {
+      doc.text(`Arterial bosim: ${vs.bloodPressureSystolic}/${vs.bloodPressureDiastolic} mmHg`);
+    }
+    doc.text(`Yurak urishi (Puls): ${fmtVital(vs.heartRate, 'bpm')}`);
+    doc.text(`Tana harorati: ${fmtVital(vs.temperature, '°C')}`);
+    doc.text(`Saturatsiya (SpO2): ${fmtVital(vs.spo2, '%')}`);
+    doc.text(`Nafas soni: ${fmtVital(vs.respiratoryRate, '/min')}`);
+    doc.moveDown(0.2);
+    if (data.complaints) doc.text(`Shikoyat: ${data.complaints}`);
+    if (data.labResults) doc.text(`Laboratoriya: ${data.labResults}`);
+    else doc.text('Laboratoriya: Laboratoriya va diagnostika natijalari fayl sifatida yuklandi.');
+    if (data.anamnesisMorbi) doc.text(`Kasallik tarixi: ${data.anamnesisMorbi}`);
+    if (data.medications) doc.text(`Dorilar: ${data.medications}`);
     doc.text(`UT: ${data.facilityName} (${data.facilityCode})`);
     if (data.doctorName) doc.text(`Shifokor: ${data.doctorName}`);
-    doc.text(`Xavf darajasi: ${data.triageLevel}`);
-    doc.moveDown(0.3);
-
-    doc.fontSize(8).fillColor('#b45309').text(
-      'DIQQAT: Bu AI konsensus xulosasi. Yakuniy tibbiy qaror faqat malakali shifokorga tegishli.',
-      { width: 495 },
-    );
-    doc.fillColor('#0f172a');
     doc.moveDown(0.4);
 
-    const mainConclusion = typeof cc?.mainConclusion === 'string' ? cc.mainConclusion : data.summary;
-    sectionTitle(doc, 'Asosiy xulosa');
-    bodyText(doc, mainConclusion);
-
-    sectionTitle(doc, 'Konsensus tashxis(lar) — MKB-10');
+    sectionTitle(doc, 'Konsilium Konsensusi');
     if (consensus.length > 0) {
+      sectionTitle(doc, 'Tashxislar');
       consensus.forEach((item, i) => {
         const row = asRecord(item);
         if (!row) return;
         ensureSpace(doc, 50);
-        doc.fontSize(11).fillColor('#0f172a').text(`${i + 1}. ${String(row.name ?? '')}`);
+        const conf = row.confidence != null ? ` ${String(row.confidence)}%` : '';
+        const grade = typeof row.protocolReference === 'string' ? ` · ${row.protocolReference}` : '';
+        doc.fontSize(11).fillColor('#0f172a').text(`${i + 1}. ${String(row.name ?? '')}${conf}${grade}`);
         doc.fontSize(10);
         if (row.icd10Code) doc.text(`MKB-10: ${String(row.icd10Code)}`);
-        if (row.confidence != null) doc.text(`Ishonch: ${String(row.confidence)}%`);
-        if (typeof row.protocolReference === 'string') doc.text(`Protokol: ${row.protocolReference}`);
         if (typeof row.justification === 'string') {
           doc.moveDown(0.1);
           doc.fontSize(9).fillColor('#475569').text(`Asoslash: ${row.justification}`, { width: 495 });
@@ -173,17 +227,17 @@ export function buildAiAnalysisPdfBuffer(data: AiAnalysisPdfInput): Promise<Buff
 
     const treatmentSteps = asStrings(cc?.treatmentSteps).length ? asStrings(cc?.treatmentSteps) : data.recommendations;
     if (treatmentSteps.length) {
-      sectionTitle(doc, 'Tavsiya etilgan davolash rejasi');
+      sectionTitle(doc, 'Davolash Rejasi');
       treatmentSteps.forEach((step, i) => {
         ensureSpace(doc, 20);
-        doc.text(`${i + 1}. ${step.replace(/^\d+\.\s*/, '')}`, { width: 490 });
+        doc.text(`• qadam: ${step.replace(/^\d+\.\s*/, '')}`, { width: 490 });
       });
     }
 
     const medWarnings = asStrings(cc?.medicationWarnings);
     const medications = (cc?.medications as unknown[]) ?? [];
     if (medWarnings.length || medications.length) {
-      sectionTitle(doc, 'Dori-darmonlar bo\'yicha tavsiyalar');
+      sectionTitle(doc, 'Dori Tavsiyalari');
       if (medWarnings.length) {
         doc.fontSize(9).fillColor('#b45309').text('Farmakolog ogohlantirishlari:', { underline: true });
         doc.fillColor('#0f172a');
@@ -249,7 +303,7 @@ export function buildAiAnalysisPdfBuffer(data: AiAnalysisPdfInput): Promise<Buff
     const diet = asRecord(cc?.dietByDiagnosis);
     const prevention = asStrings(cc?.preventionTips);
     if (dietGeneral.length || diet || prevention.length) {
-      sectionTitle(doc, 'Parhez va profilaktika');
+      sectionTitle(doc, 'To\'g\'ri ovqatlanish va kasalliklarni oldini olish (profilaktika)');
       if (dietGeneral.length) bulletList(doc, dietGeneral);
       if (diet) {
         if (typeof diet.diagnosis === 'string') doc.text(diet.diagnosis, { underline: true });
@@ -267,7 +321,7 @@ export function buildAiAnalysisPdfBuffer(data: AiAnalysisPdfInput): Promise<Buff
 
     const herbal = (cc?.herbalMedicine as unknown[]) ?? [];
     if (herbal.length) {
-      sectionTitle(doc, "Xalq tabobati (qo'shimcha)");
+      sectionTitle(doc, 'Xalq tabobati va dorivor o\'simliklar (qo\'shimcha)');
       doc.fontSize(8).fillColor('#64748b').text('Rasmiy dori va shifokor ko\'rsatmasining o\'rnini bosmaydi.', { width: 495 });
       doc.fillColor('#0f172a').fontSize(10);
       herbal.forEach((item) => {
@@ -283,7 +337,7 @@ export function buildAiAnalysisPdfBuffer(data: AiAnalysisPdfInput): Promise<Buff
 
     const quality = asRecord(cc?.qualityScore);
     if (quality?.overall != null) {
-      sectionTitle(doc, 'Tibbiy yordam sifati');
+      sectionTitle(doc, 'Tibbiy yordam sifati (protokol asosida)');
       doc.text(`Umumiy ball: ${String(quality.overall)}/100`);
       if (typeof quality.notes === 'string') bodyText(doc, quality.notes);
     }
@@ -296,7 +350,7 @@ export function buildAiAnalysisPdfBuffer(data: AiAnalysisPdfInput): Promise<Buff
 
     const rejected = (cc?.rejectedHypotheses as unknown[]) ?? [];
     if (rejected.length) {
-      sectionTitle(doc, 'Inkori etilgan gipotezalar');
+      sectionTitle(doc, 'Rad Etilgan Gipotezalar');
       rejected.forEach((item) => {
         const row = asRecord(item);
         if (!row) return;
@@ -311,12 +365,7 @@ export function buildAiAnalysisPdfBuffer(data: AiAnalysisPdfInput): Promise<Buff
       bulletList(doc, data.redFlags);
     }
 
-    doc.moveDown();
-    doc.fontSize(8).fillColor('#64748b').text(
-      `${BRAND.name} — ${BRAND.supporter}. AI xulosa. Yakuniy qaror shifokor mas'uliyatida.`,
-      { width: 495, align: 'center' },
-    );
-
+    addPageFooters(doc);
     doc.end();
   });
 }

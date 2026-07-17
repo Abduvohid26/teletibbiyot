@@ -57,7 +57,29 @@ Javobni faqat quyidagi JSON formatida bering:
   }
 }
 
-clinicalConclusion bo'limi to'liq va batafsil bo'lsin. diagnoses massivida eng yuqori ishonchli tashxis birinchi.`;
+clinicalConclusion bo'limi TO'LIQ va BATAFSIL bo'lsin — hech qanday bo'sh massiv qoldirmang:
+- consensusDiagnoses: 1 ta asosiy (confidence, protocolReference, justification 4+ jumla, logicChain 5+ band)
+- alternativeDiagnoses: kamida 1 ta muqobil
+- scientificArticles: kamida 5 ta (lex.uz, ssv.uz, PubMed, Cochrane, Lancet/NEJM — haqiqiy qidiruv URL bilan)
+- treatmentSteps: kamida 3 ta "qadam: ..." formatida
+- medications: kamida 1 ta (dose, tradeNames, instructions)
+- medicationWarnings: kamida 3 ta (DDI va ogohlantirishlar)
+- additionalTests: kamida 3 ta
+- recommendedSpecialists: kamida 1 ta
+- riskFactors: kamida 1 ta, riskSeverity to'ldirilsin
+- prognosisShort, prognosisLong, prognosisFactors (kamida 3 ta)
+- dietGeneral: kamida 5 ta, dietByDiagnosis to'liq (allowed, restricted, notes)
+- preventionTips: kamida 5 ta
+- herbalMedicine: kamida 1 ta
+- qualityScore, recordedFindings, rejectedHypotheses: kamida 1 tadan
+diagnoses massivida eng yuqori ishonchli tashxis birinchi.`;
+
+const CHAT_SYSTEM_PROMPT = `Siz ${BRAND.name} telemedicine platformasining AI klinik yordamchisisiz.
+Shifokor sizga bemorning AI klinik xulosasi haqida qo'shimcha savollar beradi.
+Javob bering: aniq, batafsil, o'zbek tilida, professional tibbiy uslubda.
+MUHIM: Yakuniy rasmiy tashxis qo'ymang — faqat AI maslahati va tavsiya.
+Klinik xulosa kontekstidan foydalaning. Agar ma'lumot yetarli bo'lmasa, qaysi qo'shimcha tekshiruv kerakligini ayting.
+Markdown ishlatmang — oddiy matn.`;
 
 interface OpenAiAnalysisResult {
   summary: string;
@@ -67,6 +89,16 @@ interface OpenAiAnalysisResult {
   redFlags: string[];
   clinicalConclusion?: Record<string, unknown>;
   [key: string]: unknown;
+}
+
+/** Kalendarga asoslangan aniq yosh (yil) hisobi. */
+export function calculateAge(birthDate: Date): number {
+  const birth = new Date(birthDate);
+  const now = new Date();
+  let age = now.getFullYear() - birth.getFullYear();
+  const md = now.getMonth() - birth.getMonth();
+  if (md < 0 || (md === 0 && now.getDate() < birth.getDate())) age -= 1;
+  return age;
 }
 
 @Injectable()
@@ -116,9 +148,7 @@ export class AiService {
       vitalSigns: consultation.clinicalRecord.vitalSigns,
       familyHistory: consultation.clinicalRecord.familyHistory,
       socialHistory: consultation.clinicalRecord.socialHistory,
-      ageYears: Math.floor(
-        (Date.now() - consultation.patient.birthDate.getTime()) / (365.25 * 86400000),
-      ),
+      ageYears: calculateAge(consultation.patient.birthDate),
       gender: consultation.patient.gender,
     });
 
@@ -205,16 +235,19 @@ export class AiService {
 
   private async callOpenAiChat(
     messages: Array<{ role: 'user' | 'assistant'; content: string }>,
-    options?: { maxTokens?: number; json?: boolean },
+    options?: { maxTokens?: number; json?: boolean; systemPrompt?: string },
   ): Promise<string | null> {
     const cfg = this.getOpenAiConfig();
     if (!cfg) return null;
 
     try {
+      const systemContent = options?.systemPrompt ?? SYSTEM_PROMPT;
+      const chatMessages = [{ role: 'system' as const, content: systemContent }, ...messages];
+
       const body: Record<string, unknown> = {
         model: cfg.model,
         max_tokens: options?.maxTokens ?? 4096,
-        messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...messages],
+        messages: chatMessages,
         temperature: 0.2,
       };
       if (options?.json) {
@@ -310,6 +343,7 @@ export class AiService {
         utFacility: true,
         mtDoctor: true,
         aiAnalysis: true,
+        clinicalRecord: true,
       },
     });
     if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
@@ -330,6 +364,7 @@ export class AiService {
         utFacility: true,
         mtDoctor: true,
         aiAnalysis: true,
+        clinicalRecord: true,
       },
     });
     if (!consultation?.aiAnalysis) {
@@ -385,21 +420,35 @@ export class AiService {
         recommendations: unknown;
         redFlags: unknown;
         rawResponse: unknown;
-      };
+      } | null;
+      clinicalRecord?: {
+        complaints: string;
+        anamnesisMorbi: string;
+        medications: string | null;
+        labResults: string | null;
+        weight: number | null;
+        height: number | null;
+        bmi: number | null;
+        vitalSigns: unknown;
+      } | null;
     },
   ): Promise<Buffer> {
     const analysis = consultation.aiAnalysis;
+    if (!analysis) throw new NotFoundException('AI tahlil topilmadi');
     const p = this.crypto.unprotectPatient(consultation.patient as Record<string, unknown>) as typeof consultation.patient;
     const diagnoses = (analysis.diagnoses as Array<{ name: string; icd10Code: string; confidence: number; reasoning: string }>) || [];
     const recommendations = (analysis.recommendations as string[]) || [];
     const redFlags = (analysis.redFlags as string[]) || [];
     const rawResponse = (analysis.rawResponse as Record<string, unknown> | null) ?? null;
+    const cr = consultation.clinicalRecord;
+    const age = calculateAge(p.birthDate);
 
     return buildAiAnalysisPdfBuffer({
       patientName: p.fullName,
       patientPhone: p.phone,
       birthDate: p.birthDate.toISOString().slice(0, 10),
       gender: p.gender,
+      patientAge: age,
       facilityName: consultation.utFacility.name,
       facilityCode: consultation.utFacility.code,
       doctorName: consultation.mtDoctor?.fullName,
@@ -409,6 +458,14 @@ export class AiService {
       recommendations,
       redFlags,
       rawResponse,
+      complaints: cr?.complaints,
+      anamnesisMorbi: cr?.anamnesisMorbi,
+      medications: cr?.medications,
+      labResults: cr?.labResults,
+      weight: cr?.weight,
+      height: cr?.height,
+      bmi: cr?.bmi,
+      vitalSigns: (cr?.vitalSigns as Record<string, number>) ?? {},
     });
   }
 
@@ -461,23 +518,34 @@ export class AiService {
       include: { aiAnalysis: true, clinicalRecord: true, patient: true },
     });
 
-    if (!consultation) return { answer: 'Konsultatsiya topilmadi' };
+    if (!consultation) return { answer: 'Konsultatsiya topilmadi', disclaimer: '' };
+
+    const aiContext = consultation.aiAnalysis
+      ? {
+          summary: consultation.aiAnalysis.summary,
+          diagnoses: consultation.aiAnalysis.diagnoses,
+          triageLevel: consultation.aiAnalysis.triageLevel,
+          recommendations: consultation.aiAnalysis.recommendations,
+          redFlags: consultation.aiAnalysis.redFlags,
+          clinicalConclusion: (consultation.aiAnalysis.rawResponse as Record<string, unknown> | null)?.clinicalConclusion,
+        }
+      : null;
 
     const answer = await this.callOpenAiChat(
       [
         {
           role: 'user',
-          content: `Konsultatsiya ma'lumotlari (de-identified):\n${JSON.stringify({
-            aiAnalysis: consultation.aiAnalysis,
-            clinical: this.deidentifyClinicalData({
-              complaints: consultation.clinicalRecord?.complaints,
-              vitalSigns: consultation.clinicalRecord?.vitalSigns,
-              gender: consultation.patient.gender,
-            }),
-          })}\n\nShifokor savoli: ${question}`,
+          content: `AI KLINIK XULOSA KONTEKSTI:\n${JSON.stringify(aiContext, null, 2)}\n\nKlinik ma'lumotlar:\n${JSON.stringify(this.deidentifyClinicalData({
+            complaints: consultation.clinicalRecord?.complaints,
+            anamnesisMorbi: consultation.clinicalRecord?.anamnesisMorbi,
+            vitalSigns: consultation.clinicalRecord?.vitalSigns,
+            medications: consultation.clinicalRecord?.medications,
+            gender: consultation.patient.gender,
+            ageYears: calculateAge(consultation.patient.birthDate),
+          }), null, 2)}\n\nShifokor savoli: ${question}`,
         },
       ],
-      { maxTokens: 1024 },
+      { maxTokens: 2048, systemPrompt: CHAT_SYSTEM_PROMPT },
     );
 
     if (!answer) {

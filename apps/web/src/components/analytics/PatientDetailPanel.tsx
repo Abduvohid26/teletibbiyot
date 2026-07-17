@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, User, Phone, MapPin, Calendar, Stethoscope, Brain } from 'lucide-react';
+import { X, User, Phone, MapPin, Calendar, Stethoscope, Brain, FileText } from 'lucide-react';
 import { api, PatientDetail } from '@/lib/api';
 import { calculateAge, formatGender, formatStatus, formatTriage } from '@/lib/utils';
 import { cn } from '@/lib/utils';
+import { toast } from '@/lib/toast';
 
 interface PatientDetailPanelProps {
   patientId: string | null;
@@ -25,6 +26,20 @@ export function PatientDetailPanel({ patientId, onClose }: PatientDetailPanelPro
       .catch((err) => setError(err instanceof Error ? err.message : 'Xatolik'))
       .finally(() => setLoading(false));
   }, [patientId]);
+
+  const [openingReport, setOpeningReport] = useState<string | null>(null);
+  const handleOpenReport = async (consultationId: string) => {
+    if (openingReport) return;
+    setOpeningReport(consultationId);
+    try {
+      const { url } = await api.getReportLink(consultationId);
+      if (url) window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'PDF ochib bo\'lmadi', 'error');
+    } finally {
+      setOpeningReport(null);
+    }
+  };
 
   if (!patientId) return null;
 
@@ -96,6 +111,17 @@ export function PatientDetailPanel({ patientId, onClose }: PatientDetailPanelPro
                         <p className="text-xs font-medium text-emerald-700">
                           Yakuniy: {c.finalDiagnosis.diagnosis} ({c.finalDiagnosis.icd10Code})
                         </p>
+                      )}
+                      {c.consultationReport && (
+                        <button
+                          type="button"
+                          onClick={() => void handleOpenReport(c.id)}
+                          disabled={openingReport === c.id}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-[11px] font-semibold disabled:opacity-60"
+                        >
+                          <FileText size={12} className={openingReport === c.id ? 'animate-pulse' : ''} />
+                          Konsilium PDF
+                        </button>
                       )}
                       <p className="text-[10px] text-slate-400 flex items-center gap-1">
                         <Calendar size={10} />

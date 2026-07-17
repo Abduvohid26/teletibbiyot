@@ -23,7 +23,6 @@ export function useDoctorDashboard() {
   const [observedId, setObservedId] = useState<string | null>(null);
   const [selectedConsultationId, setSelectedConsultationId] = useState<string | null>(null);
   const [error, setError] = useState('');
-  const [showComplete, setShowComplete] = useState(false);
   const [showSecondOpinion, setShowSecondOpinion] = useState(false);
   const [showAttachments, setShowAttachments] = useState(false);
 
@@ -175,11 +174,10 @@ export function useDoctorDashboard() {
   }, [executeReload]);
 
   const handleQuickAction = useCallback((action: string) => {
-    if (action === 'create-report' && consultation) setShowComplete(true);
     if (action === 'new-consultation' && queuedPatients[0]) void startConsultation(queuedPatients[0].id);
     if (action === 'add-patient') router.push('/dashboard/patients');
     if (action === 'device-check') router.push('/dashboard/settings#video-audio');
-  }, [consultation, queuedPatients, router, startConsultation]);
+  }, [queuedPatients, router, startConsultation]);
 
   return {
     user,
@@ -203,8 +201,6 @@ export function useDoctorDashboard() {
     setObservedId,
     selectedConsultationId,
     selectConsultation,
-    showComplete,
-    setShowComplete,
     showSecondOpinion,
     setShowSecondOpinion,
     showAttachments,

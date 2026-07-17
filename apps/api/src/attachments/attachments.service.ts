@@ -124,6 +124,30 @@ export class AttachmentsService {
   }
 
   async getDownloadUrl(attachmentId: string, user: AuthUser, ip?: string) {
+    const attachment = await this.getAttachmentForAccess(attachmentId, user, ip, 'DOWNLOAD_ATTACHMENT');
+    const url = await this.storage.getPresignedUrl(this.storage.resolveKey(attachment.fileUrl));
+    return { url, fileName: attachment.fileName, fileType: attachment.fileType };
+  }
+
+  async streamFile(attachmentId: string, user: AuthUser, ip?: string) {
+    const attachment = await this.getAttachmentForAccess(attachmentId, user, ip, 'VIEW_ATTACHMENT');
+    const { stream, contentType, contentLength } = await this.storage.getObjectStream(
+      this.storage.resolveKey(attachment.fileUrl),
+    );
+    return {
+      stream,
+      contentType: attachment.fileType || contentType,
+      contentLength,
+      fileName: attachment.fileName,
+    };
+  }
+
+  private async getAttachmentForAccess(
+    attachmentId: string,
+    user: AuthUser,
+    ip: string | undefined,
+    action: 'DOWNLOAD_ATTACHMENT' | 'VIEW_ATTACHMENT',
+  ) {
     const attachment = await this.prisma.attachment.findUnique({
       where: { id: attachmentId },
       include: { consultation: true },
@@ -133,15 +157,14 @@ export class AttachmentsService {
 
     await this.audit.log({
       userId: user.id,
-      action: 'DOWNLOAD_ATTACHMENT',
+      action,
       entity: 'Attachment',
       entityId: attachment.id,
       ipAddress: ip,
       details: { fileName: attachment.fileName },
     });
 
-    const url = await this.storage.getPresignedUrl(this.storage.resolveKey(attachment.fileUrl));
-    return { url, fileName: attachment.fileName, fileType: attachment.fileType };
+    return attachment;
   }
 
   private queueAttachmentAnalysis(attachmentId: string, consultationId: string) {

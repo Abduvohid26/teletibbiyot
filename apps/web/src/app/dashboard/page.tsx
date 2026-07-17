@@ -23,8 +23,6 @@ export default function DashboardPage() {
           onReload={dash.reload}
           onRefresh={dash.refresh}
           onStartConsultation={dash.startConsultation}
-          showComplete={dash.showComplete}
-          onShowComplete={dash.setShowComplete}
         />
       ) : (
         <ObserverDashboardView

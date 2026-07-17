@@ -1,14 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Stethoscope } from 'lucide-react';
+import { Stethoscope, Loader2 } from 'lucide-react';
 import { DoctorShell } from '@/components/layout/DoctorShell';
 import { VideoConsultation } from '@/components/dashboard/VideoConsultation';
 import { AiAnalysisPanel } from '@/components/dashboard/AiAnalysisPanel';
 import { PatientDocumentsPanel } from '@/components/dashboard/PatientDocumentsPanel';
-import { CompleteDiagnosisModal } from '@/components/dashboard/CompleteDiagnosisModal';
 import { ConsultationSwitcher } from '@/components/dashboard/ConsultationSwitcher';
-import { Consultation } from '@/lib/api';
+import { api, Consultation } from '@/lib/api';
+import { toast } from '@/lib/toast';
 
 interface DoctorDashboardViewProps {
   queue: Consultation[];
@@ -22,8 +22,6 @@ interface DoctorDashboardViewProps {
   onReload: () => void;
   onRefresh?: () => void;
   onStartConsultation: (id: string) => void;
-  showComplete: boolean;
-  onShowComplete: (open: boolean) => void;
 }
 
 export function DoctorDashboardView({
@@ -38,10 +36,9 @@ export function DoctorDashboardView({
   onReload,
   onRefresh,
   onStartConsultation,
-  showComplete,
-  onShowComplete,
 }: DoctorDashboardViewProps) {
   const [reconnectSignal, setReconnectSignal] = useState(0);
+  const [completing, setCompleting] = useState(false);
   const queuedPatients = queue.filter((c) => c.status === 'QUEUED');
   const passiveRefresh = onRefresh ?? onReload;
   const activeConsultationId = selectedConsultationId ?? consultation?.id;
@@ -62,6 +59,35 @@ export function DoctorDashboardView({
   useEffect(() => {
     setReconnectSignal(0);
   }, [activeConsultationId]);
+
+  const handleComplete = useCallback(async () => {
+    if (!activeConsultation || completing) return;
+    if (!activeConsultation.aiAnalysis) {
+      toast('AI klinik xulosa hali tayyor emas. Biroz kuting.', 'error');
+      return;
+    }
+    setCompleting(true);
+    try {
+      await api.completeConsultation(activeConsultation.id, {});
+      toast('Konsultatsiya yakunlandi — Konsilium PDF UT operatorga yuborildi', 'success');
+      // PDF generatsiya bo'lishi biroz vaqt olishi mumkin — bir marta qayta urinamiz.
+      for (let attempt = 0; attempt < 2; attempt++) {
+        if (attempt > 0) await new Promise((r) => setTimeout(r, 2000));
+        try {
+          const link = await api.getReportLink(activeConsultation.id);
+          if (link.url) window.open(link.url, '_blank', 'noopener,noreferrer');
+          break;
+        } catch {
+          /* keyingi urinishda qayta so'raymiz */
+        }
+      }
+      onReload();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Yakunlashda xatolik', 'error');
+    } finally {
+      setCompleting(false);
+    }
+  }, [activeConsultation, completing, onReload]);
 
   const hasQueue = myInProgress.length > 0 || queuedPatients.length > 0;
   const showCompleteBtn = activeConsultation?.status === 'IN_PROGRESS';
@@ -86,11 +112,13 @@ export function DoctorDashboardView({
         showCompleteBtn ? (
           <button
             type="button"
-            onClick={() => onShowComplete(true)}
-            className="gradient-btn !py-1.5 !px-2 !text-[11px] sm:!text-xs shrink-0 whitespace-nowrap"
+            onClick={() => void handleComplete()}
+            disabled={completing}
+            className="gradient-btn !py-1.5 !px-2 !text-[11px] sm:!text-xs shrink-0 whitespace-nowrap disabled:opacity-60 inline-flex items-center gap-1"
           >
-            <span className="hidden sm:inline">Yakunlash</span>
-            <span className="sm:hidden">Yakun</span>
+            {completing ? <Loader2 size={12} className="animate-spin" /> : null}
+            <span className="hidden sm:inline">{completing ? 'Yakunlanmoqda...' : 'Yakunlash'}</span>
+            <span className="sm:hidden">{completing ? '...' : 'Yakun'}</span>
           </button>
         ) : undefined
       }
@@ -163,28 +191,12 @@ export function DoctorDashboardView({
                   analysis={activeConsultation?.aiAnalysis ?? consultation?.aiAnalysis}
                   consultationId={activeConsultationId}
                   onRefresh={passiveRefresh}
-                  compact
                 />
               </div>
             </div>
           </div>
         )}
       </div>
-
-      {showComplete && activeConsultation?.status === 'IN_PROGRESS' && (
-        <CompleteDiagnosisModal
-          consultationId={activeConsultation.id}
-          aiDiagnosis={activeConsultation.aiAnalysis?.diagnoses?.[0]?.name}
-          aiIcd10={activeConsultation.aiAnalysis?.diagnoses?.[0]?.icd10Code}
-          unconfirmedAiSteps={
-            activeConsultation.aiAnalysisSteps?.filter(
-              (s) => s.status === 'DONE' && s.step !== 'DATA_COLLECTION' && !s.doctorConfirmed,
-            ).length ?? 0
-          }
-          onComplete={onReload}
-          onClose={() => onShowComplete(false)}
-        />
-      )}
     </DoctorShell>
   );
 }

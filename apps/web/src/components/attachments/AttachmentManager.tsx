@@ -8,6 +8,7 @@ import {
 import { AttachmentViewer, AiStatusBadge } from './AttachmentViewer';
 import { cn } from '@/lib/utils';
 import { toast } from '@/lib/toast';
+import { downloadBlob } from '@/lib/download';
 
 const ACCEPT =
   '.pdf,.jpg,.jpeg,.png,.webp,.gif,.bmp,.tiff,.tif,.heic,.heif,.dcm,.dicom,image/*,application/pdf';
@@ -121,15 +122,10 @@ export function AttachmentManager({
 
   const handleDownload = async (attachment: Attachment) => {
     try {
-      const { url, fileName } = await api.getAttachmentDownload(attachment.id);
-      const a = document.createElement('a');
-      a.href = url;
-      a.target = '_blank';
-      a.rel = 'noopener noreferrer';
-      a.download = fileName;
-      a.click();
-    } catch {
-      /* xato */
+      const { blob, fileName } = await api.fetchAttachmentFile(attachment.id);
+      downloadBlob(blob, fileName);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Yuklab olish xatoligi', 'error');
     }
   };
 

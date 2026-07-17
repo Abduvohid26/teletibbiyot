@@ -159,29 +159,35 @@ export class CreateConsultationDto {
 
 export class FinalDiagnosisDto {
 
-  @ApiProperty()
+  @ApiProperty({ required: false })
+
+  @IsOptional()
 
   @IsString()
 
-  diagnosis: string;
+  diagnosis?: string;
 
 
 
-  @ApiProperty({ example: 'J06.9' })
+  @ApiProperty({ example: 'J06.9', required: false })
+
+  @IsOptional()
 
   @IsString()
 
   @Matches(/^[A-Z][0-9]{2}(\.[0-9]{1,2})?$/, { message: 'ICD-10 kodi noto\'g\'ri formatda' })
 
-  icd10Code: string;
+  icd10Code?: string;
 
 
 
-  @ApiProperty()
+  @ApiProperty({ required: false })
+
+  @IsOptional()
 
   @IsString()
 
-  recommendations: string;
+  recommendations?: string;
 
 
 

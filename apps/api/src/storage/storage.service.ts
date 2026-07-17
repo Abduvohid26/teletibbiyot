@@ -126,6 +126,25 @@ export class StorageService implements OnModuleInit {
     }
   }
 
+  /** Faylni to'liq xotiraga yuklamasdan oqim (stream) sifatida qaytaradi. */
+  async getObjectStream(
+    key: string,
+  ): Promise<{ stream: NodeJS.ReadableStream; contentType: string; contentLength?: number }> {
+    if (!this.client) throw new Error('Fayl saqlash xizmati mavjud emas');
+    const resolved = this.resolveKey(key);
+    let contentType = 'application/octet-stream';
+    let contentLength: number | undefined;
+    try {
+      const stat = await this.client.statObject(this.bucket, resolved);
+      contentType = stat.metaData?.['content-type'] || contentType;
+      contentLength = stat.size;
+    } catch {
+      /* default */
+    }
+    const stream = await this.client.getObject(this.bucket, resolved);
+    return { stream, contentType, contentLength };
+  }
+
   async getObjectBuffer(key: string): Promise<{ buffer: Buffer; contentType: string }> {
     if (!this.client) throw new Error('Fayl saqlash xizmati mavjud emas');
     const resolved = this.resolveKey(key);

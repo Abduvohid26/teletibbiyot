@@ -276,6 +276,27 @@ function enrichFromLegacy(cc: ClinicalConclusion, analysis: AiAnalysis): Clinica
   if (!cc.mainConclusion) cc.mainConclusion = analysis.summary;
   if (!cc.treatmentSteps?.length) cc.treatmentSteps = analysis.recommendations;
   if (!cc.riskFactors?.length) cc.riskFactors = analysis.redFlags;
+
+  // Qo'shimcha tekshiruvlar — faqat AI tavsiyalaridan ajratib olamiz, to'qimaymiz.
+  if (!cc.additionalTests?.length) {
+    cc.additionalTests = analysis.recommendations.filter((r) =>
+      /tekshir|tahlil|EKG|UZI|KT|MR|lab|qon|tiroid/i.test(r),
+    );
+  }
+  // Keyingi kuzatuv — faqat AI tavsiyalaridan topilsa, aks holda bo'sh qoldiramiz.
+  if (!cc.followUp) {
+    cc.followUp = analysis.recommendations.find((r) => /qayta|kuzat|ko'rik/i.test(r));
+  }
+  // Rad etilgan gipotezalar — haqiqiy muqobil tashxislardan olinadi.
+  if (!cc.rejectedHypotheses?.length && cc.alternativeDiagnoses?.length) {
+    cc.rejectedHypotheses = cc.alternativeDiagnoses.slice(0, 1).map((d) => ({
+      name: d.name,
+      reason: d.justification ?? 'Qo\'shimcha tekshiruvlar talab qilinadi.',
+    }));
+  }
+  // NB: parhez, profilaktika, o'simlik dorilari, prognoz, sifat bali va ilmiy maqolalar
+  // AI tahlili tomonidan berilmasa, ATAYLAB to'ldirilmaydi — soxta/umumiy kontent
+  // ko'rsatmaymiz (UI bo'sh bo'limlarni yashiradi).
   return cc;
 }
 
@@ -283,7 +304,7 @@ function buildFallbackConclusion(analysis: AiAnalysis): ClinicalConclusion {
   const primary = analysis.diagnoses[0];
   const alternatives = analysis.diagnoses.slice(1);
 
-  return {
+  const base: ClinicalConclusion = {
     mainConclusion: analysis.summary,
     consensusDiagnoses: primary
       ? [{
@@ -309,4 +330,5 @@ function buildFallbackConclusion(analysis: AiAnalysis): ClinicalConclusion {
     ),
     followUp: analysis.recommendations.find((r) => /qayta|kuzat|ko'rik/i.test(r)),
   };
+  return enrichFromLegacy(base, analysis);
 }

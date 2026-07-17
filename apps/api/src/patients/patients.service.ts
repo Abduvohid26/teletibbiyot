@@ -164,6 +164,7 @@ export class PatientsService {
             utFacility: true,
             mtDoctor: { select: { id: true, fullName: true, specialty: true } },
             clinicalRecord: { select: { complaints: true, vitalSigns: true } },
+            consultationReport: { select: { id: true, fileName: true, generatedAt: true } },
           },
           orderBy: { createdAt: 'desc' },
         },

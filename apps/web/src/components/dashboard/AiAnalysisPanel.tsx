@@ -1,12 +1,17 @@
 'use client';
 
-import { useState } from 'react';
-import { Brain, Send, RefreshCw, ThumbsUp, ThumbsDown, Sparkles, Download } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Brain, Send, RefreshCw, ThumbsUp, ThumbsDown, Sparkles, Download, MessageCircle } from 'lucide-react';
 import { AiAnalysis } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { getAiAnalysisMeta } from '@/lib/ai-analysis-meta';
 import { ClinicalConclusionReport } from '@/components/dashboard/ClinicalConclusionReport';
+
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  text: string;
+}
 
 interface AiAnalysisPanelProps {
   analysis?: AiAnalysis;
@@ -15,23 +20,45 @@ interface AiAnalysisPanelProps {
   compact?: boolean;
 }
 
+const SUGGESTED_QUESTIONS = [
+  'Muqobil tashxislar qanchalik ehtimol?',
+  'Qaysi qo\'shimcha tekshiruvlar kerak?',
+  'Dori-darmonlar o\'zaro ta\'siri bormi?',
+  'Parhez va profilaktika tavsiyalari?',
+  'Prognoz va keyingi kuzatuv rejasi?',
+];
+
 export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }: AiAnalysisPanelProps) {
   const [question, setQuestion] = useState('');
-  const [chatResponse, setChatResponse] = useState('');
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [feedbackError, setFeedbackError] = useState('');
+  const [chatOpen, setChatOpen] = useState(true);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
-  const handleAsk = async () => {
-    if (!question.trim() || !consultationId) return;
+  useEffect(() => {
+    setChatMessages([]);
+  }, [consultationId]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages, loading]);
+
+  const handleAsk = async (q?: string) => {
+    const text = (q ?? question).trim();
+    if (!text || !consultationId || loading) return;
+    setQuestion('');
+    setChatMessages((prev) => [...prev, { role: 'user', text }]);
     setLoading(true);
+    setChatOpen(true);
     try {
-      const res = await api.aiChat(consultationId, question);
-      setChatResponse(res.answer);
+      const res = await api.aiChat(consultationId, text);
+      setChatMessages((prev) => [...prev, { role: 'assistant', text: res.answer }]);
     } catch {
-      setChatResponse('Javob olishda xatolik yuz berdi.');
+      setChatMessages((prev) => [...prev, { role: 'assistant', text: 'Javob olishda xatolik yuz berdi.' }]);
     } finally {
       setLoading(false);
     }
@@ -78,33 +105,33 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
   if (!analysis) {
     return (
       <div className="glass-panel h-full flex flex-col overflow-hidden min-h-0">
-        <div className={cn('glass-header shrink-0 bg-gradient-to-r from-violet-500/10 to-indigo-500/10', compact && 'py-1.5 px-2')}>
-          <Sparkles size={compact ? 14 : 16} className="text-violet-600" />
-          <span className={cn('panel-title', compact && 'text-xs')}>AI klinik xulosa</span>
+        <div className="glass-header shrink-0 bg-gradient-to-r from-violet-500/10 to-indigo-500/10 py-2 px-3">
+          <Sparkles size={16} className="text-violet-600" />
+          <span className="panel-title text-sm">AI klinik xulosa</span>
         </div>
-        <div className={cn('flex-1 overflow-hidden flex flex-col justify-center', compact ? 'p-2 gap-2' : 'p-3 gap-3')}>
+        <div className="flex-1 overflow-hidden flex flex-col justify-center p-4 gap-3">
           <div className="text-center space-y-2">
-            <Brain className="w-8 h-8 text-slate-300 mx-auto" />
-            <p className="text-xs font-medium text-slate-600">
+            <Brain className="w-10 h-10 text-slate-300 mx-auto" />
+            <p className="text-sm font-medium text-slate-600">
               {consultationId ? 'AI tahlil hali tayyor emas' : 'Faol konsultatsiya tanlang'}
             </p>
-            <p className="text-[10px] text-slate-400">
+            <p className="text-xs text-slate-400">
               {consultationId
-                ? 'Klinik ma\'lumotlar yuborilgach AI to\'liq xulosa tayyorlaydi'
+                ? 'To\'liq Konsilium xulosasi — barcha bo\'limlar bilan tayyorlanadi'
                 : 'Navbatdan konsultatsiyani boshlang'}
             </p>
           </div>
           {feedbackError && (
-            <p className="text-[10px] text-red-600 bg-red-50 rounded-lg p-2 text-center">{feedbackError}</p>
+            <p className="text-xs text-red-600 bg-red-50 rounded-lg p-2 text-center">{feedbackError}</p>
           )}
           {consultationId && (
             <button
               type="button"
-              onClick={handleReanalyze}
+              onClick={() => void handleReanalyze()}
               disabled={analyzing}
-              className="btn-secondary !text-[10px] inline-flex items-center justify-center gap-1.5 w-full"
+              className="btn-secondary text-xs inline-flex items-center justify-center gap-1.5 w-full"
             >
-              <RefreshCw size={12} className={analyzing ? 'animate-spin' : ''} />
+              <RefreshCw size={14} className={analyzing ? 'animate-spin' : ''} />
               {analyzing ? 'Tahlil qilinmoqda...' : 'AI tahlilni boshlash'}
             </button>
           )}
@@ -117,84 +144,133 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
 
   return (
     <div className="panel h-full flex flex-col overflow-hidden min-h-0">
-      <div className={cn('panel-header bg-gradient-to-r from-violet-50/80 to-indigo-50/50 shrink-0', compact && 'py-1.5 px-2')}>
-        <Sparkles size={compact ? 14 : 16} className="text-violet-600" />
-        <span className={cn('panel-title', compact && 'text-xs')}>AI klinik xulosa</span>
-        {consultationId && (
+      <div className="panel-header bg-gradient-to-r from-violet-50/80 to-indigo-50/50 shrink-0 py-2 px-3 gap-2">
+        <Sparkles size={16} className="text-violet-600 shrink-0" />
+        <span className="panel-title text-sm flex-1 min-w-0 truncate">AI klinik xulosa</span>
+        <div className="flex items-center gap-1 shrink-0">
+          {consultationId && (
+            <button
+              type="button"
+              onClick={() => void handleDownloadPdf()}
+              disabled={downloading}
+              title="PDF yuklab olish"
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-[10px] font-semibold disabled:opacity-60"
+            >
+              <Download size={12} className={downloading ? 'animate-pulse' : ''} />
+              PDF
+            </button>
+          )}
+          {consultationId && (
+            <button
+              type="button"
+              onClick={() => void handleReanalyze()}
+              disabled={analyzing}
+              title="Qayta tahlil"
+              className="p-1.5 rounded-lg hover:bg-white/60 text-violet-600"
+            >
+              <RefreshCw size={14} className={analyzing ? 'animate-spin' : ''} />
+            </button>
+          )}
           <button
             type="button"
-            onClick={() => void handleDownloadPdf()}
-            disabled={downloading}
-            title="PDF yuklab olish"
-            className="ml-1 p-1 rounded-lg hover:bg-white/60 text-violet-600"
+            onClick={() => setChatOpen((v) => !v)}
+            title="AI chat"
+            className={cn(
+              'p-1.5 rounded-lg text-violet-600',
+              chatOpen ? 'bg-violet-100' : 'hover:bg-white/60',
+            )}
           >
-            <Download size={14} className={downloading ? 'animate-pulse' : ''} />
+            <MessageCircle size={14} />
           </button>
-        )}
-        {consultationId && (
-          <button
-            type="button"
-            onClick={handleReanalyze}
-            disabled={analyzing}
-            title="Qayta tahlil"
-            className="ml-1 p-1 rounded-lg hover:bg-white/60 text-violet-600"
-          >
-            <RefreshCw size={14} className={analyzing ? 'animate-spin' : ''} />
-          </button>
-        )}
+        </div>
       </div>
 
-      <div className={cn('panel-body flex-1 min-h-0 overflow-y-auto', compact ? '!p-2' : 'p-3')}>
+      <div className="panel-body flex-1 min-h-0 overflow-y-auto p-3">
         {isUnavailable && (
-          <div className={cn('rounded-xl border bg-red-50 border-red-200 mb-2', compact ? 'p-2' : 'p-3')}>
-            <p className={cn('font-medium text-red-700', compact ? 'text-[10px]' : 'text-xs')}>
+          <div className="rounded-xl border bg-red-50 border-red-200 mb-3 p-3">
+            <p className="text-xs font-medium text-red-700">
               AI xizmati mavjud emas — shifokor mustaqil klinik baholash o&apos;tkazishi kerak
             </p>
           </div>
         )}
 
-        <ClinicalConclusionReport analysis={analysis} compact={compact} />
+        <ClinicalConclusionReport analysis={analysis} compact={compact} expanded />
 
-        {!feedbackSent && !compact && (
+        {!feedbackSent && (
           <div className="flex items-center gap-2 pt-3 mt-3 border-t border-slate-100">
-            <span className="text-[10px] text-slate-400">Tahlil foydali bo&apos;ldimi?</span>
-            <button type="button" onClick={() => handleFeedback('HELPFUL')} className="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-600"><ThumbsUp size={14} /></button>
-            <button type="button" onClick={() => handleFeedback('HARMFUL')} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><ThumbsDown size={14} /></button>
+            <span className="text-xs text-slate-400">Tahlil foydali bo&apos;ldimi?</span>
+            <button type="button" onClick={() => void handleFeedback('HELPFUL')} className="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-600"><ThumbsUp size={14} /></button>
+            <button type="button" onClick={() => void handleFeedback('HARMFUL')} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><ThumbsDown size={14} /></button>
           </div>
         )}
         {feedbackSent && (
-          <p className="text-[10px] text-emerald-600 pt-2">Fikr-mulohaza yuborildi — rahmat!</p>
+          <p className="text-xs text-emerald-600 pt-2">Fikr-mulohaza yuborildi — rahmat!</p>
         )}
         {feedbackError && (
-          <p className="text-[10px] text-red-600 pt-1">{feedbackError}</p>
+          <p className="text-xs text-red-600 pt-1">{feedbackError}</p>
         )}
       </div>
 
-      <div className={cn('border-t border-slate-100 bg-slate-50/50 shrink-0', compact ? 'p-2' : 'p-3')}>
-        <div className="flex gap-1.5">
-          <input
-            type="text"
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleAsk()}
-            placeholder="AI ga savol..."
-            className="input flex-1 !py-1.5 !text-[10px]"
-          />
-          <button
-            type="button"
-            onClick={handleAsk}
-            disabled={loading}
-            className="p-1.5 gradient-btn rounded-lg disabled:opacity-50 shrink-0"
-          >
-            <Send size={12} />
-          </button>
-        </div>
-        {chatResponse && (
-          <div className="mt-1.5 p-2 bg-white rounded-lg border border-slate-100 text-[10px] text-slate-600 max-h-24 overflow-y-auto leading-relaxed">
-            {chatResponse}
+      {chatOpen && (
+        <div className="border-t border-slate-200 bg-slate-50/80 shrink-0 flex flex-col max-h-[45%] min-h-[140px]">
+          <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-2">
+            {chatMessages.length === 0 && (
+              <div className="space-y-2">
+                <p className="text-[10px] text-slate-500 px-1">AI ga savol bering — xulosa bo&apos;yicha batafsil javob olasiz:</p>
+                <div className="flex flex-wrap gap-1">
+                  {SUGGESTED_QUESTIONS.map((sq) => (
+                    <button
+                      key={sq}
+                      type="button"
+                      onClick={() => void handleAsk(sq)}
+                      className="text-[10px] px-2 py-1 rounded-full bg-white border border-violet-200 text-violet-700 hover:bg-violet-50"
+                    >
+                      {sq}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {chatMessages.map((msg, i) => (
+              <div
+                key={i}
+                className={cn(
+                  'rounded-xl px-2.5 py-2 text-xs leading-relaxed max-w-[95%]',
+                  msg.role === 'user'
+                    ? 'ml-auto bg-brand-600 text-white'
+                    : 'mr-auto bg-white border border-slate-200 text-slate-700',
+                )}
+              >
+                {msg.text}
+              </div>
+            ))}
+            {loading && (
+              <p className="text-xs text-slate-400 animate-pulse px-1">AI javob tayyorlanmoqda...</p>
+            )}
+            <div ref={chatEndRef} />
           </div>
-        )}
-      </div>
+          <div className="p-2 border-t border-slate-200 shrink-0">
+            <div className="flex gap-1.5">
+              <input
+                type="text"
+                value={question}
+                onChange={(e) => setQuestion(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && void handleAsk()}
+                placeholder="AI ga savol bering..."
+                className="input flex-1 !py-2 !text-xs"
+              />
+              <button
+                type="button"
+                onClick={() => void handleAsk()}
+                disabled={loading || !question.trim()}
+                className="p-2 gradient-btn rounded-lg disabled:opacity-50 shrink-0"
+              >
+                <Send size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

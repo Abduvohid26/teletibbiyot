@@ -27,6 +27,24 @@ export function defineMediaApi(client: HttpClient) {
       return client.request<{ url: string; fileName: string; fileType: string }>(`/attachments/${id}/download`);
     },
 
+    async fetchAttachmentFile(id: string): Promise<{ blob: Blob; fileName: string; fileType: string }> {
+      const res = await client.fetchApi(`/attachments/${id}/file`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: 'Faylni yuklab bo\'lmadi' }));
+        const msg = err.message;
+        throw new Error(Array.isArray(msg) ? msg.join(', ') : (msg || 'Faylni yuklab bo\'lmadi'));
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get('Content-Disposition') || '';
+      const match = disposition.match(/filename\*?=(?:UTF-8''|")?([^";]+)/i);
+      const fileName = match ? decodeURIComponent(match[1].replace(/"/g, '')) : 'hujjat';
+      return {
+        blob,
+        fileName,
+        fileType: blob.type || res.headers.get('Content-Type') || 'application/octet-stream',
+      };
+    },
+
     getRecording(consultationId: string) {
       return client.request<SessionRecording>(`/recordings/${consultationId}`);
     },

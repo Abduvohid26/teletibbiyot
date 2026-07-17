@@ -110,7 +110,7 @@ export class ConsultationsController {
 
   @Post(':id/complete')
   @Roles(...ROLES_MT_DOCTOR, ...ROLES_ADMIN)
-  @ApiOperation({ summary: 'Yakuniy tashxis kiritish' })
+  @ApiOperation({ summary: 'Konsultatsiyani yakunlash (AI Konsilium PDF)' })
   complete(
     @Param('id') id: string,
     @Body() dto: FinalDiagnosisDto,

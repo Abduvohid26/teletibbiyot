@@ -291,7 +291,6 @@ function SessionStatusPanel({
 const QUICK_ACTIONS = [
   { id: 'new-consultation', label: 'Yangi konsultatsiya', icon: Video, primary: true },
   { id: 'add-patient', label: 'Bemor qo\'shish', icon: UserPlus },
-  { id: 'create-report', label: 'Hisobot yaratish', icon: FileText },
   { id: 'device-check', label: 'Qurilma tekshiruvi', icon: Monitor },
 ];
 

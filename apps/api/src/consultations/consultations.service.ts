@@ -39,6 +39,14 @@ import { buildPatientSearchOr } from '../common/patient-search.util';
 import { isAccessDeniedScope } from '../common/access-scope.constants';
 import { assertCanStartWhileAnotherActive } from './consultations.rules';
 
+/** Konsultatsiyani yakunlashda ishlatiladigan AI tahlil shakli. */
+type AiAnalysisForCompletion = {
+  summary: string;
+  diagnoses: unknown;
+  recommendations: unknown;
+  rawResponse: unknown;
+};
+
 @Injectable()
 export class ConsultationsService {
   private readonly logger = new Logger(ConsultationsService.name);
@@ -432,7 +440,7 @@ export class ConsultationsService {
   async complete(id: string, doctorId: string, dto: FinalDiagnosisDto) {
     const consultation = await this.prisma.consultation.findUnique({
       where: { id },
-      include: { finalDiagnosis: true, aiAnalysisSteps: true },
+      include: { finalDiagnosis: true, aiAnalysis: true },
     });
     if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
 
@@ -440,34 +448,22 @@ export class ConsultationsService {
       throw new BadRequestException('Faqat jarayondagi konsultatsiyani yakunlash mumkin');
     }
     if (consultation.mtDoctorId !== doctorId) {
-      throw new ForbiddenException('Faqat mas\'ul shifokor yakuniy tashxis kiritishi mumkin');
+      throw new ForbiddenException('Faqat mas\'ul shifokor konsultatsiyani yakunlashi mumkin');
     }
     if (consultation.finalDiagnosis) {
-      throw new BadRequestException('Yakuniy tashxis allaqachon kiritilgan');
+      throw new BadRequestException('Konsultatsiya allaqachon yakunlangan');
     }
 
-    const unconfirmed = consultation.aiAnalysisSteps.filter(
-      (s) => s.status === 'DONE' && s.step !== 'DATA_COLLECTION' && !s.doctorConfirmed,
-    );
-    if (unconfirmed.length > 0) {
-      throw new BadRequestException('Avval barcha AI bosqichlarini tasdiqlang');
+    const resolved = this.resolveFinalDiagnosis(dto, consultation.aiAnalysis);
+    if (!resolved) {
+      throw new BadRequestException('AI klinik xulosa topilmadi. Avval tahlil tugashini kuting.');
     }
-
-    const foreignConfirmations = consultation.aiAnalysisSteps.filter(
-      (s) =>
-        s.status === 'DONE' &&
-        s.step !== 'DATA_COLLECTION' &&
-        s.doctorConfirmed &&
-        s.confirmedById &&
-        s.confirmedById !== doctorId,
-    );
-    if (foreignConfirmations.length > 0) {
-      throw new BadRequestException('Boshqa shifokor tasdiqlagan AI bosqichlari mavjud — qayta tasdiqlang');
-    }
+    // Tashxis manbasi: shifokor qo'lda kiritganmi yoki AI'dan olinganmi.
+    const diagnosisSource = dto.diagnosis?.trim() ? 'manual' : 'ai';
 
     const result = await this.prisma.$transaction(async (tx) => {
       await tx.finalDiagnosis.create({
-        data: { consultationId: id, mtDoctorId: doctorId, ...dto },
+        data: { consultationId: id, mtDoctorId: doctorId, ...resolved },
       });
 
       await tx.auditLog.create({
@@ -476,7 +472,7 @@ export class ConsultationsService {
           action: 'COMPLETE_CONSULTATION',
           entity: 'Consultation',
           entityId: id,
-          details: { diagnosis: dto.diagnosis, icd10Code: dto.icd10Code },
+          details: { diagnosis: resolved.diagnosis, icd10Code: resolved.icd10Code, source: diagnosisSource },
         },
       });
 
@@ -821,5 +817,55 @@ export class ConsultationsService {
     });
 
     return header + lines.join('\n');
+  }
+
+  private resolveFinalDiagnosis(
+    dto: FinalDiagnosisDto,
+    aiAnalysis: AiAnalysisForCompletion | null,
+  ): { diagnosis: string; icd10Code: string; recommendations: string; prescription?: string; notes?: string } | null {
+    const fromAi = aiAnalysis ? this.buildFinalDiagnosisFromAi(aiAnalysis) : null;
+    const diagnosis = dto.diagnosis?.trim() || fromAi?.diagnosis;
+    const icd10Code = dto.icd10Code?.trim() || fromAi?.icd10Code;
+    const recommendations = dto.recommendations?.trim() || fromAi?.recommendations;
+    if (!diagnosis || !icd10Code || !recommendations) return null;
+    return {
+      diagnosis,
+      icd10Code,
+      recommendations,
+      prescription: dto.prescription,
+      notes: dto.notes,
+    };
+  }
+
+  private buildFinalDiagnosisFromAi(aiAnalysis: AiAnalysisForCompletion) {
+    const raw = (aiAnalysis.rawResponse as Record<string, unknown> | null) ?? {};
+    const cc = (raw.clinicalConclusion as Record<string, unknown> | undefined) ?? {};
+    const consensus = Array.isArray(cc.consensusDiagnoses)
+      ? (cc.consensusDiagnoses as Array<{ name?: string; icd10Code?: string }>)
+      : [];
+    const legacyDx = Array.isArray(aiAnalysis.diagnoses)
+      ? (aiAnalysis.diagnoses as Array<{ name?: string; icd10Code?: string }>)
+      : [];
+    const primary = consensus[0] ?? legacyDx[0];
+    const treatmentSteps = Array.isArray(cc.treatmentSteps)
+      ? (cc.treatmentSteps as string[])
+      : Array.isArray(aiAnalysis.recommendations)
+        ? (aiAnalysis.recommendations as string[])
+        : [];
+    const recommendations = treatmentSteps.length
+      ? treatmentSteps.map((s, i) => `${i + 1}. ${String(s).replace(/^\d+\.\s*/, '')}`).join('\n')
+      : aiAnalysis.summary;
+    const diagnosis = primary?.name?.trim();
+    // Haqiqiy tashxis NOMI bo'lmasa — soxta "Klinik xulosa" yozmaymiz, null qaytaramiz,
+    // shunda resolveFinalDiagnosis dagi guard ishga tushadi.
+    if (!diagnosis) return null;
+    // Nom bor, lekin AI ICD-10 kodini tushirib qoldirsa — "R69" (aniqlanmagan) ishlatamiz,
+    // shunda avto-yakunlash bloklanmaydi (nomga asosan yakunlanadi).
+    const icd10Code = primary?.icd10Code?.trim() || 'R69';
+    return {
+      diagnosis,
+      icd10Code,
+      recommendations,
+    };
   }
 }
