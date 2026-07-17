@@ -48,18 +48,71 @@ export interface AiAnalysisPdfInput {
   vitalSigns?: Record<string, number>;
 }
 
+const CONTENT_WIDTH = 495;
+const VIOLET = '#4f46e5';
+const SLATE_900 = '#0f172a';
+const SLATE_500 = '#64748b';
+const SLATE_200 = '#e2e8f0';
+
 function ensureSpace(doc: InstanceType<typeof PDFDocument>, needed = 60) {
   if (doc.y + needed > doc.page.height - doc.page.margins.bottom) {
     doc.addPage();
   }
 }
 
+/** pdfkit'ning ichki kursor x-holatini chap margin'ga qaytaradi — explicit x/y bilan
+ * chizilgan matnlardan (jadval, badge, ikki ustunli sarlavha) keyin keyingi oddiy
+ * doc.text(str) chaqiruvlari sahifa o'rtasidan boshlanib qolmasligi uchun shart. */
+function resetCursorX(doc: InstanceType<typeof PDFDocument>) {
+  doc.x = doc.page.margins.left;
+}
+
 function sectionTitle(doc: InstanceType<typeof PDFDocument>, title: string) {
-  ensureSpace(doc, 40);
+  ensureSpace(doc, 44);
+  doc.moveDown(0.5);
+  resetCursorX(doc);
+  const left = doc.page.margins.left;
+  doc.fontSize(11).fillColor(VIOLET).font('Helvetica-Bold').text(title.toUpperCase(), left, doc.y, { width: CONTENT_WIDTH });
+  const lineY = doc.y + 2;
+  doc.moveTo(left, lineY).lineTo(left + CONTENT_WIDTH, lineY).lineWidth(0.75).strokeColor(VIOLET).stroke();
+  doc.y = lineY;
   doc.moveDown(0.4);
-  doc.fontSize(12).fillColor('#4f46e5').text(title, { underline: true });
-  doc.moveDown(0.25);
-  doc.fontSize(10).fillColor('#0f172a');
+  resetCursorX(doc);
+  doc.font('Helvetica').fontSize(10).fillColor(SLATE_900);
+}
+
+/** "Label:: Value" jadval qatorlari — referens hujjatdagi kabi ikki ustunli, chiziqcha bilan. */
+function labelValueTable(doc: InstanceType<typeof PDFDocument>, rows: Array<[string, string]>) {
+  const left = doc.page.margins.left;
+  const labelWidth = 130;
+  const valueWidth = CONTENT_WIDTH - labelWidth;
+  for (const [label, value] of rows) {
+    if (!value) continue;
+    const valueHeight = doc.font('Helvetica').fontSize(9.5).heightOfString(value, { width: valueWidth });
+    const rowHeight = Math.max(valueHeight, 14) + 8;
+    ensureSpace(doc, rowHeight + 4);
+    const y = doc.y;
+    doc.font('Helvetica-Bold').fontSize(9.5).fillColor(SLATE_500).text(label, left, y, { width: labelWidth });
+    doc.font('Helvetica').fontSize(9.5).fillColor(SLATE_900).text(value, left + labelWidth, y, { width: valueWidth });
+    const bottomY = Math.max(doc.y, y + 14) + 4;
+    doc.moveTo(left, bottomY).lineTo(left + CONTENT_WIDTH, bottomY).lineWidth(0.5).strokeColor(SLATE_200).stroke();
+    doc.y = bottomY + 6;
+  }
+  resetCursorX(doc);
+}
+
+/** O'ng tomonga tekislangan foiz-badge (tashxis ishonch darajasi uchun). */
+function confidenceBadge(doc: InstanceType<typeof PDFDocument>, confidence: number, y: number) {
+  const label = `${confidence}%`;
+  const w = doc.font('Helvetica-Bold').fontSize(9).widthOfString(label) + 14;
+  const x = doc.page.margins.left + CONTENT_WIDTH - w;
+  const color = confidence >= 70 ? '#16a34a' : confidence >= 40 ? '#d97706' : '#64748b';
+  const cursorY = doc.y;
+  doc.roundedRect(x, y - 2, w, 16, 8).fillColor(color).fill();
+  doc.fillColor('#ffffff').fontSize(9).text(label, x, y + 1, { width: w, align: 'center', lineBreak: false });
+  doc.y = cursorY;
+  resetCursorX(doc);
+  doc.fillColor(SLATE_900).fontSize(10).font('Helvetica');
 }
 
 function bodyText(doc: InstanceType<typeof PDFDocument>, text: string) {
@@ -92,22 +145,28 @@ function addPageFooters(doc: InstanceType<typeof PDFDocument>) {
   const range = doc.bufferedPageRange();
   for (let i = range.start; i < range.start + range.count; i++) {
     doc.switchToPage(i);
-    const bottom = doc.page.height - doc.page.margins.bottom + 10;
+    const originalBottomMargin = doc.page.margins.bottom;
+    // Footer margin zonasida (sahifa pastki chetiga yaqin) yoziladi — buni pdfkit
+    // "sig'may qoldi" deb hisoblab, o'zi yangi (bo'sh) sahifa ochib yubormasligi uchun
+    // pastki margin vaqtincha 0 ga tushiriladi, keyin qaytariladi.
+    doc.page.margins.bottom = 0;
+    const bottom = doc.page.height - originalBottomMargin + 10;
     doc.fontSize(7).fillColor('#64748b');
     doc.text(
       `${BRAND.name} | ${BRAND.domain} | Raqamli tizim yordamida shakllantirilgan. Faqat ma'lumot uchun.`,
       doc.page.margins.left,
       bottom,
-      { width: 495, align: 'center', lineBreak: false },
+      { width: CONTENT_WIDTH, align: 'center', lineBreak: false },
     );
     doc.text(
       `Sahifa ${i - range.start + 1}/${range.count}`,
       doc.page.margins.left,
       bottom + 10,
-      { width: 495, align: 'center', lineBreak: false },
+      { width: CONTENT_WIDTH, align: 'center', lineBreak: false },
     );
+    doc.page.margins.bottom = originalBottomMargin;
   }
-  doc.fillColor('#0f172a');
+  doc.fillColor(SLATE_900);
 }
 
 export function buildAiAnalysisPdfBuffer(data: AiAnalysisPdfInput): Promise<Buffer> {
@@ -123,54 +182,68 @@ export function buildAiAnalysisPdfBuffer(data: AiAnalysisPdfInput): Promise<Buff
     const alternatives = (cc?.alternativeDiagnoses as unknown[]) ?? [];
     const generatedAt = new Date().toLocaleDateString('uz-UZ');
 
-    doc.fontSize(15).fillColor('#4f46e5').text('KONSILIUM: Yakuniy Klinik Xulosa', { align: 'center' });
-    doc.fontSize(9).fillColor('#64748b').text(
+    // Sarlavha — chapda nom/tavsif, o'ngda sana (referens hujjatdagi ikki ustunli joylashuv)
+    const headerTop = doc.y;
+    doc.font('Helvetica-Bold').fontSize(16).fillColor(VIOLET).text('KONSILIUM: Yakuniy Klinik Xulosa', doc.page.margins.left, headerTop, { width: 360 });
+    doc.font('Helvetica').fontSize(8.5).fillColor(SLATE_500).text(
       'Rasmiy tibbiy maslahat hujjati — doktor tavsiyasi sifatida. Faqat ma\'lumot uchun.',
-      { align: 'center' },
+      doc.page.margins.left,
+      doc.y + 2,
+      { width: 360 },
     );
-    doc.text(`Sana: ${generatedAt}`, { align: 'center' });
-    doc.moveDown(0.6);
+    doc.font('Helvetica').fontSize(9).fillColor(SLATE_500).text(`Sana: ${generatedAt}`, doc.page.margins.left + 370, headerTop, { width: 125, align: 'right' });
+    doc.y = Math.max(doc.y, headerTop + 40);
+    doc.moveDown(0.3);
+    doc.moveTo(doc.page.margins.left, doc.y).lineTo(doc.page.margins.left + CONTENT_WIDTH, doc.y).lineWidth(1.5).strokeColor(VIOLET).stroke();
+    doc.moveDown(0.5);
 
-    sectionTitle(doc, 'BEMOR MA\'LUMOTLARI');
-    doc.fontSize(10).fillColor('#0f172a');
-    doc.text(`Bemor: ${data.patientName}`);
-    if (data.patientAge != null) doc.text(`Yoshi: ${data.patientAge} yosh`);
-    doc.text(`Jinsi: ${genderLabel(data.gender)}`);
-    doc.moveDown(0.2);
-    doc.fontSize(10).fillColor('#334155').text('Ob\'ektiv:', { underline: true });
-    doc.fillColor('#0f172a');
-    if (data.weight != null) doc.text(`Tana vazni: ${data.weight} kg`);
-    if (data.height != null) doc.text(`Bo'y: ${data.height} cm`);
-    if (data.bmi != null) doc.text(`Tana massasi indeksi (TMI): ${data.bmi.toFixed(1)}`);
+    sectionTitle(doc, 'Bemor ma\'lumotlari');
     const vs = data.vitalSigns ?? {};
-    if (vs.bloodPressureSystolic && vs.bloodPressureDiastolic) {
-      doc.text(`Arterial bosim: ${vs.bloodPressureSystolic}/${vs.bloodPressureDiastolic} mmHg`);
-    }
-    doc.text(`Yurak urishi (Puls): ${fmtVital(vs.heartRate, 'bpm')}`);
-    doc.text(`Tana harorati: ${fmtVital(vs.temperature, '°C')}`);
-    doc.text(`Saturatsiya (SpO2): ${fmtVital(vs.spo2, '%')}`);
-    doc.text(`Nafas soni: ${fmtVital(vs.respiratoryRate, '/min')}`);
-    doc.moveDown(0.2);
-    if (data.complaints) doc.text(`Shikoyat: ${data.complaints}`);
-    if (data.labResults) doc.text(`Laboratoriya: ${data.labResults}`);
-    else doc.text('Laboratoriya: Laboratoriya va diagnostika natijalari fayl sifatida yuklandi.');
-    if (data.anamnesisMorbi) doc.text(`Kasallik tarixi: ${data.anamnesisMorbi}`);
-    if (data.medications) doc.text(`Dorilar: ${data.medications}`);
-    doc.text(`UT: ${data.facilityName} (${data.facilityCode})`);
-    if (data.doctorName) doc.text(`Shifokor: ${data.doctorName}`);
-    doc.moveDown(0.4);
+    const objective = [
+      data.weight != null ? `Tana vazni: ${data.weight} kg` : null,
+      data.height != null ? `Bo'y: ${data.height} sm` : null,
+      data.bmi != null ? `Tana massasi indeksi (TMI): ${data.bmi.toFixed(1)}` : null,
+      vs.bloodPressureSystolic && vs.bloodPressureDiastolic ? `Arterial bosim: ${vs.bloodPressureSystolic}/${vs.bloodPressureDiastolic} mmHg` : null,
+      `Yurak urishi (Puls): ${fmtVital(vs.heartRate, 'bpm')}`,
+      `Tana harorati: ${fmtVital(vs.temperature, '°C')}`,
+      `Saturatsiya (SpO2): ${fmtVital(vs.spo2, '%')}`,
+      `Nafas soni: ${fmtVital(vs.respiratoryRate, '/min')}`,
+    ].filter((x): x is string => !!x).join('\n');
 
-    sectionTitle(doc, 'Konsilium Konsensusi');
+    labelValueTable(doc, [
+      ['Bemor:', data.patientName],
+      ['Yoshi:', data.patientAge != null ? `${data.patientAge} yosh` : ''],
+      ['Jinsi:', genderLabel(data.gender)],
+      ['Ob\'ektiv:', objective],
+      ['Shikoyat:', data.complaints ?? ''],
+      ['Laboratoriya:', data.labResults ?? 'Laboratoriya va diagnostika natijalari fayl sifatida yuklandi.'],
+      ['Kasallik tarixi:', data.anamnesisMorbi ?? ''],
+      ['Dorilar:', data.medications ?? ''],
+      ['UT muassasa:', `${data.facilityName} (${data.facilityCode})`],
+      ['Shifokor:', data.doctorName ?? ''],
+    ]);
+    doc.moveDown(0.3);
+
+    ensureSpace(doc, 30);
+    doc.moveDown(0.4);
+    doc.font('Helvetica-Bold').fontSize(13).fillColor(SLATE_900).text('Konsilium Konsensusi');
+    doc.font('Helvetica').fontSize(10);
     if (consensus.length > 0) {
       sectionTitle(doc, 'Tashxislar');
       consensus.forEach((item, i) => {
         const row = asRecord(item);
         if (!row) return;
         ensureSpace(doc, 50);
-        const conf = row.confidence != null ? ` ${String(row.confidence)}%` : '';
+        const rowTop = doc.y;
+        const hasConfBadge = typeof row.confidence === 'number';
+        if (hasConfBadge) {
+          confidenceBadge(doc, row.confidence as number, rowTop);
+        }
         const grade = typeof row.protocolReference === 'string' ? ` · ${row.protocolReference}` : '';
-        doc.fontSize(11).fillColor('#0f172a').text(`${i + 1}. ${String(row.name ?? '')}${conf}${grade}`);
+        const left = doc.page.margins.left;
+        doc.fontSize(11).fillColor('#0f172a').text(`${i + 1}. ${String(row.name ?? '')}${grade}`, left, rowTop, { width: hasConfBadge ? CONTENT_WIDTH - 55 : CONTENT_WIDTH });
         doc.fontSize(10);
+        resetCursorX(doc);
         if (row.icd10Code) doc.text(`MKB-10: ${String(row.icd10Code)}`);
         if (typeof row.justification === 'string') {
           doc.moveDown(0.1);
