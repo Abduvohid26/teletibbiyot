@@ -108,8 +108,9 @@ export function useDoctorDashboard() {
     () => snapshot?.inProgressList ?? [],
     [snapshot?.inProgressList],
   );
-  const documentsConsultationId =
-    selectedConsultationId ?? consultation?.id ?? queuedPatients[0]?.id;
+  // Navbatdagi birinchi bemorni avtomatik tanlab olmaymiz — shifokor konsultatsiyani
+  // tanlamaguncha/boshlamaguncha hujjatlar panelida hech narsa ko'rinmasligi kerak.
+  const documentsConsultationId = selectedConsultationId ?? consultation?.id;
 
   const realtimeIds = useMemo(
     () => collectRealtimeConsultationIds(consultation, queue),
