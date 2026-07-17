@@ -86,6 +86,7 @@ services:
 
   turn:
     <<: *env
+    profiles: [app]
     image: coturn/coturn:latest
     container_name: ishifo-turn
     command:

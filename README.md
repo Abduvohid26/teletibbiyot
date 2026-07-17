@@ -170,7 +170,8 @@ Ishga tushadi:
 | PostgreSQL | `ishifo-db` | 5433 (`POSTGRES_PUBLISH`) |
 | Redis | `ishifo-redis` | 6379 |
 | MinIO | `ishifo-minio` | 9000 (API), 9001 (console) |
-| TURN | `ishifo-turn` | 3499 |
+| TURN (app) | `ishifo-turn` | 3499 |
+| TURN (prod) | `ishifo-coturn` | 3499 |
 
 > Port 5432 band bo'lsa, `.env` da `POSTGRES_PUBLISH=5433` qiling va `DATABASE_URL` dagi portni moslashtiring.
 
@@ -238,9 +239,9 @@ Bitta `docker-compose.yml` fayl — **profiles** orqali turli rejimlar:
 
 | Profile | Buyruq | Nima ishga tushadi |
 |---------|--------|-------------------|
-| *(default)* | `docker compose up -d` | postgres, redis, minio, turn |
-| `app` | `docker compose --profile app up -d --build` | infra + migrate + seed + api + web |
-| `prod` | `docker compose --profile prod up -d --build` | infra + migrate + bootstrap + api + web + nginx + coturn |
+| *(default)* | `docker compose up -d` | postgres, redis, minio |
+| `app` | `docker compose --profile app up -d --build` | infra + **turn** + migrate + seed + api + web |
+| `prod` | `docker compose --profile prod up -d --build` | infra + migrate + bootstrap + api + web + nginx + **coturn** (turn yo'q) |
 | `monitoring` | `docker compose --profile monitoring up -d` | prometheus + grafana |
 | `ops` | `docker compose --profile ops up -d` | kunlik postgres backup |
 
