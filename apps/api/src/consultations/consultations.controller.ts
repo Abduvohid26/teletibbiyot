@@ -101,15 +101,20 @@ export class ConsultationsController {
     return this.consultationsService.findOne(id, req.user);
   }
 
+  // DIQQAT: start/complete faqat MT_DOCTOR uchun. Bu ikkala amal ham chaqiruvchini
+  // DAVOLOVCHI SHIFOKOR sifatida yozadi (start → mtDoctorId, complete → finalDiagnosis
+  // imzosi). Admin bunga kira olsa: (1) tibbiy jihatdan noto'g'ri — admin klinisist emas;
+  // (2) admin konsultatsiyalarni umuman ko'ra olmaydi (consultationFilter → ACCESS_DENIED),
+  // shuning uchun admin boshlagan konsultatsiya HECH KIMGA ko'rinmay, abadiy qotib qoladi.
   @Post(':id/start')
-  @Roles(...ROLES_MT_DOCTOR, ...ROLES_ADMIN)
+  @Roles(...ROLES_MT_DOCTOR)
   @ApiOperation({ summary: 'Konsultatsiyani boshlash' })
   start(@Param('id') id: string, @Request() req: { user: { id: string } }) {
     return this.consultationsService.start(id, req.user.id);
   }
 
   @Post(':id/complete')
-  @Roles(...ROLES_MT_DOCTOR, ...ROLES_ADMIN)
+  @Roles(...ROLES_MT_DOCTOR)
   @ApiOperation({ summary: 'Konsultatsiyani yakunlash (AI Konsilium PDF)' })
   complete(
     @Param('id') id: string,

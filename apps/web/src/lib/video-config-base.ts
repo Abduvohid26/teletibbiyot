@@ -10,19 +10,37 @@ function normalizeHttpBase(url: string): string {
     .replace(/\/$/, '');
 }
 
-function isInternalOrLocalhostUrl(url: string): boolean {
+function hostnameOf(url: string): string | null {
   try {
-    const host = new URL(normalizeHttpBase(url)).hostname;
-    return host === 'localhost' || host === '127.0.0.1' || host === 'api' || host === 'web';
+    return new URL(normalizeHttpBase(url)).hostname;
   } catch {
-    return false;
+    return null;
   }
+}
+
+function isLocalhostHostname(host: string): boolean {
+  return host === 'localhost' || host === '127.0.0.1';
+}
+
+/** Docker ichki hostnamelari — brauzer ularni hech qachon hal qila olmaydi. */
+function isDockerInternalHost(host: string): boolean {
+  return host === 'api' || host === 'web';
 }
 
 function resolveWsBaseUrl(): string {
   if (typeof window !== 'undefined') {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-    if (apiUrl && !isInternalOrLocalhostUrl(apiUrl)) return normalizeHttpBase(apiUrl);
+    const host = apiUrl ? hostnameOf(apiUrl) : null;
+
+    if (apiUrl && host && !isDockerInternalHost(host)) {
+      // localhost/127.0.0.1 — faqat sahifaning O'ZI ham localhost'da bo'lsa ishlatamiz
+      // (lokal dev): u holda brauzer API ga to'g'ridan-to'g'ri ulanadi. Prod'da (ishifo.uz)
+      // "localhost" foydalanuvchining o'z mashinasini bildiradi — u yerda same-origin
+      // (nginx /socket.io proxy) ishlatiladi.
+      if (!isLocalhostHostname(host) || isLocalhostHostname(window.location.hostname)) {
+        return normalizeHttpBase(apiUrl);
+      }
+    }
     return window.location.origin;
   }
 

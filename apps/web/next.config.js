@@ -10,6 +10,10 @@ const nextConfig = {
   transpilePackages: ['@ishifo/shared'],
   output: 'standalone',
   outputFileTracingRoot: path.join(__dirname, '../../'),
+  // Socket.IO "/socket.io/?EIO=4..." ni oxirgi "/" bilan so'raydi. Next.js sukut bo'yicha
+  // uni "/socket.io?EIO=4..." ga 308 bilan yo'naltiradi — socket.io klienti bu redirectni
+  // kuzatmaydi va ulanish uziladi (pastdagi /socket.io rewrite umuman ishlamaydi).
+  skipTrailingSlashRedirect: true,
   env: {
     NEXT_PUBLIC_E2E: process.env.E2E === 'true' ? 'true' : '',
   },

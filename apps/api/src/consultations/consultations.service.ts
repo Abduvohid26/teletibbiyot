@@ -345,6 +345,18 @@ export class ConsultationsService {
   }
 
   async start(id: string, doctorId: string) {
+    // Himoya: mtDoctorId sifatida faqat FAOL MT shifokor yozilishi mumkin. Aks holda
+    // (masalan admin) konsultatsiya hech kimga ko'rinmay qotib qoladi — admin
+    // konsultatsiyalarni ko'ra olmaydi, boshqa shifokorlar esa "boshqaga biriktirilgan"
+    // deb hisoblaydi.
+    const startingDoctor = await this.prisma.user.findFirst({
+      where: { id: doctorId, role: UserRole.MT_DOCTOR, isActive: true },
+      select: { id: true },
+    });
+    if (!startingDoctor) {
+      throw new ForbiddenException('Konsultatsiyani faqat faol MT shifokor boshlashi mumkin');
+    }
+
     const existing = await this.prisma.consultation.findUnique({
       where: { id },
       include: { patient: true, utFacility: true, mtDoctor: true },
