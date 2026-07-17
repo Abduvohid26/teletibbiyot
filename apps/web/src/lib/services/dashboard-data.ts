@@ -18,10 +18,12 @@ export async function loadDashboardSnapshot(params: {
   const { isDoctor, observedId, activeConsultationId } = params;
 
   const [active, queue, stats, inProgress, notifications] = await Promise.all([
-    isDoctor ? api.getActiveConsultation(activeConsultationId || undefined) : Promise.resolve(null),
-    api.getQueue(),
-    api.getStats(),
-    api.getInProgressConsultations(),
+    isDoctor
+      ? safeAsync('active-consultation', () => api.getActiveConsultation(activeConsultationId || undefined), null)
+      : Promise.resolve(null),
+    safeAsync('queue', () => api.getQueue(), []),
+    safeAsync('stats', () => api.getStats(), null),
+    safeAsync('in-progress', () => api.getInProgressConsultations(), []),
     isDoctor ? safeAsync('notifications', () => api.getNotifications(true), []) : Promise.resolve([]),
   ]);
 

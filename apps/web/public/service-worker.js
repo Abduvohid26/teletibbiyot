@@ -1,5 +1,5 @@
 /* iShifo — offline kesh va sinxronizatsiya */
-const CACHE = 'ishifo-static-v1';
+const CACHE = 'ishifo-static-v2';
 const PRECACHE = ['/'];
 
 self.addEventListener('install', (event) => {
@@ -20,6 +20,8 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
+  // API va WebSocket — service worker orqali emas (auth cookie, jonli ma'lumot)
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/socket.io/')) return;
 
   event.respondWith(
     caches.match(event.request).then((cached) => {

@@ -10,11 +10,24 @@ function normalizeHttpBase(url: string): string {
     .replace(/\/$/, '');
 }
 
+function isInternalOrLocalhostUrl(url: string): boolean {
+  try {
+    const host = new URL(normalizeHttpBase(url)).hostname;
+    return host === 'localhost' || host === '127.0.0.1' || host === 'api' || host === 'web';
+  } catch {
+    return false;
+  }
+}
+
 function resolveWsBaseUrl(): string {
+  if (typeof window !== 'undefined') {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    if (apiUrl && !isInternalOrLocalhostUrl(apiUrl)) return normalizeHttpBase(apiUrl);
+    return window.location.origin;
+  }
+
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
   if (apiUrl) return normalizeHttpBase(apiUrl);
-
-  if (typeof window !== 'undefined') return window.location.origin;
 
   const wsUrl = process.env.NEXT_PUBLIC_WS_URL;
   if (wsUrl) return normalizeHttpBase(wsUrl);

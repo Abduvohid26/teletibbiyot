@@ -119,7 +119,11 @@ export class HttpClient {
         throw new Error('Server javob bermadi. Internet yoki API holatini tekshiring.');
       }
       if (err instanceof TypeError) {
-        throw new Error('API ga ulanib bo\'lmadi. Docker/API ishlayotganini tekshiring (localhost:3001).');
+        const hint =
+          typeof window !== 'undefined'
+            ? 'Internet yoki server (ishifo.uz/api) ishlamayapti — sahifani yangilang yoki qayta kiring.'
+            : 'API ga ulanib bo\'lmadi. Docker/API ishlayotganini tekshiring (localhost:3001).';
+        throw new Error(hint);
       }
       throw err;
     } finally {
