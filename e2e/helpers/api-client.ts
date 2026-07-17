@@ -34,7 +34,9 @@ export class ApiTestClient {
   async get<T>(path: string): Promise<T> {
     const res = await fetch(`${this.baseUrl}${path}`, { headers: this.headers() });
     if (!res.ok) throw new Error(`GET ${path}: ${res.status}`);
-    return res.json() as Promise<T>;
+    const text = await res.text();
+    if (!text.trim()) return null as T;
+    return JSON.parse(text) as T;
   }
 
   async post<T>(path: string, body?: unknown): Promise<T> {

@@ -1,67 +1,15 @@
 import { test, expect } from '@playwright/test';
-import { io, type Socket } from 'socket.io-client';
 import {
   ApiTestClient,
-  API_BASE,
   buildTestConsultation,
   buildTestPatient,
 } from './helpers/api-client';
-
-const PASSWORD = process.env.SEED_PASSWORD || 'password123';
-const SOCKET_PATH = process.env.NEXT_PUBLIC_SOCKET_IO_PATH || '/socket.io';
-
-function connectVideoSocket(token: string): Promise<Socket> {
-  return new Promise((resolve, reject) => {
-    const socket = io(`${API_BASE}/video`, {
-      path: SOCKET_PATH,
-      transports: ['websocket'],
-      auth: { token },
-      reconnection: false,
-      timeout: 12000,
-    });
-
-    const timer = setTimeout(() => {
-      socket.disconnect();
-      reject(new Error('Video socket auth timeout'));
-    }, 15000);
-
-    socket.on('ws-authenticated', () => {
-      clearTimeout(timer);
-      resolve(socket);
-    });
-
-    socket.on('connect_error', (err) => {
-      clearTimeout(timer);
-      reject(err);
-    });
-
-    socket.on('ws-error', (payload: { message?: string }) => {
-      clearTimeout(timer);
-      reject(new Error(payload.message || 'WebSocket auth rejected'));
-    });
-  });
-}
-
-function joinRoom(socket: Socket, roomId: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('join-room timeout')), 10000);
-    socket.emit('join-room', { roomId }, (ack: { success?: boolean; error?: string }) => {
-      clearTimeout(timer);
-      if (ack?.success) resolve();
-      else reject(new Error(ack?.error || 'join-room failed'));
-    });
-  });
-}
-
-function waitForEvent<T>(socket: Socket, event: string, timeoutMs = 8000): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`Timeout waiting for ${event}`)), timeoutMs);
-    socket.once(event, (payload: T) => {
-      clearTimeout(timer);
-      resolve(payload);
-    });
-  });
-}
+import {
+  connectVideoSocket,
+  joinRoom,
+  waitForEvent,
+} from './helpers/video-socket';
+import { PASSWORD } from './helpers/video-setup';
 
 test.describe('Video reconnect signaling', () => {
   test('UT media-resumed → doctor receives offer-requested', async () => {
@@ -75,7 +23,6 @@ test.describe('Video reconnect signaling', () => {
 
     const patient = await ut.createPatient(buildTestPatient());
     const consultation = await ut.createConsultation(buildTestConsultation(patient.id));
-    // Video xonasiga QUEUED holatda ham qo'shilish mumkin
     expect(consultation.status).toBe('QUEUED');
 
     const utSocket = await connectVideoSocket(utLogin.accessToken!);
@@ -107,7 +54,6 @@ test.describe('Video reconnect signaling', () => {
 
     const patient = await ut.createPatient(buildTestPatient());
     const consultation = await ut.createConsultation(buildTestConsultation(patient.id));
-    // Video xonasiga QUEUED holatda ham qo'shilish mumkin
     expect(consultation.status).toBe('QUEUED');
 
     const utSocket = await connectVideoSocket(utLogin.accessToken!);
