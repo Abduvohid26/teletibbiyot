@@ -704,7 +704,11 @@ export function useVideoRoom({
 
     const onParticipantJoined = (participant: RoomParticipant) => {
       knownParticipantsRef.current.add(participant.socketId);
-      if (isOfferer) void makeOffer(participant.socketId);
+      // Bitta urinish emas — scheduleOfferToPeer (900ms/2500ms/5000ms qayta urinishlar bilan)
+      // ishlatiladi, xuddi onParticipantRejoined/onPeerMediaResumed kabi. Bemor butunlay
+      // chiqib (yangi socket bilan) qayta kirganda ham shifokor tomon bir martalik
+      // muvaffaqiyatsiz urinishdan keyin butunlay "osilib qolmasligi" uchun zarur.
+      if (isOfferer) scheduleOfferToPeer(participant.socketId);
     };
 
     const onOffer = (data: { socketId: string; offer: RTCSessionDescriptionInit }) => {
