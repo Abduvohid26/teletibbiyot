@@ -155,44 +155,42 @@ export function DoctorDashboardView({
                 compact
               />
             </div>
-            <div className="doctor-side-col">
-              <div className="doctor-docs-col glass-panel overflow-hidden flex flex-col min-h-0">
-                <div className="shrink-0 glass-header py-1 px-2 flex items-center justify-between gap-1">
-                  <span className="text-[10px] font-semibold text-slate-700 uppercase tracking-wide truncate">
-                    Hujjatlar
-                  </span>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    {documentsConsultationId && (
-                      <a
-                        href={`/dashboard/dicom?consultationId=${documentsConsultationId}`}
-                        className="text-[9px] font-semibold text-teal-700 hover:underline"
-                      >
-                        DICOM
-                      </a>
-                    )}
-                    {attachmentCount > 0 && (
-                      <span className="text-[9px] font-bold bg-brand-600 text-white px-1.5 py-0.5 rounded-full">
-                        {attachmentCount}
-                      </span>
-                    )}
-                  </div>
+            <div className="doctor-docs-col glass-panel overflow-hidden flex flex-col min-h-0">
+              <div className="shrink-0 glass-header py-1 px-2 flex items-center justify-between gap-1">
+                <span className="text-[10px] font-semibold text-slate-700 uppercase tracking-wide truncate">
+                  Hujjatlar
+                </span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {documentsConsultationId && (
+                    <a
+                      href={`/dashboard/dicom?consultationId=${documentsConsultationId}`}
+                      className="text-[9px] font-semibold text-teal-700 hover:underline"
+                    >
+                      DICOM
+                    </a>
+                  )}
+                  {attachmentCount > 0 && (
+                    <span className="text-[9px] font-bold bg-brand-600 text-white px-1.5 py-0.5 rounded-full">
+                      {attachmentCount}
+                    </span>
+                  )}
                 </div>
-                <PatientDocumentsPanel
-                  consultationId={documentsConsultationId}
-                  patient={activeConsultation?.patient ?? consultation?.patient}
-                  clinicalRecord={activeConsultation?.clinicalRecord ?? consultation?.clinicalRecord}
-                  allowUpload={false}
-                  compact
-                  className="flex-1 min-h-0 px-1.5 pb-1 overflow-hidden"
-                />
               </div>
-              <div className="doctor-ai-col">
-                <AiAnalysisPanel
-                  analysis={activeConsultation?.aiAnalysis ?? consultation?.aiAnalysis}
-                  consultationId={activeConsultationId}
-                  onRefresh={passiveRefresh}
-                />
-              </div>
+              <PatientDocumentsPanel
+                consultationId={documentsConsultationId}
+                patient={activeConsultation?.patient ?? consultation?.patient}
+                clinicalRecord={activeConsultation?.clinicalRecord ?? consultation?.clinicalRecord}
+                allowUpload={false}
+                compact
+                className="flex-1 min-h-0 px-1.5 pb-1 overflow-hidden"
+              />
+            </div>
+            <div className="doctor-ai-col">
+              <AiAnalysisPanel
+                analysis={activeConsultation?.aiAnalysis ?? consultation?.aiAnalysis}
+                consultationId={activeConsultationId}
+                onRefresh={passiveRefresh}
+              />
             </div>
           </div>
         )}

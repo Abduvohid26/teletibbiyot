@@ -30,6 +30,13 @@ export function ClinicalConclusionReport({ analysis, compact, expanded }: Clinic
   const triage = formatTriage(analysis.triageLevel);
   const primary = cc.consensusDiagnoses?.[0];
   const dense = compact && !expanded;
+  const diet = cc.dietByDiagnosis;
+  const hasDietByDiagnosis = !!diet && (
+    !!diet.diagnosis
+    || (diet.allowed?.length ?? 0) > 0
+    || (diet.restricted?.length ?? 0) > 0
+    || !!diet.notes
+  );
 
   return (
     <div className={cn('space-y-3', dense && 'space-y-2')}>
@@ -193,7 +200,7 @@ export function ClinicalConclusionReport({ analysis, compact, expanded }: Clinic
         </Section>
       )}
 
-      {((cc.additionalTests?.length ?? 0) > 0 || cc.followUp || cc.patientRouting) && (
+      {((cc.additionalTests?.length ?? 0) > 0 || cc.followUp || cc.patientRouting?.level) && (
         <Section title="Keyingi qadamlar rejasi" icon={Route} compact={dense}>
           {(cc.additionalTests?.length ?? 0) > 0 && (
             <div className="mb-2">
@@ -205,7 +212,7 @@ export function ClinicalConclusionReport({ analysis, compact, expanded }: Clinic
               </ul>
             </div>
           )}
-          {cc.patientRouting && (
+          {cc.patientRouting?.level && (
             <p className={cn('text-slate-700 mb-1', dense ? 'text-[10px]' : 'text-xs')}>
               <span className="font-semibold">Yo&apos;nalish:</span> {cc.patientRouting.level}
               {cc.patientRouting.description ? ` — ${cc.patientRouting.description}` : ''}
@@ -270,6 +277,7 @@ export function ClinicalConclusionReport({ analysis, compact, expanded }: Clinic
         </Section>
       )}
 
+      {((cc.dietGeneral?.length ?? 0) > 0 || (cc.preventionTips?.length ?? 0) > 0 || hasDietByDiagnosis) && (
         <Section title="To'g'ri ovqatlanish va kasalliklarni oldini olish (profilaktika)" icon={Utensils} compact={dense}>
           <p className={cn('text-slate-600 mb-2', dense ? 'text-xs' : 'text-sm')}>
             Tashxisga mos parhez va profilaktika choralari.
@@ -294,30 +302,31 @@ export function ClinicalConclusionReport({ analysis, compact, expanded }: Clinic
               </ul>
             </div>
           )}
-          {cc.dietByDiagnosis && (
+          {hasDietByDiagnosis && diet && (
             <div className={cn('rounded-lg bg-emerald-50/80 border border-emerald-100', dense ? 'p-2' : 'p-2.5')}>
               <p className="text-[10px] font-bold uppercase text-emerald-800 mb-1">Tashxis bo&apos;yicha individual parhez</p>
-              {cc.dietByDiagnosis.diagnosis && (
+              {diet.diagnosis && (
                 <p className={cn('font-semibold text-emerald-900 mb-1', dense ? 'text-xs' : 'text-sm')}>
-                  {cc.dietByDiagnosis.diagnosis}
+                  {diet.diagnosis}
                 </p>
               )}
-              {(cc.dietByDiagnosis.allowed?.length ?? 0) > 0 && (
+              {(diet.allowed?.length ?? 0) > 0 && (
                 <p className={cn('text-slate-700', dense ? 'text-xs' : 'text-sm')}>
-                  <span className="font-medium text-emerald-700">Ruxsat etilgan:</span> {cc.dietByDiagnosis.allowed!.join('; ')}
+                  <span className="font-medium text-emerald-700">Ruxsat etilgan:</span> {diet.allowed!.join('; ')}
                 </p>
               )}
-              {(cc.dietByDiagnosis.restricted?.length ?? 0) > 0 && (
+              {(diet.restricted?.length ?? 0) > 0 && (
                 <p className={cn('text-slate-700 mt-0.5', dense ? 'text-xs' : 'text-sm')}>
-                  <span className="font-medium text-red-600">Cheklangan:</span> {cc.dietByDiagnosis.restricted!.join('; ')}
+                  <span className="font-medium text-red-600">Cheklangan:</span> {diet.restricted!.join('; ')}
                 </p>
               )}
-              {cc.dietByDiagnosis.notes && (
-                <p className={cn('text-slate-600 mt-1 italic', dense ? 'text-xs' : 'text-sm')}>{cc.dietByDiagnosis.notes}</p>
+              {diet.notes && (
+                <p className={cn('text-slate-600 mt-1 italic', dense ? 'text-xs' : 'text-sm')}>{diet.notes}</p>
               )}
             </div>
           )}
         </Section>
+      )}
 
       {(cc.herbalMedicine?.length ?? 0) > 0 && (
         <Section title="Xalq tabobati va dorivor o'simliklar (qo'shimcha)" icon={Leaf} compact={dense}>

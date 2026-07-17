@@ -10,6 +10,8 @@ export interface JoinRoomResult {
   error?: string;
 
   participants?: number;
+
+  rooms?: string[];
 }
 
 export type SocketListener = (...args: unknown[]) => void;
@@ -46,6 +48,12 @@ let socketAuthenticated = false;
 let authTimer: ReturnType<typeof setTimeout> | null = null;
 
 const roomSubscriptions = new Map<string, RoomSubscription>();
+
+// Server join-staff-feed qaytargan haqiqiy xona nomlari (masalan
+// "staff-feed:ut:<facilityId>" yoki "staff-feed:mt:queue") — leave-room
+// paytida aynan shu nomlar bilan chiqish kerak, chunki "staff-feed" degan
+// literal nomdagi xona hech qachon qo'shilmagan.
+let joinedStaffFeedRooms: string[] = [];
 
 const activeRooms = new Set<string>();
 
@@ -218,6 +226,8 @@ function joinStaffFeed(socket: Socket) {
       if (ack?.success) {
         activeRooms.add(STAFF_FEED_ROOM);
 
+        joinedStaffFeedRooms = ack.rooms ?? [];
+
         notifyJoinResult(STAFF_FEED_ROOM, ack);
 
         return;
@@ -243,8 +253,12 @@ function leaveRoom(socket: Socket, consultationId: string) {
 
   if (consultationId === STAFF_FEED_ROOM) {
     if (socket.connected) {
-      socket.emit("leave-room", { roomId: "staff-feed" });
+      for (const roomId of joinedStaffFeedRooms) {
+        socket.emit("leave-room", { roomId });
+      }
     }
+
+    joinedStaffFeedRooms = [];
 
     return;
   }

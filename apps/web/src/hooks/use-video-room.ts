@@ -74,6 +74,7 @@ export function useVideoRoom({
   const hadMediaSessionRef = useRef(false);
   const remoteDoctorSocketRef = useRef<string | null>(null);
   const reconnectTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>[]>>(new Map());
+  const isReconnectingRef = useRef(false);
 
   const [videoPaused, setVideoPaused] = useState(false);
   const [connectNonce, setConnectNonce] = useState(0);
@@ -316,6 +317,10 @@ export function useVideoRoom({
         return;
       }
       if (makingOfferRef.current.get(remoteSocketId)) return;
+      // Ulanish allaqachon sog'lom bo'lsa (connected/connecting), qayta buzib qurmaymiz —
+      // aks holda ketma-ket qayta urinishlar (scheduleOfferToPeer) muzokarani "thrash" qiladi.
+      const existingState = pcsRef.current.get(remoteSocketId)?.connectionState;
+      if (existingState === 'connected' || existingState === 'connecting') return;
 
       makingOfferRef.current.set(remoteSocketId, true);
       try {
@@ -923,6 +928,8 @@ export function useVideoRoom({
   }, [cleanupMedia, consultationId, socketRef]);
 
   const reconnectCall = useCallback(async () => {
+    if (isReconnectingRef.current) return;
+    isReconnectingRef.current = true;
     preflightConfirmedRef.current =
       skipPreflight
       || !loadMediaPreferences().preflightEnabled
@@ -959,6 +966,8 @@ export function useVideoRoom({
     } catch {
       setupStartedRef.current = false;
       setError('Qayta ulashda xatolik — kameraga ruxsat bering');
+    } finally {
+      isReconnectingRef.current = false;
     }
   }, [emitReconnectSignals, setupLocalMedia, skipPreflight]);
 

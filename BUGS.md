@@ -4,7 +4,7 @@
 > kod-tekshiruv agenti topgan va qo'lda tasdiqlangan buglar, + sizning
 > qarorlaringiz asosida amalga oshirilgan qo'shimcha ishlar.
 >
-> **Holat:** ✅ 18 ta tuzatildi · 📋 2 ta keyinga qoldirildi (past ustuvorlik, kosmetik).
+> **Holat:** ✅ 21 ta tuzatildi · ⏸️ 1 ta ma'lumot kutmoqda (video, deployment holatiga bog'liq) · 📋 2 ta keyinga qoldirildi (past ustuvorlik, kosmetik).
 > Har bir tuzatishdan keyin `apps/api` va `apps/web` `tsc --noEmit` toza o'tdi.
 
 ---
@@ -190,4 +190,89 @@
 - **№11** — Fayl proksisi saqlandi (audit/xavfsizlik uchun), lekin streaming bilan
   optimallashtirildi (xotiraga to'liq yuklamaydi)
 
-Ikkala loyiha ham (`apps/api`, `apps/web`) `tsc --noEmit` toza o'tadi. Tayyor, bro! 🎉
+Ikkala loyiha ham (`apps/api`, `apps/web`) `tsc --noEmit` toza o'tadi.
+
+---
+
+## 🎥 UT-OPERATOR ↔ SHIFOKOR VIDEO-ULANISH TEKSHIRUVI (yangi)
+
+> UT operator (qishloqdagi bemor bilan) va MT shifokor (masofadagi mutaxassis)
+> o'rtasidagi video-konsultatsiya signalizatsiyasini (`video.gateway.ts`,
+> `use-video-room.ts`, `video-socket-client.ts`) tekshirib chiqdim.
+
+### [x] 22. Qayta-ulanish (reconnect) yugurish holati — kamera resurs sizib chiqishi ✅
+- **Fayl:** `apps/web/src/hooks/use-video-room.ts` (`reconnectCall`)
+- **Muammo:** `reconnectCall()` da qayta kirishni to'sadigan qopqoq yo'q edi.
+  Avtomatik trigger (`reconnectSignal`) va "Qayta ulash" tugmasi bir vaqtda
+  ishga tushsa, ikkala chaqiruv ham `getUserMedia` ni parallel so'raydi va
+  birinchisining oqimi to'xtatilmasdan qoladi (kamera "band" bo'lib qoladi).
+- **Tuzatildi:** `isReconnectingRef` bilan re-entrancy qopqog'i qo'shildi —
+  funksiya ishlab turganda qayta chaqiruvlar e'tiborsiz qoldiriladi.
+
+### [x] 23. Offer/answer muzokarasi "thrash" qilishi (beqaror aloqada hech qachon ulanmaydi) ✅
+- **Fayl:** `apps/web/src/hooks/use-video-room.ts` (`makeOffer`)
+- **Muammo:** Har safar `media-resumed`/`offer-requested`/`participant-rejoined`
+  hodisasi kelganda (beqaror internetda tez-tez sodir bo'ladi),
+  `scheduleOfferToPeer` → `makeOffer` peer-connection'ni **allaqachon sog'lom
+  (connected/connecting) bo'lsa ham** buzib, qaytadan quradi. Natijada
+  ulanish hech qachon "connected" holatiga barqaror kelmaydi — doim
+  "connecting" bilan "closed" orasida tebranadi.
+- **Tuzatildi:** `makeOffer` endi mavjud peer-connection holatini tekshiradi;
+  `connected`/`connecting` bo'lsa qayta boshlamaydi (mavjud `onconnectionstatechange`
+  dagi `failed` → `restartIce()` mexanizmiga ishonch bildiradi).
+
+### [x] 24. Staff-feed xonasidan chiqishda noto'g'ri xona nomi — obuna "sizib chiqishi" ✅
+- **Fayl:** `apps/web/src/lib/video-socket-client.ts` (`leaveRoom`, `joinStaffFeed`)
+- **Muammo:** Server `join-staff-feed` da haqiqiy xonalarga qo'shadi
+  (`staff-feed:ut:<facilityId>` yoki `staff-feed:mt:queue` +
+  `staff-feed:mt:doctor:<id>`), lekin client `leaveRoom` chaqirilganda literal
+  `"staff-feed"` nomli (hech qachon qo'shilmagan) xonadan chiqishga urinadi —
+  bu server tomonda no-op. Natijada foydalanuvchi sahifadan chiqib ketgandan
+  keyin ham navbat/konsultatsiya hodisalarini olishda davom etadi (boshqa
+  bemorlar/konsultatsiyalar ma'lumoti sizib chiqishi mumkin).
+- **Tuzatildi:** Server qaytargan haqiqiy xona nomlari (`ack.rooms`) endi
+  saqlanadi va `leaveRoom` aynan o'sha nomlar bilan chiqadi.
+
+### ⏸️ 25. Ko'p-instansiyali (Redis) deploymentda signalizatsiya butunlay ishlamasligi — QAROR/MA'LUMOT KERAK
+- **Fayl:** `apps/api/src/video/video.gateway.ts:66-69` (`private rooms = new Map(...)`),
+  `551-562` (`isInRoom`/`isTargetInRoom`), `205-221` (`handleJoinRoom`)
+- **Muammo:** Xona ishtirokchilari holati **faqat jarayon xotirasidagi**
+  (`this.rooms`) Map'da saqlanadi — bu Redis Socket.IO adapteri bilan
+  **sinxronlanmaydi**. `docker-compose.yml` production'da `REDIS_URL` ni
+  majburiy qilib qo'ygan (`main.ts:35-37` — ulanolmasa `process.exit(1)`),
+  bu ko'p-instansiyali (yoki rolling-restart paytida vaqtincha ikki
+  instansiyali) joylashtirish ko'zda tutilganini bildiradi.
+- **Nima buziladi:** Agar UT operator va shifokor turli API instansiyalariga
+  ulansa: (a) `isTargetInRoom` signal (offer/answer/ICE) ni "qabul qiluvchi
+  xonada emas" deb rad etadi; (b) shifokorning `room-participants` ro'yxati
+  bo'sh keladi, shuning uchun u (har doim "offerer" bo'lgani uchun)
+  `makeOffer` ni HECH QACHON chaqirmaydi. **Natija: video qo'ng'iroq umuman
+  boshlanmaydi**, lekin chat/vitals kabi keng-translyatsiya xususiyatlari
+  ishlayveradi (chunki ular to'g'ridan-to'g'ri Socket.IO'ning o'z
+  `server.to(roomId)` mexanizmidan foydalanadi, mahalliy Map'dan emas) —
+  shuning uchun bu "video ulanmaydi, lekin boshqa hammasi ishlaydi" kabi
+  chalkash simptom beradi.
+- **Nega tuzatilmadi:** Bu **arxitektura darajasidagi** tuzatish — bir nechta
+  handler'ni (`handleOffer`, `handleAnswer`, `handleIceCandidate`,
+  `handleJoinRoom`) `fetchSockets()` asosidagi instansiyalararo tekshiruvga
+  o'tkazish, va ishtirokchi metadatasini (`role`, `userName`) `client.data`ga
+  ko'chirish kerak. Buni jonli ko'p-instansiyali muhitda sinamasdan qilish
+  xavfli — ishlayotgan signalizatsiyani buzib qo'yish xavfi bor.
+- **Sizga savol:** Production'da **necha API instansiya** ishlaydi (bitta
+  konteynermi yoki gorizontal masshtablanadimi)? Agar bitta instansiya bo'lsa,
+  bu bug hozircha **uxlab yotibdi** (real ta'siri yo'q) va ustuvorlik past.
+  Agar 2+ instansiya (yoki rolling-deploy) bo'lsa, bu **eng ehtimoliy sabab**
+  nima uchun ba'zi UT-shifokor ulanishlari "osilib qoladi" — shunday bo'lsa,
+  keyingi bosqichda `fetchSockets()` asosida to'g'irlab, staging'da sinab
+  ko'ramiz.
+
+### 📋 26. O'lik consent-xato tekshiruvi — past ustuvorlik
+- **Fayl:** `apps/web/src/hooks/use-session-recording.ts:104-112`
+- **Muammo:** `catch` blokida `msg.includes('rozilik')` tekshiruvi bor, lekin
+  yozuvni boshlash yo'lida (`tryStartRecording`) rozilik yo'qligi hech qachon
+  `throw` qilmaydi (u allaqachon `null` qaytarib, yuqorida silliq boshqariladi).
+  Shu sabab bu shart amalda hech qachon ishga tushmaydi — zararsiz, lekin
+  chalg'ituvchi o'lik kod.
+- **Nega tuzatilmadi:** Runtime ta'siri yo'q; consent-bog'liq xato boshqarish
+  kodini "tozalash" nomi bilan tegib o'zgartirish xavfini past ustuvorlikda
+  qoldirdim.
