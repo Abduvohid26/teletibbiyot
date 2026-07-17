@@ -9,10 +9,26 @@ import {
 } from './helpers/video-setup';
 
 /**
- * Haqiqiy WebRTC oqimi ustidan E2E: shifokor (MT) va UT operator ikkita alohida brauzerda,
- * soxta kamera bilan. Bu testlar signaling emas, AYNAN video oqishini tekshiradi —
- * shu sababli qayta ulanish va "pir-pirlash" buglarini ushlaydi.
+ * ═══════════════════════════════════════════════════════════════════════════
+ * JONLI VIDEO E2E — haqiqiy WebRTC oqimi (soxta kamera bilan, 2 ta brauzer)
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Bu testlar signaling hodisalarini emas, AYNAN videoning oqishini tekshiradi:
+ * "peer connection = connected VA jonli video treki kelmoqda".
+ * Shu sababli qayta ulanish va "pir-pirlash" buglarini ushlay oladi.
+ *
+ * QAMRALGAN HOLATLAR:
+ *   A. Ulanish tartibi   — A1: shifokor birinchi · A2: bemor birinchi
+ *   B. Refresh (F5)      — B1: bemor · B2: shifokor · B3: ikkalasi
+ *                          B4: bemor 3 marta ketma-ket · B5: refreshdan keyin barqarorlik
+ *   C. Qo'lda tiklash    — C1: "Qayta ulash" tugmasi (bemor refreshdan keyin)
+ *   D. Tarmoq uzilishi   — D1: bemor offline → online
+ *   E. Barqarorlik       — E1: 25s pir-pirlamaydi
+ *   F. Chiqib-kirish     — F1: bemor sahifani yopadi va qaytadi
  */
+
+/** Qayta ulanish uchun maksimal ruxsat etilgan vaqt — "oxir-oqibat" emas, TEZ bo'lishi shart. */
+const RECONNECT_BUDGET_MS = 30000;
+const FIRST_CONNECT_BUDGET_MS = 45000;
 
 interface PcSnapshot {
   pcCount: number;
@@ -59,8 +75,8 @@ async function snapshotPc(page: Page): Promise<PcSnapshot> {
   });
 }
 
-/** Peer'dan jonli video kelishini kutadi (WebRTC haqiqatan ulangan). */
-async function waitForRemoteVideo(page: Page, timeoutMs = 60000) {
+/** Peer'dan jonli video kelishini kutadi (WebRTC haqiqatan ulangan va oqmoqda). */
+async function waitForRemoteVideo(page: Page, timeoutMs = FIRST_CONNECT_BUDGET_MS, label = 'video') {
   await page.waitForFunction(
     () => {
       const w = window as unknown as { __pcs?: RTCPeerConnection[] };
@@ -71,7 +87,9 @@ async function waitForRemoteVideo(page: Page, timeoutMs = 60000) {
       );
     },
     { timeout: timeoutMs },
-  );
+  ).catch(() => {
+    throw new Error(`${label}: ${timeoutMs / 1000}s ichida jonli video kelmadi`);
+  });
 }
 
 async function newVideoContext(browser: Browser) {
@@ -84,11 +102,21 @@ interface LiveRoom {
   utPage: Page;
   mtPage: Page;
   consultationId: string;
+  /** UT sahifasini qayta ochish (refresh yoki qaytib kirish uchun) */
+  reopenUt: () => Promise<void>;
+  reopenMt: () => Promise<void>;
   cleanup: () => Promise<void>;
 }
 
-/** Shifokor + UT jonli video sessiyasini ko'taradi va ikkala tomonda video oqishini kutadi. */
-async function openLiveRoom(browser: Browser): Promise<LiveRoom> {
+/**
+ * Shifokor + UT jonli video sessiyasini ko'taradi.
+ * @param joinOrder 'mt-first' — shifokor xonada kutib turadi, keyin bemor qo'shiladi
+ *                  'ut-first' — bemor kutib turadi, keyin shifokor qo'shiladi
+ */
+async function openLiveRoom(
+  browser: Browser,
+  joinOrder: 'mt-first' | 'ut-first' = 'mt-first',
+): Promise<LiveRoom> {
   const { consultation, mt } = await prepareVideoConsultation();
 
   const utContext = await newVideoContext(browser);
@@ -106,11 +134,18 @@ async function openLiveRoom(browser: Browser): Promise<LiveRoom> {
   await loginAs(mtPage, 'doctor@ishifo.uz', PASSWORD, /\/dashboard/);
   await mt.startConsultation(consultation.id);
 
-  await utPage.goto('/ut/vitals');
-  await mtPage.goto('/dashboard');
+  if (joinOrder === 'mt-first') {
+    await mtPage.goto('/dashboard');
+    await mtPage.waitForTimeout(2500); // shifokor xonada yolg'iz kutadi
+    await utPage.goto('/ut/vitals');
+  } else {
+    await utPage.goto('/ut/vitals');
+    await utPage.waitForTimeout(2500); // bemor xonada yolg'iz kutadi
+    await mtPage.goto('/dashboard');
+  }
 
-  await waitForRemoteVideo(mtPage);
-  await waitForRemoteVideo(utPage);
+  await waitForRemoteVideo(mtPage, FIRST_CONNECT_BUDGET_MS, 'shifokor (dastlabki)');
+  await waitForRemoteVideo(utPage, FIRST_CONNECT_BUDGET_MS, 'bemor (dastlabki)');
 
   return {
     utContext,
@@ -118,6 +153,14 @@ async function openLiveRoom(browser: Browser): Promise<LiveRoom> {
     utPage,
     mtPage,
     consultationId: consultation.id,
+    reopenUt: async () => {
+      await utPage.reload();
+      await utPage.goto('/ut/vitals');
+    },
+    reopenMt: async () => {
+      await mtPage.reload();
+      await mtPage.goto('/dashboard');
+    },
     cleanup: async () => {
       await utContext.close().catch(() => undefined);
       await mtContext.close().catch(() => undefined);
@@ -126,79 +169,166 @@ async function openLiveRoom(browser: Browser): Promise<LiveRoom> {
   };
 }
 
-test.describe('Jonli video: ulanish va qayta ulanish', () => {
+test.describe('Jonli video — ulanish va qayta ulanish', () => {
   test.slow();
 
-  test('1) Shifokor va bemor ulanadi — ikkala tomonda video oqadi', async ({ browser }) => {
-    const room = await openLiveRoom(browser);
+  // ─── A. ULANISH TARTIBI ──────────────────────────────────────────────────
+  test('A1) Shifokor xonada kutadi → bemor qo\'shiladi → ikki tomonda video oqadi', async ({
+    browser,
+  }) => {
+    const room = await openLiveRoom(browser, 'mt-first');
     try {
       const mt = await snapshotPc(room.mtPage);
       const ut = await snapshotPc(room.utPage);
-
-      expect(mt.connected, 'shifokorda ulangan PC bo\'lishi kerak').toBeGreaterThan(0);
       expect(mt.liveRecvVideo, 'shifokor UT kamerasini olishi kerak').toBeGreaterThan(0);
-      expect(ut.connected, 'bemorda ulangan PC bo\'lishi kerak').toBeGreaterThan(0);
       expect(ut.liveRecvVideo, 'bemor shifokor kamerasini olishi kerak').toBeGreaterThan(0);
     } finally {
       await room.cleanup();
     }
   });
 
-  test('2) BEMOR refresh qiladi — video avtomatik qayta ulanadi', async ({ browser }) => {
-    const room = await openLiveRoom(browser);
+  test('A2) Bemor xonada kutadi → shifokor qo\'shiladi → ikki tomonda video oqadi', async ({
+    browser,
+  }) => {
+    const room = await openLiveRoom(browser, 'ut-first');
     try {
-      await room.utPage.reload();
-      await room.utPage.goto('/ut/vitals');
-
-      // Bemor yangi socketId bilan qaytadi — shifokor unga qayta offer yuborishi shart.
-      await waitForRemoteVideo(room.utPage);
-      await waitForRemoteVideo(room.mtPage);
-
       const mt = await snapshotPc(room.mtPage);
-      expect(mt.liveRecvVideo, 'refreshdan keyin shifokor videoni qayta olishi kerak').toBeGreaterThan(0);
-    } finally {
-      await room.cleanup();
-    }
-  });
-
-  test('3) SHIFOKOR refresh qiladi — video avtomatik qayta ulanadi', async ({ browser }) => {
-    const room = await openLiveRoom(browser);
-    try {
-      await room.mtPage.reload();
-      await room.mtPage.goto('/dashboard');
-
-      await waitForRemoteVideo(room.mtPage);
-      await waitForRemoteVideo(room.utPage);
-
       const ut = await snapshotPc(room.utPage);
-      expect(ut.liveRecvVideo, 'refreshdan keyin bemor videoni qayta olishi kerak').toBeGreaterThan(0);
+      expect(mt.liveRecvVideo, 'shifokor UT kamerasini olishi kerak').toBeGreaterThan(0);
+      expect(ut.liveRecvVideo, 'bemor shifokor kamerasini olishi kerak').toBeGreaterThan(0);
     } finally {
       await room.cleanup();
     }
   });
 
-  test('4) IKKALASI refresh qiladi — video qayta ulanadi', async ({ browser }) => {
+  // ─── B. REFRESH (F5) ─────────────────────────────────────────────────────
+  test('B1) BEMOR refresh qiladi → shifokor tez qayta ulanadi (shifokor refreshsiz)', async ({
+    browser,
+  }) => {
     const room = await openLiveRoom(browser);
     try {
-      await Promise.all([room.utPage.reload(), room.mtPage.reload()]);
-      await Promise.all([room.utPage.goto('/ut/vitals'), room.mtPage.goto('/dashboard')]);
+      await room.mtPage.waitForTimeout(5000); // ulanish "o'rnashsin"
+      await room.reopenUt();
 
-      await waitForRemoteVideo(room.mtPage);
-      await waitForRemoteVideo(room.utPage);
+      // MUHIM: shifokor O'ZI refresh qilmasdan, avtomatik qayta ulanishi shart.
+      await waitForRemoteVideo(room.mtPage, RECONNECT_BUDGET_MS, 'shifokor (bemor refreshdan keyin)');
+      await waitForRemoteVideo(room.utPage, RECONNECT_BUDGET_MS, 'bemor (o\'z refreshidan keyin)');
     } finally {
       await room.cleanup();
     }
   });
 
-  test('5) Video BARQAROR turadi — 25s davomida pir-pirlamaydi va qayta qurilmaydi', async ({
+  test('B2) SHIFOKOR refresh qiladi → video qayta ulanadi', async ({ browser }) => {
+    const room = await openLiveRoom(browser);
+    try {
+      await room.mtPage.waitForTimeout(5000);
+      await room.reopenMt();
+
+      await waitForRemoteVideo(room.mtPage, RECONNECT_BUDGET_MS, 'shifokor (o\'z refreshidan keyin)');
+      await waitForRemoteVideo(room.utPage, RECONNECT_BUDGET_MS, 'bemor (shifokor refreshdan keyin)');
+    } finally {
+      await room.cleanup();
+    }
+  });
+
+  test('B3) IKKALASI bir vaqtda refresh qiladi → video qayta ulanadi', async ({ browser }) => {
+    const room = await openLiveRoom(browser);
+    try {
+      await Promise.all([room.reopenUt(), room.reopenMt()]);
+      await waitForRemoteVideo(room.mtPage, RECONNECT_BUDGET_MS, 'shifokor (ikkala refresh)');
+      await waitForRemoteVideo(room.utPage, RECONNECT_BUDGET_MS, 'bemor (ikkala refresh)');
+    } finally {
+      await room.cleanup();
+    }
+  });
+
+  test('B4) BEMOR 3 marta ketma-ket refresh qiladi → har safar qayta ulanadi', async ({
+    browser,
+  }) => {
+    const room = await openLiveRoom(browser);
+    try {
+      for (let i = 1; i <= 3; i++) {
+        await room.reopenUt();
+        await waitForRemoteVideo(room.mtPage, RECONNECT_BUDGET_MS, `shifokor (${i}-refreshdan keyin)`);
+        await waitForRemoteVideo(room.utPage, RECONNECT_BUDGET_MS, `bemor (${i}-refreshdan keyin)`);
+      }
+    } finally {
+      await room.cleanup();
+    }
+  });
+
+  test('B5) Bemor refreshdan keyin ulanish BARQAROR qoladi (pir-pirlamaydi)', async ({
+    browser,
+  }) => {
+    const room = await openLiveRoom(browser);
+    try {
+      await room.reopenUt();
+      await waitForRemoteVideo(room.mtPage, RECONNECT_BUDGET_MS, 'shifokor (refreshdan keyin)');
+
+      // Qayta ulangandan keyin ham churn bo'lmasligi kerak.
+      await room.mtPage.waitForTimeout(3000);
+      const start = await snapshotPc(room.mtPage);
+      await room.mtPage.waitForTimeout(15000);
+      const end = await snapshotPc(room.mtPage);
+
+      expect(end.liveRecvVideo, 'video oqishda davom etishi kerak').toBeGreaterThan(0);
+      expect(
+        end.totalCreated - start.totalCreated,
+        `qayta ulangandan keyin ulanish qayta qurilmasligi kerak — ${end.totalCreated - start.totalCreated} marta qurildi`,
+      ).toBe(0);
+    } finally {
+      await room.cleanup();
+    }
+  });
+
+  // ─── C. QO'LDA TIKLASH ───────────────────────────────────────────────────
+  test('C1) Bemor refreshdan keyin shifokor "Qayta ulash" tugmasini bossa — ishlaydi', async ({
+    browser,
+  }) => {
+    const room = await openLiveRoom(browser);
+    try {
+      await room.reopenUt();
+
+      // Tugma faqat video uzilgan holatda chiqadi. Chiqsa — bosamiz; chiqmasa,
+      // demak avtomatik tiklangan (bu ham to'g'ri natija).
+      const reconnectBtn = room.mtPage.getByRole('button', { name: /Qayta ulash/i });
+      if (await reconnectBtn.isVisible({ timeout: 8000 }).catch(() => false)) {
+        await reconnectBtn.click();
+      }
+
+      await waitForRemoteVideo(room.mtPage, RECONNECT_BUDGET_MS, 'shifokor ("Qayta ulash" dan keyin)');
+    } finally {
+      await room.cleanup();
+    }
+  });
+
+  // ─── D. TARMOQ UZILISHI ──────────────────────────────────────────────────
+  test('D1) Bemor tarmog\'i uziladi va tiklanadi → video qayta ulanadi', async ({ browser }) => {
+    const room = await openLiveRoom(browser);
+    try {
+      await room.mtPage.waitForTimeout(3000);
+
+      await room.utContext.setOffline(true);
+      await room.utPage.waitForTimeout(6000); // uzilish sezilsin
+      await room.utContext.setOffline(false);
+
+      await waitForRemoteVideo(room.mtPage, 45000, 'shifokor (tarmoq tiklangandan keyin)');
+      await waitForRemoteVideo(room.utPage, 45000, 'bemor (tarmoq tiklangandan keyin)');
+    } finally {
+      await room.cleanup();
+    }
+  });
+
+  // ─── E. BARQARORLIK ──────────────────────────────────────────────────────
+  test('E1) Video 25s davomida BARQAROR — pir-pirlamaydi va qayta qurilmaydi', async ({
     browser,
   }) => {
     const room = await openLiveRoom(browser);
     try {
       const start = await snapshotPc(room.mtPage);
 
-      // 25s — server tomonidagi qayta urinish sikllari (4.5s watchdog, 8s retry) bir necha
-      // marta ishga tushishiga yetadi. Ular sog'lom ulanishga TEGMASLIGI kerak.
+      // 25s — ilovadagi qayta urinish sikllari (4.5s watchdog, 8s retry) bir necha marta
+      // ishga tushishiga yetadi. Ular sog'lom ulanishga TEGMASLIGI kerak.
       for (let i = 0; i < 5; i++) {
         await room.mtPage.waitForTimeout(5000);
         const now = await snapshotPc(room.mtPage);
@@ -206,13 +336,31 @@ test.describe('Jonli video: ulanish va qayta ulanish', () => {
         expect(now.connected, `${(i + 1) * 5}s: ulanish saqlanishi kerak`).toBeGreaterThan(0);
       }
 
-      // Eng muhimi: video sog'lom ekan, ulanish QAYTA QURILMASLIGI kerak.
-      // Har bir qayta qurish = ekran bir lahza o'chib yonadi (pir-pirlash).
       const end = await snapshotPc(room.mtPage);
       expect(
         end.totalCreated - start.totalCreated,
         `barqaror videoda ulanish qayta qurilmasligi kerak — ${end.totalCreated - start.totalCreated} marta qayta qurildi (pir-pirlash)`,
       ).toBe(0);
+    } finally {
+      await room.cleanup();
+    }
+  });
+
+  // ─── F. CHIQIB-KIRISH ────────────────────────────────────────────────────
+  test('F1) Bemor sahifani yopadi va qaytadi → shifokor qayta ulanadi', async ({ browser }) => {
+    const room = await openLiveRoom(browser);
+    try {
+      await room.mtPage.waitForTimeout(3000);
+
+      // Bemor butunlay chiqadi (sahifa yopiladi → socket uziladi)
+      await room.utPage.goto('about:blank');
+      await room.mtPage.waitForTimeout(4000);
+
+      // Va qaytadi — yangi socketId bilan
+      await room.utPage.goto('/ut/vitals');
+
+      await waitForRemoteVideo(room.mtPage, RECONNECT_BUDGET_MS, 'shifokor (bemor qaytgandan keyin)');
+      await waitForRemoteVideo(room.utPage, RECONNECT_BUDGET_MS, 'bemor (qaytgandan keyin)');
     } finally {
       await room.cleanup();
     }
