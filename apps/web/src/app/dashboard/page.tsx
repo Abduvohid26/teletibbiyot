@@ -12,16 +12,20 @@ export default function DashboardPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (dash.loading || !dash.isDoctor) return;
+    if (dash.loading || !dash.isDoctor || !dash.ready) return;
     if (dash.myInProgress.length === 0) {
       router.replace('/dashboard/patients');
     }
-  }, [dash.loading, dash.isDoctor, dash.myInProgress.length, router]);
+  }, [dash.loading, dash.isDoctor, dash.ready, dash.myInProgress.length, router]);
 
   return (
     <AuthGate loading={dash.loading} user={dash.user} error={dash.authError} onRetry={dash.retryAuth}>
       {!dash.user ? null : dash.isDoctor ? (
-        dash.myInProgress.length === 0 ? null : (
+        !dash.ready ? (
+          <div className="page-shell flex items-center justify-center min-h-screen text-slate-400 gap-2">
+            <span className="animate-pulse">Yuklanmoqda...</span>
+          </div>
+        ) : dash.myInProgress.length === 0 ? null : (
           <DoctorDashboardView
             queue={dash.queue}
             consultation={dash.consultation}

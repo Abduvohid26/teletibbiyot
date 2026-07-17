@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Play, Radio } from 'lucide-react';
+import { Play, Radio, X } from 'lucide-react';
 import { Consultation } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -11,6 +11,8 @@ interface DoctorLiveQueuePanelProps {
   queued: Consultation[];
   onSelect: (id: string) => void;
   onStart: (id: string) => void;
+  onReconnect?: (id: string) => void;
+  onCancel?: (id: string) => void;
   onComplete?: () => void;
   className?: string;
 }
@@ -27,6 +29,8 @@ export function DoctorLiveQueuePanel({
   queued,
   onSelect,
   onStart,
+  onReconnect,
+  onCancel,
   onComplete,
   className,
 }: DoctorLiveQueuePanelProps) {
@@ -79,6 +83,8 @@ export function DoctorLiveQueuePanel({
                   active={c.id === activeId}
                   live
                   onSelect={() => onSelect(c.id)}
+                  onReconnect={onReconnect ? () => onReconnect(c.id) : undefined}
+                  onCancel={onCancel ? () => onCancel(c.id) : undefined}
                 />
               ))}
             </div>
@@ -98,6 +104,7 @@ export function DoctorLiveQueuePanel({
                   active={c.id === activeId}
                   onSelect={() => onSelect(c.id)}
                   onStart={() => onStart(c.id)}
+                  onCancel={onCancel ? () => onCancel(c.id) : undefined}
                 />
               ))}
             </div>
@@ -114,12 +121,16 @@ function QueueRow({
   live,
   onSelect,
   onStart,
+  onReconnect,
+  onCancel,
 }: {
   c: Consultation;
   active: boolean;
   live?: boolean;
   onSelect: () => void;
   onStart?: () => void;
+  onReconnect?: () => void;
+  onCancel?: () => void;
 }) {
   return (
     <div
@@ -157,6 +168,19 @@ function QueueRow({
           <Radio size={12} className="text-emerald-500 shrink-0 animate-pulse" />
         )}
       </button>
+      {onReconnect && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onReconnect(); }}
+          className={cn(
+            'mr-1 shrink-0 text-[10px] font-bold px-2 py-1.5 rounded-md inline-flex items-center gap-0.5',
+            active ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-emerald-600 text-white hover:bg-emerald-700',
+          )}
+        >
+          <Radio size={11} />
+          Davom
+        </button>
+      )}
       {onStart && (
         <button
           type="button"
@@ -170,6 +194,19 @@ function QueueRow({
         >
           <Play size={11} />
           Boshlash
+        </button>
+      )}
+      {onCancel && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onCancel(); }}
+          className={cn(
+            'mr-1 shrink-0 inline-flex items-center justify-center rounded-md p-1.5',
+            active ? 'hover:bg-white/20 text-white/90' : 'hover:bg-red-50 text-red-500',
+          )}
+          aria-label="Bekor qilish"
+        >
+          <X size={14} />
         </button>
       )}
     </div>

@@ -14,12 +14,18 @@ import {
 } from '@/lib/services/dashboard-data';
 import { useConsultationRealtime } from '@/hooks/use-consultation-realtime';
 import { useAuth } from '@/lib/auth-context';
+import {
+  clearActiveConsultationId,
+  readActiveConsultationId,
+  writeActiveConsultationId,
+} from '@/lib/active-consultation-storage';
 
 export function useDoctorDashboard() {
   const { user, loading, authError, retryAuth } = useAuth();
   const router = useRouter();
 
   const [snapshot, setSnapshot] = useState<DashboardSnapshot | null>(null);
+  const [ready, setReady] = useState(false);
   const [observedId, setObservedId] = useState<string | null>(null);
   const [selectedConsultationId, setSelectedConsultationId] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -67,12 +73,15 @@ export function useDoctorDashboard() {
           ?? data.inProgressList.find((c) => c.id === preferredId)?.id
           ?? preferredId;
         setSelectedConsultationId(resolved);
+        if (resolved) writeActiveConsultationId(resolved);
       } else if (!selectedConsultationIdRef.current && data.consultation?.id) {
         setSelectedConsultationId(data.consultation.id);
+        writeActiveConsultationId(data.consultation.id);
       }
     } catch (err) {
       setError(toUserMessage(err, 'Ma\'lumotlarni yuklashda xatolik'));
     } finally {
+      setReady(true);
       reloadingRef.current = false;
       const pending = pendingPreferredIdRef.current;
       pendingPreferredIdRef.current = undefined;
@@ -91,7 +100,8 @@ export function useDoctorDashboard() {
 
   useEffect(() => {
     if (!user) return;
-    void executeReload();
+    const stored = readActiveConsultationId();
+    void executeReload(stored);
   }, [user, isDoctor, observedId, executeReload]);
 
   useEffect(() => {
@@ -140,11 +150,13 @@ export function useDoctorDashboard() {
       },
       onConsultationCompleted: () => {
         setSelectedConsultationId(null);
+        clearActiveConsultationId();
         void executeReload(null);
         router.replace('/dashboard/patients');
       },
       onConsultationCancelled: () => {
         setSelectedConsultationId(null);
+        clearActiveConsultationId();
         void executeReload(null);
         router.replace('/dashboard/patients');
       },
@@ -159,6 +171,7 @@ export function useDoctorDashboard() {
 
   const selectConsultation = useCallback((id: string) => {
     setSelectedConsultationId(id);
+    writeActiveConsultationId(id);
     setSnapshot((prev) => {
       if (!prev) return prev;
       const picked =
@@ -175,6 +188,7 @@ export function useDoctorDashboard() {
     try {
       await api.startConsultation(id);
       setSelectedConsultationId(id);
+      writeActiveConsultationId(id);
       await executeReload(id);
       router.push('/dashboard');
     } catch (err) {
@@ -189,6 +203,7 @@ export function useDoctorDashboard() {
       await api.cancelConsultation(id, reason);
       if (selectedConsultationIdRef.current === id) {
         setSelectedConsultationId(null);
+        clearActiveConsultationId();
       }
       await executeReload(null);
       router.replace('/dashboard/patients');
@@ -214,6 +229,7 @@ export function useDoctorDashboard() {
     reload: executeReload,
     refresh,
     snapshot,
+    ready,
     consultation,
     queue,
     queuedPatients,
