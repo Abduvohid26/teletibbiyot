@@ -59,9 +59,12 @@ export function VideoTile({
         </span>
       )}
       {live && stream && (
-        <span className="absolute top-2 right-2 live-badge !text-[9px] !py-0.5">
-          <span className="w-1 h-1 bg-white rounded-full animate-pulse" />
-          JONLI
+        <span
+          className="absolute top-2 right-2 live-badge !p-1 !min-w-0"
+          title="Jonli"
+          aria-label="Jonli"
+        >
+          <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
         </span>
       )}
       {resolution && resolution !== '—' && stream && (

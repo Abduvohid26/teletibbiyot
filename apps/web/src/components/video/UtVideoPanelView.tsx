@@ -27,14 +27,16 @@ type ViewId = (typeof UT_CAMERA_FEEDS)[number]['id'] | 'doctor' | typeof ALL_VIE
 
 const VIEW_SLOTS: { id: ViewId; num: number; label: string; isDoctor?: boolean }[] = [
   { id: 'close', num: 1, label: FEED_LABELS.close ?? 'Bemor yaqindan' },
-  { id: 'main', num: 2, label: FEED_LABELS.main ?? 'Asosiy' },
+  { id: 'doctor', num: 2, label: "Asosiy ko'rinish", isDoctor: true },
   { id: 'room', num: 3, label: FEED_LABELS.room ?? 'Xona' },
   { id: 'equipment', num: 4, label: FEED_LABELS.equipment ?? 'Qurilmalar' },
-  { id: 'doctor', num: 5, label: 'Shifokor', isDoctor: true },
+  { id: 'main', num: 5, label: FEED_LABELS.main ?? "Umumiy ko'rinish" },
 ];
 
 function shortLabel(id: string, label: string) {
   if (id === 'close') return 'Bemor';
+  if (id === 'doctor') return 'Asosiy';
+  if (id === 'main') return 'Umumiy';
   if (id === 'equipment') return 'Qurilmalar';
   return label.split(' ')[0];
 }
@@ -97,7 +99,7 @@ export function UtVideoPanelView({
   video,
   doctorName,
   patientName,
-  defaultView = 'close',
+  defaultView = 'doctor',
 }: UtVideoPanelViewProps) {
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
   const initialView: ViewId = defaultView === 'all' ? ALL_VIEW : defaultView;
@@ -156,9 +158,13 @@ export function UtVideoPanelView({
   useEffect(() => {
     if (isAllView) return;
     if (isActive(activeView)) return;
-    const fallback = VIEW_SLOTS.find((s) => s.id !== 'doctor' && isActive(s.id));
+    if (activeView === 'doctor') return;
+    const fallback =
+      doctorActive
+        ? VIEW_SLOTS.find((s) => s.id === 'doctor')
+        : VIEW_SLOTS.find((s) => s.id !== 'doctor' && isActive(s.id));
     if (fallback) setActiveView(fallback.id);
-  }, [activeView, isAllView, utCameraStreams, mtDoctorStream]);
+  }, [activeView, doctorActive, isAllView, utCameraStreams, mtDoctorStream]);
 
   useEffect(() => {
     const onPtz = (event: Event) => {
@@ -289,13 +295,21 @@ export function UtVideoPanelView({
                   'absolute inset-0 w-full h-full',
                   activeView === 'equipment' ? '[&_video]:object-contain' : '[&_video]:object-cover',
                 )}
-                placeholder={`${activeSlot?.label ?? 'Kamera'} — kutilmoqda`}
+                placeholder={
+                  activeView === 'doctor'
+                    ? 'Shifokor kutilmoqda'
+                    : `${activeSlot?.label ?? 'Kamera'} — kutilmoqda`
+                }
                 live={mainLive}
               />
               {!mainLive && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-slate-900/60 pointer-events-none">
                   <VideoOff size={22} className="text-slate-500" />
-                  <span className="text-xs text-slate-400">{activeSlot?.label} — ulanmagan</span>
+                  <span className="text-xs text-slate-400">
+                    {activeView === 'doctor'
+                      ? 'Shifokor hali ulanmagan — qabul boshlanganda ko\'rinadi'
+                      : `${activeSlot?.label} — ulanmagan`}
+                  </span>
                 </div>
               )}
             </>

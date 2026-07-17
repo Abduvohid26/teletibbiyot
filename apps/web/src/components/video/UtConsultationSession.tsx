@@ -29,7 +29,7 @@ export function UtConsultationSession({ consultation, patientName }: UtConsultat
           video={video}
           doctorName={consultation.mtDoctor?.fullName}
           patientName={patientName ?? consultation.patient.fullName}
-          defaultView="equipment"
+          defaultView="doctor"
         />
       </div>
     </>

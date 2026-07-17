@@ -45,6 +45,39 @@ test.describe('Video reconnect signaling', () => {
     }
   });
 
+  test('doctor joining after UT receives offer-requested and room-joined others', async () => {
+    const ut = new ApiTestClient();
+    const mt = new ApiTestClient();
+
+    const utLogin = await ut.login('operator@ishifo.uz', PASSWORD);
+    const mtLogin = await mt.login('doctor@ishifo.uz', PASSWORD);
+
+    const patient = await ut.createPatient(buildTestPatient());
+    const consultation = await ut.createConsultation(buildTestConsultation(patient.id));
+
+    const utSocket = await connectVideoSocket(utLogin.accessToken!);
+    const mtSocket = await connectVideoSocket(mtLogin.accessToken!);
+
+    try {
+      await joinRoom(utSocket, consultation.id);
+
+      const offerRequested = waitForEvent<{ targetSocketId?: string }>(mtSocket, 'offer-requested');
+      const roomJoined = waitForEvent<{ others?: { socketId?: string; role?: string }[] }>(
+        mtSocket,
+        'room-joined',
+      );
+
+      await joinRoom(mtSocket, consultation.id);
+
+      const [offerPayload, joinedPayload] = await Promise.all([offerRequested, roomJoined]);
+      expect(offerPayload.targetSocketId).toBe(utSocket.id);
+      expect(joinedPayload.others?.some((p) => p.role === 'UT_OPERATOR')).toBe(true);
+    } finally {
+      utSocket.disconnect();
+      mtSocket.disconnect();
+    }
+  });
+
   test('UT media-resumed → doctor receives peer-media-resumed', async () => {
     const ut = new ApiTestClient();
     const mt = new ApiTestClient();

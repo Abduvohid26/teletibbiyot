@@ -28,6 +28,7 @@ interface JoinRoomAck {
   participants?: number;
   roomId?: string;
   rooms?: string[];
+  others?: RoomParticipant[];
 }
 
 @WebSocketGateway({
@@ -203,6 +204,7 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     };
 
     let participants = this.rooms.get(roomId) || [];
+    const isReturningUser = participants.some((p) => p.userId === dbUser.id);
     // Bir xil foydalanuvchining eski socketlarini olib tashlash (reconnect)
     participants = participants.filter((p) => p.userId !== dbUser.id);
     participants.push(participant);
@@ -211,13 +213,26 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.socketRooms.get(client.id)?.add(roomId);
 
     const others = participants.filter((p) => p.socketId !== client.id);
-    client.to(roomId).emit('participant-joined', participant);
+    if (isReturningUser) {
+      client.to(roomId).emit('participant-rejoined', participant);
+    } else {
+      client.to(roomId).emit('participant-joined', participant);
+    }
+    if (dbUser.role === 'UT_OPERATOR') {
+      this.notifyOfferersToReconnect(roomId, client.id);
+    } else if (dbUser.role === 'MT_DOCTOR') {
+      for (const peer of others) {
+        if (peer.role === 'UT_OPERATOR') {
+          client.emit('offer-requested', { targetSocketId: peer.socketId });
+        }
+      }
+    }
     client.emit('room-participants', others);
-    client.emit('room-joined', { roomId, participants: others.length });
+    client.emit('room-joined', { roomId, participants: others.length, others });
 
     this.logger.debug(`WS xona: ${dbUser.email} → ${roomId} (${participants.length} ishtirokchi)`);
 
-    return { success: true, participants: participants.length };
+    return { success: true, participants: participants.length, others };
   }
 
   @SubscribeMessage('leave-room')
