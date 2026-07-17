@@ -4,6 +4,13 @@ import { api } from "@/lib/api";
 
 import { getSocketIoUrl, SOCKET_IO_PATH } from "@/lib/video-config";
 
+export interface RoomParticipantPayload {
+  socketId: string;
+  userId: string;
+  role: string;
+  userName: string;
+}
+
 export interface JoinRoomResult {
   success: boolean;
 
@@ -12,6 +19,8 @@ export interface JoinRoomResult {
   participants?: number;
 
   rooms?: string[];
+
+  others?: RoomParticipantPayload[];
 }
 
 export type SocketListener = (...args: unknown[]) => void;

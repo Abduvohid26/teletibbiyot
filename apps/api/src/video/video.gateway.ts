@@ -481,6 +481,37 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.notifyOfferersToReconnect(data.roomId, client.id);
   }
 
+  /** Client listenerlar tayyor bo'lgach xona holatini qayta sinxronlash (refresh) */
+  @SubscribeMessage('request-room-sync')
+  handleRequestRoomSync(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string },
+  ) {
+    const roomId = data?.roomId;
+    if (!roomId || !this.isInRoom(client.id, roomId, client)) {
+      return { success: false };
+    }
+
+    const participants = this.rooms.get(roomId) || [];
+    const others = participants.filter((p) => p.socketId !== client.id);
+    const self = participants.find((p) => p.socketId === client.id);
+
+    client.emit('room-participants', others);
+    client.emit('room-joined', { roomId, participants: others.length, others });
+
+    if (self?.role === 'UT_OPERATOR') {
+      this.notifyOfferersToReconnect(roomId, client.id);
+    } else if (self?.role === 'MT_DOCTOR') {
+      for (const peer of others) {
+        if (peer.role === 'UT_OPERATOR') {
+          client.emit('offer-requested', { targetSocketId: peer.socketId });
+        }
+      }
+    }
+
+    return { success: true, others };
+  }
+
   private notifyOfferersToReconnect(roomId: string, targetSocketId: string) {
     const participants = this.rooms.get(roomId) || [];
     const offerRoles = new Set(['MT_DOCTOR']);

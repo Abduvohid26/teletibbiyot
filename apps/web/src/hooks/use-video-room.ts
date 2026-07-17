@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { captureUtCameraStreams, stopAllStreams } from '@/lib/ut-camera-capture';
 import { isUtStreamLive, mapUniqueUtCameraStreams } from '@/lib/ut-camera-streams';
 import { useSharedVideoSocket } from '@/hooks/use-shared-video-socket';
+import { isRoomActive, subscribeJoinResults } from '@/lib/video-socket-client';
 import { useWebRtcStats } from '@/hooks/use-webrtc-stats';
 import {
   fetchIceServers,
@@ -76,6 +77,8 @@ export function useVideoRoom({
   const remoteDoctorSocketRef = useRef<string | null>(null);
   const reconnectTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>[]>>(new Map());
   const isReconnectingRef = useRef(false);
+  const mediaReadyRef = useRef(false);
+  const handleRemoteParticipantRef = useRef<(participant: RoomParticipant) => void>(() => undefined);
 
   const [videoPaused, setVideoPaused] = useState(false);
   const [connectNonce, setConnectNonce] = useState(0);
@@ -718,6 +721,10 @@ export function useVideoRoom({
 
   emitReconnectSignalsRef.current = emitReconnectSignals;
 
+  useEffect(() => {
+    mediaReadyRef.current = mediaReady;
+  }, [mediaReady]);
+
   const handleRemoteParticipant = useCallback(
     (participant: RoomParticipant) => {
       rememberParticipant(participant);
@@ -739,6 +746,21 @@ export function useVideoRoom({
       teardownPeerConnection,
     ],
   );
+
+  handleRemoteParticipantRef.current = handleRemoteParticipant;
+
+  useEffect(() => {
+    if (!enabled || !consultationId) return;
+
+    return subscribeJoinResults((roomId, result) => {
+      if (roomId !== consultationId || !result.success) return;
+      const others = result.others ?? [];
+      others.forEach((participant) => handleRemoteParticipantRef.current(participant));
+      if (mediaReadyRef.current) {
+        queueMicrotask(() => emitReconnectSignalsRef.current());
+      }
+    });
+  }, [consultationId, enabled]);
 
   useEffect(() => {
     if (!mediaReady || !roomJoined) return;
@@ -789,8 +811,9 @@ export function useVideoRoom({
       emitReconnectSignalsRef.current();
     };
 
-    const timer = setTimeout(retryConnect, 2500);
-    const retryTimer = setInterval(retryConnect, 5000);
+    retryConnect();
+    const timer = setTimeout(retryConnect, 800);
+    const retryTimer = setInterval(retryConnect, 3000);
 
     return () => {
       clearTimeout(timer);
@@ -800,11 +823,7 @@ export function useVideoRoom({
 
   useEffect(() => {
     const socket = socketRef.current;
-    if (!enabled || !consultationId || !socket || !roomJoined) return;
-
-    const handleUtParticipant = (participant: RoomParticipant) => {
-      handleRemoteParticipant(participant);
-    };
+    if (!enabled || !consultationId || !socket) return;
 
     const onRoomParticipants = (participants: RoomParticipant[]) => {
       participants.forEach((p) => handleRemoteParticipant(p));
@@ -947,6 +966,10 @@ export function useVideoRoom({
     socket.on('offer-requested', onOfferRequested);
     socket.on('signal-error', onSignalError);
 
+    if (isRoomActive(consultationId)) {
+      socket.emit('request-room-sync', { roomId: consultationId });
+    }
+
     return () => {
       socket.off('room-participants', onRoomParticipants);
       socket.off('participant-joined', onParticipantJoined);
@@ -985,7 +1008,6 @@ export function useVideoRoom({
     scheduleOfferToPeer,
     softDisconnectRemotePeer,
     socketRef,
-    roomJoined,
     teardownPeerConnection,
   ]);
 
