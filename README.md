@@ -80,7 +80,7 @@ iShifo — uzoq masofadagi tibbiyot muassasalaridagi bemorlarga markaziy mutaxas
   (5432/5433)     (6379)         (9000/9001)
        │
        ▼
-  coturn TURN (3478) — WebRTC NAT traversal
+  coturn TURN (3499) — WebRTC NAT traversal
 ```
 
 ---
@@ -170,7 +170,7 @@ Ishga tushadi:
 | PostgreSQL | `ishifo-db` | 5433 (`POSTGRES_PUBLISH`) |
 | Redis | `ishifo-redis` | 6379 |
 | MinIO | `ishifo-minio` | 9000 (API), 9001 (console) |
-| TURN | `ishifo-turn` | 3478 |
+| TURN | `ishifo-turn` | 3499 |
 
 > Port 5432 band bo'lsa, `.env` da `POSTGRES_PUBLISH=5433` qiling va `DATABASE_URL` dagi portni moslashtiring.
 

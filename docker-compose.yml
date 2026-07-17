@@ -94,13 +94,13 @@ services:
       - --realm=${TURN_REALM}
       - --lt-cred-mech
       - --user=${TURN_USERNAME}:${TURN_PASSWORD}
-      - --listening-port=3478
+      - --listening-port=${TURN_PORT:-3499}
       - --listening-ip=0.0.0.0
       - --min-port=49152
       - --max-port=49200
     ports:
-      - '3478:3478'
-      - '3478:3478/udp'
+      - '${TURN_PUBLISH:-3499}:${TURN_PORT:-3499}'
+      - '${TURN_PUBLISH:-3499}:${TURN_PORT:-3499}/udp'
     restart: unless-stopped
     networks:
       - ishifo
@@ -113,7 +113,7 @@ services:
     command:
       - -n
       - --log-file=stdout
-      - --listening-port=3478
+      - --listening-port=${TURN_PORT:-3499}
       - --listening-ip=0.0.0.0
       - --fingerprint
       - --lt-cred-mech
@@ -123,8 +123,8 @@ services:
       - --min-port=49152
       - --max-port=49200
     ports:
-      - '3478:3478/udp'
-      - '3478:3478/tcp'
+      - '${TURN_PUBLISH:-3499}:${TURN_PORT:-3499}/udp'
+      - '${TURN_PUBLISH:-3499}:${TURN_PORT:-3499}/tcp'
       - '49152-49200:49152-49200/udp'
     restart: unless-stopped
     networks:
