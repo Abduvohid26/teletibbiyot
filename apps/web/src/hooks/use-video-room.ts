@@ -66,6 +66,9 @@ export function useVideoRoom({
   const makingOfferRef = useRef<Map<string, boolean>>(new Map());
   const pendingOfferTargetsRef = useRef<Set<string>>(new Set());
   const pendingIncomingOffersRef = useRef<Map<string, RTCSessionDescriptionInit>>(new Map());
+  /** Peer bo'yicha offer navbati — bir vaqtda faqat bitta muzokara, eng oxirgi offer yutadi */
+  const offerProcessingRef = useRef<Set<string>>(new Set());
+  const latestOfferRef = useRef<Map<string, RTCSessionDescriptionInit>>(new Map());
   const pendingIceCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
   const knownParticipantsRef = useRef<Set<string>>(new Set());
   const participantUserIdsRef = useRef<Map<string, string>>(new Map());
@@ -250,10 +253,24 @@ export function useVideoRoom({
       .filter(([socketId, userId]) => userId === participant.userId && socketId !== participant.socketId)
       .map(([socketId]) => socketId);
 
+    // Bir foydalanuvchi (refresh/qayta kirish) yangi socketId bilan qaytganda — eskisiga
+    // tegishli hamma narsa to'liq tozalanishi shart. Aks holda eski socket uchun watchdog
+    // ishlashda davom etib, allaqachon o'lik socketga offer yuboraveradi (signal-error).
     staleSocketIds.forEach((socketId) => {
       teardownPeerConnection(socketId);
       knownParticipantsRef.current.delete(socketId);
       participantUserIdsRef.current.delete(socketId);
+      latestOfferRef.current.delete(socketId);
+      pendingIncomingOffersRef.current.delete(socketId);
+      pendingOfferTargetsRef.current.delete(socketId);
+      const watchdog = peerWatchdogRef.current.get(socketId);
+      if (watchdog) {
+        clearInterval(watchdog);
+        peerWatchdogRef.current.delete(socketId);
+      }
+      const timers = reconnectTimersRef.current.get(socketId) ?? [];
+      timers.forEach(clearTimeout);
+      reconnectTimersRef.current.delete(socketId);
     });
 
     knownParticipantsRef.current.add(participant.socketId);
@@ -420,7 +437,10 @@ export function useVideoRoom({
     if (!mediaReady || !isOfferer) return;
     const targets = [...pendingOfferTargetsRef.current];
     pendingOfferTargetsRef.current.clear();
-    targets.forEach((socketId) => void makeOffer(socketId, true));
+    // force=false — makeOffer o'zi qaror qiladi: ulanish allaqachon sog'lom (connected +
+    // jonli video) bo'lsa, unga TEGMAYDI. Ilgari bu yerda force=true edi va har bir
+    // "qayta urinish" sikli ishlab turgan videoni ham buzib qayta qurar edi (pir-pirlash).
+    targets.forEach((socketId) => void makeOffer(socketId));
   }, [isOfferer, makeOffer, mediaReady]);
 
   const debouncedFlushPendingOffers = useCallback(() => {
@@ -475,6 +495,54 @@ export function useVideoRoom({
     [debouncedFlushPendingOffers, isOfferer],
   );
 
+  /** Bitta offerni qo'llash: iloji bo'lsa mavjud ulanishni QAYTA ISHLATADI (buzmaydi) */
+  const applyRemoteOffer = useCallback(
+    async (fromSocketId: string, offer: RTCSessionDescriptionInit) => {
+      const socket = socketRef.current;
+      if (!consultationId || !socket) return;
+
+      const negotiate = async (pc: RTCPeerConnection, attachTracks: boolean) => {
+        await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        await flushIceCandidates(fromSocketId);
+        // Mavjud ulanish qayta ishlatilganda treklar allaqachon biriktirilgan —
+        // qayta qo'shsak, dublikat trek paydo bo'ladi.
+        if (attachTracks) addLocalTracks(pc);
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        void applyAllSendersBitrate(pcsRef.current, qualityPresetRef.current);
+        socket.emit('answer', { roomId: consultationId, targetSocketId: fromSocketId, answer });
+      };
+
+      // 1-urinish: sog'lom ulanishni saqlab, faqat qayta muzokara qilamiz (video uzilmaydi).
+      const existing = pcsRef.current.get(fromSocketId);
+      const reusable =
+        !!existing
+        && existing.signalingState !== 'closed'
+        && existing.connectionState !== 'closed'
+        && existing.connectionState !== 'failed'
+        && existing.getSenders().length > 0;
+
+      if (reusable && existing) {
+        try {
+          await negotiate(existing, false);
+          return;
+        } catch {
+          /* qayta muzokara bo'lmadi — pastda toza ulanish bilan urinamiz */
+        }
+      }
+
+      // 2-urinish (zaxira): toza ulanish quramiz.
+      try {
+        teardownPeerConnection(fromSocketId);
+        const pc = createPeerConnection(fromSocketId, false);
+        await negotiate(pc, true);
+      } catch {
+        setError('Video javob yuborishda xatolik');
+      }
+    },
+    [addLocalTracks, consultationId, createPeerConnection, flushIceCandidates, socketRef, teardownPeerConnection],
+  );
+
   const handleOffer = useCallback(
     async (fromSocketId: string, offer: RTCSessionDescriptionInit) => {
       const socket = socketRef.current;
@@ -485,26 +553,25 @@ export function useVideoRoom({
         return;
       }
 
-      try {
-        teardownPeerConnection(fromSocketId);
+      // Ketma-ket kelgan offerlar bir-birini bosib ketmasligi uchun peer bo'yicha
+      // navbat: muzokara ketayotganda yangi offer saqlanadi va navbatda qo'llanadi
+      // (eskilari tashlab yuboriladi — faqat eng oxirgisi muhim).
+      latestOfferRef.current.set(fromSocketId, offer);
+      if (offerProcessingRef.current.has(fromSocketId)) return;
 
-        const activePc = createPeerConnection(fromSocketId, false);
-        await activePc.setRemoteDescription(new RTCSessionDescription(offer));
-        await flushIceCandidates(fromSocketId);
-        addLocalTracks(activePc);
-        const answer = await activePc.createAnswer();
-        await activePc.setLocalDescription(answer);
-        void applyAllSendersBitrate(pcsRef.current, qualityPresetRef.current);
-        socket.emit('answer', {
-          roomId: consultationId,
-          targetSocketId: fromSocketId,
-          answer,
-        });
-      } catch {
-        setError('Video javob yuborishda xatolik');
+      offerProcessingRef.current.add(fromSocketId);
+      try {
+        let next = latestOfferRef.current.get(fromSocketId);
+        while (next) {
+          latestOfferRef.current.delete(fromSocketId);
+          await applyRemoteOffer(fromSocketId, next);
+          next = latestOfferRef.current.get(fromSocketId);
+        }
+      } finally {
+        offerProcessingRef.current.delete(fromSocketId);
       }
     },
-    [consultationId, addLocalTracks, createPeerConnection, flushIceCandidates, mediaReady, role, socketRef, teardownPeerConnection],
+    [applyRemoteOffer, consultationId, mediaReady, role, socketRef],
   );
 
   const flushPendingIncomingOffers = useCallback(() => {
@@ -588,6 +655,8 @@ export function useVideoRoom({
     pendingIncomingOffersRef.current.clear();
     pendingIceCandidatesRef.current.clear();
     makingOfferRef.current.clear();
+    offerProcessingRef.current.clear();
+    latestOfferRef.current.clear();
     participantUserIdsRef.current.clear();
     offerSentAtRef.current.clear();
     peerWatchdogRef.current.forEach((timer) => clearInterval(timer));
@@ -603,6 +672,13 @@ export function useVideoRoom({
     teardownPeerConnection(socketId);
     knownParticipantsRef.current.delete(socketId);
     participantUserIdsRef.current.delete(socketId);
+    latestOfferRef.current.delete(socketId);
+    pendingIncomingOffersRef.current.delete(socketId);
+    const watchdog = peerWatchdogRef.current.get(socketId);
+    if (watchdog) {
+      clearInterval(watchdog);
+      peerWatchdogRef.current.delete(socketId);
+    }
     if (pcsRef.current.size === 0) {
       setRemoteAudio(null);
     }
@@ -792,12 +868,21 @@ export function useVideoRoom({
   const handleRemoteParticipant = useCallback(
     (participant: RoomParticipant) => {
       rememberParticipant(participant);
+
+      // Ushbu peer bilan ulanish allaqachon tirikmi? Tirik bo'lsa — TEGMAYMIZ.
+      // (Bu hodisa "participant-rejoined"/"room-participants" orqali tez-tez keladi;
+      // ilgari har safar ulanish buzilib qayta qurilar edi — ekran pir-pirlardi.)
+      const pc = pcsRef.current.get(participant.socketId);
+      const alive = !!pc && (pc.connectionState === 'connected' || pc.connectionState === 'connecting');
+
       if (isOfferer && participant.role === 'UT_OPERATOR') {
+        if (alive) return;
         clearUtRemoteFeeds();
         scheduleOfferToPeer(participant.socketId);
         return;
       }
       if (!isOfferer && participant.role === 'MT_DOCTOR') {
+        if (alive) return;
         teardownPeerConnection(participant.socketId);
         queueMicrotask(() => emitReconnectSignalsRef.current());
       }
