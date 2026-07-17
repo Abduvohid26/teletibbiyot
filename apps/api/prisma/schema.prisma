@@ -253,6 +253,8 @@ model User {
 
   consultationsAsDoctor Consultation[]     @relation("MtDoctor")
 
+  cancelledConsultations Consultation[]    @relation("CancelledConsultations")
+
   finalDiagnoses        FinalDiagnosis[]
 
   aiFeedbacks           AiFeedback[]
@@ -358,6 +360,14 @@ model Consultation {
   startedAt          DateTime?
 
   completedAt        DateTime?
+
+  cancelReason       String?
+
+  cancelledAt        DateTime?
+
+  cancelledById      String?
+
+  cancelledBy        User?              @relation("CancelledConsultations", fields: [cancelledById], references: [id])
 
   createdAt          DateTime           @default(now())
 

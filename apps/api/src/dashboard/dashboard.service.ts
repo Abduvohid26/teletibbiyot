@@ -47,6 +47,7 @@ export class DashboardService {
       inProgress,
       queued,
       completed,
+      cancelled,
       totalPatients,
       totalDoctors,
     ] = await Promise.all([
@@ -64,6 +65,10 @@ export class DashboardService {
         where: this.mergeScope(user, { status: ConsultationStatus.COMPLETED }),
       }),
 
+      this.prisma.consultation.count({
+        where: this.mergeScope(user, { status: ConsultationStatus.CANCELLED }),
+      }),
+
       this.prisma.patient.count({ where: patientWhere }),
 
       this.prisma.user.count({
@@ -73,15 +78,11 @@ export class DashboardService {
 
     return {
       totalConsultations,
-
       inProgress,
-
       queued,
-
       completed,
-
+      cancelled,
       totalPatients,
-
       totalDoctors,
     };
   }

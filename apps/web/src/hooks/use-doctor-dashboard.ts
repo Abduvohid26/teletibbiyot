@@ -136,10 +136,17 @@ export function useDoctorDashboard() {
           setSelectedConsultationId(payload.consultationId);
         }
         void executeReload(payload.consultationId);
+        router.push('/dashboard');
       },
       onConsultationCompleted: () => {
         setSelectedConsultationId(null);
         void executeReload(null);
+        router.replace('/dashboard/patients');
+      },
+      onConsultationCancelled: () => {
+        setSelectedConsultationId(null);
+        void executeReload(null);
+        router.replace('/dashboard/patients');
       },
       onTriageUpdated: () => refresh(),
       onPriorityUpdated: () => refresh(),
@@ -169,10 +176,27 @@ export function useDoctorDashboard() {
       await api.startConsultation(id);
       setSelectedConsultationId(id);
       await executeReload(id);
+      router.push('/dashboard');
     } catch (err) {
       setError(toUserMessage(err, 'Konsultatsiyani boshlashda xatolik'));
+      throw err;
     }
-  }, [executeReload]);
+  }, [executeReload, router]);
+
+  const cancelConsultation = useCallback(async (id: string, reason: string) => {
+    setError('');
+    try {
+      await api.cancelConsultation(id, reason);
+      if (selectedConsultationIdRef.current === id) {
+        setSelectedConsultationId(null);
+      }
+      await executeReload(null);
+      router.replace('/dashboard/patients');
+    } catch (err) {
+      setError(toUserMessage(err, 'Bekor qilishda xatolik'));
+      throw err;
+    }
+  }, [executeReload, router]);
 
   const handleQuickAction = useCallback((action: string) => {
     if (action === 'new-consultation' && queuedPatients[0]) void startConsultation(queuedPatients[0].id);
@@ -207,6 +231,7 @@ export function useDoctorDashboard() {
     showAttachments,
     setShowAttachments,
     startConsultation,
+    cancelConsultation,
     handleQuickAction,
   };
 }

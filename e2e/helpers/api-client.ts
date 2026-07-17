@@ -69,7 +69,7 @@ export class ApiTestClient {
     return this.post(`/consultations/${id}/complete`, diagnosis);
   }
 
-  async cancelConsultation(id: string, reason?: string) {
+  async cancelConsultation(id: string, reason: string) {
     return this.post(`/consultations/${id}/cancel`, { reason });
   }
 

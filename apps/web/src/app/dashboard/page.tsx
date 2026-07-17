@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { AuthGate } from '@/components/auth/AuthLoadingScreen';
 import { DoctorDashboardView } from '@/components/dashboard/DoctorDashboardView';
 import { ObserverDashboardView } from '@/components/dashboard/ObserverDashboardView';
@@ -7,23 +9,33 @@ import { useDoctorDashboard } from '@/hooks/use-doctor-dashboard';
 
 export default function DashboardPage() {
   const dash = useDoctorDashboard();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (dash.loading || !dash.isDoctor) return;
+    if (dash.myInProgress.length === 0) {
+      router.replace('/dashboard/patients');
+    }
+  }, [dash.loading, dash.isDoctor, dash.myInProgress.length, router]);
 
   return (
     <AuthGate loading={dash.loading} user={dash.user} error={dash.authError} onRetry={dash.retryAuth}>
       {!dash.user ? null : dash.isDoctor ? (
-        <DoctorDashboardView
-          queue={dash.queue}
-          consultation={dash.consultation}
-          myInProgress={dash.myInProgress}
-          selectedConsultationId={dash.selectedConsultationId}
-          onSelectConsultation={dash.selectConsultation}
-          attachmentCount={dash.attachmentCount}
-          documentsConsultationId={dash.documentsConsultationId}
-          error={dash.error}
-          onReload={dash.reload}
-          onRefresh={dash.refresh}
-          onStartConsultation={dash.startConsultation}
-        />
+        dash.myInProgress.length === 0 ? null : (
+          <DoctorDashboardView
+            queue={dash.queue}
+            consultation={dash.consultation}
+            myInProgress={dash.myInProgress}
+            selectedConsultationId={dash.selectedConsultationId}
+            onSelectConsultation={dash.selectConsultation}
+            attachmentCount={dash.attachmentCount}
+            documentsConsultationId={dash.documentsConsultationId}
+            error={dash.error}
+            onReload={dash.reload}
+            onRefresh={dash.refresh}
+            onStartConsultation={dash.startConsultation}
+          />
+        )
       ) : (
         <ObserverDashboardView
           consultation={dash.consultation}

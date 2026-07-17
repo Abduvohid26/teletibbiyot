@@ -16,6 +16,7 @@ export interface ConsultationRealtimeHandlers {
   onConsultationQueued?: (payload: { consultationId: string; patientName?: string; utCode?: string }) => void;
   onConsultationStarted?: (payload: { consultationId: string; doctorName?: string }) => void;
   onConsultationCompleted?: (payload: { consultationId: string }) => void;
+  onConsultationCancelled?: (payload: { consultationId: string }) => void;
   onAiUpdated?: (consultationId: string) => void;
   onChatMessagePersisted?: (consultationId: string) => void;
   onTriageUpdated?: (consultationId: string) => void;
@@ -119,6 +120,13 @@ export function useConsultationRealtime(
       window.dispatchEvent(new CustomEvent('consultation-completed', { detail: payload }));
     };
 
+    const onCancelled = (payload: RealtimePayload) => {
+      const cid = resolveConsultationId(payload, '');
+      if (!matchesSubscription(cid, ids, staffFeed)) return;
+      handlersRef.current.onConsultationCancelled?.({ consultationId: cid });
+      window.dispatchEvent(new CustomEvent('consultation-cancelled', { detail: payload }));
+    };
+
     const onAiUpdated = (payload: RealtimePayload) => {
       const cid = resolveConsultationId(payload, '');
       if (!matchesSubscription(cid, ids, staffFeed)) return;
@@ -155,6 +163,7 @@ export function useConsultationRealtime(
     socket.on('consultation-queued', onQueued);
     socket.on('consultation-started', onStarted);
     socket.on('consultation-completed', onCompleted);
+    socket.on('consultation-cancelled', onCancelled);
     socket.on('ai-analysis-updated', onAiUpdated);
     socket.on('chat-message-persisted', onChatPersisted);
     socket.on('triage-updated', onTriageUpdated);
@@ -167,6 +176,7 @@ export function useConsultationRealtime(
       socket.off('consultation-queued', onQueued);
       socket.off('consultation-started', onStarted);
       socket.off('consultation-completed', onCompleted);
+      socket.off('consultation-cancelled', onCancelled);
       socket.off('ai-analysis-updated', onAiUpdated);
       socket.off('chat-message-persisted', onChatPersisted);
       socket.off('triage-updated', onTriageUpdated);

@@ -1,4 +1,4 @@
-import { IsString, IsEnum, IsOptional, IsNumber, ValidateNested, IsBoolean, Matches, Equals, MaxLength } from 'class-validator';
+import { IsString, IsEnum, IsOptional, IsNumber, ValidateNested, IsBoolean, Matches, Equals, MaxLength, MinLength, IsNotEmpty } from 'class-validator';
 
 import { Type } from 'class-transformer';
 
@@ -248,10 +248,12 @@ export class AiFeedbackDto {
 
 
 export class CancelConsultationDto {
-  @ApiProperty({ required: false })
-  @IsOptional()
+  @ApiProperty({ description: 'Bekor qilish sababi (majburiy)' })
   @IsString()
-  reason?: string;
+  @IsNotEmpty({ message: 'Bekor qilish sababi kiritilishi shart' })
+  @MinLength(3, { message: 'Sabab kamida 3 ta belgidan iborat bo\'lishi kerak' })
+  @MaxLength(1000)
+  reason: string;
 }
 
 export class SecondOpinionDto {

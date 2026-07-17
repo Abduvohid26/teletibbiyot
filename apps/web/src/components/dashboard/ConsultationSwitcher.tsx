@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, Play, Radio, User } from 'lucide-react';
+import { ChevronDown, Play, Radio, User, X } from 'lucide-react';
 import { Consultation } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -13,6 +13,7 @@ interface ConsultationSwitcherProps {
   onSelect: (id: string) => void;
   onStart: (id: string) => void;
   onReconnect?: (id: string) => void;
+  onCancel?: (id: string) => void;
   className?: string;
 }
 
@@ -33,6 +34,7 @@ export function ConsultationSwitcher({
   onSelect,
   onStart,
   onReconnect,
+  onCancel,
   className,
 }: ConsultationSwitcherProps) {
   const [open, setOpen] = useState(false);
@@ -128,6 +130,7 @@ export function ConsultationSwitcher({
                   live
                   onSelect={() => { onSelect(c.id); setOpen(false); }}
                   onReconnect={onReconnect ? () => { onReconnect(c.id); setOpen(false); } : undefined}
+                  onCancel={onCancel ? () => { onCancel(c.id); setOpen(false); } : undefined}
                 />
               ))}
             </Section>
@@ -142,6 +145,7 @@ export function ConsultationSwitcher({
                   active={activeId === c.id}
                   onSelect={() => { onSelect(c.id); setOpen(false); }}
                   onStart={() => { onStart(c.id); setOpen(false); }}
+                  onCancel={onCancel ? () => { onCancel(c.id); setOpen(false); } : undefined}
                 />
               ))}
             </Section>
@@ -203,6 +207,7 @@ function QueueRow({
   onSelect,
   onStart,
   onReconnect,
+  onCancel,
 }: {
   c: Consultation;
   active: boolean;
@@ -210,6 +215,7 @@ function QueueRow({
   onSelect: () => void;
   onStart?: () => void;
   onReconnect?: () => void;
+  onCancel?: () => void;
 }) {
   return (
     <div
@@ -272,6 +278,19 @@ function QueueRow({
           )}
         >
           Ulash
+        </button>
+      )}
+      {onCancel && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onCancel(); }}
+          className={cn(
+            'mr-1 shrink-0 inline-flex items-center justify-center rounded-md p-1.5',
+            active ? 'hover:bg-white/20 text-white/90' : 'hover:bg-red-50 text-red-500',
+          )}
+          aria-label="Bekor qilish"
+        >
+          <X size={14} />
         </button>
       )}
     </div>

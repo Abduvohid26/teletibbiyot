@@ -295,6 +295,7 @@ export class ConsultationsService {
           patient: true,
           utFacility: true,
           mtDoctor: { select: { id: true, fullName: true } },
+          cancelledBy: { select: { id: true, fullName: true, role: true } },
           aiAnalysis: true,
           finalDiagnosis: true,
           clinicalRecord: { select: { complaints: true } },
@@ -666,13 +667,25 @@ export class ConsultationsService {
       throw new BadRequestException('Konsultatsiya allaqachon bekor qilingan');
     }
 
-    const canCancel =
-      (isMtDoctor(user.role) && consultation.mtDoctorId === user.id) ||
-      (isUtRole(user.role) &&
-        user.facilityId === consultation.utId &&
+    const trimmedReason = reason?.trim();
+    if (!trimmedReason || trimmedReason.length < 3) {
+      throw new BadRequestException('Bekor qilish sababi kamida 3 ta belgidan iborat bo\'lishi kerak');
+    }
+
+    const isUtCancel =
+      isUtRole(user.role) &&
+      user.facilityId === consultation.utId &&
+      (consultation.status === ConsultationStatus.QUEUED ||
+        consultation.status === ConsultationStatus.IN_PROGRESS);
+
+    const isDoctorCancel =
+      isMtDoctor(user.role) &&
+      ((consultation.status === ConsultationStatus.IN_PROGRESS && consultation.mtDoctorId === user.id) ||
         consultation.status === ConsultationStatus.QUEUED);
 
-    if (!canCancel) throw new ForbiddenException('Bekor qilish huquqi yo\'q');
+    if (!isUtCancel && !isDoctorCancel) {
+      throw new ForbiddenException('Bekor qilish huquqi yo\'q');
+    }
 
     await this.prisma.auditLog.create({
       data: {
@@ -680,15 +693,39 @@ export class ConsultationsService {
         action: 'CANCEL_CONSULTATION',
         entity: 'Consultation',
         entityId: id,
-        details: { reason: reason || null, previousStatus: consultation.status },
+        details: {
+          reason: trimmedReason,
+          previousStatus: consultation.status,
+          cancelledByRole: user.role,
+        },
       },
     });
 
-    return this.prisma.consultation.update({
+    const updated = await this.prisma.consultation.update({
       where: { id },
-      data: { status: ConsultationStatus.CANCELLED },
-      include: { patient: true, utFacility: true },
+      data: {
+        status: ConsultationStatus.CANCELLED,
+        cancelReason: trimmedReason,
+        cancelledAt: new Date(),
+        cancelledById: user.id,
+      },
+      include: {
+        patient: true,
+        utFacility: true,
+        mtDoctor: { select: { id: true, fullName: true } },
+        cancelledBy: { select: { id: true, fullName: true, role: true } },
+      },
     });
+
+    this.videoGateway.emitConsultationEvent(id, 'consultation-cancelled', {
+      consultationId: id,
+      patientId: consultation.patientId,
+      reason: trimmedReason,
+      cancelledBy: updated.cancelledBy?.fullName ?? user.id,
+      cancelledByRole: user.role,
+    });
+
+    return updated;
   }
 
   async getHistory(patientId: string, user: AuthUser) {

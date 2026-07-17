@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, BarChart3, Settings } from 'lucide-react';
+import { LayoutDashboard, Users, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export const DOCTOR_NAV_TABS = [
@@ -15,10 +15,11 @@ export const DOCTOR_NAV_TABS = [
     badgeKey: 'live' as const,
   },
   {
-    href: '/dashboard/reports',
-    label: 'Analitika',
-    shortLabel: 'Stat.',
-    icon: BarChart3,
+    href: '/dashboard/patients',
+    label: 'Bemorlar',
+    shortLabel: 'Bemor',
+    icon: Users,
+    badgeKey: 'queue' as const,
   },
   {
     href: '/dashboard/settings',
@@ -35,13 +36,12 @@ interface DoctorNavTabsProps {
 }
 
 function getBadge(
-  badgeKey: 'live' | null,
+  badgeKey: 'live' | 'queue' | null,
   liveCount: number,
   queueCount: number,
 ) {
-  if (badgeKey === 'live' && (liveCount > 0 || queueCount > 0)) {
-    return liveCount > 0 ? liveCount : queueCount;
-  }
+  if (badgeKey === 'live' && liveCount > 0) return liveCount;
+  if (badgeKey === 'queue' && queueCount > 0) return queueCount;
   return null;
 }
 
@@ -77,7 +77,7 @@ export function DoctorNavTabs({ liveCount = 0, queueCount = 0, className }: Doct
               <span
                 className={cn(
                   'absolute -top-0.5 -right-0.5 xl:static xl:ml-0.5 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold inline-flex items-center justify-center text-white',
-                  liveCount > 0 ? 'bg-emerald-500' : 'bg-amber-500',
+                  badgeKey === 'live' ? 'bg-emerald-500' : 'bg-amber-500',
                 )}
               >
                 {badge}

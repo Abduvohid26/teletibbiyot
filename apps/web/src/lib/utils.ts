@@ -37,7 +37,7 @@ export function formatStatus(status: string): { label: string; className: string
     IN_PROGRESS: { label: 'Jarayonda', className: 'status-in-progress' },
     QUEUED: { label: 'Kutilmoqda', className: 'status-waiting' },
     COMPLETED: { label: 'Yakunlangan', className: 'status-completed' },
-    CANCELLED: { label: 'Bekor qilingan', className: 'status-completed' },
+    CANCELLED: { label: 'Bekor qilingan', className: 'status-cancelled' },
   };
   return map[status] || { label: status, className: 'status-completed' };
 }

@@ -196,6 +196,9 @@ export interface Consultation {
   startedAt?: string;
   completedAt?: string;
   createdAt?: string;
+  cancelReason?: string | null;
+  cancelledAt?: string | null;
+  cancelledBy?: { id: string; fullName: string; role?: string };
   patient: Patient;
   utFacility: { id: string; name: string; code: string };
   mtDoctor?: { id: string; fullName: string };
@@ -212,6 +215,7 @@ export interface DashboardStats {
   inProgress: number;
   queued: number;
   completed: number;
+  cancelled?: number;
   totalPatients: number;
   totalDoctors: number;
 }

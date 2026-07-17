@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, User, Phone, MapPin, Calendar, Stethoscope, Brain, FileText } from 'lucide-react';
+import { X, User, Phone, MapPin, Calendar, Stethoscope, Brain, FileText, XCircle } from 'lucide-react';
 import { api, PatientDetail } from '@/lib/api';
 import { calculateAge, formatGender, formatStatus, formatTriage } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { toast } from '@/lib/toast';
+import { cancelActorLabel } from '@/components/consultations/CancelConsultationModal';
 
 interface PatientDetailPanelProps {
   patientId: string | null;
@@ -111,6 +112,23 @@ export function PatientDetailPanel({ patientId, onClose }: PatientDetailPanelPro
                         <p className="text-xs font-medium text-emerald-700">
                           Yakuniy: {c.finalDiagnosis.diagnosis} ({c.finalDiagnosis.icd10Code})
                         </p>
+                      )}
+                      {c.status === 'CANCELLED' && c.cancelReason && (
+                        <div className="p-2.5 rounded-lg bg-red-50 border border-red-100 space-y-1">
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-red-800">
+                            <XCircle size={12} className="shrink-0" />
+                            Bekor qilingan
+                          </div>
+                          <p className="text-xs text-red-900">{c.cancelReason}</p>
+                          {c.cancelledBy && (
+                            <p className="text-[10px] text-red-700/80">
+                              {cancelActorLabel(c.cancelledBy.role)}: {c.cancelledBy.fullName}
+                              {c.cancelledAt
+                                ? ` · ${new Date(c.cancelledAt).toLocaleString('uz-UZ')}`
+                                : ''}
+                            </p>
+                          )}
+                        </div>
                       )}
                       {c.consultationReport && (
                         <button

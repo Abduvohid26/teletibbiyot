@@ -110,6 +110,10 @@ export function useUtSessions(enabled = true) {
         void load();
         void refreshPatientConsultations();
       },
+      onConsultationCancelled: () => {
+        void load();
+        void refreshPatientConsultations();
+      },
       onAttachmentAnalyzed: () => void load(),
       onAiUpdated: () => void load(),
     },
@@ -133,8 +137,7 @@ export function useUtSessions(enabled = true) {
     return () => window.removeEventListener('consultation-started', onStarted);
   }, [enabled, load, switchToConsultation]);
 
-  const cancelSession = useCallback(async (consultationId: string) => {
-    await api.cancelConsultation(consultationId, 'UT operator tomonidan bekor qilindi');
+  const applyAfterCancel = useCallback(async (consultationId: string) => {
     if (typeof window !== 'undefined') {
       const active = sessionStorage.getItem(UT_ACTIVE_CONSULTATION_KEY);
       if (active === consultationId) {
@@ -151,8 +154,13 @@ export function useUtSessions(enabled = true) {
     if (next) {
       await switchToConsultation(next.id);
     }
-    toast('Navbatdan bekor qilindi', 'info');
   }, [consultation?.id, refreshSessions, switchToConsultation]);
+
+  const cancelSession = useCallback(async (consultationId: string, reason: string) => {
+    await api.cancelConsultation(consultationId, reason);
+    await applyAfterCancel(consultationId);
+    toast('Navbatdan bekor qilindi', 'info');
+  }, [applyAfterCancel]);
 
   return {
     consultation,
@@ -166,6 +174,7 @@ export function useUtSessions(enabled = true) {
     load,
     switchToConsultation,
     cancelSession,
+    applyAfterCancel,
     refreshSessions,
     refreshPatientConsultations,
     refreshAll,

@@ -320,6 +320,10 @@ body {
     @apply flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden p-4 lg:p-6 pb-8 animate-fade-in;
   }
 
+  .doctor-subpage-inner {
+    @apply max-w-5xl mx-auto w-full;
+  }
+
   /* UT workspace — glass dashboard (admin/analitika bilan bir xil) */
   .ut-shell {
     @apply h-dvh overflow-hidden flex flex-col relative;
@@ -683,6 +687,10 @@ body {
 
   .status-completed {
     @apply bg-slate-100 text-slate-600 ring-1 ring-slate-200/60;
+  }
+
+  .status-cancelled {
+    @apply bg-red-50 text-red-700 ring-1 ring-red-200/60;
   }
 
   .stat-card {

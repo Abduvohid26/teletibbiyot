@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Stethoscope, Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Loader2, XCircle } from 'lucide-react';
 import { DoctorShell } from '@/components/layout/DoctorShell';
 import { VideoConsultation } from '@/components/dashboard/VideoConsultation';
 import { AiAnalysisPanel } from '@/components/dashboard/AiAnalysisPanel';
@@ -9,6 +10,7 @@ import { PatientDocumentsPanel } from '@/components/dashboard/PatientDocumentsPa
 import { ConsultationSwitcher } from '@/components/dashboard/ConsultationSwitcher';
 import { api, Consultation } from '@/lib/api';
 import { toast } from '@/lib/toast';
+import { useCancelConsultation } from '@/hooks/use-cancel-consultation';
 
 interface DoctorDashboardViewProps {
   queue: Consultation[];
@@ -37,6 +39,7 @@ export function DoctorDashboardView({
   onRefresh,
   onStartConsultation,
 }: DoctorDashboardViewProps) {
+  const router = useRouter();
   const [reconnectSignal, setReconnectSignal] = useState(0);
   const [completing, setCompleting] = useState(false);
   const queuedPatients = queue.filter((c) => c.status === 'QUEUED');
@@ -89,10 +92,31 @@ export function DoctorDashboardView({
     }
   }, [activeConsultation, completing, onReload]);
 
+  const { requestCancel, cancelModal } = useCancelConsultation({
+    onSuccess: (id) => {
+      onReload();
+      if (id === activeConsultationId) {
+        router.replace('/dashboard/patients');
+      }
+    },
+  });
+
+  const handleCancelRequest = useCallback((id: string) => {
+    const target =
+      myInProgress.find((c) => c.id === id)
+      ?? queuedPatients.find((c) => c.id === id)
+      ?? (consultation?.id === id ? consultation : null);
+    if (target && (target.status === 'QUEUED' || target.status === 'IN_PROGRESS')) {
+      requestCancel(target);
+    }
+  }, [consultation, myInProgress, queuedPatients, requestCancel]);
+
   const hasQueue = myInProgress.length > 0 || queuedPatients.length > 0;
   const showCompleteBtn = activeConsultation?.status === 'IN_PROGRESS';
+  const showCancelBtn = activeConsultation?.status === 'IN_PROGRESS';
 
   return (
+    <>
     <DoctorShell
       liveCount={myInProgress.length}
       queueCount={queuedPatients.length}
@@ -105,21 +129,36 @@ export function DoctorDashboardView({
             onSelect={handleSelectConsultation}
             onStart={onStartConsultation}
             onReconnect={handleSelectConsultation}
+            onCancel={handleCancelRequest}
           />
         ) : undefined
       }
       pageAction={
-        showCompleteBtn ? (
-          <button
-            type="button"
-            onClick={() => void handleComplete()}
-            disabled={completing}
-            className="gradient-btn !py-1.5 !px-2 !text-[11px] sm:!text-xs shrink-0 whitespace-nowrap disabled:opacity-60 inline-flex items-center gap-1"
-          >
-            {completing ? <Loader2 size={12} className="animate-spin" /> : null}
-            <span className="hidden sm:inline">{completing ? 'Yakunlanmoqda...' : 'Yakunlash'}</span>
-            <span className="sm:hidden">{completing ? '...' : 'Yakun'}</span>
-          </button>
+        showCompleteBtn || showCancelBtn ? (
+          <div className="flex items-center gap-1.5 shrink-0">
+            {showCancelBtn && (
+              <button
+                type="button"
+                onClick={() => activeConsultation && handleCancelRequest(activeConsultation.id)}
+                className="inline-flex items-center gap-1 rounded-xl border border-red-200 text-red-600 text-[11px] sm:text-xs font-semibold px-2 py-1.5 hover:bg-red-50"
+              >
+                <XCircle size={12} />
+                <span className="hidden sm:inline">Bekor qilish</span>
+              </button>
+            )}
+            {showCompleteBtn && (
+              <button
+                type="button"
+                onClick={() => void handleComplete()}
+                disabled={completing}
+                className="gradient-btn !py-1.5 !px-2 !text-[11px] sm:!text-xs shrink-0 whitespace-nowrap disabled:opacity-60 inline-flex items-center gap-1"
+              >
+                {completing ? <Loader2 size={12} className="animate-spin" /> : null}
+                <span className="hidden sm:inline">{completing ? 'Yakunlanmoqda...' : 'Yakunlash'}</span>
+                <span className="sm:hidden">{completing ? '...' : 'Yakun'}</span>
+              </button>
+            )}
+          </div>
         ) : undefined
       }
     >
@@ -133,18 +172,7 @@ export function DoctorDashboardView({
           </div>
         )}
 
-        {!activeConsultation && !hasQueue ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-4 min-h-0 text-center p-4">
-            <div className="ut-glass-empty">
-              <Stethoscope className="w-7 h-7 text-slate-300" />
-            </div>
-            <div>
-              <h2 className="font-bold text-slate-800 text-sm mb-1">Navbat bo&apos;sh</h2>
-              <p className="text-sm text-slate-500 max-w-xs">UT dan yangi bemor yuborilishini kuting</p>
-            </div>
-          </div>
-        ) : (
-          <div className="flex-1 min-h-0 overflow-hidden doctor-main-grid">
+        <div className="flex-1 min-h-0 overflow-hidden doctor-main-grid">
             <div className="doctor-video-col">
               <VideoConsultation
                 key={activeConsultationId ?? 'none'}
@@ -191,9 +219,10 @@ export function DoctorDashboardView({
                 onRefresh={passiveRefresh}
               />
             </div>
-          </div>
-        )}
+        </div>
       </div>
     </DoctorShell>
+    {cancelModal}
+    </>
   );
 }

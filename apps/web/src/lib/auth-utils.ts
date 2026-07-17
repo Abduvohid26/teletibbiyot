@@ -23,6 +23,7 @@ export {
 export function getRoleHomePath(role: string): string {
   if (isUtRole(role)) return '/ut';
   if (canAccessAdmin(role)) return '/admin';
+  if (role === UserRole.MT_DOCTOR) return '/dashboard/patients';
   if (canAccessMtDashboard(role)) return '/dashboard';
   return '/login';
 }

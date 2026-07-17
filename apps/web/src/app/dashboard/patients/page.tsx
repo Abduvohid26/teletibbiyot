@@ -1,10 +1,14 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
+import { AuthGate } from '@/components/auth/AuthLoadingScreen';
+import { DoctorPatientsView } from '@/components/dashboard/DoctorPatientsView';
+import { useDoctorDashboard } from '@/hooks/use-doctor-dashboard';
+import { isMtDoctor } from '@ishifo/shared';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useRequireAuth } from '@/hooks/use-require-auth';
-import { useDoctorDashboardOnly } from '@/hooks/use-doctor-dashboard-only';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useDebouncedValue } from '@/hooks/use-debounce';
 import { api, Patient } from '@/lib/api';
 import { PatientFilters, GENDER_OPTIONS, FilterOptions } from '@/lib/analytics-types';
@@ -18,9 +22,8 @@ import { ROLES_MT_DASHBOARD } from '@/lib/roles';
 
 const defaultFilters: PatientFilters = { page: 1, limit: 24, sortBy: 'createdAt', sortOrder: 'desc' };
 
-function PatientsContent() {
+function StaffPatientsContent() {
   const { user, loading: authLoading } = useRequireAuth([...ROLES_MT_DASHBOARD]);
-  useDoctorDashboardOnly();
   const searchParams = useSearchParams();
   const [filters, setFilters] = useState<PatientFilters>({
     ...defaultFilters,
@@ -166,10 +169,45 @@ function PatientsContent() {
   );
 }
 
+function DoctorPatientsPage() {
+  const dash = useDoctorDashboard();
+
+  return (
+    <AuthGate loading={dash.loading} user={dash.user} error={dash.authError} onRetry={dash.retryAuth}>
+      {!dash.user ? null : (
+        <DoctorPatientsView
+          queue={dash.queue}
+          myInProgress={dash.myInProgress}
+          stats={dash.stats}
+          selectedConsultationId={dash.selectedConsultationId}
+          onSelectConsultation={dash.selectConsultation}
+          onStartConsultation={dash.startConsultation}
+          onReload={dash.reload}
+          error={dash.error}
+        />
+      )}
+    </AuthGate>
+  );
+}
+
 export default function PatientsPage() {
+  const { user, loading } = useRequireAuth([...ROLES_MT_DASHBOARD]);
+
+  if (loading) {
+    return (
+      <div className="page-shell flex items-center justify-center min-h-screen text-slate-400">
+        Yuklanmoqda...
+      </div>
+    );
+  }
+
+  if (user && isMtDoctor(user.role)) {
+    return <DoctorPatientsPage />;
+  }
+
   return (
     <Suspense fallback={<div className="page-shell flex items-center justify-center min-h-screen text-slate-400">Yuklanmoqda...</div>}>
-      <PatientsContent />
+      <StaffPatientsContent />
     </Suspense>
   );
 }

@@ -163,6 +163,7 @@ export class PatientsService {
             finalDiagnosis: true,
             utFacility: true,
             mtDoctor: { select: { id: true, fullName: true, specialty: true } },
+            cancelledBy: { select: { id: true, fullName: true, role: true } },
             clinicalRecord: { select: { complaints: true, vitalSigns: true } },
             consultationReport: { select: { id: true, fileName: true, generatedAt: true } },
           },

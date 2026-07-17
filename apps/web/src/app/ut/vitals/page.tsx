@@ -13,6 +13,7 @@ import { UtConsultationSession } from '@/components/video/UtConsultationSession'
 import { UtDocumentsModal } from '@/components/ut/UtDocumentsModal';
 import { UtPatientSwitcher } from '@/components/ut/UtPatientSwitcher';
 import { useUtSessions } from '@/hooks/use-ut-sessions';
+import { useCancelConsultation } from '@/hooks/use-cancel-consultation';
 
 export default function UtVitalsPage() {
   const { user, loading } = useAuth();
@@ -26,8 +27,12 @@ export default function UtVitalsPage() {
     liveBanner,
     setLiveBanner,
     switchToConsultation,
-    cancelSession,
+    applyAfterCancel,
   } = useUtSessions(!!user && isUtRole(user?.role || ''));
+
+  const { requestCancel, cancelModal } = useCancelConsultation({
+    onSuccess: applyAfterCancel,
+  });
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
@@ -43,90 +48,96 @@ export default function UtVitalsPage() {
   }
 
   return (
-    <UtShell
-      sessionCount={sessions.length}
-      liveCount={inProgressList.length}
-      headerQueue={
-        sessions.length > 0 ? (
-          <UtPatientSwitcher
-            activeId={consultation?.id}
-            sessions={sessions}
-            onSelect={switchToConsultation}
-            onCancel={(id) => void cancelSession(id)}
-          />
-        ) : undefined
-      }
-      pageAction={
-        consultation ? (
-          <button
-            type="button"
-            onClick={() => setShowDocuments(true)}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg bg-white/90 text-slate-700 ring-1 ring-slate-200 hover:bg-brand-50 hover:text-brand-700 hover:ring-brand-200 transition-colors"
-          >
-            <FileText size={13} />
-            Hujjatlar
-          </button>
-        ) : undefined
-      }
-    >
-      <div className="ut-page">
-        {error && (
-          <div className="shrink-0 mb-2 ut-glass-banner border-red-200/70 bg-red-50/75 text-red-700 text-xs px-3 py-1.5">
-            {error}
-          </div>
-        )}
-
-        {liveBanner && (
-          <div className="shrink-0 mb-2 ut-glass-banner-live animate-fade-in">
-            <div className="flex items-center gap-2 min-w-0">
-              <Radio size={15} className="text-emerald-600 animate-pulse shrink-0" />
-              <p className="text-sm font-semibold text-emerald-900 truncate">
-                Shifokor qabul qildi{liveBanner.doctorName ? ` — ${liveBanner.doctorName}` : ''}. Jonli efir boshlandi.
-              </p>
-            </div>
+    <>
+      <UtShell
+        sessionCount={sessions.length}
+        liveCount={inProgressList.length}
+        headerQueue={
+          sessions.length > 0 ? (
+            <UtPatientSwitcher
+              activeId={consultation?.id}
+              sessions={sessions}
+              onSelect={switchToConsultation}
+              onCancel={(id) => {
+                const target = sessions.find((s) => s.id === id);
+                if (target) requestCancel(target);
+              }}
+            />
+          ) : undefined
+        }
+        pageAction={
+          consultation ? (
             <button
               type="button"
-              onClick={() => setLiveBanner(null)}
-              className="text-xs text-emerald-700 font-bold px-2 py-0.5 rounded-md bg-emerald-100 shrink-0"
+              onClick={() => setShowDocuments(true)}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg bg-white/90 text-slate-700 ring-1 ring-slate-200 hover:bg-brand-50 hover:text-brand-700 hover:ring-brand-200 transition-colors"
             >
-              OK
+              <FileText size={13} />
+              Hujjatlar
             </button>
-          </div>
-        )}
+          ) : undefined
+        }
+      >
+        <div className="ut-page">
+          {error && (
+            <div className="shrink-0 mb-2 ut-glass-banner border-red-200/70 bg-red-50/75 text-red-700 text-xs px-3 py-1.5">
+              {error}
+            </div>
+          )}
 
-        {!consultation ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-4 min-h-0 text-center p-4">
-            <div className="ut-glass-empty">
-              <Stethoscope className="w-7 h-7 text-slate-300" />
+          {liveBanner && (
+            <div className="shrink-0 mb-2 ut-glass-banner-live animate-fade-in">
+              <div className="flex items-center gap-2 min-w-0">
+                <Radio size={15} className="text-emerald-600 animate-pulse shrink-0" />
+                <p className="text-sm font-semibold text-emerald-900 truncate">
+                  Shifokor qabul qildi{liveBanner.doctorName ? ` — ${liveBanner.doctorName}` : ''}. Jonli efir boshlandi.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLiveBanner(null)}
+                className="text-xs text-emerald-700 font-bold px-2 py-0.5 rounded-md bg-emerald-100 shrink-0"
+              >
+                OK
+              </button>
             </div>
-            <div>
-              <h2 className="font-bold text-slate-800 text-sm mb-1">Faol bemor tanlanmagan</h2>
-              <p className="text-sm text-slate-500 max-w-xs">
-                Bemorlar ro&apos;yxatidan tanlang yoki yangi qabul qiling
-              </p>
+          )}
+
+          {!consultation ? (
+            <div className="flex-1 flex flex-col items-center justify-center gap-4 min-h-0 text-center p-4">
+              <div className="ut-glass-empty">
+                <Stethoscope className="w-7 h-7 text-slate-300" />
+              </div>
+              <div>
+                <h2 className="font-bold text-slate-800 text-sm mb-1">Faol bemor tanlanmagan</h2>
+                <p className="text-sm text-slate-500 max-w-xs">
+                  Bemorlar ro&apos;yxatidan tanlang yoki yangi qabul qiling
+                </p>
+              </div>
+              <UtQuickNav sessionCount={sessions.length} liveCount={inProgressList.length} />
+              <Link href="/ut" className="gradient-btn !text-sm">Bemor qabul qilish</Link>
             </div>
-            <UtQuickNav sessionCount={sessions.length} liveCount={inProgressList.length} />
-            <Link href="/ut" className="gradient-btn !text-sm">Bemor qabul qilish</Link>
-          </div>
-        ) : (
-          <div className="flex-1 min-h-0 overflow-hidden">
-            <UtConsultationSession
-              key={consultation.id}
-              consultation={consultation}
+          ) : (
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <UtConsultationSession
+                key={consultation.id}
+                consultation={consultation}
+                patientName={consultation.patient.fullName}
+              />
+            </div>
+          )}
+
+          {consultation && (
+            <UtDocumentsModal
+              open={showDocuments}
+              onClose={() => setShowDocuments(false)}
+              consultationId={consultation.id}
               patientName={consultation.patient.fullName}
             />
-          </div>
-        )}
-
-        {consultation && (
-          <UtDocumentsModal
-            open={showDocuments}
-            onClose={() => setShowDocuments(false)}
-            consultationId={consultation.id}
-            patientName={consultation.patient.fullName}
-          />
-        )}
-      </div>
-    </UtShell>
+          )}
+        </div>
+      </UtShell>
+      {cancelModal}
+    </>
   );
 }

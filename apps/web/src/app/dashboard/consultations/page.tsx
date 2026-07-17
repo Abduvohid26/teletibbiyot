@@ -15,6 +15,7 @@ import { toUserMessage, cn } from '@/lib/utils';
 import { ROLES_MT_DASHBOARD } from '@/lib/roles';
 import { UserRole, isMtDoctor, isMtStaff } from '@ishifo/shared';
 import { useConsultationRealtime } from '@/hooks/use-consultation-realtime';
+import { useCancelConsultation } from '@/hooks/use-cancel-consultation';
 
 type Tab = 'queue' | 'all';
 
@@ -30,9 +31,28 @@ export default function ConsultationsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
-  const [cancelTarget, setCancelTarget] = useState<string | null>(null);
 
   const debouncedSearch = useDebouncedValue(filters.search || '', 350);
+
+  const reloadData = () => {
+    if (tab === 'queue') {
+      api.getQueue()
+        .then(setQueue)
+        .catch((err) => setError(err instanceof Error ? err.message : 'Xatolik'));
+      return;
+    }
+    api.getConsultationsList({ ...filters, search: debouncedSearch })
+      .then((res) => {
+        setItems(res.items);
+        setTotal(res.total);
+        setTotalPages(res.totalPages);
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : 'Xatolik'));
+  };
+
+  const { requestCancel, cancelModal } = useCancelConsultation({
+    onSuccess: reloadData,
+  });
 
   const reloadQueue = () => {
     if (tab !== 'queue') return;
@@ -44,6 +64,7 @@ export default function ConsultationsPage() {
   useConsultationRealtime([], {
     onConsultationStarted: reloadQueue,
     onConsultationCompleted: reloadQueue,
+    onConsultationCancelled: reloadQueue,
     onTriageUpdated: reloadQueue,
     onPriorityUpdated: reloadQueue,
   }, { staffFeed: true });
@@ -86,25 +107,9 @@ export default function ConsultationsPage() {
     }
   };
 
-  const handleCancel = async (id: string) => {
-    setCancelTarget(id);
-  };
-
-  const confirmCancel = async () => {
-    if (!cancelTarget) return;
-    setError('');
-    try {
-      await api.cancelConsultation(cancelTarget, 'Foydalanuvchi tomonidan bekor qilindi');
-      if (tab === 'queue') {
-        setQueue(await api.getQueue());
-      } else {
-        const res = await api.getConsultationsList({ ...filters, search: debouncedSearch });
-        setItems(res.items);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Xatolik yuz berdi');
-    } finally {
-      setCancelTarget(null);
+  const handleCancel = (consultation: Consultation) => {
+    if (consultation.status === 'QUEUED' || consultation.status === 'IN_PROGRESS') {
+      requestCancel(consultation);
     }
   };
 
@@ -149,9 +154,9 @@ export default function ConsultationsPage() {
           />
         )}
 
-        {isMtStaff(user.role) && tab === 'queue' && (
+        {isMtStaff(user.role) && !isMtDoctor(user.role) && tab === 'queue' && (
           <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
-            Mudir rejimi: navbatni kuzatish va bekor qilish mumkin. Konsultatsiyani boshlash faqat shifokor uchun.
+            Mudir rejimi: navbatni kuzatish mumkin. Konsultatsiyani boshlash va bekor qilish faqat shifokor uchun.
           </p>
         )}
 
@@ -184,7 +189,11 @@ export default function ConsultationsPage() {
                       <td className={`font-medium ${triage.color}`}>{c.triageLevel ? triage.label : '—'}</td>
                       <td><span className={`status-badge ${status.className}`}>{status.label}</span></td>
                       <td className="text-slate-500 max-w-[180px] truncate">
-                        {c.aiAnalysis?.diagnoses?.[0]?.name || 'Kutilmoqda...'}
+                        {c.status === 'CANCELLED' && c.cancelReason ? (
+                          <span className="text-red-700" title={c.cancelReason}>Sabab: {c.cancelReason}</span>
+                        ) : (
+                          c.aiAnalysis?.diagnoses?.[0]?.name || 'Kutilmoqda...'
+                        )}
                       </td>
                       <td className="text-xs text-slate-400 whitespace-nowrap">
                         {c.createdAt ? new Date(c.createdAt).toLocaleDateString('uz-UZ') : '—'}
@@ -196,8 +205,12 @@ export default function ConsultationsPage() {
                               <Play size={14} /> Boshlash
                             </button>
                           )}
-                          {c.status === 'QUEUED' && (
-                            <button onClick={() => handleCancel(c.id)} className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:bg-red-50 px-2 py-1.5 rounded-lg">
+                          {(c.status === 'QUEUED' || c.status === 'IN_PROGRESS') && isMtDoctor(user.role) && (
+                            <button
+                              type="button"
+                              onClick={() => handleCancel(c)}
+                              className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:bg-red-50 px-2 py-1.5 rounded-lg"
+                            >
                               <XCircle size={14} /> Bekor
                             </button>
                           )}
@@ -235,30 +248,7 @@ export default function ConsultationsPage() {
         </div>
       </div>
 
-      {cancelTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-xl">
-            <h3 className="text-base font-semibold text-slate-900">Konsultatsiyani bekor qilish</h3>
-            <p className="mt-2 text-sm text-slate-600">Bu amalni qaytarib bo&apos;lmaydi. Davom etasizmi?</p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setCancelTarget(null)}
-                className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
-              >
-                Yo&apos;q
-              </button>
-              <button
-                type="button"
-                onClick={confirmCancel}
-                className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700"
-              >
-                Ha, bekor qilish
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {cancelModal}
     </DashboardLayout>
   );
 }

@@ -47,7 +47,7 @@ export function defineConsultationsApi(client: HttpClient) {
       return client.request<Consultation>('/consultations', { method: 'POST', body: JSON.stringify(data) });
     },
 
-    cancelConsultation(id: string, reason?: string) {
+    cancelConsultation(id: string, reason: string) {
       return client.request<Consultation>(`/consultations/${id}/cancel`, {
         method: 'POST',
         body: JSON.stringify({ reason }),
