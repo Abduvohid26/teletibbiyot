@@ -154,6 +154,24 @@ export function useVideoRoom({
     });
   }, [role]);
 
+  /**
+   * Peer bilan muzokara HOZIR ketayaptimi (yoki ulanish tirikmi)?
+   * Bunday PC'ni buzish MUMKIN EMAS — aks holda offer kelib, javob tayyorlanayotganda
+   * takroriy "room-participants" hodisasi uni o'ldiradi va answer hech qachon
+   * yuborilmaydi (shifokor "have-local-offer" da abadiy qotib qoladi).
+   */
+  const peerIsNegotiating = useCallback((remoteSocketId: string): boolean => {
+    const pc = pcsRef.current.get(remoteSocketId);
+    if (!pc) return false;
+    // MUHIM: faqat signalingState'ga qarab bo'lmaydi. PC yangi yaratilib,
+    // setRemoteDescription() hali bajarilayotgan paytda holat "stable"/"new"
+    // bo'lib turadi — o'sha lahzada uni yopsak, promise hech qachon tugamaydi
+    // va answer yuborilmaydi. Shuning uchun: mavjud va yopilmagan PC = band.
+    if (pc.signalingState === 'closed') return false;
+    if (pc.connectionState === 'closed' || pc.connectionState === 'failed') return false;
+    return true;
+  }, []);
+
   const updateRemoteCamera = useCallback((cameraId: string, stream: MediaStream) => {
     setRemoteCameras((prev) => ({ ...prev, [cameraId]: stream }));
   }, []);
@@ -918,14 +936,14 @@ export function useVideoRoom({
       rememberParticipant(participant);
 
       if (isOfferer && participant.role === 'UT_OPERATOR') {
-        if (peerHasLiveVideo(participant.socketId)) return;
+        if (peerHasLiveVideo(participant.socketId) || peerIsNegotiating(participant.socketId)) return;
         clearUtRemoteFeeds();
         teardownPeerConnection(participant.socketId);
         scheduleOfferToPeer(participant.socketId, true);
         return;
       }
       if (!isOfferer && participant.role === 'MT_DOCTOR') {
-        if (peerHasLiveVideo(participant.socketId)) return;
+        if (peerHasLiveVideo(participant.socketId) || peerIsNegotiating(participant.socketId)) return;
         teardownPeerConnection(participant.socketId);
         queueMicrotask(() => emitReconnectSignalsRef.current());
       }
@@ -934,6 +952,7 @@ export function useVideoRoom({
       clearUtRemoteFeeds,
       isOfferer,
       peerHasLiveVideo,
+      peerIsNegotiating,
       rememberParticipant,
       scheduleOfferToPeer,
       teardownPeerConnection,

@@ -160,6 +160,15 @@ async function setupRoom(browser: Browser, patch: TurnPatch) {
 test.describe('TURN relay — media aynan TURN orqali oqishi', () => {
   test.slow();
 
+  // Bu testlar BRAUZER YETA OLADIGAN, relay qila oladigan haqiqiy TURN talab qiladi.
+  // Lokal coturn sukut bo'yicha loopback/LAN peer'larga relay qilishni taqiqlaydi
+  // (403 Forbidden IP), shuning uchun opt-in:
+  //   E2E_TURN_RELAY=1 E2E_TURN_HOST=<ip> E2E_TURN_USER=<u> E2E_TURN_PASS=<p> npx playwright test e2e/video-turn-relay.spec.ts
+  test.skip(
+    !process.env.E2E_TURN_RELAY,
+    'Haqiqiy TURN kerak — E2E_TURN_RELAY=1 va E2E_TURN_* sozlamalari bilan ishga tushiring',
+  );
+
   test('T1) ISHLAYDIGAN TURN: relay-only rejimda video oqadi', async ({ browser }) => {
     const room = await setupRoom(browser, { forceRelay: true });
     try {
