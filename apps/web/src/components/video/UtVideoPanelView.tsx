@@ -15,6 +15,8 @@ interface UtVideoPanelViewProps {
   doctorName?: string;
   patientName?: string;
   defaultView?: 'close' | 'main' | 'room' | 'equipment' | 'doctor' | 'all';
+  /** "Uzish" bosilganda efirdan chiqish (lobby'ga qaytish) */
+  onLeave?: () => void;
 }
 
 const ALL_VIEW = 'all';
@@ -100,6 +102,7 @@ export function UtVideoPanelView({
   doctorName,
   patientName,
   defaultView = 'doctor',
+  onLeave,
 }: UtVideoPanelViewProps) {
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
   const initialView: ViewId = defaultView === 'all' ? ALL_VIEW : defaultView;
@@ -392,7 +395,10 @@ export function UtVideoPanelView({
           <ControlBtn active={camOn} onClick={toggleCam} icon={camOn ? Video : VideoOff} label="Kamera" short />
           <button
             type="button"
-            onClick={() => endCall()}
+            onClick={() => {
+              endCall();
+              onLeave?.();
+            }}
             className="inline-flex items-center gap-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold px-3 py-2 rounded-xl"
           >
             <PhoneOff size={14} />

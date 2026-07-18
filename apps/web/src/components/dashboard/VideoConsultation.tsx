@@ -14,6 +14,7 @@ import { UT_CAMERA_FEEDS } from '@/lib/video-config';
 import { countLiveUtCameraStreams, isUtStreamLive, mapUniqueUtCameraStreams } from '@/lib/ut-camera-streams';
 import { VideoTile } from '@/components/video/VideoTile';
 import { VideoPreflightModal } from '@/components/video/VideoPreflightModal';
+import { VideoLobby } from '@/components/video/VideoLobby';
 import { MediaSettingsLink } from '@/components/video/MediaDevicePanel';
 
 interface VideoConsultationProps {
@@ -47,6 +48,9 @@ export function VideoConsultation({
 }: VideoConsultationProps) {
   const [activeCamera, setActiveCamera] = useState(compact ? 'equipment' : 'close');
   const [showPtz, setShowPtz] = useState(false);
+  // Google Meet uslubi: video sahifa ochilishi bilan emas, faqat "Jonli efirga
+  // qo'shilish" bosilganda ulanadi. Refresh'da bu holat nolga tushadi → lobby qaytadi.
+  const [joined, setJoined] = useState(false);
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
 
   const role: VideoRole = observeMode ? 'observe' : 'mt';
@@ -78,9 +82,14 @@ export function VideoConsultation({
   } = useVideoRoom({
     consultationId,
     role,
-    enabled: !!consultationId,
+    enabled: joined && !!consultationId,
     onCallEnded: onEndCall,
   });
+
+  // Konsultatsiya almashsa, avvalgi efirdan avtomatik chiqamiz (yangi bemor uchun lobby).
+  useEffect(() => {
+    setJoined(false);
+  }, [consultationId]);
 
   useEffect(() => {
     if (reconnectSignal > 0) {
@@ -141,6 +150,19 @@ export function VideoConsultation({
     );
   }
 
+  // Lobby: konsultatsiya bor, lekin foydalanuvchi hali efirga qo'shilmagan.
+  if (!joined) {
+    return (
+      <div className={cn('glass-panel h-full flex flex-col overflow-hidden min-h-0', compact ? 'p-2' : 'p-3')}>
+        <VideoLobby
+          role={observeMode ? 'observe' : 'mt'}
+          compact={compact}
+          onJoin={() => setJoined(true)}
+        />
+      </div>
+    );
+  }
+
   const isAllView = activeCamera === ALL_CAMERAS_VIEW;
   const activeFeed = UT_CAMERA_FEEDS.find((f) => f.id === activeCamera) ?? UT_CAMERA_FEEDS[0];
   const mainStream = isAllView
@@ -151,6 +173,8 @@ export function VideoConsultation({
 
   const handleEndCall = () => {
     endCall();
+    // Efirdan chiqamiz → lobby'ga qaytamiz (enabled=false → to'liq teardown).
+    setJoined(false);
   };
 
   const handleReconnect = () => {

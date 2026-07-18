@@ -96,6 +96,15 @@ async function newVideoContext(browser: Browser) {
   return browser.newContext({ permissions: ['camera', 'microphone'] });
 }
 
+/** Google Meet uslubi: sahifada "Jonli efirga qo'shilish" tugmasini bosib efirga kiramiz. */
+async function clickJoin(page: Page, label = 'efir') {
+  const btn = page.getByRole('button', { name: /Jonli efirga qo'shilish/i });
+  await btn.waitFor({ state: 'visible', timeout: 20000 }).catch(() => {
+    throw new Error(`${label}: "Jonli efirga qo'shilish" tugmasi chiqmadi`);
+  });
+  await btn.click();
+}
+
 interface LiveRoom {
   utContext: BrowserContext;
   mtContext: BrowserContext;
@@ -136,12 +145,16 @@ async function openLiveRoom(
 
   if (joinOrder === 'mt-first') {
     await mtPage.goto('/dashboard');
+    await clickJoin(mtPage, 'shifokor');
     await mtPage.waitForTimeout(2500); // shifokor xonada yolg'iz kutadi
     await utPage.goto('/ut/vitals');
+    await clickJoin(utPage, 'bemor');
   } else {
     await utPage.goto('/ut/vitals');
+    await clickJoin(utPage, 'bemor');
     await utPage.waitForTimeout(2500); // bemor xonada yolg'iz kutadi
     await mtPage.goto('/dashboard');
+    await clickJoin(mtPage, 'shifokor');
   }
 
   await waitForRemoteVideo(mtPage, FIRST_CONNECT_BUDGET_MS, 'shifokor (dastlabki)');
@@ -153,13 +166,14 @@ async function openLiveRoom(
     utPage,
     mtPage,
     consultationId: consultation.id,
+    // Refresh'dan keyin Google Meet kabi lobby qaytadi — qayta "Qo'shilish" bosiladi.
     reopenUt: async () => {
-      await utPage.reload();
       await utPage.goto('/ut/vitals');
+      await clickJoin(utPage, 'bemor (qayta)');
     },
     reopenMt: async () => {
-      await mtPage.reload();
       await mtPage.goto('/dashboard');
+      await clickJoin(mtPage, 'shifokor (qayta)');
     },
     cleanup: async () => {
       await utContext.close().catch(() => undefined);
@@ -356,8 +370,8 @@ test.describe('Jonli video — ulanish va qayta ulanish', () => {
       await room.utPage.goto('about:blank');
       await room.mtPage.waitForTimeout(4000);
 
-      // Va qaytadi — yangi socketId bilan
-      await room.utPage.goto('/ut/vitals');
+      // Va qaytadi — yangi socketId bilan, qayta "Qo'shilish" bosadi
+      await room.reopenUt();
 
       await waitForRemoteVideo(room.mtPage, RECONNECT_BUDGET_MS, 'shifokor (bemor qaytgandan keyin)');
       await waitForRemoteVideo(room.utPage, RECONNECT_BUDGET_MS, 'bemor (qaytgandan keyin)');
