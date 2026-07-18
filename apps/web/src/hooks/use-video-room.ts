@@ -88,6 +88,10 @@ export function useVideoRoom({
   const roomSyncDoneRef = useRef<string | null>(null);
   const peerWatchdogRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
   const remoteCamerasRef = useRef<Record<string, MediaStream>>({});
+  const lastJoinOthersRef = useRef<RoomParticipant[]>([]);
+  const pendingLobbyReconcileRef = useRef(false);
+  /** Peer bo'yicha ICE muvaffaqiyatsizliklari — takror bo'lsa TURN xatosini ko'rsatamiz */
+  const iceFailuresRef = useRef<Map<string, number>>(new Map());
 
   const [videoPaused, setVideoPaused] = useState(false);
   const [connectNonce, setConnectNonce] = useState(0);
@@ -130,6 +134,25 @@ export function useVideoRoom({
   const isOfferer = role === 'mt' || role === 'observe';
   const isPublisher = role === 'mt' || role === 'ut';
   const flushPendingOffersRef = useRef<() => void>(() => undefined);
+
+  const peerHasLiveVideo = useCallback((remoteSocketId: string): boolean => {
+    const pc = pcsRef.current.get(remoteSocketId);
+    if (pc) {
+      return pc.getReceivers().some(
+        (receiver) => receiver.track?.kind === 'video' && receiver.track.readyState === 'live',
+      );
+    }
+    if (role === 'ut') {
+      return !!remoteCamerasRef.current[MT_DOCTOR_STREAM_ID]?.getVideoTracks().some(
+        (t) => t.readyState === 'live',
+      ) && remoteDoctorSocketRef.current === remoteSocketId;
+    }
+    return UT_CAMERA_ORDER.some((id) => {
+      const mapped = socketToCamerasRef.current.get(remoteSocketId) ?? [];
+      if (!mapped.includes(id)) return false;
+      return !!remoteCamerasRef.current[id]?.getVideoTracks().some((t) => t.readyState === 'live');
+    });
+  }, [role]);
 
   const updateRemoteCamera = useCallback((cameraId: string, stream: MediaStream) => {
     setRemoteCameras((prev) => ({ ...prev, [cameraId]: stream }));
@@ -357,11 +380,26 @@ export function useVideoRoom({
       };
 
       pc.onconnectionstatechange = () => {
+        if (pc.connectionState === 'connected') {
+          // Ulanish tiklandi — xato hisoblagichini va xabarni tozalaymiz.
+          iceFailuresRef.current.delete(remoteSocketId);
+        }
         if (pc.connectionState === 'failed') {
+          const fails = (iceFailuresRef.current.get(remoteSocketId) ?? 0) + 1;
+          iceFailuresRef.current.set(remoteSocketId, fails);
           void pc.restartIce?.();
           if (isOfferer) {
             pendingOfferTargetsRef.current.add(remoteSocketId);
             setTimeout(() => flushPendingOffersRef.current(), 1200);
+          }
+          // Bir necha marta ICE muvaffaqiyatsiz bo'lsa — bu deyarli har doim TURN
+          // muammosi (NAT'ni kesib o'tib bo'lmadi). Qora ekran o'rniga sabab ko'rsatamiz.
+          if (fails >= 2) {
+            setError(
+              isTurnConfigured()
+                ? 'Video ulanib bo\'lmadi — tarmoq/TURN relay muammosi. Firewall va TURN sozlamalarini tekshiring.'
+                : 'Video ulanib bo\'lmadi — TURN server sozlanmagan (uzoq tarmoqlar uchun majburiy).',
+            );
           }
         }
         if (pc.connectionState === 'closed') {
@@ -465,34 +503,35 @@ export function useVideoRoom({
   }, []);
 
   const scheduleOfferToPeer = useCallback(
-    (remoteSocketId: string) => {
+    (remoteSocketId: string, immediate = false) => {
       if (!isOfferer) return;
       pendingOfferTargetsRef.current.add(remoteSocketId);
-      debouncedFlushPendingOffers();
+      if (immediate && mediaReadyRef.current) {
+        flushPendingOffersRef.current();
+      } else {
+        debouncedFlushPendingOffers();
+      }
 
       if (peerWatchdogRef.current.has(remoteSocketId)) return;
 
       let attempts = 0;
       const watchdog = setInterval(() => {
         attempts += 1;
-        const pc = pcsRef.current.get(remoteSocketId);
-        const hasLiveVideo = pc?.getReceivers().some(
-          (receiver) => receiver.track?.kind === 'video' && receiver.track.readyState === 'live',
-        );
-        if (hasLiveVideo || attempts > 8) {
+        if (peerHasLiveVideo(remoteSocketId) || attempts > 8) {
           clearInterval(watchdog);
           peerWatchdogRef.current.delete(remoteSocketId);
           return;
         }
+        const pc = pcsRef.current.get(remoteSocketId);
         const sentAt = offerSentAtRef.current.get(remoteSocketId) ?? 0;
         if (pc?.signalingState === 'have-local-offer' && Date.now() - sentAt < 9000) return;
         makingOfferRef.current.delete(remoteSocketId);
         pendingOfferTargetsRef.current.add(remoteSocketId);
-        debouncedFlushPendingOffers();
+        flushPendingOffersRef.current();
       }, 4500);
       peerWatchdogRef.current.set(remoteSocketId, watchdog);
     },
-    [debouncedFlushPendingOffers, isOfferer],
+    [debouncedFlushPendingOffers, isOfferer, peerHasLiveVideo],
   );
 
   /** Bitta offerni qo'llash: iloji bo'lsa mavjud ulanishni QAYTA ISHLATADI (buzmaydi) */
@@ -659,6 +698,7 @@ export function useVideoRoom({
     latestOfferRef.current.clear();
     participantUserIdsRef.current.clear();
     offerSentAtRef.current.clear();
+    iceFailuresRef.current.clear();
     peerWatchdogRef.current.forEach((timer) => clearInterval(timer));
     peerWatchdogRef.current.clear();
     if (flushDebounceRef.current) clearTimeout(flushDebounceRef.current);
@@ -783,9 +823,17 @@ export function useVideoRoom({
     setupStartedRef.current = false;
     hadMediaSessionRef.current = false;
     roomSyncDoneRef.current = null;
+    lastJoinOthersRef.current = [];
+    pendingLobbyReconcileRef.current = false;
     peerWatchdogRef.current.forEach((timer) => clearInterval(timer));
     peerWatchdogRef.current.clear();
   }, [consultationId]);
+
+  useEffect(() => {
+    if (enabled && consultationId) {
+      pendingLobbyReconcileRef.current = true;
+    }
+  }, [consultationId, enabled]);
 
   useEffect(() => {
     if (!enabled || !consultationId || !iceReady) {
@@ -869,20 +917,15 @@ export function useVideoRoom({
     (participant: RoomParticipant) => {
       rememberParticipant(participant);
 
-      // Ushbu peer bilan ulanish allaqachon tirikmi? Tirik bo'lsa — TEGMAYMIZ.
-      // (Bu hodisa "participant-rejoined"/"room-participants" orqali tez-tez keladi;
-      // ilgari har safar ulanish buzilib qayta qurilar edi — ekran pir-pirlardi.)
-      const pc = pcsRef.current.get(participant.socketId);
-      const alive = !!pc && (pc.connectionState === 'connected' || pc.connectionState === 'connecting');
-
       if (isOfferer && participant.role === 'UT_OPERATOR') {
-        if (alive) return;
+        if (peerHasLiveVideo(participant.socketId)) return;
         clearUtRemoteFeeds();
-        scheduleOfferToPeer(participant.socketId);
+        teardownPeerConnection(participant.socketId);
+        scheduleOfferToPeer(participant.socketId, true);
         return;
       }
       if (!isOfferer && participant.role === 'MT_DOCTOR') {
-        if (alive) return;
+        if (peerHasLiveVideo(participant.socketId)) return;
         teardownPeerConnection(participant.socketId);
         queueMicrotask(() => emitReconnectSignalsRef.current());
       }
@@ -890,11 +933,42 @@ export function useVideoRoom({
     [
       clearUtRemoteFeeds,
       isOfferer,
+      peerHasLiveVideo,
       rememberParticipant,
       scheduleOfferToPeer,
       teardownPeerConnection,
     ],
   );
+
+  const reconcileLobbyJoinRef = useRef<() => void>(() => undefined);
+  const roomJoinedRef = useRef(roomJoined);
+
+  useEffect(() => {
+    roomJoinedRef.current = roomJoined;
+  }, [roomJoined]);
+
+  const reconcileLobbyJoin = useCallback(() => {
+    if (!mediaReadyRef.current || !roomJoinedRef.current) return;
+
+    const others = lastJoinOthersRef.current;
+    others.forEach((participant) => handleRemoteParticipant(participant));
+
+    if (isOfferer) {
+      knownParticipantsRef.current.forEach((socketId) => {
+        if (!peerHasLiveVideo(socketId)) {
+          pendingOfferTargetsRef.current.add(socketId);
+        }
+      });
+      flushPendingOffersRef.current();
+      return;
+    }
+
+    if (others.some((p) => p.role === 'MT_DOCTOR') || knownParticipantsRef.current.size > 0) {
+      emitReconnectSignalsRef.current();
+    }
+  }, [handleRemoteParticipant, isOfferer, peerHasLiveVideo]);
+
+  reconcileLobbyJoinRef.current = reconcileLobbyJoin;
 
   handleRemoteParticipantRef.current = handleRemoteParticipant;
 
@@ -904,13 +978,23 @@ export function useVideoRoom({
     return subscribeJoinResults((roomId, result) => {
       if (roomId !== consultationId || !result.success) return;
       const others = result.others ?? [];
+      lastJoinOthersRef.current = others;
+      pendingLobbyReconcileRef.current = true;
       others.forEach((participant) => handleRemoteParticipantRef.current(participant));
+      if (mediaReadyRef.current) {
+        queueMicrotask(() => reconcileLobbyJoinRef.current());
+      }
     });
   }, [consultationId, enabled]);
 
   useEffect(() => {
     if (!mediaReady || !roomJoined) return;
     flushPendingIncomingOffers();
+    if (pendingLobbyReconcileRef.current) {
+      pendingLobbyReconcileRef.current = false;
+      reconcileLobbyJoin();
+      return;
+    }
     if (isOfferer) {
       knownParticipantsRef.current.forEach((socketId) => {
         pendingOfferTargetsRef.current.add(socketId);
@@ -925,6 +1009,7 @@ export function useVideoRoom({
     flushPendingIncomingOffers,
     isOfferer,
     mediaReady,
+    reconcileLobbyJoin,
     roomJoined,
   ]);
 
@@ -1089,14 +1174,12 @@ export function useVideoRoom({
 
     const onRoomJoined = (data?: { others?: RoomParticipant[] }) => {
       const others = data?.others ?? [];
+      if (others.length) {
+        lastJoinOthersRef.current = others;
+      }
       others.forEach((p) => handleRemoteParticipant(p));
-      if (isOfferer) {
-        flushPendingOffers();
-      } else {
-        flushPendingIncomingOffers();
-        if (others.some((p) => p.role === 'MT_DOCTOR')) {
-          emitReconnectSignalsRef.current();
-        }
+      if (mediaReadyRef.current) {
+        queueMicrotask(() => reconcileLobbyJoinRef.current());
       }
     };
 

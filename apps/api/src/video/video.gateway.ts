@@ -226,6 +226,8 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
           client.emit('offer-requested', { targetSocketId: peer.socketId });
         }
       }
+      // Lobby orqali shifokor qaytganda UT ham yangi offer so'rashi uchun
+      client.to(roomId).emit('peer-media-resumed', { socketId: client.id });
     }
     client.emit('room-participants', others);
     client.emit('room-joined', { roomId, participants: others.length, others });

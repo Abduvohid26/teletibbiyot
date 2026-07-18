@@ -111,18 +111,19 @@ services:
     image: coturn/coturn:4.6.2
     container_name: ishifo-coturn
     profiles: [prod]
+    # Shell-form: TURN_EXTERNAL_IP o'rnatilgan bo'lsa --external-ip qo'shiladi.
+    # Docker ichida coturn'ning ichki IP'si relay sifatida e'lon qilinmasligi uchun
+    # SHART — bu bo'lmasa brauzer TURN relay'ga yeta olmaydi (video qora qoladi).
+    # Bo'sh bo'lsa flag umuman qo'shilmaydi (regressiya yo'q).
+    entrypoint: ["/bin/sh", "-c"]
     command:
-      - -n
-      - --log-file=stdout
-      - --listening-port=${TURN_PORT:-3499}
-      - --listening-ip=0.0.0.0
-      - --fingerprint
-      - --lt-cred-mech
-      - --user=${TURN_USERNAME}:${TURN_PASSWORD}
-      - --realm=${TURN_REALM}
-      - --no-cli
-      - --min-port=49152
-      - --max-port=49200
+      - >
+        exec turnserver -n --log-file=stdout
+        --listening-port=${TURN_PORT:-3499} --listening-ip=0.0.0.0
+        --fingerprint --lt-cred-mech
+        --user=${TURN_USERNAME}:${TURN_PASSWORD} --realm=${TURN_REALM}
+        --no-cli --min-port=49152 --max-port=49200
+        $${TURN_EXTERNAL_IP:+--external-ip=$$TURN_EXTERNAL_IP}
     ports:
       - '${TURN_PUBLISH:-3499}:${TURN_PORT:-3499}/udp'
       - '${TURN_PUBLISH:-3499}:${TURN_PORT:-3499}/tcp'

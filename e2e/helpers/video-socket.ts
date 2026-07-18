@@ -36,12 +36,36 @@ export function connectVideoSocket(token: string): Promise<Socket> {
 }
 
 export function joinRoom(socket: Socket, roomId: string): Promise<void> {
+  return joinRoomWithAck(socket, roomId).then(() => undefined);
+}
+
+export interface JoinRoomAck {
+  success?: boolean;
+  error?: string;
+  others?: { socketId: string; userId: string; role: string; userName: string }[];
+  participants?: number;
+}
+
+export function joinRoomWithAck(socket: Socket, roomId: string): Promise<JoinRoomAck> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error('join-room timeout')), 10000);
-    socket.emit('join-room', { roomId }, (ack: { success?: boolean; error?: string }) => {
+    socket.emit('join-room', { roomId }, (ack: JoinRoomAck) => {
       clearTimeout(timer);
-      if (ack?.success) resolve();
+      if (ack?.success) resolve(ack);
       else reject(new Error(ack?.error || 'join-room failed'));
+    });
+  });
+}
+
+export function requestRoomSync(
+  socket: Socket,
+  roomId: string,
+): Promise<{ success?: boolean; others?: JoinRoomAck['others'] }> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('request-room-sync timeout')), 10000);
+    socket.emit('request-room-sync', { roomId }, (ack: { success?: boolean; others?: JoinRoomAck['others'] }) => {
+      clearTimeout(timer);
+      resolve(ack ?? { success: false });
     });
   });
 }
@@ -53,6 +77,32 @@ export function waitForEvent<T>(socket: Socket, event: string, timeoutMs = 8000)
       clearTimeout(timer);
       resolve(payload);
     });
+  });
+}
+
+/** Birinchi kelgan event (masalan disconnect+rejoin → participant-joined yoki participant-rejoined). */
+export function waitForAnyEvent<T>(
+  socket: Socket,
+  events: string[],
+  timeoutMs = 8000,
+): Promise<{ event: string; payload: T }> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`Timeout waiting for any of: ${events.join(', ')}`)),
+      timeoutMs,
+    );
+    const cleanup = () => {
+      clearTimeout(timer);
+      for (const event of events) socket.off(event, handlers[event]);
+    };
+    const handlers: Record<string, (payload: T) => void> = {};
+    for (const event of events) {
+      handlers[event] = (payload: T) => {
+        cleanup();
+        resolve({ event, payload });
+      };
+      socket.once(event, handlers[event]);
+    }
   });
 }
 
