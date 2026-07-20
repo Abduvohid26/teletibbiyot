@@ -273,11 +273,16 @@ services:
     networks:
       - ishifo
 
+  # Host nginx (Docker'dan tashqarida) TLS terminatsiya va domen marshrutlashni
+  # bajaradi — u to'g'ridan-to'g'ri web:3000 / api:3001 ga proxy qiladi.
+  # Bu konteyner ikkinchi qavat proxy edi: sertifikatlar ikki joyda (certbot
+  # /etc/letsencrypt va infra/nginx/ssl) saqlanib, sinxron qolmasdi.
+  # `legacy` profilida — `--profile prod` uni ishga tushirmaydi.
   nginx:
     <<: *env
     image: nginx:1.27-alpine
     container_name: ishifo-nginx
-    profiles: [prod]
+    profiles: [legacy]
     ports:
       - '${NGINX_HTTP_PORT}:80'
       - '${NGINX_HTTPS_PORT}:443'
