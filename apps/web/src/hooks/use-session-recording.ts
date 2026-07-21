@@ -9,6 +9,25 @@ interface UseSessionRecordingOptions {
   enabled?: boolean;
 }
 
+/** Tarmoq o'zgarganda (ERR_NETWORK_CHANGED) yozuv yuklashni bir necha marta
+ *  qayta urinish — aks holda konsultatsiya yozuvi butunlay yo'qoladi. */
+async function uploadWithRetry(cid: string, blob: Blob, attempts = 4): Promise<void> {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      await api.uploadRecording(cid, blob);
+      return;
+    } catch (err) {
+      lastErr = err;
+      if (i < attempts - 1) {
+        // 1s, 2s, 4s — tarmoq barqarorlashishini kutamiz.
+        await new Promise((r) => setTimeout(r, 1000 * 2 ** i));
+      }
+    }
+  }
+  throw lastErr;
+}
+
 export function useSessionRecording({ consultationId, stream, enabled = true }: UseSessionRecordingOptions) {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -39,7 +58,7 @@ export function useSessionRecording({ consultationId, stream, enabled = true }: 
         if (blob.size > 0) {
           setUploading(true);
           try {
-            await api.uploadRecording(cid, blob);
+            await uploadWithRetry(cid, blob);
             await api.completeRecording(cid, duration);
           } catch (err) {
             if (process.env.NODE_ENV !== 'production') {

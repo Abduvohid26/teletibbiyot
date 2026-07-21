@@ -403,9 +403,11 @@ function ensureSharedSocket(): Socket {
 
     reconnectionAttempts: Infinity,
 
-    reconnectionDelay: 500,
+    reconnectionDelay: 400,
 
-    reconnectionDelayMax: 8000,
+    // Signalizatsiya kanalini tez tiklash uchun backoff'ni past ushlaymiz
+    // (avval 8000 edi — tarmoq almashganda qayta-ulanish sekin edi).
+    reconnectionDelayMax: 3000,
 
     randomizationFactor: 0.3,
 

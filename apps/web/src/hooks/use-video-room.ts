@@ -92,6 +92,8 @@ export function useVideoRoom({
   const pendingLobbyReconcileRef = useRef(false);
   /** Peer bo'yicha ICE muvaffaqiyatsizliklari — takror bo'lsa TURN xatosini ko'rsatamiz */
   const iceFailuresRef = useRef<Map<string, number>>(new Map());
+  // Oxirgi ICE-restart vaqti (peer bo'yicha) — tez-tez takror urinishni cheklaydi.
+  const iceRestartAtRef = useRef<Map<string, number>>(new Map());
 
   const [videoPaused, setVideoPaused] = useState(false);
   const [connectNonce, setConnectNonce] = useState(0);
@@ -362,7 +364,9 @@ export function useVideoRoom({
         pcsRef.current.delete(remoteSocketId);
       }
 
-      const pc = new RTCPeerConnection({ iceServers: getIceServers() });
+      // iceCandidatePoolSize — candidate'larni oldindan yig'ib qo'yadi, shu bilan
+      // (qayta) ulanish bir necha soniyaga tezroq bo'ladi.
+      const pc = new RTCPeerConnection({ iceServers: getIceServers(), iceCandidatePoolSize: 4 });
       pcsRef.current.set(remoteSocketId, pc);
       remoteTrackIdsRef.current.set(remoteSocketId, new Set());
 
@@ -397,19 +401,41 @@ export function useVideoRoom({
         }
       };
 
+      // Bir peer uchun ICE restart + tez qayta-offer. Takror urinishni
+      // (minGapMs) bilan cheklaymiz, aks holda spam bo'ladi.
+      const kickIceRestart = (minGapMs: number, reofferDelayMs: number) => {
+        const now = Date.now();
+        const last = iceRestartAtRef.current.get(remoteSocketId) ?? 0;
+        if (now - last < minGapMs) return;
+        iceRestartAtRef.current.set(remoteSocketId, now);
+        try {
+          pc.restartIce?.();
+        } catch {
+          /* eski brauzer — e'tibor bermaymiz */
+        }
+        if (isOfferer) {
+          pendingOfferTargetsRef.current.add(remoteSocketId);
+          setTimeout(() => flushPendingOffersRef.current(), reofferDelayMs);
+        }
+      };
+
       pc.onconnectionstatechange = () => {
         if (pc.connectionState === 'connected') {
           // Ulanish tiklandi — xato hisoblagichini va xabarni tozalaymiz.
           iceFailuresRef.current.delete(remoteSocketId);
+          setError('');
+        }
+        // MUHIM: "disconnected"da DARHOL tiklashni boshlaymiz — "failed"ni
+        // kutmaymiz. Chrome "failed"ni ~15-30s kechikish bilan e'lon qiladi;
+        // "disconnected" esa ~5s ichida keladi. Bu tiklanishni bir necha barobar
+        // tezlashtiradi. Hali xato KO'RSATMAYMIZ — o'z-o'zidan tuzalishi mumkin.
+        if (pc.connectionState === 'disconnected') {
+          kickIceRestart(2000, 500);
         }
         if (pc.connectionState === 'failed') {
           const fails = (iceFailuresRef.current.get(remoteSocketId) ?? 0) + 1;
           iceFailuresRef.current.set(remoteSocketId, fails);
-          void pc.restartIce?.();
-          if (isOfferer) {
-            pendingOfferTargetsRef.current.add(remoteSocketId);
-            setTimeout(() => flushPendingOffersRef.current(), 1200);
-          }
+          kickIceRestart(0, 300);
           // Bir necha marta ICE muvaffaqiyatsiz bo'lsa — bu deyarli har doim TURN
           // muammosi (NAT'ni kesib o'tib bo'lmadi). Qora ekran o'rniga sabab ko'rsatamiz.
           if (fails >= 2) {
@@ -422,6 +448,7 @@ export function useVideoRoom({
         }
         if (pc.connectionState === 'closed') {
           pcsRef.current.delete(remoteSocketId);
+          iceRestartAtRef.current.delete(remoteSocketId);
         }
       };
 
@@ -926,6 +953,54 @@ export function useVideoRoom({
   ]);
 
   emitReconnectSignalsRef.current = emitReconnectSignals;
+
+  // Tarmoq o'zgarganda (Wi-Fi ↔ mobil, uzilib-ulanish) TEZ tiklanish.
+  // Aks holda brauzer ICE'ni "failed" deb e'lon qilguncha ~15-30s qora ekran
+  // bo'ladi. Bu yerda OS "online" signalini yoki ilova qayta ochilishini
+  // (visibilitychange) darhol ushlab, qayta muzokara boshlaymiz.
+  useEffect(() => {
+    if (!enabled || !consultationId) return;
+    if (typeof window === 'undefined') return;
+
+    let recoverTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const recover = () => {
+      // "online" va "visibilitychange" ko'pincha ketma-ket keladi — debounce.
+      if (recoverTimer) clearTimeout(recoverTimer);
+      recoverTimer = setTimeout(() => {
+        recoverTimer = null;
+        const socket = socketRef.current;
+        // 1. Signalizatsiya kanalini tiklash (socket.io o'zi ham urinadi, biz turtki beramiz).
+        if (socket && !socket.connected) socket.connect();
+        // 2. Har bir peer ulanishida ICE'ni darhol qayta ishga tushirish.
+        pcsRef.current.forEach((pc) => {
+          if (pc.connectionState !== 'closed') {
+            try {
+              pc.restartIce?.();
+            } catch {
+              /* ba'zi brauzerlarda restartIce yo'q — e'tibor bermaymiz */
+            }
+          }
+        });
+        // 3. Qayta muzokara signallari (mavjud, sinovdan o'tgan yo'l).
+        emitReconnectSignalsRef.current();
+      }, 400);
+    };
+
+    const onOnline = () => recover();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') recover();
+    };
+
+    window.addEventListener('online', onOnline);
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      if (recoverTimer) clearTimeout(recoverTimer);
+      window.removeEventListener('online', onOnline);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [enabled, consultationId, socketRef]);
 
   useEffect(() => {
     mediaReadyRef.current = mediaReady;
