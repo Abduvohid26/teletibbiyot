@@ -45,7 +45,7 @@ services:
         exec redis-server --appendonly yes;
       fi'
     ports:
-      - '${REDIS_PUBLISH}:6379'
+      - '${REDIS_PUBLISH}:6300'
     volumes:
       - redis_data:/data
     healthcheck:
