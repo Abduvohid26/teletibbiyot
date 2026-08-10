@@ -94,6 +94,8 @@ export function useVideoRoom({
   const iceFailuresRef = useRef<Map<string, number>>(new Map());
   // Oxirgi ICE-restart vaqti (peer bo'yicha) — tez-tez takror urinishni cheklaydi.
   const iceRestartAtRef = useRef<Map<string, number>>(new Map());
+  // Umumiy tiklanish urinishlarini throttle qilish uchun.
+  const lastRecoveryAtRef = useRef(0);
 
   const [videoPaused, setVideoPaused] = useState(false);
   const [connectNonce, setConnectNonce] = useState(0);
@@ -111,6 +113,8 @@ export function useVideoRoom({
   const [audioMissing, setAudioMissing] = useState(false);
   const [virtualCameraWarning, setVirtualCameraWarning] = useState<string[]>([]);
   const [error, setError] = useState('');
+  // Ulanish uzilib, tiklashga urinilyapti — UI "Qayta ulanmoqda…" ko'rsatadi.
+  const [reconnecting, setReconnecting] = useState(false);
   const [cameraPermissionNeeded, setCameraPermissionNeeded] = useState(false);
 
   const connectionStats = useWebRtcStats(pcsRef, mediaReady && roomJoined);
@@ -408,6 +412,7 @@ export function useVideoRoom({
         const last = iceRestartAtRef.current.get(remoteSocketId) ?? 0;
         if (now - last < minGapMs) return;
         iceRestartAtRef.current.set(remoteSocketId, now);
+        setReconnecting(true);
         try {
           pc.restartIce?.();
         } catch {
@@ -424,6 +429,7 @@ export function useVideoRoom({
           // Ulanish tiklandi — xato hisoblagichini va xabarni tozalaymiz.
           iceFailuresRef.current.delete(remoteSocketId);
           setError('');
+          setReconnecting(false);
         }
         // MUHIM: "disconnected"da DARHOL tiklashni boshlaymiz — "failed"ni
         // kutmaymiz. Chrome "failed"ni ~15-30s kechikish bilan e'lon qiladi;
@@ -954,6 +960,32 @@ export function useVideoRoom({
 
   emitReconnectSignalsRef.current = emitReconnectSignals;
 
+  // Ulanishni darhol tiklashga urinish: signalizatsiya + ICE restart + qayta
+  // muzokara. Bir necha manbadan chaqiriladi (tarmoq qaytdi, video qotdi,
+  // ilova fokusga qaytdi), shuning uchun ichkarida throttle bor.
+  const runRecovery = useCallback(() => {
+    const now = Date.now();
+    if (now - lastRecoveryAtRef.current < 1500) return;
+    lastRecoveryAtRef.current = now;
+
+    setReconnecting(true);
+    const socket = socketRef.current;
+    // 1. Signalizatsiya kanalini tiklash (socket.io o'zi ham urinadi, biz turtki beramiz).
+    if (socket && !socket.connected) socket.connect();
+    // 2. Har bir peer ulanishida ICE'ni darhol qayta ishga tushirish.
+    pcsRef.current.forEach((pc) => {
+      if (pc.connectionState !== 'closed') {
+        try {
+          pc.restartIce?.();
+        } catch {
+          /* ba'zi brauzerlarda restartIce yo'q — e'tibor bermaymiz */
+        }
+      }
+    });
+    // 3. Qayta muzokara signallari (mavjud, sinovdan o'tgan yo'l).
+    emitReconnectSignalsRef.current();
+  }, [socketRef]);
+
   // Tarmoq o'zgarganda (Wi-Fi ↔ mobil, uzilib-ulanish) TEZ tiklanish.
   // Aks holda brauzer ICE'ni "failed" deb e'lon qilguncha ~15-30s qora ekran
   // bo'ladi. Bu yerda OS "online" signalini yoki ilova qayta ochilishini
@@ -962,45 +994,34 @@ export function useVideoRoom({
     if (!enabled || !consultationId) return;
     if (typeof window === 'undefined') return;
 
-    let recoverTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const recover = () => {
-      // "online" va "visibilitychange" ko'pincha ketma-ket keladi — debounce.
-      if (recoverTimer) clearTimeout(recoverTimer);
-      recoverTimer = setTimeout(() => {
-        recoverTimer = null;
-        const socket = socketRef.current;
-        // 1. Signalizatsiya kanalini tiklash (socket.io o'zi ham urinadi, biz turtki beramiz).
-        if (socket && !socket.connected) socket.connect();
-        // 2. Har bir peer ulanishida ICE'ni darhol qayta ishga tushirish.
-        pcsRef.current.forEach((pc) => {
-          if (pc.connectionState !== 'closed') {
-            try {
-              pc.restartIce?.();
-            } catch {
-              /* ba'zi brauzerlarda restartIce yo'q — e'tibor bermaymiz */
-            }
-          }
-        });
-        // 3. Qayta muzokara signallari (mavjud, sinovdan o'tgan yo'l).
-        emitReconnectSignalsRef.current();
-      }, 400);
-    };
-
-    const onOnline = () => recover();
+    const onOnline = () => runRecovery();
     const onVisible = () => {
-      if (document.visibilityState === 'visible') recover();
+      if (document.visibilityState === 'visible') runRecovery();
     };
 
     window.addEventListener('online', onOnline);
     document.addEventListener('visibilitychange', onVisible);
 
     return () => {
-      if (recoverTimer) clearTimeout(recoverTimer);
       window.removeEventListener('online', onOnline);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [enabled, consultationId, socketRef]);
+  }, [enabled, consultationId, runRecovery]);
+
+  // Video "qotib qolgan" bo'lsa (trafik to'xtagan, lekin ICE hali failed
+  // demagan) — darhol tiklashni boshlaymiz. Google Meet ham shunday qiladi:
+  // ICE holatiga emas, real oqimga qaraydi.
+  useEffect(() => {
+    if (!enabled || !connectionStats.stalled) return;
+    runRecovery();
+  }, [enabled, connectionStats.stalled, runRecovery]);
+
+  // Oqim tiklandi — "qayta ulanmoqda" holatini o'chiramiz.
+  useEffect(() => {
+    if (!connectionStats.stalled && connectionStats.bitrateKbps > 0) {
+      setReconnecting(false);
+    }
+  }, [connectionStats.stalled, connectionStats.bitrateKbps]);
 
   useEffect(() => {
     mediaReadyRef.current = mediaReady;
@@ -1515,6 +1536,7 @@ export function useVideoRoom({
     reconnectCall,
     observeMode: role === 'observe',
     connectionStats,
+    reconnecting,
     virtualCameraWarning,
     audioMissing,
     preflightPending,

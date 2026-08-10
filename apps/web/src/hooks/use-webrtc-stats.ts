@@ -13,6 +13,8 @@ export interface WebRtcStatsSnapshot {
   bitrateKbps: number;
   resolution: string;
   fps: number;
+  /** Video "qotib qolgan" — trafik kelmayapti (ICE hali failed demagan bo'lsa ham). */
+  stalled: boolean;
 }
 
 const EMPTY: WebRtcStatsSnapshot = {
@@ -22,20 +24,28 @@ const EMPTY: WebRtcStatsSnapshot = {
   bitrateKbps: 0,
   resolution: '—',
   fps: 0,
+  stalled: false,
 };
 
 export function useWebRtcStats(
   pcsRef: React.RefObject<Map<string, RTCPeerConnection>>,
   enabled: boolean,
-  intervalMs = 3000,
+  intervalMs = 2000,
 ) {
   const [stats, setStats] = useState<WebRtcStatsSnapshot>(EMPTY);
-  const prevBytesRef = useRef<{ bytes: number; ts: number } | null>(null);
+  const prevBytesRef = useRef<{ bytes: number; pairBytes: number; ts: number } | null>(null);
+  // Ketma-ket "trafik yo'q" o'lchovlari soni.
+  const stallCountRef = useRef(0);
+  // Ulanish bir marta bo'lsa ham jonli bo'lganmi (aks holda boshlanishdagi
+  // 0 bayt "qotish" deb hisoblanmasin).
+  const everLiveRef = useRef(false);
 
   useEffect(() => {
     if (!enabled) {
       setStats(EMPTY);
       prevBytesRef.current = null;
+      stallCountRef.current = 0;
+      everLiveRef.current = false;
       return;
     }
 
@@ -49,6 +59,7 @@ export function useWebRtcStats(
       let totalReceived = 0;
       let rttMs = 0;
       let bytes = 0;
+      let pairBytes = 0;
       let width = 0;
       let height = 0;
       let fps = 0;
@@ -69,6 +80,10 @@ export function useWebRtcStats(
             }
             if (report.type === 'candidate-pair' && report.state === 'succeeded') {
               rttMs = Math.max(rttMs, (report.currentRoundTripTime ?? 0) * 1000);
+              // Transport darajasidagi trafik: media + STUN consent tekshiruvlari.
+              // Kamera o'chirilganda ham STUN davom etadi — shuning uchun
+              // "qotish"ni aynan shu hisoblagich bo'yicha aniqlaymiz.
+              pairBytes += report.bytesReceived ?? 0;
             }
           });
         } catch {
@@ -78,13 +93,32 @@ export function useWebRtcStats(
 
       const now = Date.now();
       let bitrateKbps = 0;
-      if (prevBytesRef.current) {
-        const dt = (now - prevBytesRef.current.ts) / 1000;
+      const prev = prevBytesRef.current;
+      if (prev) {
+        const dt = (now - prev.ts) / 1000;
         if (dt > 0) {
-          bitrateKbps = Math.round(((bytes - prevBytesRef.current.bytes) * 8) / dt / 1000);
+          bitrateKbps = Math.round(((bytes - prev.bytes) * 8) / dt / 1000);
         }
       }
-      prevBytesRef.current = { bytes, ts: now };
+
+      // "Qotib qolish" detektori — transport (candidate-pair) trafigi bo'yicha.
+      // Bu hisoblagich STUN consent tekshiruvlarini ham qamrab oladi, shuning
+      // uchun suhbatdosh kamerani o'chirganda YOLG'ON ishlamaydi; faqat tarmoq
+      // haqiqatan uzilganda to'xtaydi. ICE "failed" (~15-30s) ni kutmasdan
+      // ~6 soniyada aniqlaymiz.
+      if (pairBytes > 0) everLiveRef.current = true;
+      if (prev) {
+        if (pairBytes > prev.pairBytes) {
+          stallCountRef.current = 0;
+        } else if (everLiveRef.current) {
+          stallCountRef.current += 1;
+        }
+      }
+      prevBytesRef.current = { bytes, pairBytes, ts: now };
+
+      // STUN consent ~5s oralig'ida yuboriladi — 3 o'lchov (≈6s) yolg'on
+      // ishlamaslik uchun eng kichik xavfsiz chegara.
+      const stalled = everLiveRef.current && stallCountRef.current >= 3;
 
       const total = totalLost + totalReceived;
       const packetLossPct = total > 0 ? (totalLost / total) * 100 : 0;
@@ -98,6 +132,7 @@ export function useWebRtcStats(
           bitrateKbps,
           resolution: width && height ? `${width}×${height}` : '—',
           fps: Math.round(fps),
+          stalled,
         });
       }
     };

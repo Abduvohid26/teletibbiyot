@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Mic, MicOff, Video, VideoOff, PhoneOff, Phone, MoreHorizontal,
   ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Eye, Volume2, VolumeX, AlertTriangle,
-  LayoutGrid,
+  LayoutGrid, Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useVideoRoom, VideoRole } from '@/hooks/use-video-room';
@@ -73,6 +73,7 @@ export function VideoConsultation({
     endCall,
     reconnectCall,
     connectionStats,
+    reconnecting,
     virtualCameraWarning,
     preflightPending,
     confirmPreflight,
@@ -333,6 +334,21 @@ export function VideoConsultation({
           <div className="absolute bottom-3 left-3 z-10 max-w-xs bg-amber-500/90 text-white text-[10px] rounded-lg px-2.5 py-2 flex items-start gap-1.5">
             <AlertTriangle size={12} className="shrink-0 mt-0.5" />
             <span>UT virtual kamera: {virtualCameraWarning.join(', ')} — qo&apos;shimcha jismoniy kamera ulang</span>
+          </div>
+        )}
+
+        {/* Ulanish uzilib qayta tiklanmoqda — qotib qolgan kadr ustida belgi
+            ko'rsatamiz, aks holda foydalanuvchi nima bo'layotganini bilmaydi.
+            Bloklamaydi: bir necha soniyada o'zi tiklanadi. */}
+        {reconnecting && !videoPaused && !cameraPermissionNeeded && (
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950/55 backdrop-blur-[2px] px-4 pointer-events-none">
+            <Loader2 className="w-8 h-8 text-white animate-spin mb-2" />
+            <p className={cn('font-semibold text-white text-center', compact ? 'text-xs' : 'text-sm')}>
+              Qayta ulanmoqda…
+            </p>
+            <p className="text-[11px] text-slate-300 text-center mt-1 max-w-xs leading-relaxed">
+              Tarmoq tiklanishi bilan video avtomatik davom etadi
+            </p>
           </div>
         )}
 

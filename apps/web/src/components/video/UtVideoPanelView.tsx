@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Mic, MicOff, Video, VideoOff, Radio, Move, Volume2, VolumeX, AlertTriangle, LayoutGrid, Phone, PhoneOff } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, Radio, Move, Volume2, VolumeX, AlertTriangle, LayoutGrid, Phone, PhoneOff, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useVideoRoom } from '@/hooks/use-video-room';
 import { VideoTile } from '@/components/video/VideoTile';
@@ -124,6 +124,7 @@ export function UtVideoPanelView({
     endCall,
     reconnectCall,
     connectionStats,
+    reconnecting,
     audioMissing,
     utCameraStreams,
     qualityLabel,
@@ -331,6 +332,16 @@ export function UtVideoPanelView({
             <span className="absolute top-2 right-2 bg-brand-600/90 text-white text-xs font-bold px-2 py-0.5 rounded-md">
               Hammasi — {liveTotal}/5
             </span>
+          )}
+          {/* Tarmoq uzilib, ulanish tiklanmoqda — qotgan kadr ustida belgi. */}
+          {reconnecting && !videoPaused && (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950/55 backdrop-blur-[2px] px-4 pointer-events-none">
+              <Loader2 className="w-8 h-8 text-white animate-spin mb-2" />
+              <p className="text-sm font-semibold text-white text-center">Qayta ulanmoqda…</p>
+              <p className="text-xs text-slate-300 text-center mt-1 max-w-xs">
+                Tarmoq tiklanishi bilan video avtomatik davom etadi
+              </p>
+            </div>
           )}
           {videoPaused && (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-sm px-4">
