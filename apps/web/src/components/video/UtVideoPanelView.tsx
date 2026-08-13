@@ -159,59 +159,74 @@ export function UtVideoPanelView({
           </div>
         )}
 
-        {/* Asosiy: shifokor · yoki Hammasi */}
-        <div className="relative flex-[2] min-h-[180px] lg:min-h-[220px] rounded-xl overflow-hidden bg-slate-950 ring-2 ring-brand-500/90">
+        {/* Asosiy: shifokor · yoki Hammasi (kvadrat plitkalar, Asosiy kamerasiz) */}
+        <div className="relative flex-[2] min-h-[200px] lg:min-h-[260px] rounded-xl overflow-hidden bg-slate-950 ring-2 ring-brand-500/90 flex items-center justify-center">
           {isAllView ? (
-            <div className="absolute inset-0 grid grid-cols-2 grid-rows-3 gap-0.5 p-0.5 bg-slate-950">
-              {/* Shifokor — birinchi / katta */}
-              <button
-                type="button"
-                onClick={() => setViewMode('doctor')}
-                className="relative col-span-2 min-h-0 min-w-0 rounded-md overflow-hidden ring-1 ring-violet-400/40 hover:ring-violet-300/70 transition-shadow"
-              >
-                <VideoTile
-                  stream={mtDoctorStream}
-                  muted
-                  className="absolute inset-0 w-full h-full [&_video]:object-cover"
-                  placeholder="Shifokor"
-                  live={doctorLive}
-                />
-                <span className="absolute top-1 left-1 bg-violet-600/90 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded pointer-events-none inline-flex items-center gap-1">
-                  <Stethoscope size={10} />
-                  Shifokor
-                </span>
-                {!doctorLive && (
-                  <span className="absolute inset-0 flex items-center justify-center bg-slate-900/40 pointer-events-none">
-                    <VideoOff className="w-5 h-5 text-slate-500" />
+            <div className="absolute inset-0 p-1.5 flex items-center justify-center">
+              <div className="aspect-square h-full max-w-full grid grid-cols-2 grid-rows-2 gap-1">
+                {/* Shifokor */}
+                <button
+                  type="button"
+                  onClick={() => setViewMode('doctor')}
+                  className="relative min-h-0 min-w-0 rounded-lg overflow-hidden ring-1 ring-violet-400/50 hover:ring-violet-300/80 transition-shadow bg-slate-900"
+                >
+                  <VideoTile
+                    stream={mtDoctorStream}
+                    muted
+                    className="absolute inset-0 w-full h-full [&_video]:object-cover"
+                    placeholder="Shifokor"
+                    live={doctorLive}
+                  />
+                  <span className="absolute top-1 left-1 bg-violet-600/90 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded pointer-events-none inline-flex items-center gap-1">
+                    <Stethoscope size={10} />
+                    Shifokor
                   </span>
-                )}
-              </button>
-              {UT_CAMERA_FEEDS.slice(0, 4).map((feed) => {
-                const stream = utCameraStreams.find((c) => c.id === feed.id)?.stream ?? null;
-                const live = isUtStreamLive(stream);
-                return (
-                  <div
-                    key={feed.id}
-                    className="relative min-h-0 min-w-0 rounded-md overflow-hidden ring-1 ring-white/10"
-                  >
-                    <VideoTile
-                      stream={stream}
-                      muted
-                      className="absolute inset-0 w-full h-full [&_video]:object-cover"
-                      placeholder={feed.label}
-                      live={live}
-                    />
-                    <span className="absolute top-1 left-1 bg-black/60 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded pointer-events-none">
-                      {feed.label.split(' ')[0]}
+                  {!doctorLive && (
+                    <span className="absolute inset-0 flex items-center justify-center bg-slate-900/40 pointer-events-none">
+                      <VideoOff className="w-5 h-5 text-slate-500" />
                     </span>
-                    {!live && (
-                      <span className="absolute inset-0 flex items-center justify-center bg-slate-900/40 pointer-events-none">
-                        <VideoOff className="w-4 h-4 text-slate-500" />
+                  )}
+                </button>
+
+                {/* Bemor / Xona / Qurilmalar — "Asosiy" (main) yo'q */}
+                {UT_CAMERA_FEEDS.filter((f) => f.id !== 'main').map((feed) => {
+                  const stream = utCameraStreams.find((c) => c.id === feed.id)?.stream ?? null;
+                  const live = isUtStreamLive(stream);
+                  const short =
+                    feed.id === 'close' ? 'Bemor'
+                    : feed.id === 'room' ? 'Xona'
+                    : feed.id === 'equipment' ? 'Qurilmalar'
+                    : feed.label.split(' ')[0];
+                  return (
+                    <div
+                      key={feed.id}
+                      className="relative min-h-0 min-w-0 rounded-lg overflow-hidden ring-1 ring-white/10 bg-slate-900"
+                    >
+                      <VideoTile
+                        stream={stream}
+                        muted
+                        className={cn(
+                          'absolute inset-0 w-full h-full',
+                          feed.id === 'equipment' ? '[&_video]:object-contain' : '[&_video]:object-cover',
+                        )}
+                        placeholder={feed.label}
+                        live={live}
+                      />
+                      <span className="absolute top-1 left-1 bg-black/65 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded pointer-events-none">
+                        {short}
                       </span>
-                    )}
-                  </div>
-                );
-              })}
+                      {!live && (
+                        <span className="absolute inset-0 flex items-center justify-center bg-slate-900/40 pointer-events-none">
+                          <VideoOff className="w-4 h-4 text-slate-500" />
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <span className="absolute top-2 right-2 z-10 bg-brand-600/90 text-white text-xs font-bold px-2 py-0.5 rounded-md">
+                Hammasi
+              </span>
             </div>
           ) : (
             <>
@@ -235,12 +250,6 @@ export function UtVideoPanelView({
                 Shifokor
               </span>
             </>
-          )}
-
-          {isAllView && (
-            <span className="absolute top-2 right-2 bg-brand-600/90 text-white text-xs font-bold px-2 py-0.5 rounded-md">
-              Hammasi
-            </span>
           )}
 
           {reconnecting && !videoPaused && (

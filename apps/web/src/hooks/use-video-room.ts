@@ -6,6 +6,7 @@ import { isUtStreamLive, mapUniqueUtCameraStreams } from '@/lib/ut-camera-stream
 import { useSharedVideoSocket } from '@/hooks/use-shared-video-socket';
 import { isRoomActive, subscribeJoinResults } from '@/lib/video-socket-client';
 import { useWebRtcStats } from '@/hooks/use-webrtc-stats';
+import { checkTurnReachable } from '@/lib/turn-preflight';
 import {
   fetchIceServers,
   getIceServers,
@@ -96,6 +97,10 @@ export function useVideoRoom({
   const iceRestartAtRef = useRef<Map<string, number>>(new Map());
   // Umumiy tiklanish urinishlarini throttle qilish uchun.
   const lastRecoveryAtRef = useRef(0);
+  // Bu peerlar uchun faqat TURN relay orqali ulanamiz. Ikkala tomon simmetrik
+  // NAT ortida bo'lganda (turli Wi-Fi/mobil tarmoq) host va srflx yo'llari
+  // hech qachon ishlamaydi — ularni qayta-qayta sinash vaqtni behuda ketkazadi.
+  const relayOnlyPeersRef = useRef<Set<string>>(new Set());
 
   const [videoPaused, setVideoPaused] = useState(false);
   const [connectNonce, setConnectNonce] = useState(0);
@@ -132,9 +137,28 @@ export function useVideoRoom({
   }, []);
 
   useEffect(() => {
-    if (iceReady && enabled && consultationId && !isTurnConfigured()) {
+    if (!iceReady || !enabled || !consultationId) return;
+
+    if (!isTurnConfigured()) {
       setError('TURN server sozlanmagan — uzoq hududlarda video ishlamasligi mumkin');
+      return;
     }
+
+    // TURN sozlangan bo'lishi uning ISHLAYOTGANINI bildirmaydi. Turli tarmoqdagi
+    // ikki tomon uchun relay yagona yo'l, shuning uchun buni oldindan tekshiramiz
+    // — aks holda muammo faqat 30 soniyalik qora ekrandan keyin bilinadi.
+    let cancelled = false;
+    void checkTurnReachable().then((result) => {
+      if (cancelled || !result.checked || result.relayAvailable) return;
+      setError((prev) =>
+        prev
+        || 'TURN serverga ulanib bo\'lmadi — agar shifokor va UT operator turli tarmoqlarda bo\'lsa, video ulanmasligi mumkin. Firewall (UDP 3478 / TCP 443) ni tekshiring.',
+      );
+    });
+
+    return () => {
+      cancelled = true;
+    };
   }, [iceReady, enabled, consultationId]);
 
   const isOfferer = role === 'mt' || role === 'observe';
@@ -370,7 +394,12 @@ export function useVideoRoom({
 
       // iceCandidatePoolSize — candidate'larni oldindan yig'ib qo'yadi, shu bilan
       // (qayta) ulanish bir necha soniyaga tezroq bo'ladi.
-      const pc = new RTCPeerConnection({ iceServers: getIceServers(), iceCandidatePoolSize: 4 });
+      const relayOnly = relayOnlyPeersRef.current.has(remoteSocketId);
+      const pc = new RTCPeerConnection({
+        iceServers: getIceServers(),
+        iceCandidatePoolSize: 4,
+        ...(relayOnly ? { iceTransportPolicy: 'relay' as RTCIceTransportPolicy } : {}),
+      });
       pcsRef.current.set(remoteSocketId, pc);
       remoteTrackIdsRef.current.set(remoteSocketId, new Set());
 
@@ -441,14 +470,34 @@ export function useVideoRoom({
         if (pc.connectionState === 'failed') {
           const fails = (iceFailuresRef.current.get(remoteSocketId) ?? 0) + 1;
           iceFailuresRef.current.set(remoteSocketId, fails);
+
+          // 2-marta yiqilgach — to'g'ridan-to'g'ri (P2P) yo'llarni tashlab,
+          // FAQAT TURN relay bilan qayta quramiz. Aynan shu holat shifokor va UT
+          // operator turli tarmoqlarda (har biri o'z NAT'i ortida) bo'lganda yuz
+          // beradi: restartIce() o'sha ishlamaydigan yo'llarni qayta sinashda davom
+          // etadi va abadiy qora ekran qoladi.
+          if (fails >= 2 && isTurnConfigured() && !relayOnlyPeersRef.current.has(remoteSocketId)) {
+            relayOnlyPeersRef.current.add(remoteSocketId);
+            iceRestartAtRef.current.delete(remoteSocketId);
+            setReconnecting(true);
+            teardownPeerConnection(remoteSocketId, false);
+            if (isOfferer) {
+              pendingOfferTargetsRef.current.add(remoteSocketId);
+              setTimeout(() => flushPendingOffersRef.current(), 200);
+            } else {
+              emitReconnectSignalsRef.current();
+            }
+            return;
+          }
+
           kickIceRestart(0, 300);
-          // Bir necha marta ICE muvaffaqiyatsiz bo'lsa — bu deyarli har doim TURN
-          // muammosi (NAT'ni kesib o'tib bo'lmadi). Qora ekran o'rniga sabab ko'rsatamiz.
+          // Relay ham yiqildi (yoki TURN yo'q) — endi bu haqiqiy infratuzilma
+          // muammosi. Qora ekran o'rniga aniq sabab ko'rsatamiz.
           if (fails >= 2) {
             setError(
               isTurnConfigured()
-                ? 'Video ulanib bo\'lmadi — tarmoq/TURN relay muammosi. Firewall va TURN sozlamalarini tekshiring.'
-                : 'Video ulanib bo\'lmadi — TURN server sozlanmagan (uzoq tarmoqlar uchun majburiy).',
+                ? 'Video ulanib bo\'lmadi — TURN relay orqali ham o\'tib bo\'lmadi. Firewall (UDP 3478/TCP 443) va TURN sozlamalarini tekshiring.'
+                : 'Video ulanib bo\'lmadi — TURN server sozlanmagan (turli tarmoqlar uchun majburiy).',
             );
           }
         }
@@ -465,7 +514,16 @@ export function useVideoRoom({
       }
       return pc;
     },
-    [addLocalTracks, attachRemoteVideoTrack, clearRemoteVideoForPeer, consultationId, flushIceCandidates, isOfferer, socketRef],
+    [
+      addLocalTracks,
+      attachRemoteVideoTrack,
+      clearRemoteVideoForPeer,
+      consultationId,
+      flushIceCandidates,
+      isOfferer,
+      socketRef,
+      teardownPeerConnection,
+    ],
   );
 
   const makeOffer = useCallback(
@@ -750,6 +808,7 @@ export function useVideoRoom({
     participantUserIdsRef.current.clear();
     offerSentAtRef.current.clear();
     iceFailuresRef.current.clear();
+    relayOnlyPeersRef.current.clear();
     peerWatchdogRef.current.forEach((timer) => clearInterval(timer));
     peerWatchdogRef.current.clear();
     if (flushDebounceRef.current) clearTimeout(flushDebounceRef.current);
@@ -765,6 +824,8 @@ export function useVideoRoom({
     participantUserIdsRef.current.delete(socketId);
     latestOfferRef.current.delete(socketId);
     pendingIncomingOffersRef.current.delete(socketId);
+    relayOnlyPeersRef.current.delete(socketId);
+    iceFailuresRef.current.delete(socketId);
     const watchdog = peerWatchdogRef.current.get(socketId);
     if (watchdog) {
       clearInterval(watchdog);

@@ -49,7 +49,12 @@ export function useSharedVideoSocket(consultationId?: string): VideoSocketState 
       setJoined(false);
     };
 
-    const onRoomJoined = () => {
+    // Socket UMUMIY — dashboard bir vaqtda bir nechta xonaga ulangan bo'lishi
+    // mumkin. roomId'ni tekshirmasak, boshqa xonaning "room-joined" eventi shu
+    // konsultatsiya uchun yolg'on "joined" holatini yoqib yuboradi va haqiqiy
+    // join'dan oldin offer sikli boshlanadi.
+    const onRoomJoined = (payload?: { roomId?: string }) => {
+      if (payload?.roomId && payload.roomId !== consultationRef.current) return;
       setJoined(true);
       setError(null);
     };
@@ -63,6 +68,14 @@ export function useSharedVideoSocket(consultationId?: string): VideoSocketState 
     const onWsError = (payload: { message?: string; code?: string }) => {
       setJoined(false);
       setError(payload?.message || 'WebSocket xatolik');
+    };
+
+    // Shu foydalanuvchi xonani boshqa tab/qurilmada ochdi — server bu socketni
+    // xonadan chiqardi. Jim qora ekran o'rniga sababni ko'rsatamiz.
+    const onSessionSuperseded = (payload?: { roomId?: string }) => {
+      if (payload?.roomId && payload.roomId !== consultationRef.current) return;
+      setJoined(false);
+      setError('Bu konsultatsiya boshqa oyna yoki qurilmada ochildi — video shu yerda to\'xtatildi');
     };
 
     const onConsultationStarted = (payload: { doctorName?: string }) => {
@@ -91,6 +104,7 @@ export function useSharedVideoSocket(consultationId?: string): VideoSocketState 
     socket.on('room-joined', onRoomJoined);
     socket.on('join-failed', onJoinFailed);
     socket.on('ws-error', onWsError);
+    socket.on('session-superseded', onSessionSuperseded);
     socket.on('consultation-started', onConsultationStarted);
 
     return () => {
@@ -100,6 +114,7 @@ export function useSharedVideoSocket(consultationId?: string): VideoSocketState 
       socket.off('room-joined', onRoomJoined);
       socket.off('join-failed', onJoinFailed);
       socket.off('ws-error', onWsError);
+      socket.off('session-superseded', onSessionSuperseded);
       socket.off('consultation-started', onConsultationStarted);
       releaseVideoSocket(consultationId);
       socketRef.current = null;

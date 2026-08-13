@@ -64,11 +64,25 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return `staff-feed:mt:doctor:${doctorId}`;
   }
 
-  /** roomId → participants */
-  private rooms = new Map<string, RoomParticipant[]>();
-  /** socketId → roomIds */
+  /** socketId → roomIds (faqat SHU node'dagi socketlar — disconnect uchun) */
   private socketRooms = new Map<string, Set<string>>();
   private vitalPersistTimers = new Map<string, NodeJS.Timeout>();
+
+  /**
+   * Xona ishtirokchilari kesh — Socket.IO adapteridan olinadi.
+   *
+   * MUHIM: xona holati ATAYLAB lokal Map'da saqlanmaydi. Redis adapter bilan
+   * bir necha API instansiyasi ishlaganda shifokor bir node'ga, UT operator
+   * boshqasiga tushishi mumkin. Lokal Map'da holat saqlansa, har bir node
+   * qarshi tomonni "xonada yo'q" deb biladi va BARCHA offer/answer/ICE
+   * signallari rad etiladi — video butunlay o'lik bo'ladi. `fetchSockets()`
+   * esa adapter orqali barcha node'lardagi socketlarni qaytaradi.
+   *
+   * Kesh faqat tez-tez keladigan signal (ICE) uchun; join/sync doim yangi
+   * ma'lumot oladi (maxAge = 0).
+   */
+  private participantCache = new Map<string, { at: number; list: RoomParticipant[] }>();
+  private static readonly PARTICIPANT_CACHE_MS = 1500;
 
   constructor(
     private jwtService: JwtService,
@@ -130,8 +144,8 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const roomIds = this.socketRooms.get(client.id);
     if (roomIds) {
       for (const roomId of roomIds) {
-        this.removeParticipant(roomId, client.id);
         client.to(roomId).emit('participant-left', { socketId: client.id });
+        this.invalidateParticipants(roomId);
       }
       this.socketRooms.delete(client.id);
     }
@@ -194,7 +208,12 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return { success: false, error };
     }
 
-    client.join(roomId);
+    // Shu foydalanuvchining eski socketlarini xonadan ANIQ chiqaramiz.
+    // Ilgari ular faqat lokal ro'yxatdan olib tashlanardi: eski tab Socket.IO
+    // xonasida qolib ketardi, hech qanday xabar olmasdi va peer unga signal
+    // yubora olmasdi — natijada sababsiz qora ekran.
+    const evicted = await this.evictStaleSessions(roomId, dbUser.id, client.id);
+    const isReturningUser = evicted > 0;
 
     const participant: RoomParticipant = {
       socketId: client.id,
@@ -202,25 +221,24 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
       role: dbUser.role,
       userName: dbUser.fullName,
     };
-
-    let participants = this.rooms.get(roomId) || [];
-    const isReturningUser = participants.some((p) => p.userId === dbUser.id);
-    // Bir xil foydalanuvchining eski socketlarini olib tashlash (reconnect)
-    participants = participants.filter((p) => p.userId !== dbUser.id);
-    participants.push(participant);
-    this.rooms.set(roomId, participants);
+    client.data.participant = participant;
+    client.join(roomId);
+    this.invalidateParticipants(roomId);
 
     this.socketRooms.get(client.id)?.add(roomId);
 
+    const participants = await this.getParticipants(roomId, 0);
     const others = participants.filter((p) => p.socketId !== client.id);
+
     if (isReturningUser) {
       client.to(roomId).emit('participant-rejoined', participant);
     } else {
       client.to(roomId).emit('participant-joined', participant);
     }
+
     if (dbUser.role === 'UT_OPERATOR') {
-      this.notifyOfferersToReconnect(roomId, client.id);
-    } else if (dbUser.role === 'MT_DOCTOR') {
+      await this.notifyOfferersToReconnect(roomId, client.id);
+    } else if (VideoGateway.isOffererRole(dbUser.role)) {
       for (const peer of others) {
         if (peer.role === 'UT_OPERATOR') {
           client.emit('offer-requested', { targetSocketId: peer.socketId });
@@ -237,6 +255,34 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return { success: true, participants: participants.length, others };
   }
 
+  /**
+   * Bir foydalanuvchi xonani ikkinchi tab/qurilmada ochganda eski sessiyani
+   * to'g'ri yopadi va nechta sessiya chiqarilganini qaytaradi.
+   */
+  private async evictStaleSessions(
+    roomId: string,
+    userId: string,
+    keepSocketId: string,
+  ): Promise<number> {
+    let evicted = 0;
+    try {
+      const sockets = await this.server.in(roomId).fetchSockets();
+      for (const s of sockets) {
+        const p = s.data?.participant as RoomParticipant | undefined;
+        if (!p || p.userId !== userId || s.id === keepSocketId) continue;
+
+        s.emit('session-superseded', { roomId });
+        s.leave(roomId);
+        this.server.to(roomId).emit('participant-left', { socketId: s.id });
+        evicted += 1;
+      }
+    } catch (err) {
+      this.logger.warn(`Eski sessiyani chiqarib bo'lmadi (${roomId}): ${err}`);
+    }
+    if (evicted) this.invalidateParticipants(roomId);
+    return evicted;
+  }
+
   @SubscribeMessage('leave-room')
   handleLeaveRoom(
     @ConnectedSocket() client: Socket,
@@ -245,10 +291,10 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const roomId = data?.roomId;
     if (!roomId) return { success: false };
 
-    client.leave(roomId);
-    this.removeParticipant(roomId, client.id);
-    this.socketRooms.get(client.id)?.delete(roomId);
     client.to(roomId).emit('participant-left', { socketId: client.id });
+    client.leave(roomId);
+    this.socketRooms.get(client.id)?.delete(roomId);
+    this.invalidateParticipants(roomId);
 
     return { success: true };
   }
@@ -299,63 +345,50 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return { success: true, rooms, roomId: rooms[0] };
   }
 
+  /** Signal relay uchun umumiy tekshiruv — noto'g'ri bo'lsa sabab qaytadi */
+  private async assertCanSignal(
+    client: Socket,
+    data: { roomId?: string; targetSocketId?: string } | undefined,
+  ): Promise<boolean> {
+    if (!data?.roomId || !data?.targetSocketId) {
+      this.emitSignalError(client, data?.roomId, 'Noto\'g\'ri signal ma\'lumoti');
+      return false;
+    }
+    if (!this.isInRoom(client, data.roomId)) {
+      this.emitSignalError(client, data.roomId, 'Siz video xonada emassiz');
+      return false;
+    }
+    if (!(await this.isTargetInRoom(data.roomId, data.targetSocketId))) {
+      this.emitSignalError(client, data.roomId, 'Qabul qiluvchi xonada emas');
+      return false;
+    }
+    return true;
+  }
+
   @SubscribeMessage('offer')
-  handleOffer(
+  async handleOffer(
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { roomId: string; targetSocketId: string; offer: RTCSessionDescriptionInit },
   ) {
-    if (!data?.roomId || !data?.targetSocketId) {
-      this.emitSignalError(client, data?.roomId, 'Noto\'g\'ri signal ma\'lumoti');
-      return;
-    }
-    if (!this.isInRoom(client.id, data.roomId, client)) {
-      this.emitSignalError(client, data.roomId, 'Siz video xonada emassiz');
-      return;
-    }
-    if (!this.isTargetInRoom(data.roomId, data.targetSocketId)) {
-      this.emitSignalError(client, data.roomId, 'Qabul qiluvchi xonada emas');
-      return;
-    }
+    if (!(await this.assertCanSignal(client, data))) return;
     this.server.to(data.targetSocketId).emit('offer', { socketId: client.id, offer: data.offer });
   }
 
   @SubscribeMessage('answer')
-  handleAnswer(
+  async handleAnswer(
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { roomId: string; targetSocketId: string; answer: RTCSessionDescriptionInit },
   ) {
-    if (!data?.roomId || !data?.targetSocketId) {
-      this.emitSignalError(client, data?.roomId, 'Noto\'g\'ri signal ma\'lumoti');
-      return;
-    }
-    if (!this.isInRoom(client.id, data.roomId, client)) {
-      this.emitSignalError(client, data.roomId, 'Siz video xonada emassiz');
-      return;
-    }
-    if (!this.isTargetInRoom(data.roomId, data.targetSocketId)) {
-      this.emitSignalError(client, data.roomId, 'Qabul qiluvchi xonada emas');
-      return;
-    }
+    if (!(await this.assertCanSignal(client, data))) return;
     this.server.to(data.targetSocketId).emit('answer', { socketId: client.id, answer: data.answer });
   }
 
   @SubscribeMessage('ice-candidate')
-  handleIceCandidate(
+  async handleIceCandidate(
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { roomId: string; targetSocketId: string; candidate: RTCIceCandidateInit },
   ) {
-    if (!data?.roomId || !data?.targetSocketId) {
-      this.emitSignalError(client, data?.roomId, 'Noto\'g\'ri signal ma\'lumoti');
-      return;
-    }
-    if (!this.isInRoom(client.id, data.roomId, client)) {
-      this.emitSignalError(client, data.roomId, 'Siz video xonada emassiz');
-      return;
-    }
-    if (!this.isTargetInRoom(data.roomId, data.targetSocketId)) {
-      this.emitSignalError(client, data.roomId, 'Qabul qiluvchi xonada emas');
-      return;
-    }
+    if (!(await this.assertCanSignal(client, data))) return;
     this.server.to(data.targetSocketId).emit('ice-candidate', {
       socketId: client.id,
       candidate: data.candidate,
@@ -367,8 +400,8 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { roomId: string; action: string; value?: number },
   ) {
-    if (!this.isInRoom(client.id, data.roomId, client)) return;
-    const participant = this.rooms.get(data.roomId)?.find((p) => p.socketId === client.id);
+    if (!this.isInRoom(client, data.roomId)) return;
+    const participant = client.data.participant as RoomParticipant | undefined;
     if (!participant || !canPerformClinicalMtActions(participant.role)) return;
     const allowed = ['up', 'down', 'left', 'right', 'zoom-in', 'zoom-out'];
     if (!allowed.includes(data.action)) return;
@@ -380,8 +413,8 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { roomId: string; message: string; sender?: string },
   ) {
-    if (!this.isInRoom(client.id, data.roomId, client)) return;
-    const participant = this.rooms.get(data.roomId)?.find((p) => p.socketId === client.id);
+    if (!this.isInRoom(client, data.roomId)) return;
+    const participant = client.data.participant as RoomParticipant | undefined;
     if (!participant) return;
 
     const message = typeof data.message === 'string' ? data.message.trim().slice(0, 2000) : '';
@@ -419,9 +452,9 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { roomId: string; vitals: Record<string, unknown> },
   ) {
-    if (!this.isInRoom(client.id, data.roomId, client)) return;
+    if (!this.isInRoom(client, data.roomId)) return;
 
-    const participant = this.rooms.get(data.roomId)?.find((p) => p.socketId === client.id);
+    const participant = client.data.participant as RoomParticipant | undefined;
     if (!participant || !['UT_OPERATOR', 'MT_DOCTOR'].includes(participant.role)) {
       return;
     }
@@ -443,7 +476,7 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { roomId: string; type: 'audio' | 'video'; enabled: boolean },
   ) {
-    if (!this.isInRoom(client.id, data.roomId, client)) return;
+    if (!this.isInRoom(client, data.roomId)) return;
     client.to(data.roomId).emit('media-toggled', { socketId: client.id, ...data });
   }
 
@@ -453,57 +486,56 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { roomId: string },
   ) {
-    if (!this.isInRoom(client.id, data.roomId, client)) return;
+    if (!this.isInRoom(client, data.roomId)) return;
     client.to(data.roomId).emit('call-ended', { socketId: client.id });
   }
 
   /** Qayta ulanganda boshqa ishtirokchilar WebRTC ni qayta ochadi */
   @SubscribeMessage('media-resumed')
-  handleMediaResumed(
+  async handleMediaResumed(
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { roomId: string },
   ) {
-    if (!this.isInRoom(client.id, data.roomId, client)) return;
+    if (!this.isInRoom(client, data.roomId)) return;
     client.to(data.roomId).emit('peer-media-resumed', { socketId: client.id });
-    const participants = this.rooms.get(data.roomId) || [];
-    const self = participants.find((p) => p.socketId === client.id);
+    const self = client.data.participant as RoomParticipant | undefined;
     if (self) {
       client.to(data.roomId).emit('participant-rejoined', self);
     }
-    this.notifyOfferersToReconnect(data.roomId, client.id);
+    await this.notifyOfferersToReconnect(data.roomId, client.id);
   }
 
   /** UT qayta ulanganda shifokorlarga aniq offer yuborish signal */
   @SubscribeMessage('request-offers')
-  handleRequestOffers(
+  async handleRequestOffers(
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { roomId: string },
   ) {
-    if (!this.isInRoom(client.id, data.roomId, client)) return;
-    this.notifyOfferersToReconnect(data.roomId, client.id);
+    if (!this.isInRoom(client, data.roomId)) return;
+    await this.notifyOfferersToReconnect(data.roomId, client.id);
   }
 
   /** Client listenerlar tayyor bo'lgach xona holatini qayta sinxronlash (refresh) */
   @SubscribeMessage('request-room-sync')
-  handleRequestRoomSync(
+  async handleRequestRoomSync(
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { roomId: string },
   ) {
     const roomId = data?.roomId;
-    if (!roomId || !this.isInRoom(client.id, roomId, client)) {
+    if (!roomId || !this.isInRoom(client, roomId)) {
       return { success: false };
     }
 
-    const participants = this.rooms.get(roomId) || [];
+    const participants = await this.getParticipants(roomId, 0);
     const others = participants.filter((p) => p.socketId !== client.id);
-    const self = participants.find((p) => p.socketId === client.id);
+    const self = client.data.participant as RoomParticipant | undefined;
 
     client.emit('room-participants', others);
     client.emit('room-joined', { roomId, participants: others.length, others });
 
     if (self?.role === 'UT_OPERATOR') {
-      this.notifyOfferersToReconnect(roomId, client.id);
-    } else if (self?.role === 'MT_DOCTOR') {
+      await this.notifyOfferersToReconnect(roomId, client.id);
+    } else if (self && VideoGateway.isOffererRole(self.role)) {
       for (const peer of others) {
         if (peer.role === 'UT_OPERATOR') {
           client.emit('offer-requested', { targetSocketId: peer.socketId });
@@ -514,12 +546,24 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return { success: true, others };
   }
 
-  private notifyOfferersToReconnect(roomId: string, targetSocketId: string) {
-    const participants = this.rooms.get(roomId) || [];
-    const offerRoles = new Set(['MT_DOCTOR']);
+  /**
+   * WebRTC offerni KIM boshlaydi — bu klient bilan bitta manbadan kelishi shart.
+   * Klientda `isOfferer = role === 'mt' || role === 'observe'`
+   * (use-video-room.ts). Server faqat MT_DOCTOR'ni hisobga olgani uchun kuzatuvchi
+   * hech qachon `offer-requested` olmasdi va faqat 8 soniyalik retry sikliga
+   * tayanardi — UT qayta ulanganda uzoq qora ekran.
+   */
+  private static readonly OFFERER_ROLES = new Set(['MT_DOCTOR', 'ADMIN']);
+
+  private static isOffererRole(role: string): boolean {
+    return VideoGateway.OFFERER_ROLES.has(role);
+  }
+
+  private async notifyOfferersToReconnect(roomId: string, targetSocketId: string) {
+    const participants = await this.getParticipants(roomId, 0);
     for (const p of participants) {
       if (p.socketId === targetSocketId) continue;
-      if (!offerRoles.has(p.role)) continue;
+      if (!VideoGateway.isOffererRole(p.role)) continue;
       this.server.to(p.socketId).emit('offer-requested', { targetSocketId });
     }
   }
@@ -529,22 +573,34 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { roomId: string },
   ) {
-    if (!this.isInRoom(client.id, data.roomId, client)) {
+    if (!this.isInRoom(client, data.roomId)) {
       return { alive: false, inRoom: false };
     }
     return { alive: true, inRoom: true, socketId: client.id };
   }
 
-  private removeParticipant(roomId: string, socketId: string) {
-    const participants = this.rooms.get(roomId);
-    if (!participants) return;
-
-    const filtered = participants.filter((p) => p.socketId !== socketId);
-    if (filtered.length === 0) {
-      this.rooms.delete(roomId);
-    } else {
-      this.rooms.set(roomId, filtered);
+  /** Xona ishtirokchilari — barcha instansiyalardan (Redis adapter orqali) */
+  private async getParticipants(roomId: string, maxAgeMs = 0): Promise<RoomParticipant[]> {
+    const cached = this.participantCache.get(roomId);
+    if (cached && maxAgeMs > 0 && Date.now() - cached.at < maxAgeMs) {
+      return cached.list;
     }
+
+    try {
+      const sockets = await this.server.in(roomId).fetchSockets();
+      const list = sockets
+        .map((s) => s.data?.participant as RoomParticipant | undefined)
+        .filter((p): p is RoomParticipant => !!p);
+      this.participantCache.set(roomId, { at: Date.now(), list });
+      return list;
+    } catch (err) {
+      this.logger.warn(`Xona ishtirokchilarini o'qib bo'lmadi (${roomId}): ${err}`);
+      return cached?.list ?? [];
+    }
+  }
+
+  private invalidateParticipants(roomId: string) {
+    this.participantCache.delete(roomId);
   }
 
   private scheduleVitalsPersist(roomId: string, vitals: Record<string, unknown>) {
@@ -596,17 +652,21 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  private isInRoom(socketId: string, roomId: string, client?: Socket): boolean {
-    if (client?.rooms.has(roomId)) return true;
-    return this.rooms.get(roomId)?.some((p) => p.socketId === socketId) ?? false;
+  /** Yuboruvchi tekshiruvi — socketning o'z xona ro'yxati, node'lararo ishonchli */
+  private isInRoom(client: Socket, roomId: string): boolean {
+    return client.rooms.has(roomId);
   }
 
   private emitSignalError(client: Socket, roomId: string | undefined, message: string) {
     client.emit('signal-error', { roomId, message });
   }
 
-  private isTargetInRoom(roomId: string, targetSocketId: string): boolean {
-    return this.rooms.get(roomId)?.some((p) => p.socketId === targetSocketId) ?? false;
+  private async isTargetInRoom(roomId: string, targetSocketId: string): Promise<boolean> {
+    const participants = await this.getParticipants(roomId, VideoGateway.PARTICIPANT_CACHE_MS);
+    if (participants.some((p) => p.socketId === targetSocketId)) return true;
+    // Kesh eskirgan bo'lishi mumkin (peer hozirgina qo'shildi) — bir marta yangilaymiz.
+    const fresh = await this.getParticipants(roomId, 0);
+    return fresh.some((p) => p.socketId === targetSocketId);
   }
 
   private sanitizeVitals(vitals: Record<string, unknown>): Record<string, number> | null {
