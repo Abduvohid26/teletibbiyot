@@ -75,10 +75,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const u = await api.tryGetMe();
       if (attempt !== bootAttempt.current) return;
       if (!u) {
-        if (mayHaveSession(cachedUser)) {
-          setAuthError(null);
-          return;
-        }
+        // Productionda token HttpOnly — document.cookie bo'sh bo'lishi normal.
+        // getMe muvaffaqiyatsiz bo'lsa, keshlangan user bilan qotib qolmasin.
         api.setToken(null);
         setUser(null);
         sessionStorage.removeItem(USER_CACHE_KEY);

@@ -2,24 +2,21 @@
 
 import { ReactNode } from 'react';
 import { DoctorHeader } from './DoctorHeader';
+import { ConsultationSwitcher } from '@/components/dashboard/ConsultationSwitcher';
+import { useDoctorHeaderData } from '@/hooks/use-doctor-header-data';
 
 interface DoctorShellProps {
   children: ReactNode;
   scrollable?: boolean;
-  liveCount?: number;
-  queueCount?: number;
-  headerQueue?: React.ReactNode;
-  pageAction?: React.ReactNode;
 }
 
-export function DoctorShell({
-  children,
-  scrollable = false,
-  liveCount = 0,
-  queueCount = 0,
-  headerQueue,
-  pageAction,
-}: DoctorShellProps) {
+/**
+ * Shifokor 3 ta bo'lim (Asosiy / Bemorlar / Sozlamalar) uchun yagona shell.
+ * Header har doim bir xil: brand | nav + badge | ConsultationSwitcher | chiqish.
+ */
+export function DoctorShell({ children, scrollable = false }: DoctorShellProps) {
+  const header = useDoctorHeaderData();
+
   return (
     <div className="ut-shell">
       <div className="ut-shell-bg" aria-hidden>
@@ -28,15 +25,28 @@ export function DoctorShell({
       </div>
 
       <DoctorHeader
-        liveCount={liveCount}
-        queueCount={queueCount}
-        headerQueue={headerQueue}
-        pageAction={pageAction}
+        liveCount={header.liveCount}
+        queueCount={header.queueCount}
+        headerQueue={
+          header.hasQueue ? (
+            <ConsultationSwitcher
+              activeId={header.activeId}
+              myInProgress={header.myInProgress}
+              queued={header.queued}
+              onSelect={header.onSelect}
+              onStart={(id) => void header.onStart(id)}
+              onReconnect={header.onReconnect}
+              onCancel={header.onCancel}
+            />
+          ) : undefined
+        }
       />
 
       <main className={scrollable ? 'doctor-subpage relative z-10' : 'ut-shell-main relative z-10'}>
         {children}
       </main>
+
+      {header.cancelModal}
     </div>
   );
 }

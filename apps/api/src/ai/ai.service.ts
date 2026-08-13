@@ -11,75 +11,87 @@ import { FieldCryptoService } from '../common/field-crypto.service';
 import { StorageService } from '../storage/storage.service';
 import { buildAiAnalysisPdfBuffer } from './clinical-conclusion-pdf';
 
-const SYSTEM_PROMPT = `Siz ${BRAND.name} platformasining AI-yordamchi shifokorisiz.
+const SYSTEM_PROMPT = `Siz ${BRAND.name} platformasining AI-yordamchi shifokorisiz (telemedicine konsilium yordamchisi).
 MUHIM: Siz HECH QACHON yakuniy, rasmiy tibbiy tashxis qo'ymaysiz — bu faqat AI konsensus xulosasi.
-O'zbekiston SSV klinik protokollari va dalillarga asoslangan tavsiyalar bering.
-Barcha matnlar o'zbek tilida bo'lsin.
+O'zbekiston SSV klinik protokollari, MKB-10 va dalillarga asoslangan tibbiyot (EBM) asosida yozing.
+Barcha matnlar o'zbek tilida, professional klinik uslubda bo'lsin.
+
+════════════════════════════════════════════════════════
+HAJM TALABI (majburiy) — hozirgi qisqa xulosadan 2–3 baravar batafsil:
+════════════════════════════════════════════════════════
+- summary: kamida 5–8 jumla (shikoyat → anamnez/vitals → asosiy xavf → farqlash → keyingi qadam).
+- mainConclusion: kamida 8–12 jumla. Kritik topilmalar, nima uchun shu xulosa, nima shoshilinch,
+  nima ambulator kuzatuvda qolishi mumkinligini aniq yozing.
+- Har bir consensusDiagnoses.justification: kamida 4–7 jumla (klinik mezonlar, raqamlar: BMI, BP, HR, SpO2...).
+- Har bir consensusDiagnoses.logicChain: kamida 5–8 qadam (har biri to'liq jumla).
+- alternativeDiagnoses: kamida 2–4 ta (agar klinik jihatdan mos bo'lsa); har birining justification ≥ 2–3 jumla.
+- treatmentSteps: kamida 5–8 aniq qadam (vaqt, nazorat, qachon qayta baholash).
+- recommendations (yuqori daraja): kamida 5–8 band.
+- additionalTests: kamida 3–6 ta, har biri "nima + nima uchun + qachon" formatida.
+- medications: agar dori tavsiya qilinsa — doza, davomiylik, ogohlantirish bilan (3–6 ta gacha).
+- dietGeneral / preventionTips: har biri kamida 4–6 amaliy band.
+- prognosisShort va prognosisLong: har biri kamida 3–5 jumla.
+- riskFactors: kamida 3–6 ta; recordedFindings: kartadagi barcha muhim faktlar (5+ bo'lishi mumkin).
+- scientificArticles: 1–3 ta FAQQAT haqiqiy manba (ssv.uz, lex.uz, PubMed, WHO, Cochrane) — URL o'ylab topmang.
+- qualityScore.notes: 2–4 jumla — qaysi ma'lumot yetarli/yetishmayotganini yozing.
+
+SOXTA MA'LUMOT TAQIQLANADI:
+Faqat bemorning haqiqiy shikoyatlari, anamnezi, vital belgilari va biriktirilgan hujjat tahlillari asosida yozing.
+Hujjat/attachment findings bo'lsa — ularni asoslash va mantiqiy zanjirga aniq bog'lang.
+Klinik asos bo'lmagan bo'limni to'qib to'ldirmang (bo'sh massiv yoki o'tkazib yuboring).
+Lekin asosiy bo'limlar (summary, mainConclusion, consensusDiagnoses, treatmentSteps, additionalTests,
+recommendations, riskFactors, prognosis*, qualityScore, recordedFindings) — MAVJUD ma'lumotlar
+doirasida maksimal chuqurlikda yozilsin (yuqoridagi hajm talabiga rioya qiling).
 
 Javobni faqat quyidagi JSON formatida bering:
 {
-  "summary": "qisqa asosiy klinik xulosa (2-4 jumla)",
-  "diagnoses": [{"name": "...", "icd10Code": "...", "confidence": 0-100, "reasoning": "..."}],
+  "summary": "batafsil asosiy klinik xulosa (5-8 jumla)",
+  "diagnoses": [{"name": "...", "icd10Code": "...", "confidence": 0-100, "reasoning": "3-5 jumla"}],
   "triageLevel": "LOW|MEDIUM|HIGH|EMERGENCY",
   "recommendations": ["..."],
   "redFlags": ["..."],
   "clinicalConclusion": {
-    "mainConclusion": "konsensus xulosa — kritik topilmalar",
+    "mainConclusion": "8-12 jumlalik konsensus xulosa",
     "consensusDiagnoses": [{
       "name": "asosiy tashxis",
-      "icd10Code": "F50.00",
+      "icd10Code": "E66.9",
       "confidence": 94,
       "protocolReference": "O'zbekiston SSV ... bo'yicha protokoli",
-      "justification": "batafsil asoslash matni",
-      "logicChain": ["1-qadam mantiq", "2-qadam mantiq"]
+      "justification": "4-7 jumlalik asoslash",
+      "logicChain": ["1-qadam...", "2-qadam...", "3-qadam...", "4-qadam...", "5-qadam..."]
     }],
-    "alternativeDiagnoses": [{"name": "...", "icd10Code": "...", "confidence": 6, "justification": "..."}],
-    "scientificArticles": [{"title": "...", "url": "https://...", "description": "..."}],
+    "alternativeDiagnoses": [{"name": "...", "icd10Code": "...", "confidence": 20, "justification": "2-3 jumla"}],
+    "scientificArticles": [{"title": "...", "url": "https://...", "description": "2-3 jumla nima uchun tegishli"}],
     "treatmentSteps": ["qadam: ..."],
-    "medicationWarnings": ["DDI ogohlantirish..."],
-    "medications": [{"name": "...", "dose": "...", "tradeNames": "O'zbekistonda mavjud", "instructions": "...", "diagnosis": "..."}],
-    "additionalTests": ["Qon shakarini tekshirish - ..."],
-    "patientRouting": {"level": "Ambulator", "description": "..."},
-    "recommendedSpecialists": ["Psixolog — ..."],
-    "followUp": "1 oy ichida qayta ko'rik",
+    "medicationWarnings": ["DDI / kontrendikatsiya..."],
+    "medications": [{"name": "...", "dose": "...", "tradeNames": "O'zbekistonda mavjud", "instructions": "batafsil", "diagnosis": "..."}],
+    "additionalTests": ["Tekshiruv — nima uchun — qachon"],
+    "patientRouting": {"level": "Ambulator|Statsionar|Shoshilinch", "description": "2-4 jumla"},
+    "recommendedSpecialists": ["Mutaxassis — nima uchun"],
+    "followUp": "qachon / qanday nazorat (2-3 jumla)",
     "riskFactors": ["..."],
-    "riskSeverity": {"label": "O'rtacha", "score": 5, "max": 10},
-    "prognosisShort": "1-3 oy prognoz",
-    "prognosisLong": "1-5 yil prognoz",
+    "riskSeverity": {"label": "Past|O'rtacha|Yuqori", "score": 5, "max": 10},
+    "prognosisShort": "1-3 oy (3-5 jumla)",
+    "prognosisLong": "1-5 yil (3-5 jumla)",
     "prognosisFactors": ["..."],
-    "dietGeneral": ["Kunlik ratsion..."],
-    "dietByDiagnosis": {"diagnosis": "...", "allowed": ["..."], "restricted": ["..."], "notes": "..."},
-    "preventionTips": ["Profilaktika..."],
+    "dietGeneral": ["..."],
+    "dietByDiagnosis": {"diagnosis": "...", "allowed": ["..."], "restricted": ["..."], "notes": "2-3 jumla"},
+    "preventionTips": ["..."],
     "herbalMedicine": [{"name": "...", "part": "...", "preparation": "...", "context": "...", "caution": "..."}],
-    "qualityScore": {"overall": 70, "notes": "..."},
-    "rejectedHypotheses": [{"name": "...", "reason": "..."}],
-    "recordedFindings": ["Kartada qayd etilgan..."]
+    "qualityScore": {"overall": 70, "notes": "2-4 jumla — ma'lumot sifati"},
+    "rejectedHypotheses": [{"name": "...", "reason": "1-2 jumla"}],
+    "recordedFindings": ["Kartada qayd etilgan fakt..."]
   }
 }
 
-MUHIM — SOXTA MA'LUMOT TAQIQLANADI:
-Faqat bemorning haqiqiy shikoyatlari, anamnezi va biriktirilgan hujjatlari (tahlil natijalari,
-rasmlar, hujjatlar) asosida xulosa chiqaring. Klinik asos bo'lmagan bo'limni TO'LDIRISH SHART EMAS —
-bunday holda o'sha maydonni bo'sh massiv ([]) yoki umuman qoldirib keting. Har bir bandning soni
-oldindan belgilanmagan — nechta tashxis, tavsiya yoki dalil bo'lsa, faqat o'shancha yozing:
-- consensusDiagnoses: faqat haqiqatan dalillar tasdiqlagan tashxis(lar); har biri uchun
-  confidence, justification va logicChain aniq shikoyat/anamnez/hujjatga bog'langan bo'lsin
-- alternativeDiagnoses: faqat differensial diagnostikada real ko'rib chiqilgan bo'lsa
-- scientificArticles: faqat aniq shu tashxis/holat uchun haqiqatan mavjud manba (lex.uz, ssv.uz,
-  PubMed, Cochrane, Lancet/NEJM) bo'lsa qo'shing — mavhum yoki noaniq URL o'ylab topmang
-- treatmentSteps, medications, medicationWarnings, additionalTests, recommendedSpecialists:
-  faqat aniq shu bemorning holatiga tegishli bo'lsa
-- dietGeneral, preventionTips, herbalMedicine: faqat aniq shu tashxisga bevosita aloqador va
-  klinik jihatdan asoslangan bo'lsa qo'shing — umumiy/shablon maslahat yozmang
-- riskFactors, riskSeverity, prognosisShort/Long/Factors, qualityScore, recordedFindings,
-  rejectedHypotheses: faqat mavjud ma'lumotlar asosida xulosa chiqarish mumkin bo'lsa
 diagnoses massivida eng yuqori ishonchli tashxis birinchi.`;
 
 const CHAT_SYSTEM_PROMPT = `Siz ${BRAND.name} telemedicine platformasining AI klinik yordamchisisiz.
 Shifokor sizga bemorning AI klinik xulosasi haqida qo'shimcha savollar beradi.
-Javob bering: aniq, batafsil, o'zbek tilida, professional tibbiy uslubda.
-MUHIM: Yakuniy rasmiy tashxis qo'ymang — faqat AI maslahati va tavsiya.
-Klinik xulosa kontekstidan foydalaning. Agar ma'lumot yetarli bo'lmasa, qaysi qo'shimcha tekshiruv kerakligini ayting.
+Javob: aniq, BATAFSIL (kamida 2–3 paragraf yoki 8–15 jumla), o'zbek tilida, professional tibbiy uslubda.
+Struktura: 1) qisqa javob, 2) klinik asoslash, 3) differensial / xavf, 4) amaliy tavsiyalar, 5) qo'shimcha tekshiruvlar.
+MUHIM: Yakuniy rasmiy tashxis qo'ymang — faqat AI maslahati.
+Klinik xulosa kontekstidan foydalaning. Ma'lumot yetarli bo'lmasa — qaysi tekshiruv kerakligini aniq yozing.
 Markdown ishlatmang — oddiy matn.`;
 
 interface OpenAiAnalysisResult {
@@ -119,7 +131,19 @@ export class AiService {
   async analyzeConsultation(consultationId: string): Promise<unknown> {
     const consultation = await this.prisma.consultation.findUnique({
       where: { id: consultationId },
-      include: { clinicalRecord: true, patient: true },
+      include: {
+        clinicalRecord: true,
+        patient: true,
+        attachments: {
+          where: { aiAnalysisStatus: 'DONE' },
+          select: {
+            fileName: true,
+            fileType: true,
+            aiFindings: true,
+          },
+          take: 12,
+        },
+      },
     });
 
     if (!consultation?.clinicalRecord) return;
@@ -137,6 +161,23 @@ export class AiService {
       await this.updateStep(consultationId, s.step, 'DONE');
     }
 
+    const attachmentFindings = consultation.attachments.map((a) => {
+      const findings = a.aiFindings as {
+        documentType?: string;
+        findings?: string[];
+        abnormalities?: string[];
+        impression?: string;
+      } | null;
+      return {
+        fileName: a.fileName,
+        fileType: a.fileType,
+        documentType: findings?.documentType,
+        findings: findings?.findings || [],
+        abnormalities: findings?.abnormalities || [],
+        impression: findings?.impression,
+      };
+    });
+
     const clinicalData = this.deidentifyClinicalData({
       complaints: consultation.clinicalRecord.complaints,
       anamnesisMorbi: consultation.clinicalRecord.anamnesisMorbi,
@@ -151,6 +192,9 @@ export class AiService {
       socialHistory: consultation.clinicalRecord.socialHistory,
       ageYears: calculateAge(consultation.patient.birthDate),
       gender: consultation.patient.gender,
+      ...(attachmentFindings.length
+        ? { attachmentAnalyses: attachmentFindings }
+        : {}),
     });
 
     let result = await this.callOpenAiAnalysis(clinicalData);
@@ -287,10 +331,15 @@ export class AiService {
       [
         {
           role: 'user',
-          content: `Quyidagi klinik ma'lumotlarni tahlil qiling. Javobni faqat JSON obyekt sifatida qaytaring:\n${JSON.stringify(clinicalData, null, 2)}`,
+          content:
+            `Quyidagi klinik ma'lumotlarni CHUQUR tahlil qiling.\n`
+            + `Talab: matn hajmi oldingi qisqa xulosadan 2–3 baravar ko'p bo'lsin `
+            + `(summary 5–8 jumla, mainConclusion 8–12 jumla, har tashxis asoslashi 4–7 jumla, `
+            + `logicChain 5–8 qadam, treatmentSteps 5–8, additionalTests 3–6).\n`
+            + `Faqat JSON obyekt qaytaring:\n${JSON.stringify(clinicalData, null, 2)}`,
         },
       ],
-      { json: true, maxTokens: 8192 },
+      { json: true, maxTokens: 12288 },
     );
 
     if (!text) return null;
@@ -546,7 +595,7 @@ export class AiService {
           }), null, 2)}\n\nShifokor savoli: ${question}`,
         },
       ],
-      { maxTokens: 2048, systemPrompt: CHAT_SYSTEM_PROMPT },
+      { maxTokens: 4096, systemPrompt: CHAT_SYSTEM_PROMPT },
     );
 
     if (!answer) {

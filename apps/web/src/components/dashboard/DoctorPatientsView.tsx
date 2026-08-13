@@ -13,16 +13,15 @@ import {
   XCircle,
 } from 'lucide-react';
 import { DoctorShell } from '@/components/layout/DoctorShell';
-import { ConsultationSwitcher } from '@/components/dashboard/ConsultationSwitcher';
 import { api, Consultation, DashboardStats } from '@/lib/api';
 import { ConsultationFilters, FilterOptions, TRIAGE_OPTIONS } from '@/lib/analytics-types';
 import { SmartFilterBar, countActiveFilters } from '@/components/analytics/SmartFilterBar';
 import { useDebouncedValue } from '@/hooks/use-debounce';
 import { useConsultationRealtime } from '@/hooks/use-consultation-realtime';
 import { useCancelConsultation } from '@/hooks/use-cancel-consultation';
-import { writeActiveConsultationId } from '@/lib/active-consultation-storage';
 import { calculateAge, cn, formatStatus, formatTriage } from '@/lib/utils';
 import { toast } from '@/lib/toast';
+import { dispatchDoctorSelect } from '@/hooks/use-doctor-header-data';
 
 type QueueFilter = 'all' | 'queued' | 'live' | 'completed' | 'cancelled';
 
@@ -62,7 +61,6 @@ export function DoctorPatientsView({
   myInProgress,
   stats,
   selectedConsultationId,
-  onSelectConsultation,
   onStartConsultation,
   onReload,
   error,
@@ -81,7 +79,6 @@ export function DoctorPatientsView({
 
   const queuedPatients = useMemo(() => queue.filter((c) => c.status === 'QUEUED'), [queue]);
   const liveList = myInProgress;
-  const hasQueue = liveList.length > 0 || queuedPatients.length > 0;
   const isHistoryFilter = filter === 'completed' || filter === 'cancelled';
 
   const activeId = selectedConsultationId ?? undefined;
@@ -170,7 +167,7 @@ export function DoctorPatientsView({
   });
 
   const handleSelect = (id: string) => {
-    onSelectConsultation?.(id);
+    dispatchDoctorSelect(id);
   };
 
   const handleStart = async (id: string) => {
@@ -187,8 +184,7 @@ export function DoctorPatientsView({
   const handleContinue = (id: string) => {
     if (continuingId) return;
     setContinuingId(id);
-    writeActiveConsultationId(id);
-    onSelectConsultation?.(id);
+    dispatchDoctorSelect(id);
     router.push('/dashboard');
   };
 
@@ -258,24 +254,7 @@ export function DoctorPatientsView({
 
   return (
     <>
-      <DoctorShell
-        scrollable
-        liveCount={liveList.length}
-        queueCount={queuedPatients.length}
-        headerQueue={
-          hasQueue ? (
-            <ConsultationSwitcher
-              activeId={activeId}
-              myInProgress={liveList}
-              queued={queuedPatients}
-              onSelect={handleSelect}
-              onStart={(id) => void handleStart(id)}
-              onReconnect={handleContinue}
-              onCancel={handleCancelRequest}
-            />
-          ) : undefined
-        }
-      >
+      <DoctorShell scrollable>
         <div className="doctor-subpage-inner space-y-4 pb-8">
           {error && (
             <div className="ut-glass-banner border-red-200/70 bg-red-50/75 text-red-700 text-xs px-3 py-2 flex items-center justify-between">

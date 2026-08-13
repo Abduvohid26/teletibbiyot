@@ -7,10 +7,10 @@ import { DoctorShell } from '@/components/layout/DoctorShell';
 import { VideoConsultation } from '@/components/dashboard/VideoConsultation';
 import { AiAnalysisPanel } from '@/components/dashboard/AiAnalysisPanel';
 import { PatientDocumentsPanel } from '@/components/dashboard/PatientDocumentsPanel';
-import { ConsultationSwitcher } from '@/components/dashboard/ConsultationSwitcher';
 import { api, Consultation } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { useCancelConsultation } from '@/hooks/use-cancel-consultation';
+import { DOCTOR_SELECT_EVENT } from '@/hooks/use-doctor-header-data';
 
 interface DoctorDashboardViewProps {
   queue: Consultation[];
@@ -31,13 +31,11 @@ export function DoctorDashboardView({
   consultation,
   myInProgress = [],
   selectedConsultationId,
-  onSelectConsultation,
   attachmentCount,
   documentsConsultationId,
   error,
   onReload,
   onRefresh,
-  onStartConsultation,
 }: DoctorDashboardViewProps) {
   const router = useRouter();
   const [reconnectSignal, setReconnectSignal] = useState(0);
@@ -51,13 +49,18 @@ export function DoctorDashboardView({
     ?? consultation
     ?? null;
 
-  const handleSelectConsultation = useCallback((id: string) => {
-    const samePatient = id === activeConsultationId;
-    onSelectConsultation?.(id);
-    if (samePatient) {
-      setReconnectSignal((s) => s + 1);
-    }
-  }, [activeConsultationId, onSelectConsultation]);
+  // Header switcher — tanlov useDoctorDashboard da; bir xil bemor qayta tanlansa video reconnect
+  useEffect(() => {
+    const onHeaderSelect = (event: Event) => {
+      const id = (event as CustomEvent<{ id?: string }>).detail?.id;
+      if (!id) return;
+      if (id === activeConsultationId) {
+        setReconnectSignal((s) => s + 1);
+      }
+    };
+    window.addEventListener(DOCTOR_SELECT_EVENT, onHeaderSelect);
+    return () => window.removeEventListener(DOCTOR_SELECT_EVENT, onHeaderSelect);
+  }, [activeConsultationId]);
 
   useEffect(() => {
     setReconnectSignal(0);
@@ -111,36 +114,29 @@ export function DoctorDashboardView({
     }
   }, [consultation, myInProgress, queuedPatients, requestCancel]);
 
-  const hasQueue = myInProgress.length > 0 || queuedPatients.length > 0;
   const showCompleteBtn = activeConsultation?.status === 'IN_PROGRESS';
   const showCancelBtn = activeConsultation?.status === 'IN_PROGRESS';
 
   return (
     <>
-    <DoctorShell
-      liveCount={myInProgress.length}
-      queueCount={queuedPatients.length}
-      headerQueue={
-        hasQueue ? (
-          <ConsultationSwitcher
-            activeId={activeConsultationId}
-            myInProgress={myInProgress}
-            queued={queuedPatients}
-            onSelect={handleSelectConsultation}
-            onStart={onStartConsultation}
-            onReconnect={handleSelectConsultation}
-            onCancel={handleCancelRequest}
-          />
-        ) : undefined
-      }
-      pageAction={
-        showCompleteBtn || showCancelBtn ? (
-          <div className="flex items-center gap-1.5 shrink-0">
+    <DoctorShell>
+      <div className="ut-page">
+        {error && (
+          <div className="shrink-0 mb-2 ut-glass-banner border-red-200/70 bg-red-50/75 text-red-700 text-xs px-3 py-1.5 flex items-center justify-between">
+            <span className="truncate">{error}</span>
+            <button type="button" onClick={onReload} className="text-[10px] font-semibold underline shrink-0 ml-2">
+              Qayta
+            </button>
+          </div>
+        )}
+
+        {(showCompleteBtn || showCancelBtn) && (
+          <div className="shrink-0 mb-2 flex items-center justify-end gap-1.5">
             {showCancelBtn && (
               <button
                 type="button"
                 onClick={() => activeConsultation && handleCancelRequest(activeConsultation.id)}
-                className="inline-flex items-center gap-1 rounded-xl border border-red-200 text-red-600 text-[11px] sm:text-xs font-semibold px-2 py-1.5 hover:bg-red-50"
+                className="inline-flex items-center gap-1 rounded-xl border border-red-200 text-red-600 text-[11px] sm:text-xs font-semibold px-2 py-1.5 hover:bg-red-50 bg-white/70"
               >
                 <XCircle size={12} />
                 <span className="hidden sm:inline">Bekor qilish</span>
@@ -151,24 +147,13 @@ export function DoctorDashboardView({
                 type="button"
                 onClick={() => void handleComplete()}
                 disabled={completing}
-                className="gradient-btn !py-1.5 !px-2 !text-[11px] sm:!text-xs shrink-0 whitespace-nowrap disabled:opacity-60 inline-flex items-center gap-1"
+                className="gradient-btn !py-1.5 !px-2.5 !text-[11px] sm:!text-xs shrink-0 whitespace-nowrap disabled:opacity-60 inline-flex items-center gap-1"
               >
                 {completing ? <Loader2 size={12} className="animate-spin" /> : null}
                 <span className="hidden sm:inline">{completing ? 'Yakunlanmoqda...' : 'Yakunlash'}</span>
                 <span className="sm:hidden">{completing ? '...' : 'Yakun'}</span>
               </button>
             )}
-          </div>
-        ) : undefined
-      }
-    >
-      <div className="ut-page">
-        {error && (
-          <div className="shrink-0 mb-2 ut-glass-banner border-red-200/70 bg-red-50/75 text-red-700 text-xs px-3 py-1.5 flex items-center justify-between">
-            <span className="truncate">{error}</span>
-            <button type="button" onClick={onReload} className="text-[10px] font-semibold underline shrink-0 ml-2">
-              Qayta
-            </button>
           </div>
         )}
 

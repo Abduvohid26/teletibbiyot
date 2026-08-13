@@ -9,14 +9,12 @@ export interface DoctorHeaderProps {
   liveCount?: number;
   queueCount?: number;
   headerQueue?: React.ReactNode;
-  pageAction?: React.ReactNode;
 }
 
 export function DoctorHeader({
   liveCount = 0,
   queueCount = 0,
   headerQueue,
-  pageAction,
 }: DoctorHeaderProps) {
   const { user, logout } = useAuth();
 
@@ -43,7 +41,6 @@ export function DoctorHeader({
 
         <div className="ut-shell-actions shrink-0 min-w-0 max-w-[55vw] sm:max-w-none">
           {headerQueue}
-          {pageAction}
           <button
             type="button"
             onClick={logout}

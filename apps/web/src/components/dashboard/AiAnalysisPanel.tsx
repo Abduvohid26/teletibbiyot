@@ -21,11 +21,11 @@ interface AiAnalysisPanelProps {
 }
 
 const SUGGESTED_QUESTIONS = [
-  'Muqobil tashxislar qanchalik ehtimol?',
-  'Qaysi qo\'shimcha tekshiruvlar kerak?',
-  'Dori-darmonlar o\'zaro ta\'siri bormi?',
-  'Parhez va profilaktika tavsiyalari?',
-  'Prognoz va keyingi kuzatuv rejasi?',
+  'Muqobil tashxislar qanchalik ehtimol va nima uchun?',
+  'Qaysi qo\'shimcha tekshiruvlar kerak — urg\'u bilan?',
+  'Dori-darmonlar o\'zaro ta\'siri va xavfsizlik?',
+  'Parhez, hayot tarzi va profilaktika batafsil?',
+  'Prognoz, ogohlantirish belgilari va kuzatuv rejasi?',
 ];
 
 export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }: AiAnalysisPanelProps) {

@@ -19,6 +19,7 @@ import {
   readActiveConsultationId,
   writeActiveConsultationId,
 } from '@/lib/active-consultation-storage';
+import { DOCTOR_SELECT_EVENT } from '@/hooks/use-doctor-header-data';
 
 export function useDoctorDashboard() {
   const { user, loading, authError, retryAuth } = useAuth();
@@ -182,6 +183,16 @@ export function useDoctorDashboard() {
     });
     void executeReload(id);
   }, [executeReload]);
+
+  useEffect(() => {
+    const onHeaderSelect = (event: Event) => {
+      const id = (event as CustomEvent<{ id?: string }>).detail?.id;
+      if (!id) return;
+      selectConsultation(id);
+    };
+    window.addEventListener(DOCTOR_SELECT_EVENT, onHeaderSelect);
+    return () => window.removeEventListener(DOCTOR_SELECT_EVENT, onHeaderSelect);
+  }, [selectConsultation]);
 
   const startConsultation = useCallback(async (id: string) => {
     setError('');

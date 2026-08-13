@@ -88,7 +88,6 @@ export default function UTClientPage() {
 
   const [files, setFiles] = useState<File[]>([]);
   const [uploadedFileCount, setUploadedFileCount] = useState(0);
-  const [consentAccepted, setConsentAccepted] = useState(false);
   const [offlineNotice, setOfflineNotice] = useState('');
   const [doctors, setDoctors] = useState<Array<{ id: string; fullName: string; specialty?: string | null; specialtyRef?: { name: string } | null }>>([]);
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
@@ -106,7 +105,11 @@ export default function UTClientPage() {
   useEffect(() => {
     if (!user || !isUtRole(user.role)) return;
     api.getDoctors()
-      .then(setDoctors)
+      .then((list) => {
+        // Faqat faol MT shifokorlar — avto tanlash yo'q
+        setDoctors(list);
+        setSelectedDoctorId('');
+      })
       .catch(() => setDoctors([]));
   }, [user]);
 
@@ -175,7 +178,6 @@ export default function UTClientPage() {
     setClinicalData(emptyClinicalData());
     setVitals(emptyVitals());
     setFiles([]);
-    setConsentAccepted(false);
     setSuccess(false);
     setCreatedConsultationId(null);
     setSelectedDoctorId('');
@@ -188,8 +190,8 @@ export default function UTClientPage() {
       return;
     }
 
-    if (!consentAccepted) {
-      toast('Davom etish uchun ma\'lumotlarni qayta ishlashga rozilik berishingiz kerak', 'error');
+    if (!selectedDoctorId) {
+      toast('Shifokorni tanlang', 'error');
       return;
     }
 
@@ -209,7 +211,7 @@ export default function UTClientPage() {
       patientId: '',
       consentGiven: true,
       clientRequestId,
-      ...(selectedDoctorId ? { mtDoctorId: selectedDoctorId } : {}),
+      mtDoctorId: selectedDoctorId,
       clinicalRecord: {
         complaints: clinicalData.complaints,
         anamnesisMorbi: '',
@@ -265,7 +267,6 @@ export default function UTClientPage() {
         sessionStorage.setItem(UT_ACTIVE_CONSULTATION_KEY, consultation.id);
       }
       setFiles([]);
-      setConsentAccepted(false);
       toast('Navbatga yuborildi — shifokor qabul qilishini kuting', 'success');
       router.push('/ut/vitals');
     } catch (err) {
@@ -459,7 +460,7 @@ export default function UTClientPage() {
                 value={selectedDoctorId}
                 onChange={(e) => setSelectedDoctorId(e.target.value)}
               >
-                <option value="">Navbat (avto)</option>
+                <option value="">Shifokor tanlang</option>
                 {doctors.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.fullName}{d.specialtyRef?.name || d.specialty ? ` — ${d.specialtyRef?.name || d.specialty}` : ''}
@@ -467,19 +468,10 @@ export default function UTClientPage() {
                 ))}
               </select>
             </label>
-            <label className="flex items-center gap-1.5 shrink-0 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={consentAccepted}
-                onChange={(e) => setConsentAccepted(e.target.checked)}
-                className="rounded border-slate-300 text-brand-600 scale-90"
-              />
-              <span className="text-sm text-slate-600 whitespace-nowrap">Ma&apos;lumotlarni qayta ishlashga roziman</span>
-            </label>
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={submitting || !consentAccepted}
+              disabled={submitting || !selectedDoctorId}
               className="gradient-btn !py-2 !px-4 !text-sm disabled:opacity-50 flex items-center gap-1.5 shrink-0 shadow-sm"
             >
               <Send size={16} />

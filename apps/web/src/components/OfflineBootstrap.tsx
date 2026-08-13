@@ -39,7 +39,12 @@ export function OfflineBootstrap() {
     const registerServiceWorker = async () => {
       if (!('serviceWorker' in navigator)) return;
       try {
-        await navigator.serviceWorker.register('/service-worker.js', { scope: '/' });
+        const reg = await navigator.serviceWorker.register('/service-worker.js', { scope: '/' });
+        // Yangi SW darhol faol bo'lsin (eski / keshini tozalash)
+        await reg.update();
+        if (reg.waiting) {
+          reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        }
       } catch {
         /* brauzer cheklovi */
       }
