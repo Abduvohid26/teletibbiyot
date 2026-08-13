@@ -351,15 +351,21 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     data: { roomId?: string; targetSocketId?: string } | undefined,
   ): Promise<boolean> {
     if (!data?.roomId || !data?.targetSocketId) {
-      this.emitSignalError(client, data?.roomId, 'Noto\'g\'ri signal ma\'lumoti');
+      this.emitSignalError(client, data?.roomId, 'BAD_PAYLOAD', 'Noto\'g\'ri signal ma\'lumoti');
       return false;
     }
     if (!this.isInRoom(client, data.roomId)) {
-      this.emitSignalError(client, data.roomId, 'Siz video xonada emassiz');
+      this.emitSignalError(client, data.roomId, 'NOT_IN_ROOM', 'Siz video xonada emassiz');
       return false;
     }
     if (!(await this.isTargetInRoom(data.roomId, data.targetSocketId))) {
-      this.emitSignalError(client, data.roomId, 'Qabul qiluvchi xonada emas');
+      this.emitSignalError(
+        client,
+        data.roomId,
+        'TARGET_NOT_IN_ROOM',
+        'Qabul qiluvchi xonada emas',
+        data.targetSocketId,
+      );
       return false;
     }
     return true;
@@ -657,8 +663,20 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return client.rooms.has(roomId);
   }
 
-  private emitSignalError(client: Socket, roomId: string | undefined, message: string) {
-    client.emit('signal-error', { roomId, message });
+  /**
+   * `code` MAJBURIY: klient xatoni matn bo'yicha emas, kod bo'yicha ajratadi.
+   * Ayniqsa TARGET_NOT_IN_ROOM — bu odatda vaqtinchalik poyga (peer refresh
+   * qildi va socketId o'zgardi), foydalanuvchiga qizil banner ko'rsatish emas,
+   * xona holatini qayta sinxronlash kerak.
+   */
+  private emitSignalError(
+    client: Socket,
+    roomId: string | undefined,
+    code: 'BAD_PAYLOAD' | 'NOT_IN_ROOM' | 'TARGET_NOT_IN_ROOM',
+    message: string,
+    targetSocketId?: string,
+  ) {
+    client.emit('signal-error', { roomId, code, message, targetSocketId });
   }
 
   private async isTargetInRoom(roomId: string, targetSocketId: string): Promise<boolean> {

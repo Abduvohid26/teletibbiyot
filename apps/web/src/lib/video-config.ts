@@ -1,3 +1,4 @@
+import { isBrowserReachableTurnUrl } from '@ishifo/shared';
 import { ICE_SERVERS as DEFAULT_ICE } from './video-config-base';
 
 export * from './video-config-base';
@@ -7,7 +8,12 @@ let iceTurnConfigured: boolean | null = null;
 let fetchPromise: Promise<RTCIceServer[]> | null = null;
 
 export function isTurnConfigured(): boolean {
-  return iceTurnConfigured ?? !!process.env.NEXT_PUBLIC_TURN_URL;
+  if (iceTurnConfigured !== null) return iceTurnConfigured;
+  const envTurn = process.env.NEXT_PUBLIC_TURN_URL;
+  // MUHIM: manzil BORLIGI yetarli emas — u brauzer yeta oladigan manzil
+  // bo'lishi kerak. `turn:localhost:3478` boshqa qurilmada o'sha qurilmaning
+  // o'zini bildiradi, ya'ni TURN aslida yo'q.
+  return !!envTurn && isBrowserReachableTurnUrl(envTurn);
 }
 
 function buildEnvIceServers(): RTCIceServer[] {
@@ -16,7 +22,10 @@ function buildEnvIceServers(): RTCIceServer[] {
   const turnUser = process.env.NEXT_PUBLIC_TURN_USERNAME;
   const turnPass = process.env.NEXT_PUBLIC_TURN_CREDENTIAL;
 
-  if (turnUrl) {
+  // Yaroqsiz TURN manzilini RO'YXATGA QO'SHMAYMIZ. Aks holda brauzer uni
+  // sinab, har safar bir necha soniya kutadi va biz uni "TURN bor" deb
+  // hisoblab, aslida hech qachon ishlamaydigan relay'ga tayanib qolamiz.
+  if (turnUrl && isBrowserReachableTurnUrl(turnUrl)) {
     servers.push({
       urls: turnUrl,
       username: turnUser || undefined,

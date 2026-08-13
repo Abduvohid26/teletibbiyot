@@ -629,6 +629,10 @@ export function useVideoRoom({
         if (peerHasLiveVideo(remoteSocketId) || attempts > 8) {
           clearInterval(watchdog);
           peerWatchdogRef.current.delete(remoteSocketId);
+          // Taslim bo'lishdan oldin: ehtimol bu socketId allaqachon o'lik.
+          // Serverdan yangi ro'yxat so'raymiz — "abadiy ulanmoqda" holatidan
+          // chiqish uchun yagona yo'l.
+          if (!peerHasLiveVideo(remoteSocketId)) requestRoomSyncRef.current();
           return;
         }
         const pc = pcsRef.current.get(remoteSocketId);
@@ -992,6 +996,27 @@ export function useVideoRoom({
   ]);
 
   const emitReconnectSignalsRef = useRef<() => void>(() => undefined);
+  const requestRoomSyncRef = useRef<() => void>(() => undefined);
+  const lastRoomSyncAtRef = useRef(0);
+
+  /**
+   * Serverdan xonaning HOZIRGI holatini so'rash.
+   *
+   * Ilgari bu faqat BIR MARTA (konsultatsiya boshida) yuborilardi. Shuning
+   * uchun peer refresh qilib socketId'sini o'zgartirsa yoki socket qayta
+   * ulansa, biz eski ro'yxat bilan qolib ketardik va o'lik socketga signal
+   * yuboraverardik.
+   */
+  const requestRoomSync = useCallback(() => {
+    const socket = socketRef.current;
+    if (!socket?.connected || !consultationId) return;
+    const now = Date.now();
+    if (now - lastRoomSyncAtRef.current < 1500) return;
+    lastRoomSyncAtRef.current = now;
+    socket.emit('request-room-sync', { roomId: consultationId });
+  }, [consultationId, socketRef]);
+
+  requestRoomSyncRef.current = requestRoomSync;
 
   const emitReconnectSignals = useCallback(() => {
     if (signalDebounceRef.current) clearTimeout(signalDebounceRef.current);
@@ -1197,7 +1222,11 @@ export function useVideoRoom({
         const stream = remoteCamerasRef.current[id];
         return !!stream?.getVideoTracks().some((t) => t.readyState === 'live');
       });
-      if (hasUtVideo || knownParticipantsRef.current.size === 0) return;
+      if (hasUtVideo) return;
+      // Ro'yxat bo'sh yoki video yo'q — ehtimol bizdagi socketId'lar eskirgan
+      // (peer refresh qildi). Avval xona holatini yangilaymiz.
+      requestRoomSyncRef.current();
+      if (knownParticipantsRef.current.size === 0) return;
       knownParticipantsRef.current.forEach((socketId) => {
         scheduleOfferToPeer(socketId);
       });
@@ -1227,6 +1256,9 @@ export function useVideoRoom({
         (t) => t.readyState === 'live',
       );
       if (hasDoctorVideo) return;
+      // Shifokorning socketId'si o'zgargan bo'lishi mumkin (u refresh qilgan) —
+      // faqat qayta signal yuborish yetarli emas, ro'yxatni ham yangilaymiz.
+      requestRoomSyncRef.current();
       emitReconnectSignalsRef.current();
     };
 
@@ -1322,6 +1354,11 @@ export function useVideoRoom({
     };
 
     const onReconnect = () => {
+      // Socket qayta ulandi — barcha socketId'lar (bizniki ham, peerniki ham)
+      // o'zgargan bo'lishi mumkin. Eski ro'yxatga tayanmasdan serverdan
+      // yangisini so'raymiz, aks holda o'lik socketlarga signal yuboramiz.
+      lastRoomSyncAtRef.current = 0;
+      setTimeout(() => requestRoomSyncRef.current(), 300);
       pcsRef.current.forEach((pc) => pc.close());
       pcsRef.current.clear();
       remoteTrackIdsRef.current.clear();
@@ -1343,8 +1380,32 @@ export function useVideoRoom({
       }
     };
 
-    const onSignalError = (data: { roomId?: string; message?: string }) => {
+    const onSignalError = (data: {
+      roomId?: string;
+      code?: string;
+      message?: string;
+      targetSocketId?: string;
+    }) => {
       if (data.roomId && data.roomId !== consultationId) return;
+
+      // TARGET_NOT_IN_ROOM — peer refresh qildi va uning socketId'si o'zgardi,
+      // biz esa hali eskisiga signal yuboryapmiz. Bu VAQTINCHALIK poyga, xato
+      // emas: foydalanuvchiga "shifokor xonada emas" deb qizil banner ko'rsatish
+      // noto'g'ri edi — o'sha paytda shifokor xonada, shunchaki yangi socket bilan.
+      // To'g'ri javob: o'lik peerni tashlab, serverdan yangi ro'yxat so'rash.
+      if (data.code === 'TARGET_NOT_IN_ROOM') {
+        if (data.targetSocketId) removeRemotePeer(data.targetSocketId);
+        requestRoomSyncRef.current();
+        return;
+      }
+
+      // NOT_IN_ROOM — biz xonadan tushib qolganmiz (masalan reconnect'dan keyin
+      // join hali qayta bajarilmagan). Qayta ulanish sikliga turtki beramiz.
+      if (data.code === 'NOT_IN_ROOM') {
+        requestRoomSyncRef.current();
+        return;
+      }
+
       setError(data.message || 'Video signal xatoligi');
     };
 
@@ -1390,7 +1451,7 @@ export function useVideoRoom({
 
     if (isRoomActive(consultationId) && roomSyncDoneRef.current !== consultationId) {
       roomSyncDoneRef.current = consultationId;
-      socket.emit('request-room-sync', { roomId: consultationId });
+      requestRoomSync();
     }
 
     return () => {
@@ -1427,6 +1488,7 @@ export function useVideoRoom({
     mediaReady,
     rememberParticipant,
     removeRemotePeer,
+    requestRoomSync,
     role,
     scheduleOfferToPeer,
     softDisconnectRemotePeer,

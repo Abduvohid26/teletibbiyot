@@ -6,7 +6,7 @@ import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { ICE_SERVERS } from '../common/video-ice.config';
 import { ROLES_CLINICAL } from '../common/roles.constants';
-import { resolvePublicTurnUrl } from '../common/turn-url.util';
+import { diagnoseTurnConfig, resolvePublicTurnUrl } from '../common/turn-url.util';
 
 @ApiTags('Video')
 @Controller('video')
@@ -50,11 +50,17 @@ export class VideoController {
       });
     }
 
+    const diagnosis = diagnoseTurnConfig(this.config);
+
     return {
       iceServers,
       turnConfigured: !!turnUrl,
+      // Sozlash xatosining ANIQ sababi — "TURN yo'q" degan umumiy xabar
+      // o'rniga qaysi o'zgaruvchi va nega noto'g'ri ekanini qaytaramiz.
+      turnProblems: diagnosis.problems,
       recommendations: [
         !turnUrl ? 'TURN server sozlang — uzoq hudud NAT tarmoqlari uchun majburiy' : null,
+        ...diagnosis.problems,
       ].filter(Boolean),
     };
   }

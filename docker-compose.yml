@@ -89,19 +89,29 @@ services:
     profiles: [app]
     image: coturn/coturn:latest
     container_name: ishifo-turn
+    # MUHIM: bu servis prod'dagi `coturn` bilan bir xil imkoniyatga ega bo'lishi
+    # SHART. Ilgari bu yerda ikkita halokatli kamchilik bor edi:
+    #   1) --external-ip yo'q edi → coturn relay manzili sifatida konteynerning
+    #      ichki 172.x IP'sini e'lon qilardi. Brauzer relay candidate oladi,
+    #      lekin unga hech qachon yeta olmaydi.
+    #   2) relay port oralig'i (49152-49200/udp) publish qilinmagan edi → TURN
+    #      allocation muvaffaqiyatli bo'lsa ham, media o'sha portlar orqali
+    #      o'tadi va tashqaridan yopiq bo'ladi.
+    # Natija: "TURN relay orqali ham o'tib bo'lmadi" — turli tarmoqda video yo'q.
+    entrypoint: ["/bin/sh", "-c"]
     command:
-      - -n
-      - --log-file=stdout
-      - --realm=${TURN_REALM}
-      - --lt-cred-mech
-      - --user=${TURN_USERNAME}:${TURN_PASSWORD}
-      - --listening-port=${TURN_PORT:-3499}
-      - --listening-ip=0.0.0.0
-      - --min-port=49152
-      - --max-port=49200
+      - >
+        exec turnserver -n --log-file=stdout
+        --realm=${TURN_REALM} --lt-cred-mech
+        --user=${TURN_USERNAME}:${TURN_PASSWORD}
+        --listening-port=${TURN_PORT:-3499} --listening-ip=0.0.0.0
+        --fingerprint --no-cli
+        --min-port=49152 --max-port=49200
+        $${TURN_EXTERNAL_IP:+--external-ip=$$TURN_EXTERNAL_IP}
     ports:
-      - '${TURN_PUBLISH:-3499}:${TURN_PORT:-3499}'
+      - '${TURN_PUBLISH:-3499}:${TURN_PORT:-3499}/tcp'
       - '${TURN_PUBLISH:-3499}:${TURN_PORT:-3499}/udp'
+      - '49152-49200:49152-49200/udp'
     restart: unless-stopped
     networks:
       - ishifo

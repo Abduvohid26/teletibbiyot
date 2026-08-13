@@ -6,6 +6,7 @@ import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/http-exception.filter';
 import { getJwtSecret } from './common/jwt-config';
 import { RedisIoAdapter } from './video/redis-io.adapter';
+import { diagnoseTurnConfig } from './common/turn-url.util';
 import { BRAND } from '@ishifo/shared';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
@@ -38,6 +39,18 @@ async function bootstrap() {
       }
       logger.warn(`Redis adapter ulanmadi, in-memory WS ishlatiladi: ${err}`);
     }
+  }
+
+  // TURN sozlamasi noto'g'ri bo'lsa, muammo faqat ikki tomon TURLI TARMOQDA
+  // bo'lganda bilinadi — ya'ni odatda ishlab chiqarishda, jonli konsultatsiya
+  // paytida. Shuning uchun buni ishga tushirishdayoq baland aytamiz.
+  const turnDiagnosis = diagnoseTurnConfig(configService);
+  if (turnDiagnosis.ok) {
+    logger.log('TURN: brauzer yeta oladigan manzil topildi');
+  } else {
+    logger.error('TURN SOZLAMASI YAROQSIZ — turli tarmoqdagi (masalan mobil internet ↔ Wi-Fi) shifokor va UT operator BIR-BIRINI KO\'RMAYDI:');
+    turnDiagnosis.problems.forEach((p) => logger.error(`  • ${p}`));
+    logger.error('  → .env da TURN_PUBLIC_URL / NEXT_PUBLIC_TURN_URL ni serverning OMMAVIY IP yoki domeniga o\'zgartiring va TURN_EXTERNAL_IP ni o\'rnating.');
   }
 
   if (configService.get('TRUST_PROXY') === 'true') {

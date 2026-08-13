@@ -190,6 +190,11 @@ export interface NotificationPayload {
   createdAt: string;
 }
 
+export {
+  extractTurnHostname,
+  isBrowserReachableTurnUrl,
+  describeTurnUrlProblem,
+} from './turn-url';
 export { BRAND, brandCopyright } from './brand';
 export { DEFAULT_PRESCRIPTION_TEMPLATES } from './prescription-templates';
 export type { PrescriptionMed } from './prescription-templates';
