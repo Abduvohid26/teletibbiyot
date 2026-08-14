@@ -4,11 +4,13 @@ import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { getRoleHomePath } from '@/lib/auth-utils';
+import { useI18n } from '@/i18n';
 
 /** Hard fallback — agar client router ishlamasa ham login ga o'tsin */
 const HARD_REDIRECT_MS = 8000;
 
 export default function HomePage() {
+  const { t } = useI18n();
   const { user, loading } = useAuth();
   const router = useRouter();
   const redirected = useRef(false);
@@ -39,7 +41,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-surface">
-      <div className="animate-pulse text-slate-400 text-sm">Yuklanmoqda...</div>
+      <div className="animate-pulse text-slate-400 text-sm">{t('common.loading')}</div>
     </div>
   );
 }

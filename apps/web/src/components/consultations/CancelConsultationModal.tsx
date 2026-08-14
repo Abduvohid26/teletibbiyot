@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { AlertTriangle, Loader2, X } from 'lucide-react';
 import { Consultation } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { useI18n } from '@/i18n';
 
 interface CancelConsultationModalProps {
   open: boolean;
@@ -20,6 +21,7 @@ export function CancelConsultationModal({
   onClose,
   onConfirm,
 }: CancelConsultationModalProps) {
+  const { t } = useI18n();
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
 
@@ -35,7 +37,7 @@ export function CancelConsultationModal({
   const handleSubmit = () => {
     const trimmed = reason.trim();
     if (trimmed.length < 3) {
-      setError('Sabab kamida 3 ta belgidan iborat bo\'lishi kerak');
+      setError(t('cancelConsult.reasonMinLength'));
       return;
     }
     setError('');
@@ -57,7 +59,7 @@ export function CancelConsultationModal({
             </div>
             <div className="min-w-0">
               <h2 id="cancel-consultation-title" className="text-base font-bold text-slate-900">
-                Konsultatsiyani bekor qilish
+                {t('cancelConsult.title')}
               </h2>
               <p className="text-sm text-slate-500 mt-0.5 truncate">
                 {consultation.patient.fullName}
@@ -76,12 +78,10 @@ export function CancelConsultationModal({
         </div>
 
         <div className="p-5 space-y-3">
-          <p className="text-sm text-slate-600">
-            Bu amalni qaytarib bo&apos;lmaydi. Bekor qilish sababini yozing — u bemor kartasida saqlanadi.
-          </p>
+          <p className="text-sm text-slate-600">{t('cancelConsult.body')}</p>
           <div>
             <label htmlFor="cancel-reason" className="text-xs font-semibold text-slate-700">
-              Sabab <span className="text-red-500">*</span>
+              {t('cancelConsult.reasonLabel')} <span className="text-red-500">*</span>
             </label>
             <textarea
               id="cancel-reason"
@@ -92,7 +92,7 @@ export function CancelConsultationModal({
               }}
               rows={4}
               maxLength={1000}
-              placeholder="Masalan: Bemor navbatdan voz kechdi, texnik nosozlik..."
+              placeholder={t('cancelConsult.reasonPlaceholder')}
               className={cn(
                 'mt-1.5 w-full rounded-xl border px-3 py-2.5 text-sm resize-none',
                 'focus:outline-none focus:ring-2 focus:ring-red-200 focus:border-red-300',
@@ -106,7 +106,7 @@ export function CancelConsultationModal({
 
         <div className="flex items-center justify-end gap-2 p-5 border-t border-slate-100 bg-slate-50/60 rounded-b-2xl">
           <button type="button" onClick={onClose} disabled={submitting} className="btn-secondary">
-            Orqaga
+            {t('common.back')}
           </button>
           <button
             type="button"
@@ -115,7 +115,7 @@ export function CancelConsultationModal({
             className="inline-flex items-center gap-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold px-4 py-2.5 disabled:opacity-60"
           >
             {submitting ? <Loader2 size={16} className="animate-spin" /> : null}
-            Bekor qilish
+            {t('cancelConsult.confirm')}
           </button>
         </div>
       </div>
@@ -123,10 +123,10 @@ export function CancelConsultationModal({
   );
 }
 
-export function cancelActorLabel(role?: string) {
-  if (role === 'UT_OPERATOR') return 'UT operator';
-  if (role === 'MT_DOCTOR') return 'Shifokor';
-  if (role === 'MT_MANAGER') return 'Mudir';
-  if (role === 'ADMIN') return 'Admin';
-  return 'Foydalanuvchi';
+export function cancelActorLabel(role: string | undefined, t: (key: string) => string): string {
+  if (role === 'UT_OPERATOR') return t('roles.utOperator');
+  if (role === 'MT_DOCTOR') return t('roles.doctor');
+  if (role === 'MT_MANAGER') return t('roles.manager');
+  if (role === 'ADMIN') return t('roles.adminShort');
+  return t('roles.user');
 }

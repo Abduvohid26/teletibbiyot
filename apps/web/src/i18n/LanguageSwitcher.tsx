@@ -1,8 +1,7 @@
 'use client';
 
-import { Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { LOCALES, LOCALE_LABELS, type Locale } from './locales';
+import { LOCALES, LOCALE_LABELS, LOCALE_SHORT_LABELS, type Locale } from './locales';
 import { useI18n } from './I18nProvider';
 
 interface LanguageSwitcherProps {
@@ -14,30 +13,43 @@ export function LanguageSwitcher({ className, compact = false }: LanguageSwitche
   const { locale, setLocale, t } = useI18n();
 
   return (
-    <label
+    <div
+      role="group"
+      aria-label={t('lang.switcher')}
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-xl border border-slate-200/80 bg-white/80',
-        compact ? 'px-1.5 py-1' : 'px-2 py-1.5',
+        'inline-flex rounded-full border border-slate-200/90 bg-white',
+        'shadow-[0_1px_3px_rgba(15,23,42,0.08)] overflow-hidden',
         className,
       )}
-      title={t('lang.switcher')}
     >
-      <Globe size={compact ? 13 : 14} className="text-slate-500 shrink-0" aria-hidden />
-      <select
-        className={cn(
-          'bg-transparent text-slate-700 font-medium outline-none cursor-pointer max-w-[7.5rem]',
-          compact ? 'text-[11px]' : 'text-xs',
-        )}
-        value={locale}
-        aria-label={t('lang.switcher')}
-        onChange={(e) => setLocale(e.target.value as Locale)}
-      >
-        {LOCALES.map((code) => (
-          <option key={code} value={code}>
-            {LOCALE_LABELS[code]}
-          </option>
-        ))}
-      </select>
-    </label>
+      {LOCALES.map((code, index) => {
+        const active = locale === code;
+        const isFirst = index === 0;
+        const isLast = index === LOCALES.length - 1;
+
+        return (
+          <button
+            key={code}
+            type="button"
+            aria-pressed={active}
+            aria-label={LOCALE_LABELS[code]}
+            title={LOCALE_LABELS[code]}
+            onClick={() => setLocale(code)}
+            className={cn(
+              'relative font-bold leading-none transition-colors duration-150',
+              compact ? 'min-w-[2.1rem] px-2 py-[0.35rem] text-[11px]' : 'min-w-[2.5rem] px-3 py-1.5 text-xs',
+              active
+                ? 'bg-brand-600 text-white z-[1]'
+                : 'bg-white text-slate-600 hover:text-slate-900',
+              active && isFirst && 'rounded-l-full',
+              active && isLast && 'rounded-r-full',
+              !active && !isFirst && 'border-l border-slate-200/90',
+            )}
+          >
+            {LOCALE_SHORT_LABELS[code]}
+          </button>
+        );
+      })}
+    </div>
   );
 }

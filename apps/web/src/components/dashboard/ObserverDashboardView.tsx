@@ -9,6 +9,7 @@ import { AiAnalysisPanel } from '@/components/dashboard/AiAnalysisPanel';
 import { BottomPanels } from '@/components/dashboard/BottomPanels';
 import { PatientDocumentsPanel } from '@/components/dashboard/PatientDocumentsPanel';
 import { Consultation, DeviceStatus } from '@/lib/api';
+import { useI18n } from '@/i18n';
 
 interface ObserverDashboardViewProps {
   consultation: Consultation | null;
@@ -35,6 +36,8 @@ export function ObserverDashboardView({
   onQuickAction,
   onSelectConsultation,
 }: ObserverDashboardViewProps) {
+  const { t } = useI18n();
+
   return (
     <SidebarProvider>
       <div className="page-shell">
@@ -46,7 +49,7 @@ export function ObserverDashboardView({
               <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl p-3.5 flex justify-between gap-3">
                 <span>{error}</span>
                 <button type="button" onClick={onReload} className="text-xs font-semibold underline shrink-0">
-                  Qayta
+                  {t('dashboard.retryShort')}
                 </button>
               </div>
             )}
@@ -88,7 +91,7 @@ export function ObserverDashboardView({
               </div>
               <div className="col-span-12 sm:col-span-6 lg:col-span-4 min-h-[240px] panel overflow-hidden flex flex-col">
                 <div className="shrink-0 px-3 py-2 border-b border-slate-100 flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-700">Bemor hujjatlari (UT → Markaz)</span>
+                  <span className="text-xs font-semibold text-slate-700">{t('documents.patientDocuments')}</span>
                   {attachmentCount > 0 && (
                     <span className="text-[10px] font-bold bg-brand-600 text-white px-2 py-0.5 rounded-full">
                       {attachmentCount}

@@ -10,6 +10,7 @@ import {
   writeActiveConsultationId,
 } from '@/lib/active-consultation-storage';
 import { toast } from '@/lib/toast';
+import { useI18n } from '@/i18n';
 
 export const DOCTOR_SELECT_EVENT = 'ishifo-doctor-select';
 
@@ -22,6 +23,7 @@ export function dispatchDoctorSelect(id: string) {
  * Header uchun yengil navbat holati — Asosiy / Bemorlar / Sozlamalar bir xil.
  */
 export function useDoctorHeaderData() {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const [inProgress, setInProgress] = useState<Consultation[]>([]);
@@ -98,9 +100,9 @@ export function useDoctorHeaderData() {
       goLive(id);
       void reload();
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Boshlashda xatolik', 'error');
+      toast(err instanceof Error ? err.message : t('patients.startError'), 'error');
     }
-  }, [goLive, reload]);
+  }, [goLive, reload, t]);
 
   const onCancel = useCallback((id: string) => {
     const target =

@@ -81,6 +81,7 @@ export function MediaCameraPreview({
   variant = 'bar',
   className,
 }: MediaCameraPreviewProps) {
+  const { t } = useI18n();
   const { refresh } = useMediaDevices();
   const { videoRef, testStream, testStatus, runTest } = useMediaCameraPreview(role);
   const isCard = variant === 'card';
@@ -96,26 +97,26 @@ export function MediaCameraPreview({
         <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover mirror" />
         {!testStream && (
           <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-xs text-center px-3">
-            Kamera ko&apos;rinishi — &quot;Tekshirish&quot; ni bosing
+            {t('media.previewHint')}
           </div>
         )}
       </div>
       <div className={cn('flex items-center justify-between gap-2 bg-slate-50 border-t border-slate-200', compact || isCard ? 'p-2' : 'p-3')}>
         <div className="flex items-center gap-2">
           <button type="button" onClick={runTest} className={cn('btn-primary', compact || isCard ? '!py-1 !px-2 !text-xs' : '!py-1.5 !text-xs')}>
-            Tekshirish
+            {t('media.test')}
           </button>
           <button type="button" onClick={() => refresh(true)} className={cn('btn-secondary', compact || isCard ? '!py-1 !px-2 !text-xs' : '!py-1.5 !text-xs')}>
-            <RefreshCw size={12} /> Yangilash
+            <RefreshCw size={12} /> {t('common.refresh')}
           </button>
         </div>
         {testStatus === 'ok' && (
           <span className="flex items-center gap-1 text-emerald-600 font-medium text-xs">
-            <CheckCircle2 size={12} /> Tayyor
+            <CheckCircle2 size={12} /> {t('media.ready')}
           </span>
         )}
         {testStatus === 'fail' && (
-          <span className="text-red-600 font-medium text-xs">Xatolik</span>
+          <span className="text-red-600 font-medium text-xs">{t('common.error')}</span>
         )}
       </div>
     </div>
@@ -129,6 +130,7 @@ export function MediaDevicePanel({
   hideUtCameraMapping = false,
   onPrefsChange,
 }: MediaDevicePanelProps) {
+  const { t } = useI18n();
   const [prefs, setPrefs] = useState<MediaPreferences>(() => loadMediaPreferences());
   const {
     videoInputs,
@@ -150,9 +152,9 @@ export function MediaDevicePanel({
         <div className="flex items-start gap-2 text-sm text-amber-700 bg-amber-50 rounded-xl p-3">
           <AlertTriangle size={16} className="shrink-0 mt-0.5" />
           <div>
-            <p className="font-medium">Kamera/mikrofon ruxsati kerak</p>
+            <p className="font-medium">{t('media.permissionRequired')}</p>
             <button type="button" onClick={requestPermission} className="text-brand-600 font-semibold mt-1 hover:underline">
-              Ruxsat berish
+              {t('media.grantAccess')}
             </button>
           </div>
         </div>
@@ -163,7 +165,7 @@ export function MediaDevicePanel({
       )}
 
       <div className="block shrink-0">
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Video sifati</p>
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">{t('media.videoQuality')}</p>
         <div className={cn('grid gap-2', compact ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-3')}>
           {(Object.keys(QUALITY_PROFILES) as VideoQualityPreset[]).map((key) => (
             <button
@@ -187,7 +189,7 @@ export function MediaDevicePanel({
 
       {role === 'ut' && hideUtCameraMapping && (
         <DeviceSelect
-          label="Mikrofon (shifokor eshitadi)"
+          label={t('media.microphoneDoctorHears')}
           icon={Mic}
           value={prefs.audioDeviceId}
           devices={audioInputs}
@@ -199,7 +201,7 @@ export function MediaDevicePanel({
       {role === 'mt' && (
         <div className="grid gap-3 sm:grid-cols-2">
           <DeviceSelect
-            label="Kamera"
+            label={t('media.camera')}
             icon={Video}
             value={prefs.videoDeviceId}
             devices={videoInputs}
@@ -207,7 +209,7 @@ export function MediaDevicePanel({
             onChange={(id) => updatePrefs({ videoDeviceId: id })}
           />
           <DeviceSelect
-            label="Mikrofon"
+            label={t('media.microphone')}
             icon={Mic}
             value={prefs.audioDeviceId}
             devices={audioInputs}
@@ -220,10 +222,10 @@ export function MediaDevicePanel({
       {role === 'ut' && !hideUtCameraMapping && (
         <div className={cn(compact ? 'space-y-1.5' : 'space-y-2')}>
           <p className={cn('font-semibold text-slate-500 uppercase tracking-wide', compact ? 'text-xs' : 'text-xs')}>
-            UT kameralar biriktirish
+            {t('media.utCameraMapping')}
           </p>
           <p className="text-xs text-slate-500 leading-relaxed">
-            &quot;Bemor yaqindan&quot; — bemor ko&apos;rinishi. &quot;Qurilmalar&quot; — patient monitor ekrani uchun kamera.
+            {t('media.utCameraMappingHint')}
           </p>
           <div className={cn('grid gap-2', compact ? 'grid-cols-2' : 'grid-cols-1 sm:grid-cols-2')}>
             {UT_CAMERA_FEEDS.map((feed) => (
@@ -245,10 +247,10 @@ export function MediaDevicePanel({
       )}
 
       <div className={cn(compact ? 'grid grid-cols-2 gap-x-2 gap-y-1.5' : 'flex flex-wrap gap-3 text-sm')}>
-        <Toggle label="Shovqinni bostirish" checked={prefs.noiseSuppression} onChange={(v) => updatePrefs({ noiseSuppression: v })} compact={compact} />
-        <Toggle label="Echo bekor qilish" checked={prefs.echoCancellation} onChange={(v) => updatePrefs({ echoCancellation: v })} compact={compact} />
-        <Toggle label="Avto balandlik" checked={prefs.autoGainControl} onChange={(v) => updatePrefs({ autoGainControl: v })} compact={compact} />
-        <Toggle label="Konsultatsiya oldidan tekshiruv" checked={prefs.preflightEnabled} onChange={(v) => updatePrefs({ preflightEnabled: v })} compact={compact} />
+        <Toggle label={t('media.noiseSuppression')} checked={prefs.noiseSuppression} onChange={(v) => updatePrefs({ noiseSuppression: v })} compact={compact} />
+        <Toggle label={t('media.echoCancellation')} checked={prefs.echoCancellation} onChange={(v) => updatePrefs({ echoCancellation: v })} compact={compact} />
+        <Toggle label={t('media.autoGain')} checked={prefs.autoGainControl} onChange={(v) => updatePrefs({ autoGainControl: v })} compact={compact} />
+        <Toggle label={t('media.preflightCheck')} checked={prefs.preflightEnabled} onChange={(v) => updatePrefs({ preflightEnabled: v })} compact={compact} />
       </div>
 
       {showPreview && <MediaCameraPreview role={role} compact={compact} />}
@@ -271,6 +273,7 @@ function DeviceSelect({
   onChange: (id: string) => void;
   compact?: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <div className="min-w-0">
       <label className={cn('flex items-center gap-1.5 font-medium text-slate-600 mb-0.5 truncate', compact ? 'text-xs mb-1' : 'text-xs mb-1')}>
@@ -281,7 +284,7 @@ function DeviceSelect({
         value={value}
         onChange={(e) => onChange(e.target.value)}
       >
-        <option value="">Standart (avtomatik)</option>
+        <option value="">{t('common.defaultDevice')}</option>
         {devices.map((d) => (
           <option key={d.deviceId} value={d.deviceId}>{d.label}</option>
         ))}

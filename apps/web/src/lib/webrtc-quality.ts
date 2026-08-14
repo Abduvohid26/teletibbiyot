@@ -1,4 +1,6 @@
 import type { MediaPreferences, VideoQualityPreset } from './media-preferences';
+import { DEFAULT_LOCALE, getClientLocale, type Locale } from '@/i18n/locales';
+import { translate } from '@/i18n/translate';
 
 export interface QualityProfile {
   label: string;
@@ -70,7 +72,9 @@ export function isMediaPermissionError(err: unknown): boolean {
   return lower.includes('notallowed') || lower.includes('permission denied');
 }
 
-export function normalizeMediaError(err: unknown): string {
+export function normalizeMediaError(err: unknown, locale?: Locale): string {
+  const loc = locale ?? (typeof window !== 'undefined' ? getClientLocale() : DEFAULT_LOCALE);
+  const t = (key: string) => translate(loc, key);
   const raw = err instanceof Error ? err.message : String(err ?? '');
   const lower = raw.toLowerCase();
 
@@ -80,21 +84,21 @@ export function normalizeMediaError(err: unknown): string {
     || lower.includes('notfounderror')
     || lower.includes('requested device not found')
   ) {
-    return 'Kamera topilmadi — Sozlamalar → Video va ovoz dan kamerani tanlang yoki boshqa dasturni yoping.';
+    return t('media.cameraNotFound');
   }
   if (lower.includes('notallowed') || lower.includes('permission denied')) {
-    return 'Kameraga ruxsat berilmadi — brauzer sozlamalaridan ruxsat bering.';
+    return t('media.cameraDenied');
   }
   if (lower.includes('notreadable') || lower.includes('track starterror') || lower.includes('could not start')) {
-    return 'Kamera band — boshqa ilova ishlatmoqda yoki qurilma uzilgan.';
+    return t('media.cameraBusy');
   }
   if (lower.includes('overconstrained')) {
-    return 'Kamera parametrlari mos emas — sifatni Standart yoki Past qiling.';
+    return t('media.cameraOverconstrained');
   }
   if (lower.includes('https') || lower.includes('secure context')) {
-    return 'Kamera faqat HTTPS yoki localhost da ishlaydi.';
+    return t('media.cameraHttpsOnly');
   }
-  return raw.trim() || 'Kamera/mikrofon ochilmadi';
+  return raw.trim() || t('media.cameraOpenFailed');
 }
 
 /** Shifokor (MT) uchun bosqichma-bosqich media olish */
@@ -120,7 +124,7 @@ export async function acquireMtDoctorStream(
       lastErr = e;
     }
   }
-  throw lastErr ?? new Error('Kamera/mikrofon ochilmadi');
+  throw lastErr ?? new Error(translate(getClientLocale(), 'media.cameraOpenFailed'));
 }
 
 /** Qurilma topilmasa fallback bilan media olish */
@@ -129,7 +133,7 @@ export async function acquireUserMedia(
   fallback?: MediaStreamConstraints,
 ): Promise<MediaStream> {
   if (!navigator.mediaDevices?.getUserMedia) {
-    throw new Error('Kamera/mikrofon faqat HTTPS yoki localhost da ishlaydi');
+    throw new Error(translate(getClientLocale(), 'media.cameraHttpsOnly'));
   }
   try {
     return await navigator.mediaDevices.getUserMedia(primary);

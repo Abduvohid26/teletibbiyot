@@ -9,6 +9,7 @@ import {
   releaseVideoSocketRooms,
 } from '@/lib/video-socket-client';
 import { toast } from '@/lib/toast';
+import { useI18n } from '@/i18n';
 
 export interface ConsultationRealtimeHandlers {
   onAttachmentUploaded?: (attachment: Attachment, consultationId: string) => void;
@@ -70,6 +71,7 @@ export function useConsultationRealtime(
   handlers: ConsultationRealtimeHandlers,
   options?: { notifyToasts?: boolean; staffFeed?: boolean; enabled?: boolean },
 ) {
+  const { t } = useI18n();
   const handlersRef = useRef(handlers);
   handlersRef.current = handlers;
   const idsKey = consultationIds.filter(Boolean).join(',');
@@ -89,7 +91,7 @@ export function useConsultationRealtime(
       const attachment = payload as Attachment;
       handlersRef.current.onAttachmentUploaded?.(attachment, cid);
       if (options?.notifyToasts && attachment.fileName) {
-        toast(`Yangi hujjat: ${attachment.fileName}`, 'info');
+        toast(t('realtime.newAttachment', { name: attachment.fileName }), 'info');
       }
       window.dispatchEvent(
         new CustomEvent('attachment-uploaded', { detail: { consultationId: cid, attachment } }),
@@ -102,7 +104,7 @@ export function useConsultationRealtime(
       const attachment = payload as Attachment;
       handlersRef.current.onAttachmentAnalyzed?.(attachment, cid);
       if (options?.notifyToasts && attachment.aiSummary) {
-        toast(`AI tahlil: ${attachment.fileName}`, 'success');
+        toast(t('realtime.aiAnalyzed', { name: attachment.fileName }), 'success');
       }
       window.dispatchEvent(
         new CustomEvent('attachment-analyzed', { detail: { consultationId: cid, attachment } }),
@@ -122,7 +124,7 @@ export function useConsultationRealtime(
         mtDoctorName: payload.mtDoctorName,
       });
       if (options?.notifyToasts && payload.patientName) {
-        toast(`Navbatga qo'shildi: ${payload.patientName}`, 'info');
+        toast(t('realtime.queuedPatient', { name: payload.patientName }), 'info');
       }
     };
 
@@ -229,5 +231,5 @@ export function useConsultationRealtime(
         releaseVideoSocketRooms(ids);
       }
     };
-  }, [idsKey, options?.notifyToasts, staffFeed, enabled]);
+  }, [idsKey, options?.notifyToasts, staffFeed, enabled, t]);
 }

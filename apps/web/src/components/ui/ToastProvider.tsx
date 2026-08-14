@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { AlertCircle, CheckCircle2, Info, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ToastType } from '@/lib/toast';
+import { useI18n } from '@/i18n';
 
 interface ToastItem {
   id: string;
@@ -24,6 +25,7 @@ const styles: Record<ToastType, string> = {
 };
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
+  const { t } = useI18n();
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   useEffect(() => {
@@ -45,21 +47,21 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         aria-live="polite"
         aria-relevant="additions"
       >
-        {toasts.map((t) => {
-          const Icon = icons[t.type];
+        {toasts.map((item) => {
+          const Icon = icons[item.type];
           return (
             <div
-              key={t.id}
-              role={t.type === 'error' ? 'alert' : 'status'}
-              className={cn('pointer-events-auto animate-slide-up', styles[t.type])}
+              key={item.id}
+              role={item.type === 'error' ? 'alert' : 'status'}
+              className={cn('pointer-events-auto animate-slide-up', styles[item.type])}
             >
               <Icon size={18} className="shrink-0 mt-0.5" aria-hidden />
-              <span className="flex-1">{t.message}</span>
+              <span className="flex-1">{item.message}</span>
               <button
                 type="button"
-                onClick={() => setToasts((prev) => prev.filter((x) => x.id !== t.id))}
+                onClick={() => setToasts((prev) => prev.filter((x) => x.id !== item.id))}
                 className="opacity-60 hover:opacity-100 p-1 rounded-lg"
-                aria-label="Yopish"
+                aria-label={t('common.close')}
               >
                 <X size={14} />
               </button>

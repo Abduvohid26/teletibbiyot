@@ -7,7 +7,8 @@ import { calculateAge, formatGender, formatStatus, formatTriage } from '@/lib/ut
 import { cn } from '@/lib/utils';
 import { toast } from '@/lib/toast';
 import { cancelActorLabel } from '@/components/consultations/CancelConsultationModal';
-import { useI18n } from '@/i18n';
+import { useI18n, LOCALE_BCP47 } from '@/i18n';
+import { triageLabelKey } from '@/i18n/labels';
 
 interface PatientDetailPanelProps {
   patientId: string | null;
@@ -15,7 +16,7 @@ interface PatientDetailPanelProps {
 }
 
 export function PatientDetailPanel({ patientId, onClose }: PatientDetailPanelProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [patient, setPatient] = useState<PatientDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -26,7 +27,7 @@ export function PatientDetailPanel({ patientId, onClose }: PatientDetailPanelPro
     setError('');
     api.getPatient(patientId)
       .then(setPatient)
-      .catch((err) => setError(err instanceof Error ? err.message : 'Xatolik'))
+      .catch((err) => setError(err instanceof Error ? err.message : t('errors.generic')))
       .finally(() => setLoading(false));
   }, [patientId]);
 
@@ -38,7 +39,7 @@ export function PatientDetailPanel({ patientId, onClose }: PatientDetailPanelPro
       const { url } = await api.getReportLink(consultationId);
       if (url) window.open(url, '_blank', 'noopener,noreferrer');
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'PDF ochib bo\'lmadi', 'error');
+      toast(err instanceof Error ? err.message : t('analyticsDetail.pdfOpenError'), 'error');
     } finally {
       setOpeningReport(null);
     }
@@ -51,13 +52,13 @@ export function PatientDetailPanel({ patientId, onClose }: PatientDetailPanelPro
       <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-lg bg-white shadow-2xl h-full overflow-y-auto animate-slide-up">
         <div className="sticky top-0 bg-white/95 backdrop-blur border-b border-slate-100 px-6 py-4 flex items-center justify-between z-10">
-          <h2 className="font-bold text-slate-900">Bemor ko&apos;rigi</h2>
+          <h2 className="font-bold text-slate-900">{t('analyticsDetail.title')}</h2>
           <button type="button" onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 text-slate-400">
             <X size={20} />
           </button>
         </div>
 
-        {loading && <div className="p-8 text-center text-slate-400">Yuklanmoqda...</div>}
+        {loading && <div className="p-8 text-center text-slate-400">{t('common.loading')}</div>}
         {error && <div className="p-6 text-red-600 text-sm">{error}</div>}
 
         {patient && (
@@ -72,7 +73,7 @@ export function PatientDetailPanel({ patientId, onClose }: PatientDetailPanelPro
                   {calculateAge(patient.birthDate) ?? '—'} yosh · {formatGender(patient.gender)}
                 </p>
                 <p className="text-xs text-brand-600 font-medium mt-1">
-                  {patient._count?.consultations ?? patient.consultations.length} ta konsultatsiya
+                  {t('analyticsDetail.consultationsCount', { count: patient._count?.consultations ?? patient.consultations.length })}
                 </p>
               </div>
             </div>
@@ -87,7 +88,7 @@ export function PatientDetailPanel({ patientId, onClose }: PatientDetailPanelPro
             <div>
               <h4 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
                 <Stethoscope size={16} className="text-brand-600" />
-                Konsultatsiya tarixi
+                {t('analyticsDetail.consultationHistory')}
               </h4>
               <div className="space-y-3">
                 {patient.consultations.map((c) => {
@@ -100,7 +101,7 @@ export function PatientDetailPanel({ patientId, onClose }: PatientDetailPanelPro
                         <span className="text-xs font-bold text-slate-500">{c.utFacility.code}</span>
                         <span className={cn('status-badge text-[10px]', status.className)}>{t(status.labelKey)}</span>
                       </div>
-                      {triage && <p className={cn('text-xs font-medium', triage.color)}>Xavf: {triage.label}</p>}
+                      {triage && <p className={cn('text-xs font-medium', triage.color)}>{t('analyticsDetail.riskLabel', { level: t(triageLabelKey(c.triageLevel)) })}</p>}
                       {c.clinicalRecord?.complaints && (
                         <p className="text-xs text-slate-600 line-clamp-2">{c.clinicalRecord.complaints}</p>
                       )}
@@ -112,21 +113,21 @@ export function PatientDetailPanel({ patientId, onClose }: PatientDetailPanelPro
                       )}
                       {c.finalDiagnosis && (
                         <p className="text-xs font-medium text-emerald-700">
-                          Yakuniy: {c.finalDiagnosis.diagnosis} ({c.finalDiagnosis.icd10Code})
+                          {t('analyticsDetail.finalDiagnosis', { diagnosis: c.finalDiagnosis.diagnosis, code: c.finalDiagnosis.icd10Code })}
                         </p>
                       )}
                       {c.status === 'CANCELLED' && c.cancelReason && (
                         <div className="p-2.5 rounded-lg bg-red-50 border border-red-100 space-y-1">
                           <div className="flex items-center gap-1.5 text-xs font-semibold text-red-800">
                             <XCircle size={12} className="shrink-0" />
-                            Bekor qilingan
+                            {t('analyticsDetail.cancelled')}
                           </div>
                           <p className="text-xs text-red-900">{c.cancelReason}</p>
                           {c.cancelledBy && (
                             <p className="text-[10px] text-red-700/80">
-                              {cancelActorLabel(c.cancelledBy.role)}: {c.cancelledBy.fullName}
+                              {cancelActorLabel(c.cancelledBy.role, t)}: {c.cancelledBy.fullName}
                               {c.cancelledAt
-                                ? ` · ${new Date(c.cancelledAt).toLocaleString('uz-UZ')}`
+                                ? ` · ${new Date(c.cancelledAt).toLocaleString(LOCALE_BCP47[locale])}`
                                 : ''}
                             </p>
                           )}
@@ -140,18 +141,18 @@ export function PatientDetailPanel({ patientId, onClose }: PatientDetailPanelPro
                           className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-[11px] font-semibold disabled:opacity-60"
                         >
                           <FileText size={12} className={openingReport === c.id ? 'animate-pulse' : ''} />
-                          Konsilium PDF
+                          {t('analyticsDetail.consiliumPdf')}
                         </button>
                       )}
                       <p className="text-[10px] text-slate-400 flex items-center gap-1">
                         <Calendar size={10} />
-                        {new Date(c.createdAt || '').toLocaleDateString('uz-UZ')}
+                        {new Date(c.createdAt || '').toLocaleDateString(LOCALE_BCP47[locale])}
                       </p>
                     </div>
                   );
                 })}
                 {patient.consultations.length === 0 && (
-                  <p className="text-sm text-slate-400 text-center py-4">Konsultatsiya tarixi yo&apos;q</p>
+                  <p className="text-sm text-slate-400 text-center py-4">{t('analyticsDetail.noHistory')}</p>
                 )}
               </div>
             </div>

@@ -5,6 +5,7 @@ import { flushOfflineQueue, getOfflineQueue, type OfflineConsultationPayload } f
 import { api } from '@/lib/api';
 import { base64ToFile } from '@/lib/offline-sync';
 import { toast } from '@/lib/toast';
+import { useI18n } from '@/i18n';
 
 async function submitOfflinePayload(payload: OfflineConsultationPayload) {
   const patientPayload = payload.patient as Parameters<typeof api.createPatient>[0];
@@ -33,6 +34,8 @@ async function submitOfflinePayload(payload: OfflineConsultationPayload) {
 }
 
 export function OfflineBootstrap() {
+  const { t } = useI18n();
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -54,12 +57,12 @@ export function OfflineBootstrap() {
       if (!navigator.onLine) return;
       const result = await flushOfflineQueue(submitOfflinePayload);
       if (result.synced > 0) {
-        toast(`${result.synced} ta offline ma'lumot sinxronlandi`, 'success');
+        toast(t('ut.offlineSent', { count: result.synced }), 'success');
       }
       if (result.failed > 0) {
         const remaining = await getOfflineQueue();
         if (remaining.length > 0) {
-          toast(`${result.failed} ta offline ma'lumot sinxronlanmadi`, 'error');
+          toast(t('ut.offlineFailed', { count: result.failed }), 'error');
         }
       }
     };
@@ -73,7 +76,7 @@ export function OfflineBootstrap() {
     });
 
     return () => window.removeEventListener('online', syncQueue);
-  }, []);
+  }, [t]);
 
   return null;
 }

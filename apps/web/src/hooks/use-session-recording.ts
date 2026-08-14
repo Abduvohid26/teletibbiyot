@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
+import { useI18n } from '@/i18n';
 
 interface UseSessionRecordingOptions {
   consultationId?: string;
@@ -29,6 +30,7 @@ async function uploadWithRetry(cid: string, blob: Blob, attempts = 4): Promise<v
 }
 
 export function useSessionRecording({ consultationId, stream, enabled = true }: UseSessionRecordingOptions) {
+  const { t } = useI18n();
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const startedRef = useRef(false);
@@ -62,7 +64,7 @@ export function useSessionRecording({ consultationId, stream, enabled = true }: 
             await api.completeRecording(cid, duration);
           } catch (err) {
             if (process.env.NODE_ENV !== 'production') {
-              setError(err instanceof Error ? err.message : 'Yozuv yuklashda xatolik');
+              setError(err instanceof Error ? err.message : t('recordingErrors.uploadFailed'));
             }
             try {
               await api.completeRecording(cid, duration);
@@ -76,14 +78,14 @@ export function useSessionRecording({ consultationId, stream, enabled = true }: 
           try {
             await api.completeRecording(cid, duration);
           } catch (err) {
-            setError(err instanceof Error ? err.message : 'Yozuvni yakunlashda xatolik');
+            setError(err instanceof Error ? err.message : t('recordingErrors.completeFailed'));
           }
         }
         resolve();
       };
       recorder.stop();
     });
-  }, []);
+  }, [t]);
 
   const streamReady = !!(stream && stream.getVideoTracks().some((t) => t.readyState === 'live'));
 
@@ -131,7 +133,7 @@ export function useSessionRecording({ consultationId, stream, enabled = true }: 
         if (!cancelled) {
           const msg = err instanceof Error ? err.message : '';
           if (!msg.includes('rozilik')) {
-            setError(msg || 'Yozuvni boshlashda xatolik');
+            setError(msg || t('recordingErrors.startFailed'));
           } else {
             setSkipped(true);
           }
@@ -144,7 +146,7 @@ export function useSessionRecording({ consultationId, stream, enabled = true }: 
     return () => {
       cancelled = true;
     };
-  }, [consultationId, enabled, streamReady, stream]);
+  }, [consultationId, enabled, streamReady, stream, t]);
 
   useEffect(() => {
     if (!consultationId) return;

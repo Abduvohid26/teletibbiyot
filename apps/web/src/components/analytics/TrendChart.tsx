@@ -1,12 +1,16 @@
 'use client';
 
+import { useI18n } from '@/i18n';
+
 interface TrendChartProps {
   data: Array<{ date: string; total: number; completed: number }>;
 }
 
 export function TrendChart({ data }: TrendChartProps) {
+  const { t } = useI18n();
+
   if (data.length === 0) {
-    return <p className="text-sm text-slate-400 text-center py-8">Ma&apos;lumot yo&apos;q</p>;
+    return <p className="text-sm text-slate-400 text-center py-8">{t('chart.noData')}</p>;
   }
 
   const max = Math.max(...data.map((d) => d.total), 1);
@@ -29,8 +33,8 @@ export function TrendChart({ data }: TrendChartProps) {
         <span>{data[data.length - 1]?.date.slice(5)}</span>
       </div>
       <div className="flex gap-4 mt-2 text-[10px]">
-        <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-blue-300" /> Jami</span>
-        <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-brand-600" /> Yakunlangan</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-blue-300" /> {t('chart.total')}</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-brand-600" /> {t('chart.completed')}</span>
       </div>
     </div>
   );

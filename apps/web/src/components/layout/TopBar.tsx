@@ -5,6 +5,7 @@ import { Menu } from 'lucide-react';
 import { SmartSearch } from '@/components/analytics/SmartSearch';
 import { useSidebar } from '@/components/layout/sidebar-context';
 import { ClientDateText } from '@/components/ui/ClientDateText';
+import { useI18n } from '@/i18n';
 
 interface TopBarProps {
   title?: string;
@@ -15,6 +16,7 @@ interface TopBarProps {
 
 export function TopBar({ title, subtitle, actions, showMenu = true }: TopBarProps) {
   const { toggle } = useSidebar();
+  const { t } = useI18n();
 
   return (
     <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-6 py-3.5">
@@ -24,7 +26,7 @@ export function TopBar({ title, subtitle, actions, showMenu = true }: TopBarProp
             <button
               type="button"
               className="lg:hidden btn-ghost !p-2 shrink-0"
-              aria-label="Menyuni ochish"
+              aria-label={t('common.openMenu')}
               onClick={toggle}
             >
               <Menu size={20} />
@@ -42,7 +44,7 @@ export function TopBar({ title, subtitle, actions, showMenu = true }: TopBarProp
                   className="text-xs font-medium text-slate-400 uppercase tracking-wide hidden sm:block"
                   format={{ weekday: 'long', day: 'numeric', month: 'long' }}
                 />
-                <h1 className="text-lg font-bold text-slate-900 tracking-tight">Shifokor paneli</h1>
+                <h1 className="text-lg font-bold text-slate-900 tracking-tight">{t('common.doctorPanel')}</h1>
               </>
             )}
           </div>

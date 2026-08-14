@@ -1,4 +1,5 @@
 import { ALLOW_CLIENT_TOKEN, REQUEST_TIMEOUT_MS, TOKEN_STORAGE_KEY } from './constants';
+import { translateClient } from '@/i18n';
 
 export interface ApiRequestOptions extends RequestInit {
   timeoutMs?: number;
@@ -133,15 +134,15 @@ export class HttpClient {
         const isUpload = path.includes('/upload') || fetchOptions.body instanceof FormData;
         throw new Error(
           isUpload
-            ? 'Yozuv yuklash vaqti tugadi — internet sekin yoki fayl katta. Konsultatsiya davom etadi.'
-            : 'Server javob bermadi. Internet yoki API holatini tekshiring.',
+            ? translateClient('http.uploadTimeout')
+            : translateClient('http.serverTimeout'),
         );
       }
       if (err instanceof TypeError) {
         const hint =
           typeof window !== 'undefined'
-            ? 'Internet yoki server (ishifo.uz/api) ishlamayapti — sahifani yangilang yoki qayta kiring.'
-            : 'API ga ulanib bo\'lmadi. Docker/API ishlayotganini tekshiring (localhost:3001).';
+            ? translateClient('http.networkClient')
+            : translateClient('http.networkServer');
         throw new Error(hint);
       }
       throw err;
@@ -159,11 +160,11 @@ export class HttpClient {
     }
 
     if (res.status === 401) {
-      const err = await this.parseJsonBody<{ message?: string | string[] }>(res).catch(() => ({ message: 'Sessiya tugagan yoki ruxsat yo\'q' }));
+      const err = await this.parseJsonBody<{ message?: string | string[] }>(res).catch(() => ({ message: translateClient('http.sessionExpired') }));
       const msg = err.message;
       const message = Array.isArray(msg)
         ? msg.join(', ')
-        : (msg || (path === '/auth/login' ? 'Email yoki parol noto\'g\'ri' : 'Sessiya tugagan yoki ruxsat yo\'q'));
+        : (msg || (path === '/auth/login' ? translateClient('http.badCredentials') : translateClient('http.sessionExpired')));
 
       if (path !== '/auth/login' && path !== '/auth/me') {
         this.setToken(null);
@@ -178,13 +179,13 @@ export class HttpClient {
     }
 
     if (res.status === 429) {
-      throw new Error('So\'rovlar juda ko\'p — biroz kutib qayta urinib ko\'ring');
+      throw new Error(translateClient('http.tooManyRequests'));
     }
 
     if (!res.ok) {
-      const err = await this.parseJsonBody<{ message?: string | string[] }>(res).catch(() => ({ message: 'Xatolik yuz berdi' }));
+      const err = await this.parseJsonBody<{ message?: string | string[] }>(res).catch(() => ({ message: translateClient('errors.generic') }));
       const msg = err.message;
-      throw new Error(Array.isArray(msg) ? msg.join(', ') : (msg || 'Xatolik yuz berdi'));
+      throw new Error(Array.isArray(msg) ? msg.join(', ') : (msg || translateClient('errors.generic')));
     }
 
     return this.parseJsonBody<T>(res);
@@ -198,7 +199,7 @@ export class HttpClient {
     try {
       return JSON.parse(text) as T;
     } catch {
-      throw new Error('Server javobi noto\'g\'ri formatda');
+      throw new Error(translateClient('http.badResponse'));
     }
   }
 }

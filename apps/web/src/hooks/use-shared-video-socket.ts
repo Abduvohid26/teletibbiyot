@@ -9,6 +9,7 @@ import {
   isRoomActive,
   type SocketListener,
 } from '@/lib/video-socket-client';
+import { useI18n } from '@/i18n';
 
 export interface VideoSocketState {
   connected: boolean;
@@ -20,6 +21,7 @@ export interface VideoSocketState {
 
 /** Konsultatsiya uchun bitta umumiy Socket.IO ulanishi */
 export function useSharedVideoSocket(consultationId?: string): VideoSocketState {
+  const { t } = useI18n();
   const socketRef = useRef<Socket | null>(null);
   const consultationRef = useRef(consultationId);
   const [connected, setConnected] = useState(false);
@@ -62,12 +64,12 @@ export function useSharedVideoSocket(consultationId?: string): VideoSocketState 
     const onJoinFailed = (payload: { error?: string; roomId?: string }) => {
       if (payload?.roomId && payload.roomId !== consultationRef.current) return;
       setJoined(false);
-      setError(payload?.error || 'Xonaga qo\'shilishda xatolik');
+      setError(payload?.error || t('socket.joinFailed'));
     };
 
     const onWsError = (payload: { message?: string; code?: string }) => {
       setJoined(false);
-      setError(payload?.message || 'WebSocket xatolik');
+      setError(payload?.message || t('socket.wsError'));
     };
 
     // Shu foydalanuvchi xonani boshqa tab/qurilmada ochdi — server bu socketni
@@ -75,7 +77,7 @@ export function useSharedVideoSocket(consultationId?: string): VideoSocketState 
     const onSessionSuperseded = (payload?: { roomId?: string }) => {
       if (payload?.roomId && payload.roomId !== consultationRef.current) return;
       setJoined(false);
-      setError('Bu konsultatsiya boshqa oyna yoki qurilmada ochildi — video shu yerda to\'xtatildi');
+      setError(t('socket.sessionSuperseded'));
     };
 
     const onConsultationStarted = (payload: { doctorName?: string }) => {
@@ -92,7 +94,7 @@ export function useSharedVideoSocket(consultationId?: string): VideoSocketState 
         setError(null);
       } else {
         setJoined(false);
-        setError(result.error || 'Xonaga qo\'shilishda xatolik');
+        setError(result.error || t('socket.joinFailed'));
       }
     });
 
@@ -121,7 +123,7 @@ export function useSharedVideoSocket(consultationId?: string): VideoSocketState 
       setConnected(false);
       setJoined(false);
     };
-  }, [consultationId]);
+  }, [consultationId, t]);
 
   return { connected, joined, error, socket: socketRef.current, socketRef };
 }

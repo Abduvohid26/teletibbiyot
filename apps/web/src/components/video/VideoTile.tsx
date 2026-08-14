@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { VideoOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useI18n } from '@/i18n';
 
 interface VideoTileProps {
   stream: MediaStream | null;
@@ -21,10 +22,12 @@ export function VideoTile({
   muted = true,
   mirror = false,
   className,
-  placeholder = 'Kamera kutmoqda...',
+  placeholder,
   live = false,
   resolution,
 }: VideoTileProps) {
+  const { t } = useI18n();
+  const resolvedPlaceholder = placeholder ?? t('video.cameraWaiting');
   const ref = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -50,7 +53,7 @@ export function VideoTile({
       {!stream && (
         <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 gap-2 bg-slate-800/90">
           <VideoOff className="w-8 h-8" />
-          <p className="text-[10px] px-2 text-center">{placeholder}</p>
+          <p className="text-[10px] px-2 text-center">{resolvedPlaceholder}</p>
         </div>
       )}
       {label && (
@@ -61,8 +64,8 @@ export function VideoTile({
       {live && stream && (
         <span
           className="absolute top-2 right-2 live-badge !p-1 !min-w-0"
-          title="Jonli"
-          aria-label="Jonli"
+          title={t('video.live')}
+          aria-label={t('video.live')}
         >
           <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
         </span>

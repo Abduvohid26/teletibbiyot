@@ -26,6 +26,7 @@ import {
   QUALITY_PROFILES,
 } from '@/lib/webrtc-quality';
 import { saveMediaPreferences } from '@/lib/media-preferences';
+import { useI18n } from '@/i18n';
 
 export type VideoRole = 'mt' | 'ut' | 'observe';
 
@@ -71,6 +72,7 @@ export function useVideoRoom({
   skipPreflight = false,
   autoRejoin = false,
 }: UseVideoRoomOptions) {
+  const { t } = useI18n();
   const { socketRef, connected: socketConnected, joined: roomJoined, error: socketError } = useSharedVideoSocket(
     enabled ? consultationId : undefined,
   );
@@ -633,16 +635,16 @@ export function useVideoRoom({
           if (fails >= 3) {
             setError(
               isTurnConfigured()
-                ? 'Ulanish beqaror — qayta urinilmoqda. Internet sekin bo\'lsa video kechikishi mumkin.'
-                : 'Video ulanib bo\'lmadi — TURN server sozlanmagan (turli tarmoqlar uchun majburiy).',
+                ? t('video.connectionUnstable')
+                : t('video.turnNotConfigured'),
             );
           }
           // Haqiqiy taslim — faqat uzoq muddatli muvaffaqiyatsizlikdan keyin.
           if (fails >= 6) {
             setError(
               isTurnConfigured()
-                ? 'Video uzoq vaqt tiklanmadi. Internetni tekshiring yoki sahifani yangilang.'
-                : 'Video ulanib bo\'lmadi — TURN server sozlanmagan (turli tarmoqlar uchun majburiy).',
+                ? t('video.connectionRestoreFailed')
+                : t('video.turnNotConfigured'),
             );
           }
         }
@@ -717,7 +719,7 @@ export function useVideoRoom({
           offer,
         });
       } catch {
-        setError('Video ulanishda xatolik');
+        setError(t('video.connectError'));
       } finally {
         makingOfferRef.current.set(remoteSocketId, false);
       }
@@ -834,7 +836,7 @@ export function useVideoRoom({
         const pc = createPeerConnection(fromSocketId, false);
         await negotiate(pc, true);
       } catch {
-        setError('Video javob yuborishda xatolik');
+        setError(t('video.answerError'));
       }
     },
     [addLocalTracks, consultationId, createPeerConnection, flushIceCandidates, socketRef, teardownPeerConnection],
@@ -1054,7 +1056,7 @@ export function useVideoRoom({
             if (prefs.videoDeviceId) {
               saveMediaPreferences({ videoDeviceId: '' });
             }
-            setError(`${msg} UT kameralarini kuting — shifokor videosiz ham davom etadi.`);
+            setError(t('video.doctorCameraFallback', { msg }));
           }
         }
       } else {
@@ -1623,7 +1625,7 @@ export function useVideoRoom({
         return;
       }
 
-      setError(data.message || 'Video signal xatoligi');
+      setError(data.message || t('video.signalError'));
     };
 
     const onRoomJoined = (data?: { others?: RoomParticipant[] }) => {
@@ -1872,7 +1874,7 @@ export function useVideoRoom({
       setTimeout(() => requestRoomSyncRef.current(), 100);
     } catch {
       setupStartedRef.current = false;
-      setError('Qayta ulashda xatolik — kameraga ruxsat bering');
+      setError(t('video.reconnectPermission'));
     } finally {
       isReconnectingRef.current = false;
     }

@@ -12,6 +12,13 @@ export const LOCALE_LABELS: Record<Locale, string> = {
   en: 'English',
 };
 
+/** Segmentli switcher uchun qisqa yorliqlar (doim bir xil ko‘rinish) */
+export const LOCALE_SHORT_LABELS: Record<Locale, string> = {
+  uz: "O'z",
+  ru: 'Ру',
+  en: 'En',
+};
+
 export const LOCALE_BCP47: Record<Locale, string> = {
   uz: 'uz-UZ',
   ru: 'ru-RU',
@@ -28,5 +35,19 @@ export function normalizeLocale(value: unknown): Locale {
     const base = value.toLowerCase().split('-')[0];
     if (isLocale(base)) return base;
   }
+  return DEFAULT_LOCALE;
+}
+
+/** Brauzerdagi saqlangan til — React tashqarisidagi modullar uchun */
+export function getClientLocale(): Locale {
+  if (typeof window === 'undefined') return DEFAULT_LOCALE;
+  try {
+    const fromStorage = window.localStorage.getItem(LOCALE_STORAGE_KEY);
+    if (fromStorage) return normalizeLocale(fromStorage);
+  } catch {
+    /* ignore */
+  }
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${LOCALE_COOKIE}=([^;]+)`));
+  if (match?.[1]) return normalizeLocale(decodeURIComponent(match[1]));
   return DEFAULT_LOCALE;
 }

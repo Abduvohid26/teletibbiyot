@@ -20,8 +20,10 @@ import {
   writeActiveConsultationId,
 } from '@/lib/active-consultation-storage';
 import { DOCTOR_SELECT_EVENT } from '@/hooks/use-doctor-header-data';
+import { useI18n } from '@/i18n';
 
 export function useDoctorDashboard() {
+  const { t } = useI18n();
   const { user, loading, authError, retryAuth } = useAuth();
   const router = useRouter();
 
@@ -80,7 +82,7 @@ export function useDoctorDashboard() {
         writeActiveConsultationId(data.consultation.id);
       }
     } catch (err) {
-      setError(toUserMessage(err, 'Ma\'lumotlarni yuklashda xatolik'));
+      setError(toUserMessage(err, t('errors.loadDataFailed')));
     } finally {
       setReady(true);
       reloadingRef.current = false;
@@ -90,7 +92,7 @@ export function useDoctorDashboard() {
         void executeReload(pending);
       }
     }
-  }, [user, isDoctor, observedId]);
+  }, [user, isDoctor, observedId, t]);
 
   const executeReloadRef = useRef(executeReload);
   executeReloadRef.current = executeReload;
@@ -226,10 +228,10 @@ export function useDoctorDashboard() {
       await executeReload(id);
       router.push('/dashboard');
     } catch (err) {
-      setError(toUserMessage(err, 'Konsultatsiyani boshlashda xatolik'));
+      setError(toUserMessage(err, t('errors.startConsultationFailed')));
       throw err;
     }
-  }, [executeReload, router]);
+  }, [executeReload, router, t]);
 
   const cancelConsultation = useCallback(async (id: string, reason: string) => {
     setError('');
@@ -242,10 +244,10 @@ export function useDoctorDashboard() {
       await executeReload(null);
       router.replace('/dashboard/patients');
     } catch (err) {
-      setError(toUserMessage(err, 'Bekor qilishda xatolik'));
+      setError(toUserMessage(err, t('errors.cancelFailed')));
       throw err;
     }
-  }, [executeReload, router]);
+  }, [executeReload, router, t]);
 
   const handleQuickAction = useCallback((action: string) => {
     if (action === 'new-consultation' && queuedPatients[0]) void startConsultation(queuedPatients[0].id);

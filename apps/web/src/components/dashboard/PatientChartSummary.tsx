@@ -2,6 +2,8 @@
 
 import { Patient, ClinicalRecord } from '@/lib/api';
 import { calculateAge, formatGender, cn } from '@/lib/utils';
+import { useI18n } from '@/i18n';
+import { genderLabelKey } from '@/i18n/labels';
 
 interface PatientChartSummaryProps {
   patient?: Patient;
@@ -10,10 +12,12 @@ interface PatientChartSummaryProps {
 }
 
 export function PatientChartSummary({ patient, clinicalRecord, compact }: PatientChartSummaryProps) {
+  const { t } = useI18n();
+
   if (!patient) {
     return (
       <div className={cn('shrink-0 rounded-lg bg-slate-50 border border-slate-100 px-2.5 py-2', compact && 'py-1.5')}>
-        <p className="text-xs text-slate-400 text-center">Bemor ma&apos;lumotlari kutilmoqda</p>
+        <p className="text-xs text-slate-400 text-center">{t('documents.waitingPatient')}</p>
       </div>
     );
   }
@@ -35,9 +39,9 @@ export function PatientChartSummary({ patient, clinicalRecord, compact }: Patien
             {patient.fullName}
           </p>
           <p className="text-[10px] text-slate-500 mt-0.5 truncate">
-            {age != null ? `${age} yosh` : 'Yosh ko\'rsatilmagan'}
+            {age != null ? t('common.years', { age }) : t('common.ageUnknown')}
             {' · '}
-            {formatGender(patient.gender)}
+            {t(genderLabelKey(patient.gender))}
             {patient.phone ? ` · ${patient.phone}` : ''}
           </p>
           {!compact && patient.region && (
@@ -51,20 +55,20 @@ export function PatientChartSummary({ patient, clinicalRecord, compact }: Patien
       {clinicalRecord && (
         <div className={cn('space-y-1.5', compact ? 'p-2' : 'p-3')}>
           {clinicalRecord.complaints?.trim() && (
-            <ChartField label="Shikoyatlar" value={clinicalRecord.complaints} compact={compact} />
+            <ChartField label={t('chart.complaints')} value={clinicalRecord.complaints} compact={compact} />
           )}
           {clinicalRecord.medications?.trim() && (
-            <ChartField label="Dori-darmon" value={clinicalRecord.medications} compact={compact} />
+            <ChartField label={t('chart.medications')} value={clinicalRecord.medications} compact={compact} />
           )}
           {clinicalRecord.allergies?.trim() && (
-            <ChartField label="Allergiya" value={clinicalRecord.allergies} compact={compact} />
+            <ChartField label={t('chart.allergies')} value={clinicalRecord.allergies} compact={compact} />
           )}
           {(clinicalRecord.weight || clinicalRecord.height) && (
             <p className="text-[10px] text-slate-500">
-              {clinicalRecord.weight ? `Vazn: ${clinicalRecord.weight} kg` : ''}
+              {clinicalRecord.weight ? t('chart.weight', { value: clinicalRecord.weight }) : ''}
               {clinicalRecord.weight && clinicalRecord.height ? ' · ' : ''}
-              {clinicalRecord.height ? `Bo'y: ${clinicalRecord.height} sm` : ''}
-              {clinicalRecord.bmi ? ` · BMI: ${clinicalRecord.bmi}` : ''}
+              {clinicalRecord.height ? t('chart.height', { value: clinicalRecord.height }) : ''}
+              {clinicalRecord.bmi ? ` · ${t('chart.bmi', { value: clinicalRecord.bmi })}` : ''}
             </p>
           )}
         </div>

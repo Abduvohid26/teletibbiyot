@@ -12,32 +12,33 @@ import { useAuth } from '@/lib/auth-context';
 import { cn } from '@/lib/utils';
 import { useSidebar } from '@/components/layout/sidebar-context';
 import { canAccessRoute, getRoleLabel } from '@/lib/auth-utils';
+import { useI18n } from '@/i18n';
 
 const menuItems = [
-  { href: '/dashboard', icon: Home, label: 'Bosh sahifa', exact: true },
-  { href: '/dashboard/consultations', icon: Video, label: 'Konsultatsiyalar' },
-  { href: '/dashboard/triage', icon: AlertTriangle, label: 'Triage navbat' },
-  { href: '/dashboard/patients', icon: Users, label: 'Bemorlar' },
-  { href: '/dashboard/ai', icon: Brain, label: 'AI Tahlil' },
-  { href: '/dashboard/messages', icon: Bell, label: 'Xabarlar' },
-  { href: '/dashboard/appointments', icon: Calendar, label: 'Uchrashuvlar' },
-  { href: '/dashboard/recordings', icon: Film, label: 'Video yozuvlar' },
-  { href: '/dashboard/devices', icon: Monitor, label: 'Qurilmalar' },
-  { href: '/dashboard/reports', icon: BarChart3, label: 'Hisobotlar' },
-  { href: '/dashboard/dicom', icon: Scan, label: 'DICOM ko\'rish' },
-  { href: '/dashboard/incidents', icon: AlertTriangle, label: 'Incident' },
-  { href: '/dashboard/settings', icon: Settings, label: 'Sozlamalar' },
+  { href: '/dashboard', icon: Home, labelKey: 'nav.homePage', exact: true },
+  { href: '/dashboard/consultations', icon: Video, labelKey: 'nav.consultations' },
+  { href: '/dashboard/triage', icon: AlertTriangle, labelKey: 'nav.triageQueue' },
+  { href: '/dashboard/patients', icon: Users, labelKey: 'nav.patients' },
+  { href: '/dashboard/ai', icon: Brain, labelKey: 'nav.aiAnalysis' },
+  { href: '/dashboard/messages', icon: Bell, labelKey: 'nav.messages' },
+  { href: '/dashboard/appointments', icon: Calendar, labelKey: 'nav.appointments' },
+  { href: '/dashboard/recordings', icon: Film, labelKey: 'nav.recordings' },
+  { href: '/dashboard/devices', icon: Monitor, labelKey: 'nav.devices' },
+  { href: '/dashboard/reports', icon: BarChart3, labelKey: 'nav.reports' },
+  { href: '/dashboard/dicom', icon: Scan, labelKey: 'nav.dicomView' },
+  { href: '/dashboard/incidents', icon: AlertTriangle, labelKey: 'nav.incidents' },
+  { href: '/dashboard/settings', icon: Settings, labelKey: 'nav.settings' },
 ];
 
 const utMenuItems = [
-  { href: '/ut', icon: Stethoscope, label: 'Bemor qabul', exact: true },
-  { href: '/dashboard/appointments', icon: Calendar, label: 'Uchrashuvlar' },
-  { href: '/dashboard/devices', icon: Monitor, label: 'Qurilmalar' },
-  { href: '/dashboard/dicom', icon: Scan, label: 'DICOM' },
-  { href: '/dashboard/messages', icon: Bell, label: 'Xabarlar' },
-  { href: '/ut/analytics', icon: BarChart3, label: 'Analitika' },
-  { href: '/dashboard/incidents', icon: AlertTriangle, label: 'Incident' },
-  { href: '/dashboard/settings', icon: Settings, label: 'Sozlamalar' },
+  { href: '/ut', icon: Stethoscope, labelKey: 'nav.patientReception', exact: true },
+  { href: '/dashboard/appointments', icon: Calendar, labelKey: 'nav.appointments' },
+  { href: '/dashboard/devices', icon: Monitor, labelKey: 'nav.devices' },
+  { href: '/dashboard/dicom', icon: Scan, labelKey: 'nav.dicomView' },
+  { href: '/dashboard/messages', icon: Bell, labelKey: 'nav.messages' },
+  { href: '/ut/analytics', icon: BarChart3, labelKey: 'nav.analytics' },
+  { href: '/dashboard/incidents', icon: AlertTriangle, labelKey: 'nav.incidents' },
+  { href: '/dashboard/settings', icon: Settings, labelKey: 'nav.settings' },
 ];
 
 interface SidebarProps {
@@ -48,6 +49,7 @@ export function Sidebar({ visible = true }: SidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { open, setOpen } = useSidebar();
+  const { t } = useI18n();
 
   if (!visible || !user) return null;
 
@@ -64,7 +66,7 @@ export function Sidebar({ visible = true }: SidebarProps) {
         <button
           type="button"
           className="sidebar-backdrop"
-          aria-label="Menyuni yopish"
+          aria-label={t('nav.closeMenu')}
           onClick={close}
         />
       )}
@@ -74,7 +76,7 @@ export function Sidebar({ visible = true }: SidebarProps) {
           'sidebar-drawer bg-white/95 backdrop-blur-md border-r border-slate-200/80',
           open && 'sidebar-drawer-open',
         )}
-        aria-label="Asosiy navigatsiya"
+        aria-label={t('nav.mainNav')}
       >
         <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-2">
           <Link
@@ -97,7 +99,7 @@ export function Sidebar({ visible = true }: SidebarProps) {
           <button
             type="button"
             className="lg:hidden btn-ghost !p-2 shrink-0"
-            aria-label="Menyuni yopish"
+            aria-label={t('nav.closeMenu')}
             onClick={close}
           >
             <X size={18} />
@@ -105,7 +107,7 @@ export function Sidebar({ visible = true }: SidebarProps) {
         </div>
 
         <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-          <p className="px-3 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wide">Asosiy</p>
+          <p className="px-3 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wide">{t('nav.home')}</p>
           {items.map((item) => {
             const active = item.exact
               ? pathname === item.href
@@ -123,7 +125,7 @@ export function Sidebar({ visible = true }: SidebarProps) {
                 )}
               >
                 <item.icon size={18} className={cn(active ? 'text-brand-600' : 'text-slate-400')} strokeWidth={active ? 2.5 : 2} />
-                <span className="truncate">{item.label}</span>
+                <span className="truncate">{t(item.labelKey)}</span>
               </Link>
             );
           })}
@@ -145,7 +147,7 @@ export function Sidebar({ visible = true }: SidebarProps) {
             className="flex items-center justify-center gap-2 w-full py-2.5 text-sm font-medium text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors min-h-[var(--touch-min)]"
           >
             <LogOut size={16} />
-            Chiqish
+            {t('common.logout')}
           </button>
         </div>
       </aside>

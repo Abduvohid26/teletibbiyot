@@ -6,10 +6,16 @@ import { DoctorShell } from '@/components/layout/DoctorShell';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { SettingsContent } from '@/components/settings/SettingsContent';
 import { UserRole, isUtRole, isMtStaff } from '@ishifo/shared';
+import { useI18n } from '@/i18n';
+
+function SettingsLoadingFallback() {
+  const { t } = useI18n();
+  return <div className="p-8 text-sm text-slate-500 animate-pulse">{t('common.loading')}</div>;
+}
 
 export default function SettingsPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-sm text-slate-500 animate-pulse">Sozlamalar yuklanmoqda...</div>}>
+    <Suspense fallback={<SettingsLoadingFallback />}>
       <SettingsPageContent />
     </Suspense>
   );

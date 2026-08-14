@@ -3,6 +3,7 @@
 import { X } from 'lucide-react';
 import { SecondOpinionPanel } from './SecondOpinionPanel';
 import { AttachmentsPanel } from './AttachmentsPanel';
+import { useI18n } from '@/i18n';
 
 interface DoctorModalsProps {
   consultationId?: string;
@@ -19,15 +20,17 @@ export function DoctorModals({
   onCloseSecondOpinion,
   onCloseAttachments,
 }: DoctorModalsProps) {
+  const { t } = useI18n();
+
   return (
     <>
       {showSecondOpinion && (
-        <ModalShell title="Ikkinchi fikr so'rovi" onClose={onCloseSecondOpinion}>
+        <ModalShell title={t('modals.secondOpinion')} onClose={onCloseSecondOpinion}>
           <SecondOpinionPanel consultationId={consultationId} />
         </ModalShell>
       )}
       {showAttachments && (
-        <ModalShell title="Bemor hujjatlari (UT → Markaz)" onClose={onCloseAttachments} wide>
+        <ModalShell title={t('modals.patientDocuments')} onClose={onCloseAttachments} wide>
           <AttachmentsPanel
             consultationId={consultationId}
             className="!border-0 !shadow-none max-h-[70vh]"

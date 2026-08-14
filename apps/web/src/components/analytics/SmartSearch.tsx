@@ -57,7 +57,7 @@ export function SmartSearch({ className }: { className?: string }) {
           value={query}
           onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
-          placeholder="Smart qidiruv: bemor, telefon, PINFL..."
+          placeholder={t('search.placeholder')}
           className="bg-transparent text-sm w-full outline-none placeholder:text-slate-400"
         />
       </div>
@@ -65,11 +65,11 @@ export function SmartSearch({ className }: { className?: string }) {
       {open && query.length >= 2 && (
         <div className="absolute top-full left-0 right-0 mt-2 panel shadow-xl z-50 max-h-80 overflow-y-auto">
           {!hasResults && !loading && (
-            <p className="p-4 text-sm text-slate-400 text-center">Natija topilmadi</p>
+            <p className="p-4 text-sm text-slate-400 text-center">{t('search.noResults')}</p>
           )}
           {results?.patients.length ? (
             <div className="p-2">
-              <p className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Bemorlar</p>
+              <p className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('search.patients')}</p>
               {results.patients.map((p) => (
                 <button
                   key={p.id}
@@ -88,7 +88,7 @@ export function SmartSearch({ className }: { className?: string }) {
           ) : null}
           {results?.consultations.length ? (
             <div className="p-2 border-t border-slate-100">
-              <p className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Konsultatsiyalar</p>
+              <p className="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('search.consultations')}</p>
               {results.consultations.map((c) => (
                 <button
                   key={c.id}
