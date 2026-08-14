@@ -15,14 +15,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="uz" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body>
-        <OfflineBootstrap />
-        <ToastProvider>
-          <I18nProvider>
+        <I18nProvider>
+          <OfflineBootstrap />
+          <ToastProvider>
             <AuthProvider>
               {children}
             </AuthProvider>
-          </I18nProvider>
-        </ToastProvider>
+          </ToastProvider>
+        </I18nProvider>
       </body>
     </html>
   );
