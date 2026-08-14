@@ -19,6 +19,7 @@ import {
 import { loadMediaPreferences, type MediaPreferences, type VideoQualityPreset } from '@/lib/media-preferences';
 import {
   applyAllSendersBitrate,
+  applyAudioPriorityMode,
   acquireMtDoctorStream,
   isMediaPermissionError,
   normalizeMediaError,
@@ -126,6 +127,15 @@ export function useVideoRoom({
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
   const [speakerOn, setSpeakerOn] = useState(true);
+  /** Past tarmoq: video pauza, ovoz davom etadi (Meet uslubi) */
+  const [networkAudioOnly, setNetworkAudioOnly] = useState(false);
+  const micOnRef = useRef(true);
+  const camOnRef = useRef(true);
+  micOnRef.current = micOn;
+  camOnRef.current = camOn;
+  const networkAudioOnlyRef = useRef(false);
+  networkAudioOnlyRef.current = networkAudioOnly;
+  const poorStreakRef = useRef(0);
   const [remoteCameras, setRemoteCameras] = useState<Record<string, MediaStream>>({});
   const [localPreview, setLocalPreview] = useState<MediaStream | null>(null);
   const [vitalsStream, setVitalsStream] = useState<MediaStream | null>(null);
@@ -262,6 +272,29 @@ export function useVideoRoom({
     setRemoteCameras((prev) => ({ ...prev, [cameraId]: stream }));
   }, []);
 
+  const applyLocalMediaEnabled = useCallback(() => {
+    const mic = micOnRef.current;
+    const cam = camOnRef.current;
+
+    localStreamsRef.current.forEach((stream, key) => {
+      stream.getAudioTracks().forEach((t) => {
+        t.enabled = mic;
+      });
+      if (role === 'ut' && key === 'ut-audio') return;
+      stream.getVideoTracks().forEach((t) => {
+        t.enabled = cam;
+      });
+    });
+
+    pcsRef.current.forEach((pc) => {
+      pc.getSenders().forEach((sender) => {
+        if (!sender.track) return;
+        if (sender.track.kind === 'audio') sender.track.enabled = mic;
+        if (sender.track.kind === 'video') sender.track.enabled = cam;
+      });
+    });
+  }, [role]);
+
   const addLocalTracks = useCallback(
     (pc: RTCPeerConnection) => {
       if (role === 'observe') {
@@ -275,15 +308,20 @@ export function useVideoRoom({
       if (role === 'ut') {
         for (const feedId of UT_CAMERA_ORDER) {
           const stream = localStreamsRef.current.get(feedId);
-          const liveTrack = stream?.getVideoTracks().find((t) => t.readyState === 'live' && t.enabled);
+          // enabled=false bo'lsa ham track qo'shiladi — aks holda cam toggle
+          // keyin PC da video yo'qoladi.
+          const liveTrack = stream?.getVideoTracks().find((t) => t.readyState === 'live');
           if (liveTrack) {
             pc.addTrack(liveTrack, stream!);
           }
         }
         const audioStream = localStreamsRef.current.get('ut-audio');
         if (audioStream) {
-          audioStream.getAudioTracks().forEach((track) => pc.addTrack(track, audioStream));
+          audioStream.getAudioTracks().forEach((track) => {
+            if (track.readyState === 'live') pc.addTrack(track, audioStream);
+          });
         }
+        applyLocalMediaEnabled();
         return;
       }
 
@@ -294,9 +332,14 @@ export function useVideoRoom({
         pc.addTransceiver('audio', { direction: 'recvonly' });
         const docStream = localStreamsRef.current.get(MT_DOCTOR_STREAM_ID);
         if (docStream) {
-          docStream.getVideoTracks().forEach((track) => pc.addTrack(track, docStream));
-          docStream.getAudioTracks().forEach((track) => pc.addTrack(track, docStream));
+          docStream.getVideoTracks().forEach((track) => {
+            if (track.readyState === 'live') pc.addTrack(track, docStream);
+          });
+          docStream.getAudioTracks().forEach((track) => {
+            if (track.readyState === 'live') pc.addTrack(track, docStream);
+          });
         }
+        applyLocalMediaEnabled();
         return;
       }
 
@@ -305,13 +348,18 @@ export function useVideoRoom({
         if (key === 'ut-audio') {
           if (addedAudio.has('audio')) return;
           addedAudio.add('audio');
-          stream.getAudioTracks().forEach((track) => pc.addTrack(track, stream));
+          stream.getAudioTracks().forEach((track) => {
+            if (track.readyState === 'live') pc.addTrack(track, stream);
+          });
           return;
         }
-        stream.getVideoTracks().forEach((track) => pc.addTrack(track, stream));
+        stream.getVideoTracks().forEach((track) => {
+          if (track.readyState === 'live') pc.addTrack(track, stream);
+        });
       });
+      applyLocalMediaEnabled();
     },
-    [role],
+    [applyLocalMediaEnabled, role],
   );
 
   const flushIceCandidates = useCallback(async (socketId: string) => {
@@ -1675,45 +1723,67 @@ export function useVideoRoom({
   ]);
 
   useEffect(() => {
-    if (connectionStats.quality !== 'poor' || qualityPresetRef.current === 'low') return;
-    qualityPresetRef.current = 'low';
-    void applyAllSendersBitrate(pcsRef.current, 'low');
+    const q = connectionStats.quality;
+    if (q === 'unknown') return;
+
+    if (q === 'poor') {
+      poorStreakRef.current += 1;
+      if (qualityPresetRef.current !== 'low') {
+        qualityPresetRef.current = 'low';
+        void applyAllSendersBitrate(pcsRef.current, 'low');
+      }
+      // ~4s (2× poll) past sifat — video yuborishni to'xtatib, ovozni saqlaymiz
+      if (poorStreakRef.current >= 2) {
+        void applyAudioPriorityMode(pcsRef.current, 'audio_only');
+        setNetworkAudioOnly(true);
+      } else {
+        void applyAudioPriorityMode(pcsRef.current, 'degraded');
+      }
+      return;
+    }
+
+    poorStreakRef.current = 0;
+
+    if (q === 'fair') {
+      qualityPresetRef.current = 'low';
+      void applyAllSendersBitrate(pcsRef.current, 'low');
+      void applyAudioPriorityMode(pcsRef.current, 'degraded');
+      if (networkAudioOnlyRef.current) {
+        setNetworkAudioOnly(false);
+      }
+      return;
+    }
+
+    if (networkAudioOnlyRef.current) {
+      setNetworkAudioOnly(false);
+    }
+    void applyAudioPriorityMode(pcsRef.current, 'normal');
+    void applyAllSendersBitrate(pcsRef.current, qualityPresetRef.current);
   }, [connectionStats.quality]);
 
   const toggleMic = useCallback(() => {
-    const next = !micOn;
+    const next = !micOnRef.current;
     setMicOn(next);
-    localStreamsRef.current.forEach((stream) => {
-      stream.getAudioTracks().forEach((t) => {
-        t.enabled = next;
-      });
-    });
+    micOnRef.current = next;
+    applyLocalMediaEnabled();
     const socket = socketRef.current;
     if (consultationId && socket) {
       socket.emit('toggle-media', { roomId: consultationId, type: 'audio', enabled: next });
     }
-  }, [consultationId, micOn, socketRef]);
+  }, [applyLocalMediaEnabled, consultationId, socketRef]);
 
   const toggleCam = useCallback(() => {
-    const next = !camOn;
+    const next = !camOnRef.current;
     setCamOn(next);
-    if (role === 'mt') {
-      localStreamsRef.current.get(MT_DOCTOR_STREAM_ID)?.getVideoTracks().forEach((t) => {
-        t.enabled = next;
-      });
-    } else if (role === 'ut') {
-      localStreamsRef.current.forEach((stream, key) => {
-        if (key === 'ut-audio') return;
-        stream.getVideoTracks().forEach((t) => {
-          t.enabled = next;
-        });
-      });
-    }
+    camOnRef.current = next;
+    // Tarmoq audio-only rejimida foydalanuvchi cam yoqsa ham video
+    // yuborilmaydi — applyLocalMediaEnabled buni hisobga oladi.
+    applyLocalMediaEnabled();
     const socket = socketRef.current;
     if (consultationId && socket) {
       socket.emit('toggle-media', { roomId: consultationId, type: 'video', enabled: next });
     }
-  }, [camOn, consultationId, role, socketRef]);
+  }, [applyLocalMediaEnabled, consultationId, socketRef]);
 
   const toggleSpeaker = useCallback(() => setSpeakerOn((v) => !v), []);
 
@@ -1891,6 +1961,7 @@ export function useVideoRoom({
     roomClosed,
     peerCount,
     peerDisplayName,
+    networkAudioOnly,
     sessionKicked,
     virtualCameraWarning,
     audioMissing,

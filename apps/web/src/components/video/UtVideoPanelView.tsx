@@ -72,11 +72,19 @@ export function UtVideoPanelView({
     audioMissing,
     utCameraStreams,
     qualityLabel,
+    networkAudioOnly,
   } = video;
 
   const doctorLive = !!mtDoctorStream && isUtStreamLive(mtDoctorStream);
   const utLiveCount = utCameraStreams.filter((c) => c.active && isUtStreamLive(c.stream)).length;
   const isAllView = viewMode === 'all';
+
+  // Kutishda 4 kamerani ko'rish/sozlash uchun "Hammasi" rejimiga o'tamiz
+  useEffect(() => {
+    if (roomPhase === 'waiting_peer' || roomPhase === 'joining') {
+      setViewMode('all');
+    }
+  }, [roomPhase]);
 
   useEffect(() => {
     const el = remoteAudioRef.current;
@@ -157,6 +165,13 @@ export function UtVideoPanelView({
           <div className="text-xs text-amber-800 bg-amber-50 rounded-lg px-2.5 py-2 flex gap-2">
             <AlertTriangle size={13} className="shrink-0 mt-0.5" />
             Mikrofon yo‘q — shifokor eshita olmasligi mumkin.
+          </div>
+        )}
+
+        {networkAudioOnly && (
+          <div className="text-xs text-sky-900 bg-sky-50 rounded-lg px-2.5 py-2 flex gap-2">
+            <AlertTriangle size={13} className="shrink-0 mt-0.5" />
+            Tarmoq sekin — video vaqtincha pasaytirildi, ovoz ishlayveradi.
           </div>
         )}
 
@@ -386,6 +401,9 @@ function ControlBtn({
     <button
       type="button"
       onClick={onClick}
+      aria-label={label}
+      aria-pressed={active}
+      title={label}
       className={cn(
         'flex items-center justify-center gap-1 rounded-xl font-medium min-h-[var(--touch-min)] transition-colors px-3 py-2 text-xs',
         active ? 'bg-slate-100 text-slate-700' : 'bg-red-50 text-red-600 ring-1 ring-red-100',

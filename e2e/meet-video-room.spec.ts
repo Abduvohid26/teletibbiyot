@@ -32,8 +32,12 @@ test.describe('Meet video room TZ', () => {
       await room.leaveUtViaUi();
       await room.mtPage.waitForTimeout(2000);
       await expect(
-        room.mtPage.getByText(/Siz xonadasiz|Sherik kutilmoqda|UT operator kutilmoqda/i).first(),
+        room.mtPage.getByText(/Siz xonadasiz|kutilmoqda/i).first(),
       ).toBeVisible({ timeout: 15_000 });
+      // Qayta ulanmoqda chiqmasligi kerak — sherik Leave qilgan
+      await expect(
+        room.mtPage.getByText(/qayta ulanmoqda/i),
+      ).toHaveCount(0);
       // Qora ekran o'rniga aniq matn — "Jonli efir" tugmasi doctor tomonda yo'q (u xonada)
       await expect(
         room.mtPage.getByRole('button', { name: /Jonli efirga qo'shilish/i }),
@@ -67,8 +71,9 @@ test.describe('Meet video room TZ', () => {
       await room.leaveUtViaUi();
       await expectLobbyVisible(room.utPage, 'bemor');
       await expect(
-        room.mtPage.getByText(/Siz xonadasiz|Sherik kutilmoqda|UT operator kutilmoqda/i).first(),
+        room.mtPage.getByText(/Siz xonadasiz|kutilmoqda/i).first(),
       ).toBeVisible({ timeout: 15_000 });
+      await expect(room.mtPage.getByText(/qayta ulanmoqda/i)).toHaveCount(0);
       await clickLobbyJoin(room.utPage, 'M3');
       await waitForBothRemoteVideo(room.mtPage, room.utPage, RECONNECT_BUDGET_MS, 'M3 ');
     } finally {
@@ -137,6 +142,55 @@ test.describe('Meet video room TZ', () => {
       } finally {
         await room.cleanup();
       }
+    }
+  });
+
+  test('M7) Panel Mic/Kamera tugmalari sender tracklarni o\'chiradi/yoqadi', async ({ browser }) => {
+    const room = await openLiveRoom(browser);
+    try {
+      const readSenderEnabled = async (page: import('@playwright/test').Page, kind: 'audio' | 'video') =>
+        page.evaluate((k) => {
+          const w = window as unknown as { __pcs?: RTCPeerConnection[] };
+          const pcs = (w.__pcs ?? []).filter((pc) => pc.connectionState !== 'closed');
+          const flags: boolean[] = [];
+          for (const pc of pcs) {
+            for (const s of pc.getSenders()) {
+              if (s.track?.kind === k && s.track.readyState === 'live') {
+                flags.push(s.track.enabled);
+              }
+            }
+          }
+          return flags;
+        }, kind);
+
+      // Boshlang'ich: audio/video yoqilgan
+      expect((await readSenderEnabled(room.mtPage, 'audio')).every(Boolean)).toBe(true);
+      expect((await readSenderEnabled(room.mtPage, 'video')).every(Boolean)).toBe(true);
+      expect((await readSenderEnabled(room.utPage, 'audio')).every(Boolean)).toBe(true);
+
+      await room.mtPage.getByRole('button', { name: 'Mic', exact: true }).click();
+      await room.mtPage.waitForTimeout(400);
+      expect((await readSenderEnabled(room.mtPage, 'audio')).every((v) => v === false)).toBe(true);
+
+      await room.mtPage.getByRole('button', { name: 'Mic', exact: true }).click();
+      await room.mtPage.waitForTimeout(400);
+      expect((await readSenderEnabled(room.mtPage, 'audio')).every(Boolean)).toBe(true);
+
+      await room.mtPage.getByRole('button', { name: 'Kamera', exact: true }).click();
+      await room.mtPage.waitForTimeout(400);
+      expect((await readSenderEnabled(room.mtPage, 'video')).every((v) => v === false)).toBe(true);
+
+      await room.utPage.getByRole('button', { name: 'Mic', exact: true }).click();
+      await room.utPage.waitForTimeout(400);
+      expect((await readSenderEnabled(room.utPage, 'audio')).every((v) => v === false)).toBe(true);
+
+      await room.utPage.getByRole('button', { name: 'Kamera', exact: true }).click();
+      await room.utPage.waitForTimeout(400);
+      const utVideo = await readSenderEnabled(room.utPage, 'video');
+      expect(utVideo.length).toBeGreaterThan(0);
+      expect(utVideo.every((v) => v === false)).toBe(true);
+    } finally {
+      await room.cleanup();
     }
   });
 });

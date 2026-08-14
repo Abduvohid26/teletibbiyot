@@ -13,9 +13,18 @@ interface VideoRoomPresenceProps {
   onRetry?: () => void;
 }
 
+/** To'liq oyna yopilmasin — kameralar ko'rinsin / sozlansin */
+const BANNER_PHASES = new Set<VideoRoomPhase>([
+  'joining',
+  'waiting_peer',
+  'connecting',
+  'reconnecting',
+]);
+
 /**
- * Meet-uslubidagi presence overlay — qora ekran o‘rniga aniq holat.
- * `live` da hech narsa chizilmaydi.
+ * Meet-uslubidagi presence — `live` da hech narsa.
+ * Kutish/ulanish: yuqori banner (oynani yopmaydi).
+ * Xato/yopilgan: to'liq overlay.
  */
 export function VideoRoomPresence({
   phase,
@@ -65,6 +74,7 @@ export function VideoRoomPresence({
   };
 
   const copy = content[phase];
+  const asBanner = BANNER_PHASES.has(phase);
 
   const Icon =
     copy.icon === 'loader'
@@ -77,21 +87,54 @@ export function VideoRoomPresence({
             ? AlertTriangle
             : VideoOff;
 
+  if (asBanner) {
+    return (
+      <div
+        className={cn(
+          'absolute top-2 left-2 right-2 z-30 pointer-events-none',
+          'flex justify-center',
+        )}
+        role="status"
+        aria-live="polite"
+      >
+        <div
+          className={cn(
+            'inline-flex max-w-full items-start gap-2 rounded-xl border border-white/15',
+            'bg-slate-950/80 text-white shadow-lg backdrop-blur-md',
+            compact ? 'px-2.5 py-1.5' : 'px-3 py-2',
+          )}
+        >
+          <Icon
+            className={cn(
+              'shrink-0 mt-0.5 text-emerald-300',
+              compact ? 'w-3.5 h-3.5' : 'w-4 h-4',
+              copy.icon === 'loader' && 'animate-spin text-sky-300',
+            )}
+          />
+          <div className="min-w-0">
+            <p className={cn('font-semibold leading-tight', compact ? 'text-[11px]' : 'text-xs')}>
+              {copy.title}
+            </p>
+            <p className="text-[10px] sm:text-[11px] text-slate-300 leading-snug mt-0.5">
+              {copy.subtitle}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={cn(
         'absolute inset-0 z-20 flex flex-col items-center justify-center px-4',
-        phase === 'reconnecting' || phase === 'connecting' || phase === 'joining'
-          ? 'bg-slate-950/55 backdrop-blur-[2px] pointer-events-none'
-          : 'bg-slate-950/75 backdrop-blur-sm',
-        phase === 'error' || phase === 'room_closed' ? 'pointer-events-auto' : '',
+        'bg-slate-950/75 backdrop-blur-sm pointer-events-auto',
       )}
     >
       <Icon
         className={cn(
           'mb-2 text-white',
           compact ? 'w-7 h-7' : 'w-8 h-8',
-          (copy.icon === 'loader') && 'animate-spin',
           copy.icon === 'alert' && 'text-amber-300',
         )}
       />

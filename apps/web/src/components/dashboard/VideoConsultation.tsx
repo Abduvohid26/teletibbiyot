@@ -84,6 +84,7 @@ export function VideoConsultation({
     roomClosed,
     sessionKicked,
     peerDisplayName,
+    networkAudioOnly,
     virtualCameraWarning,
     preflightPending,
     confirmPreflight,
@@ -398,6 +399,13 @@ export function VideoConsultation({
           </div>
         )}
 
+        {networkAudioOnly && (
+          <div className="absolute top-12 left-3 right-3 z-10 max-w-sm bg-sky-600/90 text-white text-[11px] rounded-lg px-3 py-2 flex items-start gap-1.5 pointer-events-none">
+            <AlertTriangle size={12} className="shrink-0 mt-0.5" />
+            <span>Tarmoq sekin — video pasaytirildi, ovoz ishlayveradi</span>
+          </div>
+        )}
+
         {/* Meet presence — qora ekran o'rniga aniq holat */}
         {!cameraPermissionNeeded && roomPhase !== 'live' && (
           <VideoRoomPresence
@@ -527,10 +535,10 @@ export function VideoConsultation({
         {!observeMode && (
           <>
             <div className="flex items-center gap-1 glass-control-bar shadow-glass">
-              <ControlBtn active={micOn} onClick={toggleMic} icon={micOn ? Mic : MicOff} compact={compact} />
-              <ControlBtn active={speakerOn} onClick={toggleSpeaker} icon={speakerOn ? Volume2 : VolumeX} compact={compact} />
-              <ControlBtn active={camOn} onClick={toggleCam} icon={camOn ? Video : VideoOff} compact={compact} />
-              <ControlBtn active={showPtz} onClick={() => setShowPtz(!showPtz)} icon={MoreHorizontal} compact={compact} />
+              <ControlBtn active={micOn} onClick={toggleMic} icon={micOn ? Mic : MicOff} compact={compact} label="Mic" />
+              <ControlBtn active={speakerOn} onClick={toggleSpeaker} icon={speakerOn ? Volume2 : VolumeX} compact={compact} label="Ovoz" />
+              <ControlBtn active={camOn} onClick={toggleCam} icon={camOn ? Video : VideoOff} compact={compact} label="Kamera" />
+              <ControlBtn active={showPtz} onClick={() => setShowPtz(!showPtz)} icon={MoreHorizontal} compact={compact} label="PTZ" />
             </div>
             <button
               type="button"
@@ -627,11 +635,14 @@ function AllCamerasButton({
   );
 }
 
-function ControlBtn({ active, onClick, icon: Icon, compact }: { active: boolean; onClick: () => void; icon: React.ElementType; compact?: boolean }) {
+function ControlBtn({ active, onClick, icon: Icon, compact, label }: { active: boolean; onClick: () => void; icon: React.ElementType; compact?: boolean; label: string }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      aria-label={label}
+      aria-pressed={active}
+      title={label}
       className={cn(
         'rounded-full transition-all duration-200',
         compact ? 'p-1.5' : 'p-2.5',

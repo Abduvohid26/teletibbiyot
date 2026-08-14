@@ -156,9 +156,43 @@ export async function applySenderBitrate(pc: RTCPeerConnection, maxBitrate: numb
       }
       params.encodings[0].maxBitrate = maxBitrate;
       params.encodings[0].maxFramerate = maxFramerate;
+      // Past tarmoqda video sifati pasayadi, audio ustun qoladi (Meet uslubi)
+      params.degradationPreference = 'maintain-framerate';
       await sender.setParameters(params);
     } catch {
       /* brauzer qo'llab-quvvatlamasligi mumkin */
+    }
+  }
+}
+
+/** Audio senderga yuqori ustuvorlik — video past tarmoqda qurbon bo'ladi */
+export async function preferAudioOverVideo(pc: RTCPeerConnection, aggressive = false) {
+  for (const sender of pc.getSenders()) {
+    const kind = sender.track?.kind;
+    if (!kind) continue;
+    try {
+      const params = sender.getParameters();
+      if (!params.encodings?.length) params.encodings = [{}];
+      const enc = params.encodings[0] as RTCRtpEncodingParameters & {
+        priority?: string;
+        networkPriority?: string;
+      };
+      if (kind === 'audio') {
+        enc.priority = 'high';
+        enc.networkPriority = 'high';
+      } else if (kind === 'video') {
+        enc.priority = 'low';
+        enc.networkPriority = 'low';
+        if (aggressive) {
+          enc.maxBitrate = 120_000;
+          enc.maxFramerate = 8;
+          enc.scaleResolutionDownBy = Math.max(enc.scaleResolutionDownBy ?? 1, 3);
+        }
+        params.degradationPreference = 'maintain-framerate';
+      }
+      await sender.setParameters(params);
+    } catch {
+      /* ignore */
     }
   }
 }
@@ -167,6 +201,55 @@ export async function applyAllSendersBitrate(pcs: Map<string, RTCPeerConnection>
   const profile = QUALITY_PROFILES[preset];
   for (const pc of pcs.values()) {
     await applySenderBitrate(pc, profile.maxBitrate, profile.maxFramerate);
+    await preferAudioOverVideo(pc, preset === 'low');
+  }
+}
+
+/** Juda past tarmoq: video deyarli to'xtatiladi, audio davom etadi */
+export async function applyAudioPriorityMode(
+  pcs: Map<string, RTCPeerConnection>,
+  mode: 'normal' | 'degraded' | 'audio_only',
+) {
+  for (const pc of pcs.values()) {
+    for (const sender of pc.getSenders()) {
+      const kind = sender.track?.kind;
+      if (!kind) continue;
+      try {
+        const params = sender.getParameters();
+        if (!params.encodings?.length) params.encodings = [{}];
+        const enc = params.encodings[0] as RTCRtpEncodingParameters & {
+          priority?: string;
+          networkPriority?: string;
+          active?: boolean;
+        };
+
+        if (kind === 'audio') {
+          enc.priority = 'high';
+          enc.networkPriority = 'high';
+          enc.active = true;
+        } else if (kind === 'video') {
+          enc.priority = 'low';
+          enc.networkPriority = 'low';
+          params.degradationPreference = 'maintain-framerate';
+          if (mode === 'audio_only') {
+            // Lokal preview o'chmaydi — faqat yuborish to'xtaydi
+            enc.active = false;
+            enc.maxBitrate = 64_000;
+            enc.maxFramerate = 1;
+          } else if (mode === 'degraded') {
+            enc.active = true;
+            enc.maxBitrate = 120_000;
+            enc.maxFramerate = 8;
+            enc.scaleResolutionDownBy = Math.max(enc.scaleResolutionDownBy ?? 1, 3);
+          } else {
+            enc.active = true;
+          }
+        }
+        await sender.setParameters(params);
+      } catch {
+        /* ignore */
+      }
+    }
   }
 }
 
