@@ -83,6 +83,7 @@ export function VideoConsultation({
     roomPhase,
     roomClosed,
     sessionKicked,
+    peerDisplayName,
     virtualCameraWarning,
     preflightPending,
     confirmPreflight,
@@ -403,7 +404,7 @@ export function VideoConsultation({
             phase={roomPhase}
             error={error}
             compact={compact}
-            peerLabel="UT operator"
+            peerLabel={peerDisplayName || 'UT operator'}
             onRetry={roomPhase === 'error' ? handleReconnect : undefined}
           />
         )}

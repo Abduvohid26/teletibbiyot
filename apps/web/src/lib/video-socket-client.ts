@@ -695,6 +695,23 @@ export function leaveConsultationRoom(consultationId: string) {
   }
 }
 
+/** Meet qayta kirish: leave dan keyin xonaga tez qayta join */
+export function rejoinConsultationRoom(consultationId: string) {
+  if (!consultationId || !sharedSocket) return;
+  // leaveRoom activeRooms dan olib tashlagan — to'g'ridan-to'g'ri qayta join
+  pendingJoins.delete(consultationId);
+  clearJoinTimer(consultationId);
+  joinAttempts.delete(consultationId);
+  if (sharedSocket.connected && socketAuthenticated) {
+    joinRoom(sharedSocket, consultationId);
+  } else {
+    pendingJoins.add(consultationId);
+    if (!sharedSocket.connected && !sharedSocket.active) {
+      sharedSocket.connect();
+    }
+  }
+}
+
 export function isStaffFeedActive(): boolean {
   return activeRooms.has(STAFF_FEED_ROOM);
 }

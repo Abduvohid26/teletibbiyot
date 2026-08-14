@@ -8,45 +8,10 @@ interface VideoRoomPresenceProps {
   phase: VideoRoomPhase;
   error?: string;
   compact?: boolean;
+  /** Sherik ismi yoki rollabel (masalan "Dr. Ali" / "Operator") */
   peerLabel?: string;
   onRetry?: () => void;
 }
-
-const COPY: Record<
-  Exclude<VideoRoomPhase, 'live'>,
-  { title: string; subtitle: string; icon: 'loader' | 'users' | 'radio' | 'off' | 'alert' }
-> = {
-  joining: {
-    title: 'Xonaga ulanmoqda…',
-    subtitle: 'Kamera va tarmoq tayyorlanmoqda',
-    icon: 'loader',
-  },
-  waiting_peer: {
-    title: 'Siz xonadasiz',
-    subtitle: 'Sherik kutilmoqda — u qo‘shilganda video avtomatik ulanadi',
-    icon: 'users',
-  },
-  connecting: {
-    title: 'Video ulanmoqda…',
-    subtitle: 'Sherik topildi, media bog‘lanmoqda',
-    icon: 'loader',
-  },
-  reconnecting: {
-    title: 'Qayta ulanmoqda…',
-    subtitle: 'Tarmoq tiklanishi bilan video avtomatik davom etadi',
-    icon: 'loader',
-  },
-  error: {
-    title: 'Ulanishda muammo',
-    subtitle: 'Qayta urinib ko‘ring yoki tarmoq/TURN sozlamalarini tekshiring',
-    icon: 'alert',
-  },
-  room_closed: {
-    title: 'Konsultatsiya yakunlandi',
-    subtitle: 'Video xona yopildi',
-    icon: 'off',
-  },
-};
 
 /**
  * Meet-uslubidagi presence overlay — qora ekran o‘rniga aniq holat.
@@ -61,13 +26,45 @@ export function VideoRoomPresence({
 }: VideoRoomPresenceProps) {
   if (phase === 'live') return null;
 
-  const copy = COPY[phase];
-  const subtitle =
-    phase === 'waiting_peer' && peerLabel
-      ? `${peerLabel} kutilmoqda — u qo‘shilganda video avtomatik ulanadi`
-      : phase === 'error' && error
-        ? error
-        : copy.subtitle;
+  const who = peerLabel?.trim() || 'Sherik';
+
+  const content: Record<
+    Exclude<VideoRoomPhase, 'live'>,
+    { title: string; subtitle: string; icon: 'loader' | 'users' | 'radio' | 'off' | 'alert' }
+  > = {
+    joining: {
+      title: 'Xonaga ulanmoqda…',
+      subtitle: 'Kamera va tarmoq tayyorlanmoqda',
+      icon: 'loader',
+    },
+    waiting_peer: {
+      title: 'Siz xonadasiz',
+      subtitle: `${who} kutilmoqda — u qo‘shilganda video avtomatik ulanadi`,
+      icon: 'users',
+    },
+    connecting: {
+      title: `${who} bilan ulanmoqda…`,
+      subtitle: 'Media bog‘lanmoqda',
+      icon: 'loader',
+    },
+    reconnecting: {
+      title: `${who} bilan qayta ulanmoqda…`,
+      subtitle: 'Tarmoq tiklanishi bilan video avtomatik davom etadi',
+      icon: 'loader',
+    },
+    error: {
+      title: 'Ulanishda muammo',
+      subtitle: error || 'Qayta urinib ko‘ring yoki tarmoq sozlamalarini tekshiring',
+      icon: 'alert',
+    },
+    room_closed: {
+      title: 'Konsultatsiya yakunlandi',
+      subtitle: 'Video xona yopildi',
+      icon: 'off',
+    },
+  };
+
+  const copy = content[phase];
 
   const Icon =
     copy.icon === 'loader'
@@ -102,7 +99,7 @@ export function VideoRoomPresence({
         {copy.title}
       </p>
       <p className="text-[11px] text-slate-300 text-center mt-1 max-w-xs leading-relaxed">
-        {subtitle}
+        {copy.subtitle}
       </p>
       {phase === 'error' && onRetry && (
         <button

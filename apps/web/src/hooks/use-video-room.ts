@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { captureUtCameraStreams, stopAllStreams } from '@/lib/ut-camera-capture';
 import { isUtStreamLive, mapUniqueUtCameraStreams } from '@/lib/ut-camera-streams';
 import { useSharedVideoSocket } from '@/hooks/use-shared-video-socket';
-import { isRoomActive, subscribeJoinResults, leaveConsultationRoom } from '@/lib/video-socket-client';
+import { isRoomActive, subscribeJoinResults, leaveConsultationRoom, rejoinConsultationRoom } from '@/lib/video-socket-client';
 import { useWebRtcStats } from '@/hooks/use-webrtc-stats';
 import { checkTurnReachable } from '@/lib/turn-preflight';
 import {
@@ -115,6 +115,8 @@ export function useVideoRoom({
   // NAT ortida bo'lganda (turli Wi-Fi/mobil tarmoq) host va srflx yo'llari
   // hech qachon ishlamaydi — ularni qayta-qayta sinash vaqtni behuda ketkazadi.
   const relayOnlyPeersRef = useRef<Set<string>>(new Set());
+  /** socketId → ism/rol — presence overlay uchun */
+  const participantMetaRef = useRef<Map<string, { userName: string; role: string }>>(new Map());
 
   const [videoPaused, setVideoPaused] = useState(false);
   const [connectNonce, setConnectNonce] = useState(0);
@@ -133,14 +135,38 @@ export function useVideoRoom({
   const [virtualCameraWarning, setVirtualCameraWarning] = useState<string[]>([]);
   const [error, setError] = useState('');
   // Ulanish uzilib, tiklashga urinilyapti — UI "Qayta ulanmoqda…" ko'rsatadi.
+  // FAQAT peer hali xonada bo'lganda (tarmoq beqaror). Chiqib ketganda waiting_peer.
   const [reconnecting, setReconnecting] = useState(false);
   const [cameraPermissionNeeded, setCameraPermissionNeeded] = useState(false);
   /** Xonadagi boshqa ishtirokchilar soni (presence UI) */
   const [peerCount, setPeerCount] = useState(0);
+  /** Asosiy sherik ismi (UT↔MT) — overlay da ko'rsatiladi */
+  const [peerDisplayName, setPeerDisplayName] = useState('');
+  /** Oxirgi ko'rilgan sherik ismi — chiqib ketganda ham "X kutilmoqda" uchun */
+  const lastPeerNameRef = useRef('');
   /** Konsultatsiya yakunlandi — xona yopiq */
   const [roomClosed, setRoomClosed] = useState(false);
   /** Boshqa tab/qurilma ochildi — parent lobbyga qaytaradi */
   const [sessionKicked, setSessionKicked] = useState(false);
+
+  const refreshPeerDisplayName = useCallback(() => {
+    const preferredRole = role === 'ut' ? 'MT_DOCTOR' : 'UT_OPERATOR';
+    let name = '';
+    for (const meta of participantMetaRef.current.values()) {
+      if (meta.role === preferredRole && meta.userName) {
+        name = meta.userName;
+        break;
+      }
+    }
+    if (!name) {
+      const first = participantMetaRef.current.values().next().value as
+        | { userName: string; role: string }
+        | undefined;
+      name = first?.userName || '';
+    }
+    if (name) lastPeerNameRef.current = name;
+    setPeerDisplayName(name || lastPeerNameRef.current);
+  }, [role]);
 
   const connectionStats = useWebRtcStats(pcsRef, mediaReady && roomJoined);
 
@@ -361,6 +387,7 @@ export function useVideoRoom({
       teardownPeerConnection(socketId);
       knownParticipantsRef.current.delete(socketId);
       participantUserIdsRef.current.delete(socketId);
+      participantMetaRef.current.delete(socketId);
       latestOfferRef.current.delete(socketId);
       pendingIncomingOffersRef.current.delete(socketId);
       pendingOfferTargetsRef.current.delete(socketId);
@@ -376,8 +403,15 @@ export function useVideoRoom({
 
     knownParticipantsRef.current.add(participant.socketId);
     participantUserIdsRef.current.set(participant.socketId, participant.userId);
+    if (participant.userName) {
+      participantMetaRef.current.set(participant.socketId, {
+        userName: participant.userName,
+        role: participant.role,
+      });
+    }
     setPeerCount(knownParticipantsRef.current.size);
-  }, [teardownPeerConnection]);
+    refreshPeerDisplayName();
+  }, [refreshPeerDisplayName, teardownPeerConnection]);
 
   const attachRemoteVideoTrack = useCallback(
     (remoteSocketId: string, track: MediaStreamTrack, stream: MediaStream) => {
@@ -468,6 +502,8 @@ export function useVideoRoom({
       // Bir peer uchun ICE restart + tez qayta-offer. Takror urinishni
       // (minGapMs) bilan cheklaymiz, aks holda spam bo'ladi.
       const kickIceRestart = (minGapMs: number, reofferDelayMs: number) => {
+        // Peer xonadan chiqqan — "qayta ulanmoqda" emas, kutish holati.
+        if (!knownParticipantsRef.current.has(remoteSocketId)) return;
         const now = Date.now();
         const last = iceRestartAtRef.current.get(remoteSocketId) ?? 0;
         if (now - last < minGapMs) return;
@@ -476,7 +512,7 @@ export function useVideoRoom({
         // Tiklanish paytida "firewall/TURN" qizil xabarni yashiramiz —
         // aks holda vaqtinchalik uzilish ham infratuzilma xatosidek ko'rinadi.
         setError((prev) =>
-          /TURN relay|Firewall|TURN server sozlanmagan/i.test(prev) ? '' : prev,
+          /TURN relay|Firewall|TURN server sozlanmagan|Ulanish beqaror|Video uzoq/i.test(prev) ? '' : prev,
         );
         try {
           pc.restartIce?.();
@@ -490,6 +526,7 @@ export function useVideoRoom({
       };
 
       const rebuildAsRelayOnly = () => {
+        if (!knownParticipantsRef.current.has(remoteSocketId)) return;
         relayOnlyPeersRef.current.add(remoteSocketId);
         // Yangi PC uchun hisoblagichni nolga — aks holda birinchi relay
         // urinishi hamdar "fails>=2" bo'lib darhol qizil xato chiqardi.
@@ -500,7 +537,7 @@ export function useVideoRoom({
         teardownPeerConnection(remoteSocketId, false);
         if (isOfferer) {
           pendingOfferTargetsRef.current.add(remoteSocketId);
-          setTimeout(() => flushPendingOffersRef.current(), 120);
+          setTimeout(() => flushPendingOffersRef.current(), 80);
         } else {
           emitReconnectSignalsRef.current();
         }
@@ -513,6 +550,10 @@ export function useVideoRoom({
           setError('');
           setReconnecting(false);
         }
+        // Peer allaqachon chiqqan bo'lsa ICE eventlarni e'tiborsiz qoldiramiz —
+        // aks holda qolgan tomonda ham "Qayta ulanmoqda" chiqadi.
+        if (!knownParticipantsRef.current.has(remoteSocketId)) return;
+
         // MUHIM: "disconnected"da DARHOL tiklashni boshlaymiz — "failed"ni
         // kutmaymiz. Chrome "failed"ni ~15-30s kechikish bilan e'lon qiladi;
         // "disconnected" esa ~5s ichida keladi. Bu tiklanishni bir necha barobar
@@ -866,6 +907,7 @@ export function useVideoRoom({
     offerProcessingRef.current.clear();
     latestOfferRef.current.clear();
     participantUserIdsRef.current.clear();
+    participantMetaRef.current.clear();
     offerSentAtRef.current.clear();
     iceFailuresRef.current.clear();
     relayOnlyPeersRef.current.clear();
@@ -900,6 +942,7 @@ export function useVideoRoom({
     teardownPeerConnection(socketId);
     knownParticipantsRef.current.delete(socketId);
     participantUserIdsRef.current.delete(socketId);
+    participantMetaRef.current.delete(socketId);
     latestOfferRef.current.delete(socketId);
     pendingIncomingOffersRef.current.delete(socketId);
     relayOnlyPeersRef.current.delete(socketId);
@@ -909,16 +952,19 @@ export function useVideoRoom({
       clearInterval(watchdog);
       peerWatchdogRef.current.delete(socketId);
     }
-    setPeerCount(knownParticipantsRef.current.size);
-    // Meet: sherik chiqdi — remote media tozalansin, WaitingPeer ko'rinsin
-    if (knownParticipantsRef.current.size === 0) {
+    const remaining = knownParticipantsRef.current.size;
+    setPeerCount(remaining);
+    refreshPeerDisplayName();
+    // Sherik chiqdi — qolgan tomonda "Qayta ulanmoqda" emas, kutish.
+    if (remaining === 0) {
+      setReconnecting(false);
       socketToCamerasRef.current.clear();
       remoteTrackIdsRef.current.clear();
       remoteDoctorSocketRef.current = null;
       setRemoteCameras({});
       setRemoteAudio(null);
     }
-  }, [teardownPeerConnection]);
+  }, [refreshPeerDisplayName, teardownPeerConnection]);
 
   /** Yumshoq uzish (end-call): video to'xtaydi, lekin ishtirokchi xotirada qoladi — qayta offer uchun */
   const softDisconnectRemotePeer = useCallback((socketId: string) => {
@@ -1132,7 +1178,7 @@ export function useVideoRoom({
       socket.emit('media-resumed', { roomId: consultationId });
       socket.emit('request-offers', { roomId: consultationId });
       flushPendingIncomingOffers();
-    }, 500);
+    }, 80);
   }, [
     consultationId,
     debouncedFlushPendingOffers,
@@ -1150,6 +1196,8 @@ export function useVideoRoom({
   const runRecovery = useCallback(() => {
     const now = Date.now();
     if (now - lastRecoveryAtRef.current < 1500) return;
+    // Peer xonada yo'q — recovery "qayta ulanmoqda"ni ochmasin.
+    if (knownParticipantsRef.current.size === 0) return;
     lastRecoveryAtRef.current = now;
 
     setReconnecting(true);
@@ -1446,7 +1494,9 @@ export function useVideoRoom({
           teardownPeerConnection(data.socketId);
           knownParticipantsRef.current.delete(data.socketId);
           participantUserIdsRef.current.delete(data.socketId);
+          participantMetaRef.current.delete(data.socketId);
           setPeerCount(knownParticipantsRef.current.size);
+          refreshPeerDisplayName();
           return;
         }
       }
@@ -1615,6 +1665,7 @@ export function useVideoRoom({
     onCallEnded,
     rememberParticipant,
     removeRemotePeer,
+    refreshPeerDisplayName,
     requestRoomSync,
     role,
     scheduleOfferToPeer,
@@ -1705,7 +1756,11 @@ export function useVideoRoom({
     setPreflightPending(false);
     setError('');
     setRoomClosed(false);
+    setReconnecting(true);
+    setVideoPaused(false);
 
+    // Faqat peer ulanishlarini yopamiz — lokal kamerani qayta so'ramaslik
+    // (getUserMedia qayta ulashni sekinlatadi).
     pcsRef.current.forEach((pc) => pc.close());
     pcsRef.current.clear();
     remoteTrackIdsRef.current.clear();
@@ -1717,27 +1772,41 @@ export function useVideoRoom({
     setRemoteCameras({});
     setRemoteAudio(null);
 
-    stopAllStreams(localStreamsRef.current);
-    localStreamsRef.current.clear();
-    setLocalCameraFeeds({});
-    setLocalPreview(null);
-    setVitalsStream(null);
-    setMediaReady(false);
+    const localStillLive = [...localStreamsRef.current.values()].some((stream) =>
+      stream.getTracks().some((t) => t.readyState === 'live'),
+    );
 
     setupStartedRef.current = true;
-    setVideoPaused(false);
     setConnectNonce((n) => n + 1);
 
     try {
-      await setupLocalMedia();
+      if (consultationId && !isRoomActive(consultationId)) {
+        rejoinConsultationRoom(consultationId);
+      }
+
+      if (!localStillLive) {
+        setMediaReady(false);
+        stopAllStreams(localStreamsRef.current);
+        localStreamsRef.current.clear();
+        setLocalCameraFeeds({});
+        setLocalPreview(null);
+        setVitalsStream(null);
+        await setupLocalMedia();
+      } else if (!mediaReady) {
+        setMediaReady(true);
+      }
+
+      // Relay yo'lini saqlab qolamiz — qayta P2P sinash vaqtni yo'qotadi.
       emitReconnectSignals();
+      lastRoomSyncAtRef.current = 0;
+      setTimeout(() => requestRoomSyncRef.current(), 100);
     } catch {
       setupStartedRef.current = false;
       setError('Qayta ulashda xatolik — kameraga ruxsat bering');
     } finally {
       isReconnectingRef.current = false;
     }
-  }, [emitReconnectSignals, setupLocalMedia, skipPreflight, autoRejoin]);
+  }, [consultationId, emitReconnectSignals, mediaReady, setupLocalMedia, skipPreflight, autoRejoin]);
 
   const reloadMedia = useCallback(async () => {
     const existingTargets = [...pcsRef.current.keys()];
@@ -1784,11 +1853,13 @@ export function useVideoRoom({
 
   const roomPhase: VideoRoomPhase = (() => {
     if (roomClosed) return 'room_closed';
-    if (reconnecting) return 'reconnecting';
     // Join/auth hard fail — xonaga kirmagan
     if (error && !roomJoined) return 'error';
     if (!iceReady || !mediaReady || !roomJoined) return 'joining';
+    // Sherik chiqib ketgan / hali kelmagan — IKKI tomonda ham "qayta ulanmoqda" EMAS
     if (peerCount === 0 && !hasLiveRemoteMedia) return 'waiting_peer';
+    // Sherik xonada, lekin media beqaror — faqat shunda reconnecting
+    if (reconnecting) return 'reconnecting';
     if (!hasLiveRemoteMedia) return 'connecting';
     return 'live';
   })();
@@ -1819,6 +1890,7 @@ export function useVideoRoom({
     roomPhase,
     roomClosed,
     peerCount,
+    peerDisplayName,
     sessionKicked,
     virtualCameraWarning,
     audioMissing,

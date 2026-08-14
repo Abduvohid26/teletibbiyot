@@ -68,6 +68,7 @@ export function UtVideoPanelView({
     reconnectCall,
     connectionStats,
     roomPhase,
+    peerDisplayName,
     audioMissing,
     utCameraStreams,
     qualityLabel,
@@ -259,7 +260,7 @@ export function UtVideoPanelView({
             <VideoRoomPresence
               phase={roomPhase}
               error={error}
-              peerLabel="Shifokor"
+              peerLabel={peerDisplayName || doctorName || 'Shifokor'}
               onRetry={roomPhase === 'error' ? () => reconnectCall() : undefined}
             />
           )}
