@@ -24,6 +24,8 @@ export interface DoctorOption {
   specialty?: string | null;
   specialtyRef?: { id: string; name: string } | null;
   facility?: { id: string; name: string; code: string };
+  /** online = dashboard ochiq, in_meet = video xonada, offline = ulanmagan */
+  presence?: 'online' | 'in_meet' | 'offline';
 }
 
 export interface AdminOverview {
@@ -253,7 +255,8 @@ export interface CreateConsultationData {
   patientId: string;
   consentGiven: boolean;
   clientRequestId?: string;
-  mtDoctorId?: string;
+  /** Majburiy — navbat shu shifokorga biriktiriladi */
+  mtDoctorId: string;
   checklistData?: Array<{ id: string; label: string; required: boolean; checked: boolean; notes?: string }>;
   clinicalRecord: {
     complaints: string;

@@ -97,10 +97,37 @@ export function useUtSessions(enabled = true) {
     {
       onConsultationQueued: () => void load(),
       onConsultationStarted: (payload) => {
-        const name = payload.doctorName || 'Shifokor';
+        const name = payload.doctorName || payload.mtDoctorName || 'Shifokor';
         setLiveBanner({ doctorName: name });
-        toast(`${name} qabul qildi — jonli efir boshlandi`, 'success');
+        toast(`${name} qabulni boshladi — efirga qo‘shiling`, 'success');
         if (payload.consultationId) {
+          // Optimistic status — API round-tripdan oldin UI yangilansin
+          setSessions((prev) =>
+            prev.map((c) =>
+              c.id === payload.consultationId
+                ? {
+                    ...c,
+                    status: 'IN_PROGRESS',
+                    mtDoctor: c.mtDoctor
+                      ?? (payload.mtDoctorId
+                        ? { id: payload.mtDoctorId, fullName: name }
+                        : undefined),
+                  }
+                : c,
+            ),
+          );
+          setConsultation((prev) =>
+            prev?.id === payload.consultationId
+              ? {
+                  ...prev,
+                  status: 'IN_PROGRESS',
+                  mtDoctor: prev.mtDoctor
+                    ?? (payload.mtDoctorId
+                      ? { id: payload.mtDoctorId, fullName: name }
+                      : undefined),
+                }
+              : prev,
+          );
           void switchToConsultation(payload.consultationId);
         } else {
           void load();

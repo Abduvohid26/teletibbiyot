@@ -10,6 +10,10 @@ export class ApiTestClient {
 
   constructor(private baseUrl = `${API_BASE}/api`) {}
 
+  get accessToken() {
+    return this.token;
+  }
+
   async login(email: string, password: string): Promise<LoginResult> {
     const res = await fetch(`${this.baseUrl}/auth/login`, {
       method: 'POST',
@@ -103,9 +107,10 @@ export function buildTestPatient(suffix = Date.now()) {
   };
 }
 
-export function buildTestConsultation(patientId: string) {
+export function buildTestConsultation(patientId: string, mtDoctorId: string) {
   return {
     patientId,
+    mtDoctorId,
     consentGiven: true,
     clientRequestId: crypto.randomUUID(),
     checklistData: [

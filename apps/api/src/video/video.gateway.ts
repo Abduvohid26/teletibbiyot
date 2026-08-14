@@ -4,6 +4,7 @@ import {
   SubscribeMessage,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  OnGatewayInit,
   ConnectedSocket,
   MessageBody,
 } from '@nestjs/websockets';
@@ -12,8 +13,9 @@ import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccessControlService } from '../common/access-control.service';
-import { canPerformClinicalMtActions } from '../common/roles.constants';
+import { canPerformClinicalMtActions, isMtDoctor } from '../common/roles.constants';
 import { ConsultationStatus } from '@prisma/client';
+import { DoctorPresenceService } from './doctor-presence.service';
 
 interface RoomParticipant {
   socketId: string;
@@ -46,7 +48,9 @@ interface JoinRoomAck {
   connectTimeout: 30000,
   maxHttpBufferSize: 1e7,
 })
-export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class VideoGateway
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+{
   private readonly logger = new Logger(VideoGateway.name);
 
   @WebSocketServer()
@@ -88,7 +92,23 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private jwtService: JwtService,
     private prisma: PrismaService,
     private access: AccessControlService,
+    private presence: DoctorPresenceService,
   ) {}
+
+  afterInit(server: Server) {
+    this.presence.setServer(server);
+  }
+
+  private isStaffOrPresenceRoom(roomId: string) {
+    return roomId.startsWith('staff-feed') || roomId.startsWith('presence:');
+  }
+
+  private schedulePresenceBroadcast(doctorId: string) {
+    // Socket adapter'dan chiqishini kutish (disconnect/leave)
+    setImmediate(() => {
+      void this.presence.broadcast(doctorId);
+    });
+  }
 
   private extractToken(client: Socket): string | undefined {
     const authToken = client.handshake.auth?.token as string | undefined;
@@ -118,10 +138,15 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     try {
-      const payload = this.jwtService.verify(token) as { sub: string; email: string; tv?: number };
+      const payload = this.jwtService.verify(token) as {
+        sub: string;
+        email: string;
+        role?: string;
+        tv?: number;
+      };
       const dbUser = await this.prisma.user.findUnique({
         where: { id: payload.sub },
-        select: { isActive: true, tokenVersion: true, email: true },
+        select: { isActive: true, tokenVersion: true, email: true, role: true },
       });
       if (!dbUser?.isActive) {
         this.failAuth(client, 'UNAUTHORIZED', 'Foydalanuvchi faol emas');
@@ -131,7 +156,7 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.failAuth(client, 'SESSION_REVOKED', 'Sessiya bekor qilingan — qayta kiring');
         return;
       }
-      client.data.user = payload;
+      client.data.user = { ...payload, role: payload.role || dbUser.role };
       this.socketRooms.set(client.id, new Set());
       client.emit('ws-authenticated', { userId: payload.sub });
       this.logger.log(`WS ulandi: ${client.id} (${dbUser.email})`);
@@ -141,6 +166,8 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   handleDisconnect(client: Socket) {
+    const userId = client.data.user?.sub as string | undefined;
+    const role = client.data.user?.role as string | undefined;
     const roomIds = this.socketRooms.get(client.id);
     if (roomIds) {
       for (const roomId of roomIds) {
@@ -148,6 +175,9 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.invalidateParticipants(roomId);
       }
       this.socketRooms.delete(client.id);
+    }
+    if (userId && role && isMtDoctor(role)) {
+      this.schedulePresenceBroadcast(userId);
     }
     this.logger.log(`WS uzildi: ${client.id}`);
   }
@@ -250,6 +280,13 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.emit('room-participants', others);
     client.emit('room-joined', { roomId, participants: others.length, others });
 
+    if (isMtDoctor(dbUser.role)) {
+      const meetPresence = DoctorPresenceService.presenceInMeetRoom(dbUser.id);
+      client.join(meetPresence);
+      this.socketRooms.get(client.id)?.add(meetPresence);
+      this.schedulePresenceBroadcast(dbUser.id);
+    }
+
     this.logger.debug(`WS xona: ${dbUser.email} → ${roomId} (${participants.length} ishtirokchi)`);
 
     return { success: true, participants: participants.length, others };
@@ -274,6 +311,11 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
         s.emit('session-superseded', { roomId });
         s.leave(roomId);
         this.server.to(roomId).emit('participant-left', { socketId: s.id });
+        if (isMtDoctor(p.role)) {
+          const meetPresence = DoctorPresenceService.presenceInMeetRoom(userId);
+          s.leave(meetPresence);
+          this.socketRooms.get(s.id)?.delete(meetPresence);
+        }
         evicted += 1;
       }
     } catch (err) {
@@ -291,10 +333,23 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const roomId = data?.roomId;
     if (!roomId) return { success: false };
 
+    const userId = client.data.user?.sub as string | undefined;
+    const role = client.data.user?.role as string | undefined;
+    const leavingVideo = !this.isStaffOrPresenceRoom(roomId);
+
     client.to(roomId).emit('participant-left', { socketId: client.id });
     client.leave(roomId);
     this.socketRooms.get(client.id)?.delete(roomId);
     this.invalidateParticipants(roomId);
+
+    if (userId && role && isMtDoctor(role)) {
+      if (leavingVideo) {
+        const meetPresence = DoctorPresenceService.presenceInMeetRoom(userId);
+        client.leave(meetPresence);
+        this.socketRooms.get(client.id)?.delete(meetPresence);
+      }
+      this.schedulePresenceBroadcast(userId);
+    }
 
     return { success: true };
   }
@@ -326,6 +381,7 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const rooms: string[] = [];
     if (dbUser.role === 'UT_OPERATOR' && dbUser.facilityId) {
       rooms.push(VideoGateway.staffFeedUtRoom(dbUser.facilityId));
+      rooms.push(DoctorPresenceService.STAFF_FEED_PRESENCE);
     } else if (dbUser.role === 'MT_DOCTOR') {
       rooms.push(VideoGateway.STAFF_FEED_MT_QUEUE);
       rooms.push(VideoGateway.staffFeedMtDoctorRoom(dbUser.id));
@@ -341,6 +397,11 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.join(room);
       this.socketRooms.get(client.id)?.add(room);
     }
+
+    if (isMtDoctor(dbUser.role)) {
+      this.schedulePresenceBroadcast(dbUser.id);
+    }
+
     this.logger.debug(`WS staff-feed: ${dbUser.email} → ${rooms.join(', ')}`);
     return { success: true, rooms, roomId: rooms[0] };
   }
@@ -711,38 +772,78 @@ export class VideoGateway implements OnGatewayConnection, OnGatewayDisconnect {
     void this.broadcastConsultationEvent(roomId, event, payload);
   }
 
+  /**
+   * Meet: konsultatsiya yakunlanganda video xonani yopish.
+   * Ichkaridagilar `room-closed` oladi; yangi join rad etiladi (status check).
+   */
+  async closeVideoRoom(roomId: string, reason: 'completed' | 'cancelled') {
+    this.server.to(roomId).emit('room-closed', {
+      roomId,
+      consultationId: roomId,
+      reason,
+    });
+    try {
+      const sockets = await this.server.in(roomId).fetchSockets();
+      for (const s of sockets) {
+        s.leave(roomId);
+        this.socketRooms.get(s.id)?.delete(roomId);
+      }
+    } catch (err) {
+      this.logger.warn(`Video xonani yopib bo'lmadi (${roomId}): ${err}`);
+    }
+    this.invalidateParticipants(roomId);
+    this.logger.debug(`WS room-closed → ${roomId} (${reason})`);
+  }
+
   private async broadcastConsultationEvent(
     roomId: string,
     event: string,
     payload: Record<string, unknown>,
   ) {
-    const data = { consultationId: roomId, ...payload };
-    this.server.to(roomId).emit(event, data);
-
     let utId = payload.utId as string | undefined;
     let mtDoctorId = payload.mtDoctorId as string | null | undefined;
-    if (utId === undefined || mtDoctorId === undefined) {
+    let status = payload.status as string | undefined;
+    let mtDoctorName = payload.mtDoctorName as string | undefined;
+
+    if (utId === undefined || mtDoctorId === undefined || !status) {
       const row = await this.prisma.consultation.findUnique({
         where: { id: roomId },
-        select: { utId: true, mtDoctorId: true },
+        select: {
+          utId: true,
+          mtDoctorId: true,
+          status: true,
+          mtDoctor: { select: { fullName: true } },
+        },
       });
       if (row) {
         utId = utId ?? row.utId;
         mtDoctorId = mtDoctorId ?? row.mtDoctorId;
+        status = status ?? row.status;
+        mtDoctorName = mtDoctorName ?? row.mtDoctor?.fullName ?? undefined;
       }
     }
+
+    const data = {
+      consultationId: roomId,
+      ...payload,
+      ...(utId ? { utId } : {}),
+      ...(typeof mtDoctorId === 'string' ? { mtDoctorId } : {}),
+      ...(status ? { status } : {}),
+      ...(mtDoctorName ? { mtDoctorName } : {}),
+    };
+
+    this.server.to(roomId).emit(event, data);
 
     if (utId) {
       this.server.to(VideoGateway.staffFeedUtRoom(utId)).emit(event, data);
     }
-    this.server.to(VideoGateway.STAFF_FEED_MT_GLOBAL).emit(event, data);
+    // Assigned doctor model: personal room; open-pool yo'q
     if (typeof mtDoctorId === 'string') {
       this.server.to(VideoGateway.staffFeedMtDoctorRoom(mtDoctorId)).emit(event, data);
-    } else {
-      this.server.to(VideoGateway.STAFF_FEED_MT_QUEUE).emit(event, data);
     }
+    this.server.to(VideoGateway.STAFF_FEED_MT_GLOBAL).emit(event, data);
 
-    this.logger.debug(`WS event ${event} → ${roomId}`);
+    this.logger.debug(`WS event ${event} → ${roomId} (status=${status ?? '?'})`);
   }
 
   /** Muassasa qurilmalari holati o'zgarganda real-time signal */

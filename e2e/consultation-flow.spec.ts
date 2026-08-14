@@ -13,13 +13,13 @@ test.describe('Full consultation flow (API)', () => {
     const mt = new ApiTestClient();
 
     await ut.login('operator@ishifo.uz', PASSWORD);
-    await mt.login('doctor@ishifo.uz', PASSWORD);
+    const mtLogin = await mt.login('doctor@ishifo.uz', PASSWORD);
     await mt.completeActiveConsultationIfAny();
 
     const patient = await ut.createPatient(buildTestPatient());
     expect(patient.id).toBeTruthy();
 
-    const consultation = await ut.createConsultation(buildTestConsultation(patient.id));
+    const consultation = await ut.createConsultation(buildTestConsultation(patient.id, mtLogin.user!.id));
     expect(consultation.status).toBe('QUEUED');
 
     const queue = await mt.getQueue();
@@ -34,11 +34,11 @@ test.describe('Full consultation flow (API)', () => {
     const mt = new ApiTestClient();
 
     await ut.login('operator@ishifo.uz', PASSWORD);
-    await mt.login('doctor@ishifo.uz', PASSWORD);
+    const mtLogin = await mt.login('doctor@ishifo.uz', PASSWORD);
     await mt.completeActiveConsultationIfAny();
 
     const patient = await ut.createPatient(buildTestPatient());
-    const consultation = await ut.createConsultation(buildTestConsultation(patient.id));
+    const consultation = await ut.createConsultation(buildTestConsultation(patient.id, mtLogin.user!.id));
     await mt.startConsultation(consultation.id);
 
     const completed = await mt.completeConsultation(consultation.id, {

@@ -119,15 +119,16 @@ export class ConsultationsService {
 
     const { merged: checklistData, checklistCompleted } = this.buildChecklist(dto);
 
-    let assignedDoctorId: string | undefined;
-    if (dto.mtDoctorId) {
-      const doctor = await this.prisma.user.findFirst({
-        where: { id: dto.mtDoctorId, role: UserRole.MT_DOCTOR, isActive: true },
-        select: { id: true, fullName: true, email: true },
-      });
-      if (!doctor) throw new BadRequestException('Tanlangan shifokor topilmadi yoki faol emas');
-      assignedDoctorId = doctor.id;
+    let assignedDoctorId: string;
+    if (!dto.mtDoctorId?.trim()) {
+      throw new BadRequestException('Shifokor tanlash majburiy');
     }
+    const doctor = await this.prisma.user.findFirst({
+      where: { id: dto.mtDoctorId, role: UserRole.MT_DOCTOR, isActive: true },
+      select: { id: true, fullName: true, email: true },
+    });
+    if (!doctor) throw new BadRequestException('Tanlangan shifokor topilmadi yoki faol emas');
+    assignedDoctorId = doctor.id;
 
     const consultation = await this.prisma.consultation.create({
       data: {
@@ -163,6 +164,7 @@ export class ConsultationsService {
         patient: true,
         clinicalRecord: true,
         utFacility: true,
+        mtDoctor: { select: { id: true, fullName: true } },
         aiAnalysisSteps: { orderBy: { order: 'asc' } },
       },
     }).catch(async (error) => {
@@ -173,6 +175,7 @@ export class ConsultationsService {
             patient: true,
             clinicalRecord: true,
             utFacility: true,
+            mtDoctor: { select: { id: true, fullName: true } },
             aiAnalysisSteps: { orderBy: { order: 'asc' } },
           },
         });
@@ -192,7 +195,7 @@ export class ConsultationsService {
           details: {
             consentGiven: true,
             patientId: dto.patientId,
-            ...(assignedDoctorId ? { mtDoctorId: assignedDoctorId } : {}),
+            mtDoctorId: assignedDoctorId,
           },
         },
       ],
@@ -203,20 +206,19 @@ export class ConsultationsService {
     });
 
     this.videoGateway.emitConsultationEvent(consultation.id, 'consultation-queued', {
+      consultationId: consultation.id,
+      status: ConsultationStatus.QUEUED,
       patientName: consultation.patient.fullName,
       utCode: consultation.utFacility.code,
       utId: consultation.utId,
+      mtDoctorId: assignedDoctorId,
+      mtDoctorName: doctor.fullName,
     });
 
-    const doctors = assignedDoctorId
-      ? await this.prisma.user.findMany({
-          where: { id: assignedDoctorId, isActive: true },
-          select: { id: true, email: true },
-        })
-      : await this.prisma.user.findMany({
-          where: { role: { in: MT_NOTIFY_ROLES }, isActive: true },
-          select: { id: true, email: true },
-        });
+    const doctors = await this.prisma.user.findMany({
+      where: { id: assignedDoctorId, isActive: true },
+      select: { id: true, email: true },
+    });
     if (doctors.length) {
       this.notifications
         .notifyConsultationQueued(
@@ -378,8 +380,12 @@ export class ConsultationsService {
       throw new ForbiddenException('Konsultatsiya boshqa shifokor tomonidan olib borilmoqda');
     }
 
+    if (existing.status === ConsultationStatus.QUEUED && !existing.mtDoctorId) {
+      throw new BadRequestException('Konsultatsiyaga shifokor biriktirilmagan — qayta yaratish kerak');
+    }
+
     if (existing.status === ConsultationStatus.QUEUED && existing.mtDoctorId && existing.mtDoctorId !== doctorId) {
-      throw new ForbiddenException('Bu bemor boshqa shifokorga tayinlangan');
+      throw new ForbiddenException('Bu bemor boshqa shifokorga biriktirilgan');
     }
 
     const otherActive = await this.prisma.consultation.findFirst({
@@ -429,8 +435,13 @@ export class ConsultationsService {
 
     this.videoGateway.emitConsultationEvent(id, 'consultation-started', {
       consultationId: id,
+      status: ConsultationStatus.IN_PROGRESS,
       doctorName: doctor?.fullName,
+      mtDoctorId: doctorId,
+      mtDoctorName: doctor?.fullName,
       patientName: existing.patient.fullName,
+      utId: existing.utId,
+      startedAt: new Date().toISOString(),
     });
 
     await this.prisma.sessionRecording.upsert({
@@ -508,7 +519,13 @@ export class ConsultationsService {
     } catch (err) {
       this.logger.warn(`Tashxis PDF saqlash xatosi (${id}): ${err}`);
     }
-    this.videoGateway.emitConsultationEvent(id, 'consultation-completed', { consultationId: id });
+    this.videoGateway.emitConsultationEvent(id, 'consultation-completed', {
+      consultationId: id,
+      status: ConsultationStatus.COMPLETED,
+      mtDoctorId: doctorId,
+      utId: consultation.utId,
+    });
+    void this.videoGateway.closeVideoRoom(id, 'completed');
 
     return result;
   }
@@ -692,10 +709,11 @@ export class ConsultationsService {
 
     const isDoctorCancel =
       isMtDoctor(user.role) &&
-      ((consultation.status === ConsultationStatus.IN_PROGRESS && consultation.mtDoctorId === user.id) ||
-        consultation.status === ConsultationStatus.QUEUED);
+      consultation.mtDoctorId === user.id &&
+      (consultation.status === ConsultationStatus.QUEUED ||
+        consultation.status === ConsultationStatus.IN_PROGRESS);
 
-    if (!isUtCancel && !isDoctorCancel) {
+    if (!isUtCancel && !isDoctorCancel && !isAdmin(user.role)) {
       throw new ForbiddenException('Bekor qilish huquqi yo\'q');
     }
 
@@ -731,11 +749,15 @@ export class ConsultationsService {
 
     this.videoGateway.emitConsultationEvent(id, 'consultation-cancelled', {
       consultationId: id,
+      status: ConsultationStatus.CANCELLED,
       patientId: consultation.patientId,
+      mtDoctorId: consultation.mtDoctorId,
+      utId: consultation.utId,
       reason: trimmedReason,
       cancelledBy: updated.cancelledBy?.fullName ?? user.id,
       cancelledByRole: user.role,
     });
+    void this.videoGateway.closeVideoRoom(id, 'cancelled');
 
     return updated;
   }

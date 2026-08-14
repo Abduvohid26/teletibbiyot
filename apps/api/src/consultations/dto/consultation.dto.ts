@@ -149,10 +149,10 @@ export class CreateConsultationDto {
   @IsOptional()
   checklistData?: Array<{ id: string; label: string; required: boolean; checked: boolean; notes?: string }>;
 
-  @ApiProperty({ required: false, description: 'Tanlangan shifokor (navbatda ushbu shifokorga)' })
-  @IsOptional()
+  @ApiProperty({ description: 'Tanlangan shifokor (majburiy — navbat shu shifokorga)' })
   @IsString()
-  mtDoctorId?: string;
+  @IsNotEmpty({ message: 'Shifokor tanlash majburiy' })
+  mtDoctorId: string;
 }
 
 

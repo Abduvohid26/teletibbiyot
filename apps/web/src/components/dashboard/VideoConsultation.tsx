@@ -4,18 +4,25 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Mic, MicOff, Video, VideoOff, PhoneOff, Phone, MoreHorizontal,
   ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Eye, Volume2, VolumeX, AlertTriangle,
-  LayoutGrid, Loader2,
+  LayoutGrid,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useVideoRoom, VideoRole } from '@/hooks/use-video-room';
 import { useSessionRecording } from '@/hooks/use-session-recording';
 import { buildRecordingStream } from '@/lib/recording-stream';
-import { UT_CAMERA_FEEDS } from '@/lib/video-config';
+import { UT_CAMERA_FEEDS, fetchIceServers } from '@/lib/video-config';
 import { countLiveUtCameraStreams, isUtStreamLive, mapUniqueUtCameraStreams } from '@/lib/ut-camera-streams';
 import { VideoTile } from '@/components/video/VideoTile';
 import { VideoPreflightModal } from '@/components/video/VideoPreflightModal';
 import { VideoLobby } from '@/components/video/VideoLobby';
+import { VideoRoomPresence } from '@/components/video/VideoRoomPresence';
 import { MediaSettingsLink } from '@/components/video/MediaDevicePanel';
+import {
+  wasJoined,
+  markJoined,
+  clearJoined,
+  clearOtherJoined,
+} from '@/lib/video-room-session';
 
 interface VideoConsultationProps {
   facilityCode?: string;
@@ -48,9 +55,9 @@ export function VideoConsultation({
 }: VideoConsultationProps) {
   const [activeCamera, setActiveCamera] = useState(compact ? 'equipment' : 'close');
   const [showPtz, setShowPtz] = useState(false);
-  // Google Meet uslubi: video sahifa ochilishi bilan emas, faqat "Jonli efirga
-  // qo'shilish" bosilganda ulanadi. Refresh'da bu holat nolga tushadi → lobby qaytadi.
-  const [joined, setJoined] = useState(false);
+  // Meet: refreshda auto-rejoin; Leave da lobby; sessionStorage da saqlanadi.
+  const [joined, setJoined] = useState(() => (consultationId ? wasJoined(consultationId) : false));
+  const [autoRejoin, setAutoRejoin] = useState(() => (consultationId ? wasJoined(consultationId) : false));
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
 
   const role: VideoRole = observeMode ? 'observe' : 'mt';
@@ -70,10 +77,12 @@ export function VideoConsultation({
     toggleMic,
     toggleCam,
     sendPtz,
-    endCall,
+    leaveCall,
     reconnectCall,
     connectionStats,
-    reconnecting,
+    roomPhase,
+    roomClosed,
+    sessionKicked,
     virtualCameraWarning,
     preflightPending,
     confirmPreflight,
@@ -85,12 +94,42 @@ export function VideoConsultation({
     role,
     enabled: joined && !!consultationId,
     onCallEnded: onEndCall,
+    autoRejoin,
+    skipPreflight: autoRejoin,
   });
 
-  // Konsultatsiya almashsa, avvalgi efirdan avtomatik chiqamiz (yangi bemor uchun lobby).
   useEffect(() => {
-    setJoined(false);
+    void fetchIceServers();
+  }, []);
+
+  // Konsultatsiya almashsa — eski session tozalansin; yangi uchun restore
+  useEffect(() => {
+    if (!consultationId) {
+      setJoined(false);
+      setAutoRejoin(false);
+      return;
+    }
+    clearOtherJoined(consultationId);
+    const restore = wasJoined(consultationId);
+    setJoined(restore);
+    setAutoRejoin(restore);
   }, [consultationId]);
+
+  useEffect(() => {
+    if (roomClosed && consultationId) {
+      clearJoined(consultationId);
+      setJoined(false);
+      setAutoRejoin(false);
+    }
+  }, [roomClosed, consultationId]);
+
+  useEffect(() => {
+    if (sessionKicked && consultationId) {
+      clearJoined(consultationId);
+      setJoined(false);
+      setAutoRejoin(false);
+    }
+  }, [sessionKicked, consultationId]);
 
   useEffect(() => {
     if (reconnectSignal > 0) {
@@ -151,6 +190,16 @@ export function VideoConsultation({
     );
   }
 
+  if (roomClosed) {
+    return (
+      <div className={cn('glass-panel h-full flex flex-col overflow-hidden min-h-0', compact ? 'p-2' : 'p-3')}>
+        <div className="relative flex-1 rounded-xl overflow-hidden bg-slate-950 min-h-[200px]">
+          <VideoRoomPresence phase="room_closed" compact={compact} />
+        </div>
+      </div>
+    );
+  }
+
   // Lobby: konsultatsiya bor, lekin foydalanuvchi hali efirga qo'shilmagan.
   if (!joined) {
     return (
@@ -158,7 +207,11 @@ export function VideoConsultation({
         <VideoLobby
           role={observeMode ? 'observe' : 'mt'}
           compact={compact}
-          onJoin={() => setJoined(true)}
+          onJoin={() => {
+            markJoined(consultationId, observeMode ? 'observe' : 'mt');
+            setAutoRejoin(false);
+            setJoined(true);
+          }}
         />
       </div>
     );
@@ -172,10 +225,11 @@ export function VideoConsultation({
   const connectedCount = utCameraStreams.filter((c) => c.active).length;
   const liveCount = countLiveUtCameraStreams(remoteCameras);
 
-  const handleEndCall = () => {
-    endCall();
-    // Efirdan chiqamiz → lobby'ga qaytamiz (enabled=false → to'liq teardown).
+  const handleLeave = () => {
+    leaveCall();
+    clearJoined(consultationId);
     setJoined(false);
+    setAutoRejoin(false);
   };
 
   const handleReconnect = () => {
@@ -298,12 +352,18 @@ export function VideoConsultation({
           />
         </div>
 
-        {(error || recordingError) && !cameraPermissionNeeded && (
+        {(error || recordingError) && !cameraPermissionNeeded && roomPhase === 'live' && (
           <div className={cn(
             'absolute top-12 left-3 right-3 z-10 text-white text-xs rounded-lg px-3 py-2',
             recordingError && !error ? 'bg-amber-600/90' : 'bg-red-500/90',
           )}>
             {error || recordingError}
+          </div>
+        )}
+        {/* Soft ICE/TURN ogohlantirish — waiting/connecting da ham banner */}
+        {error && !cameraPermissionNeeded && (roomPhase === 'waiting_peer' || roomPhase === 'connecting' || roomPhase === 'joining') && (
+          <div className="absolute top-12 left-3 right-3 z-30 text-white text-xs rounded-lg px-3 py-2 bg-amber-600/90">
+            {error}
           </div>
         )}
 
@@ -337,22 +397,18 @@ export function VideoConsultation({
           </div>
         )}
 
-        {/* Ulanish uzilib qayta tiklanmoqda — qotib qolgan kadr ustida belgi
-            ko'rsatamiz, aks holda foydalanuvchi nima bo'layotganini bilmaydi.
-            Bloklamaydi: bir necha soniyada o'zi tiklanadi. */}
-        {reconnecting && !videoPaused && !cameraPermissionNeeded && (
-          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950/55 backdrop-blur-[2px] px-4 pointer-events-none">
-            <Loader2 className="w-8 h-8 text-white animate-spin mb-2" />
-            <p className={cn('font-semibold text-white text-center', compact ? 'text-xs' : 'text-sm')}>
-              Qayta ulanmoqda…
-            </p>
-            <p className="text-[11px] text-slate-300 text-center mt-1 max-w-xs leading-relaxed">
-              Tarmoq tiklanishi bilan video avtomatik davom etadi
-            </p>
-          </div>
+        {/* Meet presence — qora ekran o'rniga aniq holat */}
+        {!cameraPermissionNeeded && roomPhase !== 'live' && (
+          <VideoRoomPresence
+            phase={roomPhase}
+            error={error}
+            compact={compact}
+            peerLabel="UT operator"
+            onRetry={roomPhase === 'error' ? handleReconnect : undefined}
+          />
         )}
 
-        {videoPaused && !observeMode && (
+        {videoPaused && !observeMode && roomPhase === 'live' && (
           <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950/75 backdrop-blur-sm px-4">
             <VideoOff className="w-10 h-10 text-slate-400 mb-2" />
             <p className={cn('font-semibold text-white text-center', compact ? 'text-xs' : 'text-sm')}>
@@ -477,7 +533,7 @@ export function VideoConsultation({
             </div>
             <button
               type="button"
-              onClick={handleEndCall}
+              onClick={handleLeave}
               className={cn(
                 'flex items-center gap-1.5 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl transition-all shadow-lg shadow-red-500/25',
                 compact ? 'text-xs px-3 py-1.5' : 'text-sm px-5 py-2.5 rounded-2xl',

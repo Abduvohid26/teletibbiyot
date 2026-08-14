@@ -32,7 +32,7 @@ test.describe('Video lobby signaling', () => {
     const utLogin = await ut.login('operator@ishifo.uz', PASSWORD);
     const mtLogin = await mt.login('doctor@ishifo.uz', PASSWORD);
     const patient = await ut.createPatient(buildTestPatient());
-    const consultation = await ut.createConsultation(buildTestConsultation(patient.id));
+    const consultation = await ut.createConsultation(buildTestConsultation(patient.id, mtLogin.user!.id));
     return { ut, mt, utLogin, mtLogin, consultation };
   }
 
@@ -183,7 +183,7 @@ test.describe('Video reconnect signaling (legacy)', () => {
     const mtLogin = await mt.login('doctor@ishifo.uz', PASSWORD);
 
     const patient = await ut.createPatient(buildTestPatient());
-    const consultation = await ut.createConsultation(buildTestConsultation(patient.id));
+    const consultation = await ut.createConsultation(buildTestConsultation(patient.id, mtLogin.user!.id));
 
     const utSocket = await connectVideoSocket(utLogin.accessToken!);
     const mtSocket = await connectVideoSocket(mtLogin.accessToken!);
@@ -212,7 +212,7 @@ test.describe('Video reconnect signaling (legacy)', () => {
     const mtLogin = await mt.login('doctor@ishifo.uz', PASSWORD);
 
     const patient = await ut.createPatient(buildTestPatient());
-    const consultation = await ut.createConsultation(buildTestConsultation(patient.id));
+    const consultation = await ut.createConsultation(buildTestConsultation(patient.id, mtLogin.user!.id));
 
     const utSocket = await connectVideoSocket(utLogin.accessToken!);
     const mtSocket = await connectVideoSocket(mtLogin.accessToken!);
@@ -240,7 +240,7 @@ test.describe('Video reconnect signaling (legacy)', () => {
     const mtLogin = await mt.login('doctor@ishifo.uz', PASSWORD);
 
     const patient = await ut.createPatient(buildTestPatient());
-    const consultation = await ut.createConsultation(buildTestConsultation(patient.id));
+    const consultation = await ut.createConsultation(buildTestConsultation(patient.id, mtLogin.user!.id));
 
     const utSocket = await connectVideoSocket(utLogin.accessToken!);
     const mtSocket = await connectVideoSocket(mtLogin.accessToken!);
@@ -275,7 +275,7 @@ test.describe('Video reconnect signaling (legacy)', () => {
     const mtLogin = await mt.login('doctor@ishifo.uz', PASSWORD);
 
     const patient = await ut.createPatient(buildTestPatient());
-    const consultation = await ut.createConsultation(buildTestConsultation(patient.id));
+    const consultation = await ut.createConsultation(buildTestConsultation(patient.id, mtLogin.user!.id));
 
     const utSocket = await connectVideoSocket(utLogin.accessToken!);
     const mtSocket = await connectVideoSocket(mtLogin.accessToken!);
@@ -307,7 +307,7 @@ test.describe('Video reconnect signaling (legacy)', () => {
     const mtLogin = await mt.login('doctor@ishifo.uz', PASSWORD);
 
     const patient = await ut.createPatient(buildTestPatient());
-    const consultation = await ut.createConsultation(buildTestConsultation(patient.id));
+    const consultation = await ut.createConsultation(buildTestConsultation(patient.id, mtLogin.user!.id));
 
     const utSocket = await connectVideoSocket(utLogin.accessToken!);
     const mtSocket = await connectVideoSocket(mtLogin.accessToken!);
@@ -340,7 +340,7 @@ test.describe('Video reconnect signaling (legacy)', () => {
     const mtLogin = await mt.login('doctor@ishifo.uz', PASSWORD);
 
     const patient = await ut.createPatient(buildTestPatient());
-    const consultation = await ut.createConsultation(buildTestConsultation(patient.id));
+    const consultation = await ut.createConsultation(buildTestConsultation(patient.id, mtLogin.user!.id));
 
     const utSocket = await connectVideoSocket(utLogin.accessToken!);
     const mtSocket = await connectVideoSocket(mtLogin.accessToken!);

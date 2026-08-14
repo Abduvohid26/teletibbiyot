@@ -142,7 +142,7 @@ function QueueRow({
           <p className="text-sm font-semibold truncate leading-tight">{c.patient.fullName}</p>
           {c.mtDoctor?.fullName && (
             <p className={cn('text-[11px] truncate', active ? 'text-white/75' : 'text-slate-500')}>
-              {c.mtDoctor.fullName}
+              {live ? 'Jarayonda' : 'Navbatda'} · {c.mtDoctor.fullName}
             </p>
           )}
         </div>

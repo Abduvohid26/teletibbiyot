@@ -35,7 +35,7 @@ export { toUserMessage, AppError, safeAsync } from '@/lib/errors';
 export function formatStatus(status: string): { label: string; className: string } {
   const map: Record<string, { label: string; className: string }> = {
     IN_PROGRESS: { label: 'Jarayonda', className: 'status-in-progress' },
-    QUEUED: { label: 'Kutilmoqda', className: 'status-waiting' },
+    QUEUED: { label: 'Navbatda', className: 'status-waiting' },
     COMPLETED: { label: 'Yakunlangan', className: 'status-completed' },
     CANCELLED: { label: 'Bekor qilingan', className: 'status-cancelled' },
   };

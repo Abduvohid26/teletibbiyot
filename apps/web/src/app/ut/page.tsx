@@ -29,10 +29,40 @@ import { getRoleHomePath } from '@/lib/auth-utils';
 import { isValidUzPhone, normalizeUzPhone } from '@/lib/phone';
 import { UZ_REGION_NAMES, getDistrictsForRegion } from '@/lib/uz-locations';
 import { SearchableSelect } from '@/components/ut/SearchableSelect';
+import type { DoctorOption } from '@/lib/api/types';
 
 const IN = 'input ut-glass-input !py-2 !px-3 !text-sm !min-h-[2.5rem] leading-snug placeholder:text-slate-400 placeholder:font-normal';
 const TA = 'input ut-glass-input !py-2 !px-3 !text-sm !min-h-0 !h-[2.875rem] resize-none leading-snug placeholder:text-slate-400 placeholder:font-normal';
 const TA_SM = 'input ut-glass-input !py-2 !px-3 !text-sm !min-h-0 !h-[2.5rem] resize-none leading-snug placeholder:text-slate-400 placeholder:font-normal';
+
+type DoctorPresence = NonNullable<DoctorOption['presence']>;
+
+const PRESENCE_RANK: Record<DoctorPresence, number> = {
+  online: 0,
+  in_meet: 1,
+  offline: 2,
+};
+
+function presenceLabel(status: DoctorPresence | undefined) {
+  if (status === 'online') return 'Online';
+  if (status === 'in_meet') return 'Meet';
+  return 'Offline';
+}
+
+function presenceDotClass(status: DoctorPresence | undefined) {
+  if (status === 'online') return 'bg-emerald-500';
+  if (status === 'in_meet') return 'bg-amber-500';
+  return 'bg-slate-400';
+}
+
+function sortDoctorsByPresence(list: DoctorOption[]) {
+  return [...list].sort((a, b) => {
+    const ra = PRESENCE_RANK[a.presence || 'offline'];
+    const rb = PRESENCE_RANK[b.presence || 'offline'];
+    if (ra !== rb) return ra - rb;
+    return a.fullName.localeCompare(b.fullName, 'uz');
+  });
+}
 
 function emptyPatientData() {
   return {
@@ -89,7 +119,7 @@ export default function UTClientPage() {
   const [files, setFiles] = useState<File[]>([]);
   const [uploadedFileCount, setUploadedFileCount] = useState(0);
   const [offlineNotice, setOfflineNotice] = useState('');
-  const [doctors, setDoctors] = useState<Array<{ id: string; fullName: string; specialty?: string | null; specialtyRef?: { name: string } | null }>>([]);
+  const [doctors, setDoctors] = useState<DoctorOption[]>([]);
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
 
   const {
@@ -107,12 +137,17 @@ export default function UTClientPage() {
     api.getDoctors()
       .then((list) => {
         // Faqat faol MT shifokorlar — avto tanlash yo'q
-        setDoctors(list);
+        setDoctors(sortDoctorsByPresence(list));
         setSelectedDoctorId('');
       })
       .catch(() => setDoctors([]));
   }, [user]);
 
+  const sortedDoctors = useMemo(() => sortDoctorsByPresence(doctors), [doctors]);
+  const selectedDoctor = useMemo(
+    () => sortedDoctors.find((d) => d.id === selectedDoctorId),
+    [sortedDoctors, selectedDoctorId],
+  );
   useEffect(() => {
     flushOfflineQueue(async (payload) => {
       const p = payload as OfflineConsultationPayload;
@@ -149,10 +184,16 @@ export default function UTClientPage() {
       onConsultationStarted: (payload) => {
         toast(`${payload.doctorName || 'Shifokor'} konsultatsiyani boshladi`, 'success');
       },
+      onDoctorPresenceUpdated: ({ doctorId, status }) => {
+        setDoctors((prev) =>
+          sortDoctorsByPresence(
+            prev.map((d) => (d.id === doctorId ? { ...d, presence: status } : d)),
+          ),
+        );
+      },
     },
     { notifyToasts: true, staffFeed: true },
   );
-
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       setFiles((prev) => [...prev, ...Array.from(e.target.files!)]);
@@ -456,17 +497,33 @@ export default function UTClientPage() {
             <label className="flex items-center gap-1.5 shrink-0">
               <span className="text-sm text-slate-600 whitespace-nowrap">Shifokor</span>
               <select
-                className={`${IN} !w-[10rem] sm:!w-[12rem] !min-h-[2rem] !py-1`}
+                className={`${IN} !w-[12rem] sm:!w-[15rem] !min-h-[2rem] !py-1`}
                 value={selectedDoctorId}
                 onChange={(e) => setSelectedDoctorId(e.target.value)}
               >
                 <option value="">Shifokor tanlang</option>
-                {doctors.map((d) => (
+                {sortedDoctors.map((d) => (
                   <option key={d.id} value={d.id}>
-                    {d.fullName}{d.specialtyRef?.name || d.specialty ? ` — ${d.specialtyRef?.name || d.specialty}` : ''}
+                    {presenceLabel(d.presence)} · {d.fullName}
+                    {d.specialtyRef?.name || d.specialty ? ` — ${d.specialtyRef?.name || d.specialty}` : ''}
                   </option>
                 ))}
               </select>
+              {selectedDoctor && (
+                <span
+                  className="inline-flex items-center gap-1 text-xs text-slate-600 whitespace-nowrap"
+                  title={
+                    selectedDoctor.presence === 'in_meet'
+                      ? 'Shifokor hozir Meetda'
+                      : selectedDoctor.presence === 'online'
+                        ? 'Shifokor online'
+                        : 'Shifokor offline'
+                  }
+                >
+                  <span className={`inline-block h-2 w-2 rounded-full ${presenceDotClass(selectedDoctor.presence)}`} />
+                  {presenceLabel(selectedDoctor.presence)}
+                </span>
+              )}
             </label>
             <button
               type="button"

@@ -456,7 +456,7 @@ function ActiveQueueCard({
             )}
           </div>
           <p className="text-xs text-slate-500 mt-0.5 truncate">
-            {c.utFacility?.code ?? 'UT'} · {age ?? '—'} yosh · {c.patient.phone}
+            {live ? 'Jarayonda' : 'Sizga biriktirilgan'} · {c.utFacility?.code ?? 'UT'} · {age ?? '—'} yosh · {c.patient.phone}
           </p>
           {c.clinicalRecord?.complaints && (
             <p className="text-xs text-slate-600 mt-1 line-clamp-1">{c.clinicalRecord.complaints}</p>

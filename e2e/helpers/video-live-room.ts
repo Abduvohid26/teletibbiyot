@@ -119,6 +119,25 @@ export async function clickLobbyJoin(page: Page, label = 'efir') {
   await btn.click();
 }
 
+/**
+ * Meet auto-rejoin: session saqlangan bo'lsa lobby yo'q — to'g'ridan ulanadi.
+ * Lobby ko'rinsa (Leave dan keyin) — Join bosiladi.
+ */
+export async function joinOrAutoRejoin(page: Page, label = 'efir') {
+  const btn = page.getByRole('button', { name: /Jonli efirga qo'shilish/i });
+  const visible = await btn.isVisible({ timeout: 4_000 }).catch(() => false);
+  if (visible) {
+    await btn.click();
+    return;
+  }
+  // Auto-rejoin ketayotgan bo'lishi mumkin — presence yoki video kutamiz
+  const joining = page.getByText(/Xonaga ulanmoqda|Sherik kutilmoqda|Video ulanmoqda|Qayta ulanmoqda/i);
+  await Promise.race([
+    joining.first().waitFor({ state: 'visible', timeout: 8_000 }).catch(() => undefined),
+    page.waitForTimeout(1500),
+  ]);
+}
+
 export async function expectNoVideoErrorBanner(page: Page, who: string) {
   const err = page.getByText(/Video javob qabul qilishda xatolik/i);
   await expect(err, `${who}: xato banner bo'lmasligi kerak`).toHaveCount(0);
@@ -173,22 +192,23 @@ export async function openLiveRoom(
 
   const reopenUt = async () => {
     await utPage.goto('/ut/vitals');
-    await clickLobbyJoin(utPage, 'bemor (qayta)');
+    await joinOrAutoRejoin(utPage, 'bemor (qayta)');
   };
 
   const reopenMt = async () => {
     await mtPage.goto('/dashboard');
-    await clickLobbyJoin(mtPage, 'shifokor (qayta)');
+    await joinOrAutoRejoin(mtPage, 'shifokor (qayta)');
   };
 
   const reloadUt = async () => {
     await utPage.reload();
-    await clickLobbyJoin(utPage, 'bemor (reload)');
+    // Meet: refresh → auto-rejoin (lobby yo'q)
+    await joinOrAutoRejoin(utPage, 'bemor (reload)');
   };
 
   const reloadMt = async () => {
     await mtPage.reload();
-    await clickLobbyJoin(mtPage, 'shifokor (reload)');
+    await joinOrAutoRejoin(mtPage, 'shifokor (reload)');
   };
 
   const leaveUtViaUi = async () => {

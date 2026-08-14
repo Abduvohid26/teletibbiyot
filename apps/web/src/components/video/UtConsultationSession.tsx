@@ -5,29 +5,81 @@ import { useVideoRoom } from '@/hooks/use-video-room';
 import { UtVideoPanelView } from '@/components/video/UtVideoPanelView';
 import { VideoPreflightModal } from '@/components/video/VideoPreflightModal';
 import { VideoLobby } from '@/components/video/VideoLobby';
+import { VideoRoomPresence } from '@/components/video/VideoRoomPresence';
 import { Consultation } from '@/lib/api';
+import {
+  wasJoined,
+  markJoined,
+  clearJoined,
+  clearOtherJoined,
+} from '@/lib/video-room-session';
+import { fetchIceServers } from '@/lib/video-config';
 
 interface UtConsultationSessionProps {
   consultation: Consultation;
   patientName?: string;
 }
 
-/** UT: barcha kameralar video oqimi (Google Meet uslubi — "Jonli efirga qo'shilish") */
+/** UT: Meet-uslubidagi video xona — refreshda auto-rejoin */
 export function UtConsultationSession({ consultation, patientName }: UtConsultationSessionProps) {
-  // Video sahifa ochilishi bilan emas, faqat efirga qo'shilgandan keyin ulanadi.
-  // Refresh'da bu holat nolga tushadi → lobby qaytadi (Google Meet kabi).
-  const [joined, setJoined] = useState(false);
+  const [joined, setJoined] = useState(() => wasJoined(consultation.id));
+  const [autoRejoin, setAutoRejoin] = useState(() => wasJoined(consultation.id));
 
   useEffect(() => {
-    setJoined(false);
+    // ICE warm-up — Join oldidan TURN/STUN xatolarini erta ko'rsatish
+    void fetchIceServers();
+  }, []);
+
+  useEffect(() => {
+    clearOtherJoined(consultation.id);
+    const restore = wasJoined(consultation.id);
+    setJoined(restore);
+    setAutoRejoin(restore);
   }, [consultation.id]);
+
+  useEffect(() => {
+    if (consultation.status === 'COMPLETED' || consultation.status === 'CANCELLED') {
+      clearJoined(consultation.id);
+      setJoined(false);
+      setAutoRejoin(false);
+    }
+  }, [consultation.id, consultation.status]);
 
   const video = useVideoRoom({
     consultationId: consultation.id,
     role: 'ut',
     enabled: joined,
-    skipPreflight: consultation.status === 'QUEUED',
+    skipPreflight: consultation.status === 'QUEUED' || autoRejoin,
+    autoRejoin,
   });
+
+  useEffect(() => {
+    if (video.roomClosed || video.sessionKicked) {
+      clearJoined(consultation.id);
+      setJoined(false);
+      setAutoRejoin(false);
+    }
+  }, [video.roomClosed, video.sessionKicked, consultation.id]);
+
+  const handleJoin = () => {
+    markJoined(consultation.id, 'ut');
+    setAutoRejoin(false);
+    setJoined(true);
+  };
+
+  const handleLeave = () => {
+    video.leaveCall();
+    clearJoined(consultation.id);
+    setJoined(false);
+  };
+
+  if (video.roomClosed || consultation.status === 'COMPLETED' || consultation.status === 'CANCELLED') {
+    return (
+      <div className="h-full min-h-0 flex flex-col relative rounded-xl overflow-hidden bg-slate-950">
+        <VideoRoomPresence phase="room_closed" />
+      </div>
+    );
+  }
 
   if (!joined) {
     return (
@@ -35,7 +87,7 @@ export function UtConsultationSession({ consultation, patientName }: UtConsultat
         <VideoLobby
           role="ut"
           peerName={consultation.mtDoctor?.fullName}
-          onJoin={() => setJoined(true)}
+          onJoin={handleJoin}
         />
       </div>
     );
@@ -52,7 +104,7 @@ export function UtConsultationSession({ consultation, patientName }: UtConsultat
           doctorName={consultation.mtDoctor?.fullName}
           patientName={patientName ?? consultation.patient.fullName}
           defaultView="doctor"
-          onLeave={() => setJoined(false)}
+          onLeave={handleLeave}
         />
       </div>
     </>

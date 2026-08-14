@@ -131,7 +131,9 @@ export function useDoctorDashboard() {
   useConsultationRealtime(
     realtimeIds,
     {
-      onConsultationQueued: () => refresh(),
+      onConsultationQueued: () => {
+        void executeReload();
+      },
       onAttachmentUploaded: (_attachment, cid) => {
         if (documentsConsultationId === cid || consultation?.id === cid) {
           setSnapshot((prev) =>
@@ -145,6 +147,27 @@ export function useDoctorDashboard() {
       onConsultationStarted: (payload) => {
         if (payload.consultationId) {
           setSelectedConsultationId(payload.consultationId);
+          // Optimistic: QUEUED → IN_PROGRESS navbatdan olib, faolga qo'yish
+          setSnapshot((prev) => {
+            if (!prev) return prev;
+            const fromQueue = prev.queue.find((c) => c.id === payload.consultationId);
+            const updated = fromQueue
+              ? { ...fromQueue, status: 'IN_PROGRESS' as const }
+              : prev.consultation?.id === payload.consultationId
+                ? { ...prev.consultation, status: 'IN_PROGRESS' as const }
+                : null;
+            return {
+              ...prev,
+              queue: prev.queue.filter((c) => c.id !== payload.consultationId),
+              inProgressList: updated
+                ? [
+                    updated,
+                    ...prev.inProgressList.filter((c) => c.id !== payload.consultationId),
+                  ]
+                : prev.inProgressList,
+              consultation: updated ?? prev.consultation,
+            };
+          });
         }
         void executeReload(payload.consultationId);
         router.push('/dashboard');

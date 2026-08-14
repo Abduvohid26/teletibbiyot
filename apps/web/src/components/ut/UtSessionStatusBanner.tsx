@@ -3,7 +3,6 @@
 import { Clock, Radio, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 import { Consultation } from '@/lib/api';
-import { cn } from '@/lib/utils';
 
 interface UtSessionStatusBannerProps {
   consultation: Consultation | null;
@@ -30,7 +29,9 @@ export function UtSessionStatusBanner({
           <div>
             <p className="font-bold text-emerald-900">Jonli efir boshlandi!</p>
             <p className="text-sm text-emerald-800">
-              {doctorName ? `${doctorName} konsultatsiyani boshladi` : 'Shifokor konsultatsiyani boshladi'} — kameraga ruxsat bering.
+              {doctorName
+                ? `${doctorName} qabulni boshladi — efirga qo‘shiling`
+                : 'Shifokor qabulni boshladi — efirga qo‘shiling'}
             </p>
           </div>
         </div>
@@ -68,19 +69,27 @@ export function UtSessionStatusBanner({
   }
 
   if (consultation.status === 'QUEUED') {
+    const doctorLabel = consultation.mtDoctor?.fullName || doctorName;
     return (
       <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <Clock size={16} className="text-amber-600 shrink-0" />
           <div>
-            <p className="text-sm font-semibold text-amber-900">Navbatda — shifokor qabul qilishi kutilmoqda</p>
+            <p className="text-sm font-semibold text-amber-900">
+              Navbatda{doctorLabel ? ` — Dr ${doctorLabel}` : ''} qabul qilishi kutilmoqda
+            </p>
             <p className="text-xs text-amber-800">
-              {consultation.patient.fullName} markazga yuborildi. Shifokor &quot;Boshlash&quot; bosgach jonli efir ochiladi.
+              {consultation.patient.fullName} shifokorga biriktirildi. Shifokor &quot;Boshlash&quot; bosgach
+              status &quot;Jarayonda&quot; bo&apos;ladi va jonli efir ochiladi.
             </p>
           </div>
         </div>
-        <Link href="/ut" className="btn-secondary !py-1.5 !text-xs shrink-0 inline-flex items-center gap-1">
-          <UserPlus size={13} /> Yana bemor
+        <Link
+          href="/ut"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-800 hover:text-amber-950 shrink-0"
+        >
+          <UserPlus size={14} />
+          Yangi bemor
         </Link>
       </div>
     );

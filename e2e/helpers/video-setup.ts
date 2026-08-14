@@ -24,11 +24,14 @@ export async function prepareVideoConsultation(options?: {
   const mt = new ApiTestClient();
 
   await ut.login('operator@ishifo.uz', PASSWORD);
-  await mt.login('doctor@ishifo.uz', PASSWORD);
+  const mtLogin = await mt.login('doctor@ishifo.uz', PASSWORD);
   await mt.completeActiveConsultationIfAny();
 
+  const doctorId = mtLogin.user?.id;
+  if (!doctorId) throw new Error('Doctor id topilmadi');
+
   const patient = await ut.createPatient(buildTestPatient());
-  const consultation = await ut.createConsultation(buildTestConsultation(patient.id));
+  const consultation = await ut.createConsultation(buildTestConsultation(patient.id, doctorId));
 
   if (options?.start) {
     await mt.startConsultation(consultation.id);

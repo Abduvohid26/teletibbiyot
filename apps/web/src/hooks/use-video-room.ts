@@ -4,11 +4,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { captureUtCameraStreams, stopAllStreams } from '@/lib/ut-camera-capture';
 import { isUtStreamLive, mapUniqueUtCameraStreams } from '@/lib/ut-camera-streams';
 import { useSharedVideoSocket } from '@/hooks/use-shared-video-socket';
-import { isRoomActive, subscribeJoinResults } from '@/lib/video-socket-client';
+import { isRoomActive, subscribeJoinResults, leaveConsultationRoom } from '@/lib/video-socket-client';
 import { useWebRtcStats } from '@/hooks/use-webrtc-stats';
 import { checkTurnReachable } from '@/lib/turn-preflight';
 import {
   fetchIceServers,
+  getIceConfigError,
   getIceServers,
   isTurnConfigured,
   MT_DOCTOR_STREAM_ID,
@@ -26,6 +27,16 @@ import {
 import { saveMediaPreferences } from '@/lib/media-preferences';
 
 export type VideoRole = 'mt' | 'ut' | 'observe';
+
+/** Meet-uslubidagi xona holati — UI overlay uchun */
+export type VideoRoomPhase =
+  | 'joining'
+  | 'waiting_peer'
+  | 'connecting'
+  | 'live'
+  | 'reconnecting'
+  | 'error'
+  | 'room_closed';
 
 interface RoomParticipant {
   socketId: string;
@@ -47,6 +58,8 @@ interface UseVideoRoomOptions {
   enabled?: boolean;
   onCallEnded?: () => void;
   skipPreflight?: boolean;
+  /** Refresh auto-rejoin: preflight o‘tkazib yuboriladi */
+  autoRejoin?: boolean;
 }
 
 export function useVideoRoom({
@@ -55,6 +68,7 @@ export function useVideoRoom({
   enabled = true,
   onCallEnded,
   skipPreflight = false,
+  autoRejoin = false,
 }: UseVideoRoomOptions) {
   const { socketRef, connected: socketConnected, joined: roomJoined, error: socketError } = useSharedVideoSocket(
     enabled ? consultationId : undefined,
@@ -121,6 +135,12 @@ export function useVideoRoom({
   // Ulanish uzilib, tiklashga urinilyapti — UI "Qayta ulanmoqda…" ko'rsatadi.
   const [reconnecting, setReconnecting] = useState(false);
   const [cameraPermissionNeeded, setCameraPermissionNeeded] = useState(false);
+  /** Xonadagi boshqa ishtirokchilar soni (presence UI) */
+  const [peerCount, setPeerCount] = useState(0);
+  /** Konsultatsiya yakunlandi — xona yopiq */
+  const [roomClosed, setRoomClosed] = useState(false);
+  /** Boshqa tab/qurilma ochildi — parent lobbyga qaytaradi */
+  const [sessionKicked, setSessionKicked] = useState(false);
 
   const connectionStats = useWebRtcStats(pcsRef, mediaReady && roomJoined);
 
@@ -129,7 +149,11 @@ export function useVideoRoom({
   }, [remoteCameras]);
 
   useEffect(() => {
-    if (socketError) setError(socketError);
+    if (!socketError) return;
+    if (/yakunlangan|yopilgan/i.test(socketError)) {
+      setRoomClosed(true);
+    }
+    setError(socketError);
   }, [socketError]);
 
   useEffect(() => {
@@ -140,7 +164,14 @@ export function useVideoRoom({
     if (!iceReady || !enabled || !consultationId) return;
 
     if (!isTurnConfigured()) {
-      setError('TURN server sozlanmagan — uzoq hududlarda video ishlamasligi mumkin');
+      // Sabab ikki xil bo'lishi mumkin: TURN haqiqatan sozlanmagan, YOKI
+      // ice-config endpoint javob bermagan va biz zaxira sozlamaga tushganmiz.
+      // Ikkinchisi ancha yashirin — server tomonda TURN mukammal ishlab tursa
+      // ham brauzerda u yo'q bo'ladi. Shuning uchun aniq sababni ko'rsatamiz.
+      setError(
+        getIceConfigError()
+        || 'TURN server sozlanmagan — uzoq hududlarda video ishlamasligi mumkin',
+      );
       return;
     }
 
@@ -185,21 +216,18 @@ export function useVideoRoom({
   }, [role]);
 
   /**
-   * Peer bilan muzokara HOZIR ketayaptimi (yoki ulanish tirikmi)?
-   * Bunday PC'ni buzish MUMKIN EMAS — aks holda offer kelib, javob tayyorlanayotganda
-   * takroriy "room-participants" hodisasi uni o'ldiradi va answer hech qachon
-   * yuborilmaydi (shifokor "have-local-offer" da abadiy qotib qoladi).
+   * Peer bilan muzokara HOZIR ketayaptimi?
+   * Faqat haqiqiy busy — yarim-o'lik PC recovery/rejoin ni bloklamasligi kerak.
    */
   const peerIsNegotiating = useCallback((remoteSocketId: string): boolean => {
+    if (makingOfferRef.current.get(remoteSocketId)) return true;
+    if (offerProcessingRef.current.has(remoteSocketId)) return true;
     const pc = pcsRef.current.get(remoteSocketId);
     if (!pc) return false;
-    // MUHIM: faqat signalingState'ga qarab bo'lmaydi. PC yangi yaratilib,
-    // setRemoteDescription() hali bajarilayotgan paytda holat "stable"/"new"
-    // bo'lib turadi — o'sha lahzada uni yopsak, promise hech qachon tugamaydi
-    // va answer yuborilmaydi. Shuning uchun: mavjud va yopilmagan PC = band.
     if (pc.signalingState === 'closed') return false;
     if (pc.connectionState === 'closed' || pc.connectionState === 'failed') return false;
-    return true;
+    if (pc.signalingState !== 'stable') return true;
+    return false;
   }, []);
 
   const updateRemoteCamera = useCallback((cameraId: string, stream: MediaStream) => {
@@ -346,6 +374,7 @@ export function useVideoRoom({
 
     knownParticipantsRef.current.add(participant.socketId);
     participantUserIdsRef.current.set(participant.socketId, participant.userId);
+    setPeerCount(knownParticipantsRef.current.size);
   }, [teardownPeerConnection]);
 
   const attachRemoteVideoTrack = useCallback(
@@ -822,6 +851,24 @@ export function useVideoRoom({
     clearReconnectTimers();
   }, [clearReconnectTimers]);
 
+  useEffect(() => {
+    if (consultationId) setSessionKicked(false);
+  }, [consultationId]);
+
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!enabled || !consultationId || !socket) return;
+    const onSuperseded = (payload?: { roomId?: string }) => {
+      if (payload?.roomId && payload.roomId !== consultationId) return;
+      setSessionKicked(true);
+      cleanupMedia();
+    };
+    socket.on('session-superseded', onSuperseded);
+    return () => {
+      socket.off('session-superseded', onSuperseded);
+    };
+  }, [cleanupMedia, consultationId, enabled, socketRef]);
+
   const removeRemotePeer = useCallback((socketId: string) => {
     teardownPeerConnection(socketId);
     knownParticipantsRef.current.delete(socketId);
@@ -835,7 +882,13 @@ export function useVideoRoom({
       clearInterval(watchdog);
       peerWatchdogRef.current.delete(socketId);
     }
-    if (pcsRef.current.size === 0) {
+    setPeerCount(knownParticipantsRef.current.size);
+    // Meet: sherik chiqdi — remote media tozalansin, WaitingPeer ko'rinsin
+    if (knownParticipantsRef.current.size === 0) {
+      socketToCamerasRef.current.clear();
+      remoteTrackIdsRef.current.clear();
+      remoteDoctorSocketRef.current = null;
+      setRemoteCameras({});
       setRemoteAudio(null);
     }
   }, [teardownPeerConnection]);
@@ -936,6 +989,9 @@ export function useVideoRoom({
 
   useEffect(() => {
     setVideoPaused(false);
+    setRoomClosed(false);
+    setPeerCount(0);
+    knownParticipantsRef.current.clear();
     setupStartedRef.current = false;
     hadMediaSessionRef.current = false;
     roomSyncDoneRef.current = null;
@@ -951,10 +1007,20 @@ export function useVideoRoom({
     }
   }, [consultationId, enabled]);
 
+  // Auto-rejoin (refresh): preflight modalni o'tkazib yuboramiz
+  useEffect(() => {
+    if (autoRejoin || skipPreflight) {
+      preflightConfirmedRef.current = true;
+      setPreflightPending(false);
+    }
+  }, [autoRejoin, skipPreflight, consultationId]);
+
   useEffect(() => {
     if (!enabled || !consultationId || !iceReady) {
       if (!enabled || !consultationId) {
-        preflightConfirmedRef.current = false;
+        if (!autoRejoin && !skipPreflight) {
+          preflightConfirmedRef.current = false;
+        }
         setupStartedRef.current = false;
         setVideoPaused(false);
         cleanupMedia();
@@ -966,7 +1032,11 @@ export function useVideoRoom({
 
     const prefs = loadMediaPreferences();
     const needsPreflight =
-      isPublisher && prefs.preflightEnabled && !skipPreflight && !preflightConfirmedRef.current;
+      isPublisher
+      && prefs.preflightEnabled
+      && !skipPreflight
+      && !autoRejoin
+      && !preflightConfirmedRef.current;
 
     if (needsPreflight && !preflightPending) {
       setPreflightPending(true);
@@ -984,6 +1054,7 @@ export function useVideoRoom({
       cleanupMedia();
     };
   }, [
+    autoRejoin,
     cleanupMedia,
     consultationId,
     enabled,
@@ -1308,7 +1379,27 @@ export function useVideoRoom({
     const onCallEndedEvent = (data?: { socketId?: string }) => {
       const peerId = data?.socketId;
       if (!peerId) return;
+      // Meet Leave: peer media to'xtadi — PC yopiladi; agar xonada qolmasa waiting
       softDisconnectRemotePeer(peerId);
+      if (!knownParticipantsRef.current.has(peerId)) {
+        setPeerCount(knownParticipantsRef.current.size);
+      }
+    };
+
+    const onRoomClosed = (data?: { roomId?: string; consultationId?: string }) => {
+      const id = data?.roomId ?? data?.consultationId;
+      if (id && id !== consultationId) return;
+      setRoomClosed(true);
+      setReconnecting(false);
+      knownParticipantsRef.current.clear();
+      setPeerCount(0);
+      cleanupMedia();
+      onCallEnded?.();
+    };
+
+    const onConsultationTerminal = (data?: { consultationId?: string }) => {
+      if (data?.consultationId && data.consultationId !== consultationId) return;
+      onRoomClosed({ roomId: consultationId });
     };
 
     const onParticipantLeft = (data: { socketId: string }) => {
@@ -1328,6 +1419,7 @@ export function useVideoRoom({
           teardownPeerConnection(data.socketId);
           knownParticipantsRef.current.delete(data.socketId);
           participantUserIdsRef.current.delete(data.socketId);
+          setPeerCount(knownParticipantsRef.current.size);
           return;
         }
       }
@@ -1448,6 +1540,9 @@ export function useVideoRoom({
     socket.on('peer-media-resumed', onPeerMediaResumed);
     socket.on('offer-requested', onOfferRequested);
     socket.on('signal-error', onSignalError);
+    socket.on('room-closed', onRoomClosed);
+    socket.on('consultation-completed', onConsultationTerminal);
+    socket.on('consultation-cancelled', onConsultationTerminal);
 
     if (isRoomActive(consultationId) && roomSyncDoneRef.current !== consultationId) {
       roomSyncDoneRef.current = consultationId;
@@ -1471,8 +1566,12 @@ export function useVideoRoom({
       socket.off('peer-media-resumed', onPeerMediaResumed);
       socket.off('offer-requested', onOfferRequested);
       socket.off('signal-error', onSignalError);
+      socket.off('room-closed', onRoomClosed);
+      socket.off('consultation-completed', onConsultationTerminal);
+      socket.off('consultation-cancelled', onConsultationTerminal);
     };
   }, [
+    cleanupMedia,
     consultationId,
     enabled,
     clearReconnectTimers,
@@ -1486,6 +1585,7 @@ export function useVideoRoom({
     isOfferer,
     makeOffer,
     mediaReady,
+    onCallEnded,
     rememberParticipant,
     removeRemotePeer,
     requestRoomSync,
@@ -1549,27 +1649,35 @@ export function useVideoRoom({
     [consultationId, socketRef],
   );
 
-  const endCall = useCallback(() => {
-    const socket = socketRef.current;
-    if (consultationId && socket) {
-      socket.emit('end-call', { roomId: consultationId });
+  /** Meet Leave: xonadan chiqish — konsultatsiya ochiq qoladi, qayta Join mumkin */
+  const leaveCall = useCallback(() => {
+    if (consultationId) {
+      leaveConsultationRoom(consultationId);
     }
     window.dispatchEvent(new CustomEvent('call-ended-recording'));
     setupStartedRef.current = false;
-    setVideoPaused(true);
+    setVideoPaused(false);
+    setReconnecting(false);
+    knownParticipantsRef.current.clear();
+    setPeerCount(0);
     cleanupMedia();
-  }, [cleanupMedia, consultationId, socketRef]);
+  }, [cleanupMedia, consultationId]);
+
+  /** @deprecated Meet modelida leaveCall bilan bir xil — konsultatsiyani yakunlamaydi */
+  const endCall = leaveCall;
 
   const reconnectCall = useCallback(async () => {
     if (isReconnectingRef.current) return;
     isReconnectingRef.current = true;
     preflightConfirmedRef.current =
       skipPreflight
+      || autoRejoin
       || !loadMediaPreferences().preflightEnabled
       || hadMediaSessionRef.current
       || preflightConfirmedRef.current;
     setPreflightPending(false);
     setError('');
+    setRoomClosed(false);
 
     pcsRef.current.forEach((pc) => pc.close());
     pcsRef.current.clear();
@@ -1602,7 +1710,7 @@ export function useVideoRoom({
     } finally {
       isReconnectingRef.current = false;
     }
-  }, [emitReconnectSignals, setupLocalMedia, skipPreflight]);
+  }, [emitReconnectSignals, setupLocalMedia, skipPreflight, autoRejoin]);
 
   const reloadMedia = useCallback(async () => {
     const existingTargets = [...pcsRef.current.keys()];
@@ -1638,8 +1746,28 @@ export function useVideoRoom({
     };
   });
 
+  const hasLiveRemoteMedia = (() => {
+    if (role === 'ut') {
+      if (isUtStreamLive(remoteCameras[MT_DOCTOR_STREAM_ID] ?? null)) return true;
+    } else if (UT_CAMERA_ORDER.some((id) => isUtStreamLive(remoteCameras[id] ?? null))) {
+      return true;
+    }
+    return !!remoteAudio?.getAudioTracks().some((t) => t.readyState === 'live' && t.enabled);
+  })();
+
+  const roomPhase: VideoRoomPhase = (() => {
+    if (roomClosed) return 'room_closed';
+    if (reconnecting) return 'reconnecting';
+    // Join/auth hard fail — xonaga kirmagan
+    if (error && !roomJoined) return 'error';
+    if (!iceReady || !mediaReady || !roomJoined) return 'joining';
+    if (peerCount === 0 && !hasLiveRemoteMedia) return 'waiting_peer';
+    if (!hasLiveRemoteMedia) return 'connecting';
+    return 'live';
+  })();
+
   return {
-    connected: socketConnected && roomJoined && mediaReady && iceReady && !videoPaused,
+    connected: socketConnected && roomJoined && mediaReady && iceReady && !videoPaused && !roomClosed,
     videoPaused,
     error,
     micOn,
@@ -1656,10 +1784,15 @@ export function useVideoRoom({
     toggleCam,
     sendPtz,
     endCall,
+    leaveCall,
     reconnectCall,
     observeMode: role === 'observe',
     connectionStats,
     reconnecting,
+    roomPhase,
+    roomClosed,
+    peerCount,
+    sessionKicked,
     virtualCameraWarning,
     audioMissing,
     preflightPending,

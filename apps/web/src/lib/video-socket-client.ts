@@ -684,6 +684,17 @@ export function isRoomActive(consultationId: string): boolean {
   return activeRooms.has(consultationId);
 }
 
+/** Meet Leave: xonadan chiqish (subscription saqlanishi mumkin — release alohida) */
+export function leaveConsultationRoom(consultationId: string) {
+  if (!consultationId) return;
+  if (sharedSocket) {
+    leaveRoom(sharedSocket, consultationId);
+  } else {
+    activeRooms.delete(consultationId);
+    pendingJoins.delete(consultationId);
+  }
+}
+
 export function isStaffFeedActive(): boolean {
   return activeRooms.has(STAFF_FEED_ROOM);
 }

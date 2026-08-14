@@ -1,4 +1,5 @@
 import { isBrowserReachableTurnUrl } from '@ishifo/shared';
+import { api } from '@/lib/api';
 import { ICE_SERVERS as DEFAULT_ICE } from './video-config-base';
 
 export * from './video-config-base';
@@ -6,6 +7,19 @@ export * from './video-config-base';
 let cachedIceServers: RTCIceServer[] | null = null;
 let iceTurnConfigured: boolean | null = null;
 let fetchPromise: Promise<RTCIceServer[]> | null = null;
+let iceConfigError: string | null = null;
+
+/**
+ * ICE konfiguratsiyasini olishda muammo bo'lganmi.
+ *
+ * Bu endpoint 401/500 qaytarsa, ilova build vaqtida "pishirilgan"
+ * NEXT_PUBLIC_TURN_URL ga tushadi. Agar image eski qiymat bilan (yoki umuman
+ * qiymatsiz) qurilgan bo'lsa, brauzerda TURN BO'LMAYDI — server tomonda TURN
+ * mukammal ishlayotgan bo'lsa ham. Bu jim degradatsiya edi; endi ko'rsatamiz.
+ */
+export function getIceConfigError(): string | null {
+  return iceConfigError;
+}
 
 export function isTurnConfigured(): boolean {
   if (iceTurnConfigured !== null) return iceTurnConfigured;
@@ -53,7 +67,18 @@ export async function fetchIceServers(): Promise<RTCIceServer[]> {
 
   fetchPromise = (async () => {
     try {
-      const res = await fetch('/api/video/ice-config', { credentials: 'include' });
+      // Bearer token ham yuboramiz. Ilgari faqat cookie'ga tayanardi — cookie
+      // yo'q yoki SameSite tufayli yuborilmagan holatda endpoint 401 qaytarardi
+      // va biz JIMGINA STUN-only rejimga tushardik. Aynan shu holatda TURN
+      // sozlangan bo'lsa ham brauzer undan foydalanmaydi.
+      const token = api.getToken();
+      const res = await fetch('/api/video/ice-config', {
+        credentials: 'include',
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (!res.ok) {
+        iceConfigError = `ICE konfiguratsiyasini olishda xatolik (HTTP ${res.status})`;
+      }
       if (res.ok) {
         const data = (await res.json()) as { iceServers?: RTCIceServer[]; turnConfigured?: boolean };
         if (data.iceServers?.length) {
@@ -65,14 +90,19 @@ export async function fetchIceServers(): Promise<RTCIceServer[]> {
           return cachedIceServers;
         }
       }
-    } catch {
-      /* fallback */
+    } catch (err) {
+      iceConfigError = `ICE konfiguratsiyasiga ulanib bo'lmadi (${String(err)})`;
     }
+
     cachedIceServers = buildEnvIceServers();
     iceTurnConfigured = cachedIceServers.some((s) => {
       const urls = Array.isArray(s.urls) ? s.urls : [s.urls];
       return urls.some((u) => String(u).startsWith('turn:'));
     });
+    if (iceConfigError && !iceTurnConfigured) {
+      iceConfigError +=
+        ' — zaxira sozlamada ham TURN yo\'q. Web image NEXT_PUBLIC_TURN_URL bilan qayta qurilishi kerak.';
+    }
     return cachedIceServers;
   })();
 
@@ -88,4 +118,5 @@ export function clearIceCache() {
   cachedIceServers = null;
   iceTurnConfigured = null;
   fetchPromise = null;
+  iceConfigError = null;
 }

@@ -13,15 +13,32 @@ import { toast } from '@/lib/toast';
 export interface ConsultationRealtimeHandlers {
   onAttachmentUploaded?: (attachment: Attachment, consultationId: string) => void;
   onAttachmentAnalyzed?: (attachment: Attachment, consultationId: string) => void;
-  onConsultationQueued?: (payload: { consultationId: string; patientName?: string; utCode?: string }) => void;
-  onConsultationStarted?: (payload: { consultationId: string; doctorName?: string }) => void;
-  onConsultationCompleted?: (payload: { consultationId: string }) => void;
-  onConsultationCancelled?: (payload: { consultationId: string }) => void;
+  onConsultationQueued?: (payload: {
+    consultationId: string;
+    patientName?: string;
+    utCode?: string;
+    status?: string;
+    mtDoctorId?: string;
+    mtDoctorName?: string;
+  }) => void;
+  onConsultationStarted?: (payload: {
+    consultationId: string;
+    doctorName?: string;
+    status?: string;
+    mtDoctorId?: string;
+    mtDoctorName?: string;
+  }) => void;
+  onConsultationCompleted?: (payload: { consultationId: string; status?: string }) => void;
+  onConsultationCancelled?: (payload: { consultationId: string; status?: string }) => void;
   onAiUpdated?: (consultationId: string) => void;
   onChatMessagePersisted?: (consultationId: string) => void;
   onTriageUpdated?: (consultationId: string) => void;
   onPriorityUpdated?: (consultationId: string) => void;
   onDeviceStatusUpdated?: (facilityId: string) => void;
+  onDoctorPresenceUpdated?: (payload: {
+    doctorId: string;
+    status: 'online' | 'in_meet' | 'offline';
+  }) => void;
 }
 
 type RealtimePayload = {
@@ -30,6 +47,9 @@ type RealtimePayload = {
   patientName?: string;
   utCode?: string;
   facilityId?: string;
+  status?: string;
+  mtDoctorId?: string;
+  mtDoctorName?: string;
   fileName?: string;
   aiSummary?: string;
 } & Partial<Attachment>;
@@ -97,6 +117,9 @@ export function useConsultationRealtime(
         consultationId: cid,
         patientName: payload.patientName,
         utCode: payload.utCode,
+        status: payload.status,
+        mtDoctorId: payload.mtDoctorId,
+        mtDoctorName: payload.mtDoctorName,
       });
       if (options?.notifyToasts && payload.patientName) {
         toast(`Navbatga qo'shildi: ${payload.patientName}`, 'info');
@@ -108,7 +131,10 @@ export function useConsultationRealtime(
       if (!matchesSubscription(cid, ids, staffFeed)) return;
       handlersRef.current.onConsultationStarted?.({
         consultationId: cid,
-        doctorName: payload.doctorName,
+        doctorName: payload.doctorName || payload.mtDoctorName,
+        status: payload.status,
+        mtDoctorId: payload.mtDoctorId,
+        mtDoctorName: payload.mtDoctorName,
       });
       window.dispatchEvent(new CustomEvent('consultation-started', { detail: payload }));
     };
@@ -116,14 +142,14 @@ export function useConsultationRealtime(
     const onCompleted = (payload: RealtimePayload) => {
       const cid = resolveConsultationId(payload, '');
       if (!matchesSubscription(cid, ids, staffFeed)) return;
-      handlersRef.current.onConsultationCompleted?.({ consultationId: cid });
+      handlersRef.current.onConsultationCompleted?.({ consultationId: cid, status: payload.status });
       window.dispatchEvent(new CustomEvent('consultation-completed', { detail: payload }));
     };
 
     const onCancelled = (payload: RealtimePayload) => {
       const cid = resolveConsultationId(payload, '');
       if (!matchesSubscription(cid, ids, staffFeed)) return;
-      handlersRef.current.onConsultationCancelled?.({ consultationId: cid });
+      handlersRef.current.onConsultationCancelled?.({ consultationId: cid, status: payload.status });
       window.dispatchEvent(new CustomEvent('consultation-cancelled', { detail: payload }));
     };
 
@@ -160,6 +186,18 @@ export function useConsultationRealtime(
       handlersRef.current.onDeviceStatusUpdated?.(facilityId);
     };
 
+    const onDoctorPresence = (payload: {
+      doctorId?: string;
+      status?: 'online' | 'in_meet' | 'offline';
+    }) => {
+      if (!staffFeed) return;
+      if (!payload?.doctorId || !payload?.status) return;
+      handlersRef.current.onDoctorPresenceUpdated?.({
+        doctorId: payload.doctorId,
+        status: payload.status,
+      });
+    };
+
     socket.on('consultation-queued', onQueued);
     socket.on('consultation-started', onStarted);
     socket.on('consultation-completed', onCompleted);
@@ -169,6 +207,7 @@ export function useConsultationRealtime(
     socket.on('triage-updated', onTriageUpdated);
     socket.on('priority-updated', onPriorityUpdated);
     socket.on('device-status-updated', onDeviceUpdated);
+    socket.on('doctor-presence-updated', onDoctorPresence);
 
     return () => {
       socket.off('attachment-uploaded', onUploaded);
@@ -182,6 +221,7 @@ export function useConsultationRealtime(
       socket.off('triage-updated', onTriageUpdated);
       socket.off('priority-updated', onPriorityUpdated);
       socket.off('device-status-updated', onDeviceUpdated);
+      socket.off('doctor-presence-updated', onDoctorPresence);
 
       if (staffFeed) {
         releaseStaffFeedSocket();

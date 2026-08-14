@@ -28,7 +28,7 @@ describe('AccessControlService', () => {
       ).toBe(false);
     });
 
-    it('MT shifokor o\'z va navbatdagi konsultatsiyalarga kiradi', () => {
+    it('MT shifokor faqat o\'ziga biriktirilgan konsultatsiyaga kiradi', () => {
       expect(
         service.canAccessConsultation(mtDoctor, {
           utId: 'fac-ut',
@@ -43,7 +43,15 @@ describe('AccessControlService', () => {
           mtDoctorId: null,
           status: ConsultationStatus.QUEUED,
         }),
-      ).toBe(true);
+      ).toBe(false);
+
+      expect(
+        service.canAccessConsultation(mtDoctor, {
+          utId: 'fac-ut',
+          mtDoctorId: 'other-doctor',
+          status: ConsultationStatus.QUEUED,
+        }),
+      ).toBe(false);
 
       expect(
         service.canAccessConsultation(mtDoctor, {
@@ -52,6 +60,10 @@ describe('AccessControlService', () => {
           status: ConsultationStatus.IN_PROGRESS,
         }),
       ).toBe(false);
+    });
+
+    it('MT consultationFilter faqat o\'z mtDoctorId', () => {
+      expect(service.consultationFilter(mtDoctor)).toEqual({ mtDoctorId: 'd1' });
     });
 
     it('Admin klinik konsultatsiyaga kira olmaydi', () => {

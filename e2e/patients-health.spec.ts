@@ -11,13 +11,15 @@ const PASSWORD = process.env.SEED_PASSWORD || DEFAULT_PASSWORD;
 test.describe('Patients API', () => {
   test('UT operator can create patient and search list', async () => {
     const client = new ApiTestClient();
+    const mt = new ApiTestClient();
     await client.login('operator@ishifo.uz', PASSWORD);
+    const mtLogin = await mt.login('doctor@ishifo.uz', PASSWORD);
 
     const suffix = Date.now();
     const patient = await client.createPatient(buildTestPatient(suffix));
     expect(patient.id).toBeTruthy();
 
-    await client.createConsultation(buildTestConsultation(patient.id));
+    await client.createConsultation(buildTestConsultation(patient.id, mtLogin.user!.id));
 
     const list = await client.get<{ items: Array<{ id: string }>; total: number }>(
       `/patients?search=Test Bemor ${suffix}`,
@@ -28,10 +30,12 @@ test.describe('Patients API', () => {
 
   test('UT operator can read own facility patient after consultation', async () => {
     const client = new ApiTestClient();
+    const mt = new ApiTestClient();
     await client.login('operator@ishifo.uz', PASSWORD);
+    const mtLogin = await mt.login('doctor@ishifo.uz', PASSWORD);
 
     const patient = await client.createPatient(buildTestPatient());
-    await client.createConsultation(buildTestConsultation(patient.id));
+    await client.createConsultation(buildTestConsultation(patient.id, mtLogin.user!.id));
 
     const detail = await client.get<{ id: string }>(`/patients/${patient.id}`);
     expect(detail.id).toBe(patient.id);

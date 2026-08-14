@@ -10,6 +10,7 @@ import * as bcrypt from 'bcryptjs';
 
 import { FacilityType, UserRole } from '@prisma/client';
 import { MT_DOCTOR_ROLES } from '../common/roles.constants';
+import { DoctorPresenceService } from '../video/doctor-presence.service';
 
 
 
@@ -20,6 +21,7 @@ export class UsersService {
   constructor(
     private prisma: PrismaService,
     private audit: AuditService,
+    private presence: DoctorPresenceService,
   ) {}
 
   private userSelect = {
@@ -84,9 +86,9 @@ export class UsersService {
 
 
 
-  findDoctors() {
+  async findDoctors() {
 
-    return this.prisma.user.findMany({
+    const doctors = await this.prisma.user.findMany({
 
       where: { role: { in: MT_DOCTOR_ROLES }, isActive: true },
 
@@ -101,6 +103,12 @@ export class UsersService {
       orderBy: { fullName: 'asc' },
 
     });
+
+    const statuses = await this.presence.getStatuses(doctors.map((d) => d.id));
+    return doctors.map((d) => ({
+      ...d,
+      presence: statuses[d.id] ?? 'offline',
+    }));
 
   }
 

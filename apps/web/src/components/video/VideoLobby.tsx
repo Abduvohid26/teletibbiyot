@@ -14,9 +14,9 @@ interface VideoLobbyProps {
 }
 
 /**
- * Google Meet uslubidagi "lobby" (kutish) ekrani. Video shu ekran orqali
- * ATAYLAB qo'shilganda ulanadi — sahifa ochilishi bilan avtomatik emas.
- * Refresh'dan keyin foydalanuvchi shu ekranga qaytadi va qayta qo'shiladi.
+ * Google Meet uslubidagi "lobby" (kutish) ekrani.
+ * Birinchi kirishda Join; refreshda session saqlangan bo'lsa auto-rejoin
+ * (parent sessionStorage orqali). Explicit Leave dan keyin yana shu ekran.
  */
 export function VideoLobby({ onJoin, role, peerName, compact = false }: VideoLobbyProps) {
   const title = role === 'observe' ? 'Kuzatuvga qo\'shilish' : 'Jonli efirga qo\'shilish';

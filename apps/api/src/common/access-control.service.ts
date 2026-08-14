@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
-import { ConsultationStatus, Prisma, UserRole } from '@prisma/client';
+import { Prisma, UserRole } from '@prisma/client';
 import { canPerformClinicalMtActions, isAdmin, isMtDoctor, isUtRole } from './roles.constants';
 import { ACCESS_DENIED_ID } from './access-scope.constants';
 
@@ -18,10 +18,8 @@ export class AccessControlService {
     if (isAdmin(user.role)) return false;
 
     if (isMtDoctor(user.role)) {
-      return (
-        consultation.mtDoctorId === user.id ||
-        (consultation.status === ConsultationStatus.QUEUED && consultation.mtDoctorId === null)
-      );
+      // Assigned doctor model: faqat o'ziga biriktirilgan konsultatsiyalar
+      return consultation.mtDoctorId === user.id;
     }
 
     if (isUtRole(user.role)) {
@@ -46,12 +44,7 @@ export class AccessControlService {
     }
 
     if (isMtDoctor(user.role)) {
-      return {
-        OR: [
-          { mtDoctorId: user.id },
-          { status: ConsultationStatus.QUEUED, mtDoctorId: null },
-        ],
-      };
+      return { mtDoctorId: user.id };
     }
 
     if (isUtRole(user.role) && user.facilityId) {
@@ -121,12 +114,7 @@ export class AccessControlService {
     if (isMtDoctor(user.role)) {
       return {
         consultations: {
-          some: {
-            OR: [
-              { mtDoctorId: user.id },
-              { status: ConsultationStatus.QUEUED, mtDoctorId: null },
-            ],
-          },
+          some: { mtDoctorId: user.id },
         },
       };
     }

@@ -14,13 +14,13 @@ import {
   LayoutGrid,
   Phone,
   PhoneOff,
-  Loader2,
   Stethoscope,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useVideoRoom } from '@/hooks/use-video-room';
 import { VideoTile } from '@/components/video/VideoTile';
 import { ConnectionQualityBadge } from '@/components/video/ConnectionQualityBadge';
+import { VideoRoomPresence } from '@/components/video/VideoRoomPresence';
 import { applyUtPtzAction, isPtzAction } from '@/lib/ut-ptz-state';
 import { UT_CAMERA_FEEDS } from '@/lib/video-config';
 import { isUtStreamLive } from '@/lib/ut-camera-streams';
@@ -64,10 +64,10 @@ export function UtVideoPanelView({
     remoteAudio,
     toggleMic,
     toggleCam,
-    endCall,
+    leaveCall,
     reconnectCall,
     connectionStats,
-    reconnecting,
+    roomPhase,
     audioMissing,
     utCameraStreams,
     qualityLabel,
@@ -240,11 +240,11 @@ export function UtVideoPanelView({
                 placeholder="Shifokor kutilmoqda"
                 live={doctorLive}
               />
-              {!doctorLive && (
+              {!doctorLive && roomPhase === 'live' && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-slate-900/60 pointer-events-none">
                   <VideoOff size={22} className="text-slate-500" />
                   <span className="text-xs text-slate-400 text-center px-4">
-                    Shifokor hali ulanmagan — qabul boshlanganda ko&apos;rinadi
+                    Shifokor videosi yo&apos;q — audio davom etishi mumkin
                   </span>
                 </div>
               )}
@@ -255,17 +255,16 @@ export function UtVideoPanelView({
             </>
           )}
 
-          {reconnecting && !videoPaused && (
-            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950/55 backdrop-blur-[2px] px-4 pointer-events-none">
-              <Loader2 className="w-8 h-8 text-white animate-spin mb-2" />
-              <p className="text-sm font-semibold text-white text-center">Qayta ulanmoqda…</p>
-              <p className="text-xs text-slate-300 text-center mt-1 max-w-xs">
-                Tarmoq tiklanishi bilan video avtomatik davom etadi
-              </p>
-            </div>
+          {roomPhase !== 'live' && (
+            <VideoRoomPresence
+              phase={roomPhase}
+              error={error}
+              peerLabel="Shifokor"
+              onRetry={roomPhase === 'error' ? () => reconnectCall() : undefined}
+            />
           )}
 
-          {videoPaused && (
+          {videoPaused && roomPhase === 'live' && (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-sm px-4">
               <VideoOff className="w-10 h-10 text-slate-400 mb-2" />
               <p className="text-sm font-semibold text-white text-center">Video uzildi</p>
@@ -343,7 +342,7 @@ export function UtVideoPanelView({
           <button
             type="button"
             onClick={() => {
-              endCall();
+              leaveCall();
               onLeave?.();
             }}
             className="inline-flex items-center gap-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold px-3 py-2 rounded-xl"
