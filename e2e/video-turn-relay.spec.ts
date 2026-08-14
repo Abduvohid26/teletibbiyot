@@ -200,8 +200,8 @@ test.describe('TURN relay — media aynan TURN orqali oqishi', () => {
 
       // Eng muhimi: qora ekran o'rniga foydalanuvchiga SABAB ko'rsatilishi kerak.
       await expect(
-        room.mtPage.getByText(/Video ulanib bo'lmadi/i).first(),
-      ).toBeVisible({ timeout: 30000 });
+        room.mtPage.getByText(/Ulanish beqaror|Video uzoq vaqt tiklanmadi|Video ulanib bo'lmadi/i).first(),
+      ).toBeVisible({ timeout: 45000 });
     } finally {
       await room.cleanup();
     }

@@ -10,7 +10,12 @@ export interface TurnPreflightResult {
 }
 
 let cached: TurnPreflightResult | null = null;
+let cachedAt = 0;
 let inFlight: Promise<TurnPreflightResult> | null = null;
+
+/** Muvaffaqiyatli tekshiruv uzoqroq, muvaffaqiyatsiz — qisqa (sekin net false-negative) */
+const POSITIVE_TTL_MS = 10 * 60 * 1000;
+const NEGATIVE_TTL_MS = 20 * 1000;
 
 /**
  * TURN serverga real ulanishni tekshiradi.
@@ -22,8 +27,12 @@ let inFlight: Promise<TurnPreflightResult> | null = null;
  * shifokor va UT operator BIR-BIRINI KO'RA OLMAYDI, va buni 30 soniyalik qora
  * ekrandan keyin emas, qo'ng'iroq boshida aytish kerak.
  */
-export async function checkTurnReachable(timeoutMs = 6000): Promise<TurnPreflightResult> {
-  if (cached) return cached;
+export async function checkTurnReachable(timeoutMs = 10000): Promise<TurnPreflightResult> {
+  if (cached) {
+    const ttl = cached.relayAvailable ? POSITIVE_TTL_MS : NEGATIVE_TTL_MS;
+    if (Date.now() - cachedAt < ttl) return cached;
+    cached = null;
+  }
   if (inFlight) return inFlight;
 
   inFlight = (async () => {
@@ -78,11 +87,13 @@ export async function checkTurnReachable(timeoutMs = 6000): Promise<TurnPrefligh
   })();
 
   cached = await inFlight;
+  cachedAt = Date.now();
   inFlight = null;
   return cached;
 }
 
 export function clearTurnPreflightCache() {
   cached = null;
+  cachedAt = 0;
   inFlight = null;
 }

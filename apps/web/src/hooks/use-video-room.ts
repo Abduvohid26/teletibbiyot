@@ -181,9 +181,11 @@ export function useVideoRoom({
     let cancelled = false;
     void checkTurnReachable().then((result) => {
       if (cancelled || !result.checked || result.relayAvailable) return;
+      // Soft ogohlantirish — qo'ng'iroqni to'xtatmaymiz. Sekin internetda
+      // preflight timeout bo'lishi mumkin, lekin keyin video baribir ulanadi.
       setError((prev) =>
         prev
-        || 'TURN serverga ulanib bo\'lmadi — agar shifokor va UT operator turli tarmoqlarda bo\'lsa, video ulanmasligi mumkin. Firewall (UDP 3478 / TCP 443) ni tekshiring.',
+        || 'TURN tekshiruvi sekin o\'tdi — video biroz kechikishi mumkin. Internet barqarorligini kuzating.',
       );
     });
 
@@ -471,6 +473,11 @@ export function useVideoRoom({
         if (now - last < minGapMs) return;
         iceRestartAtRef.current.set(remoteSocketId, now);
         setReconnecting(true);
+        // Tiklanish paytida "firewall/TURN" qizil xabarni yashiramiz —
+        // aks holda vaqtinchalik uzilish ham infratuzilma xatosidek ko'rinadi.
+        setError((prev) =>
+          /TURN relay|Firewall|TURN server sozlanmagan/i.test(prev) ? '' : prev,
+        );
         try {
           pc.restartIce?.();
         } catch {
@@ -479,6 +486,23 @@ export function useVideoRoom({
         if (isOfferer) {
           pendingOfferTargetsRef.current.add(remoteSocketId);
           setTimeout(() => flushPendingOffersRef.current(), reofferDelayMs);
+        }
+      };
+
+      const rebuildAsRelayOnly = () => {
+        relayOnlyPeersRef.current.add(remoteSocketId);
+        // Yangi PC uchun hisoblagichni nolga — aks holda birinchi relay
+        // urinishi hamdar "fails>=2" bo'lib darhol qizil xato chiqardi.
+        iceFailuresRef.current.set(remoteSocketId, 0);
+        iceRestartAtRef.current.delete(remoteSocketId);
+        setReconnecting(true);
+        setError('');
+        teardownPeerConnection(remoteSocketId, false);
+        if (isOfferer) {
+          pendingOfferTargetsRef.current.add(remoteSocketId);
+          setTimeout(() => flushPendingOffersRef.current(), 120);
+        } else {
+          emitReconnectSignalsRef.current();
         }
       };
 
@@ -494,38 +518,41 @@ export function useVideoRoom({
         // "disconnected" esa ~5s ichida keladi. Bu tiklanishni bir necha barobar
         // tezlashtiradi. Hali xato KO'RSATMAYMIZ — o'z-o'zidan tuzalishi mumkin.
         if (pc.connectionState === 'disconnected') {
-          kickIceRestart(2000, 500);
+          kickIceRestart(1500, 250);
         }
         if (pc.connectionState === 'failed') {
           const fails = (iceFailuresRef.current.get(remoteSocketId) ?? 0) + 1;
           iceFailuresRef.current.set(remoteSocketId, fails);
 
-          // 2-marta yiqilgach — to'g'ridan-to'g'ri (P2P) yo'llarni tashlab,
-          // FAQAT TURN relay bilan qayta quramiz. Aynan shu holat shifokor va UT
-          // operator turli tarmoqlarda (har biri o'z NAT'i ortida) bo'lganda yuz
-          // beradi: restartIce() o'sha ishlamaydigan yo'llarni qayta sinashda davom
-          // etadi va abadiy qora ekran qoladi.
-          if (fails >= 2 && isTurnConfigured() && !relayOnlyPeersRef.current.has(remoteSocketId)) {
-            relayOnlyPeersRef.current.add(remoteSocketId);
-            iceRestartAtRef.current.delete(remoteSocketId);
-            setReconnecting(true);
-            teardownPeerConnection(remoteSocketId, false);
-            if (isOfferer) {
-              pendingOfferTargetsRef.current.add(remoteSocketId);
-              setTimeout(() => flushPendingOffersRef.current(), 200);
-            } else {
-              emitReconnectSignalsRef.current();
-            }
+          // Birinchi failed dan keyin — P2P yo'llarni tashlab FAQAT TURN relay.
+          // Simmetrik NAT / turli Wi-Fi da host+srflx yo'llari baribir ishlamaydi;
+          // ularni 2-3 marta sinash faqat vaqt o'tkazadi.
+          if (
+            fails >= 1
+            && isTurnConfigured()
+            && !relayOnlyPeersRef.current.has(remoteSocketId)
+          ) {
+            rebuildAsRelayOnly();
             return;
           }
 
-          kickIceRestart(0, 300);
-          // Relay ham yiqildi (yoki TURN yo'q) — endi bu haqiqiy infratuzilma
-          // muammosi. Qora ekran o'rniga aniq sabab ko'rsatamiz.
-          if (fails >= 2) {
+          kickIceRestart(0, 200);
+
+          // Relay ham bir necha marta yiqilganda yumshoq ogohlantirish.
+          // Bu KO'PINCHA sekin/beqaror internet — firewall emas (firewall
+          // yopiq bo'lsa umuman bir marta ham ulanmas edi).
+          if (fails >= 3) {
             setError(
               isTurnConfigured()
-                ? 'Video ulanib bo\'lmadi — TURN relay orqali ham o\'tib bo\'lmadi. Firewall (UDP 3478/TCP 443) va TURN sozlamalarini tekshiring.'
+                ? 'Ulanish beqaror — qayta urinilmoqda. Internet sekin bo\'lsa video kechikishi mumkin.'
+                : 'Video ulanib bo\'lmadi — TURN server sozlanmagan (turli tarmoqlar uchun majburiy).',
+            );
+          }
+          // Haqiqiy taslim — faqat uzoq muddatli muvaffaqiyatsizlikdan keyin.
+          if (fails >= 6) {
+            setError(
+              isTurnConfigured()
+                ? 'Video uzoq vaqt tiklanmadi. Internetni tekshiring yoki sahifani yangilang.'
                 : 'Video ulanib bo\'lmadi — TURN server sozlanmagan (turli tarmoqlar uchun majburiy).',
             );
           }
@@ -655,7 +682,7 @@ export function useVideoRoom({
       let attempts = 0;
       const watchdog = setInterval(() => {
         attempts += 1;
-        if (peerHasLiveVideo(remoteSocketId) || attempts > 8) {
+        if (peerHasLiveVideo(remoteSocketId) || attempts > 10) {
           clearInterval(watchdog);
           peerWatchdogRef.current.delete(remoteSocketId);
           // Taslim bo'lishdan oldin: ehtimol bu socketId allaqachon o'lik.
@@ -666,11 +693,11 @@ export function useVideoRoom({
         }
         const pc = pcsRef.current.get(remoteSocketId);
         const sentAt = offerSentAtRef.current.get(remoteSocketId) ?? 0;
-        if (pc?.signalingState === 'have-local-offer' && Date.now() - sentAt < 9000) return;
+        if (pc?.signalingState === 'have-local-offer' && Date.now() - sentAt < 5000) return;
         makingOfferRef.current.delete(remoteSocketId);
         pendingOfferTargetsRef.current.add(remoteSocketId);
         flushPendingOffersRef.current();
-      }, 4500);
+      }, 2200);
       peerWatchdogRef.current.set(remoteSocketId, watchdog);
     },
     [debouncedFlushPendingOffers, isOfferer, peerHasLiveVideo],
