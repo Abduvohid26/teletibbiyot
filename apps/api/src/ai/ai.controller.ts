@@ -7,6 +7,7 @@ import {
   UseGuards,
   Request,
   Res,
+  Query,
   Headers,
   NotFoundException,
 } from '@nestjs/common';
@@ -51,8 +52,10 @@ export class AiController {
     @Param('id') id: string,
     @Request() req: { user: AuthUser },
     @Res() res: Response,
+    @Query('locale') localeQuery?: string,
+    @Headers('x-locale') localeHeader?: string,
   ) {
-    const { buffer, fileName } = await this.aiService.buildAnalysisPdf(id, req.user);
+    const { buffer, fileName } = await this.aiService.buildAnalysisPdf(id, req.user, localeQuery ?? localeHeader);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     res.setHeader('Content-Length', buffer.length);

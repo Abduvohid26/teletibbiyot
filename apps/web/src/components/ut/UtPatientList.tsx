@@ -34,7 +34,7 @@ export function UtPatientList({
   sessionCount = 0,
   liveCount = 0,
 }: UtPatientListProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
@@ -81,7 +81,7 @@ export function UtPatientList({
         const link = await api.getReportLink(c.id);
         window.open(link.url, '_blank', 'noopener,noreferrer');
       } else {
-        await api.downloadAiAnalysisPdf(c.id);
+        await api.downloadAiAnalysisPdf(c.id, locale);
       }
     } catch {
       /* toast handled by caller if needed */

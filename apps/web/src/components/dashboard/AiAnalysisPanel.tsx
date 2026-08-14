@@ -30,7 +30,7 @@ const SUGGESTED_QUESTION_KEYS = [
 ] as const;
 
 export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }: AiAnalysisPanelProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [question, setQuestion] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
@@ -85,7 +85,7 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
     setDownloading(true);
     setFeedbackError('');
     try {
-      await api.downloadAiAnalysisPdf(consultationId);
+      await api.downloadAiAnalysisPdf(consultationId, locale);
     } catch (err) {
       setFeedbackError(err instanceof Error ? err.message : t('clinical.pdfError'));
     } finally {

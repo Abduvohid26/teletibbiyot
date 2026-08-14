@@ -24,7 +24,7 @@ export function CompleteDiagnosisModal({
   onComplete,
   onClose,
 }: CompleteDiagnosisModalProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [form, setForm] = useState<FinalDiagnosisData>({
     diagnosis: aiDiagnosis || '',
     icd10Code: aiIcd10 || '',
@@ -94,7 +94,7 @@ export function CompleteDiagnosisModal({
           url = link.url;
         } catch {
           try {
-            await api.downloadAiAnalysisPdf(consultationId);
+            await api.downloadAiAnalysisPdf(consultationId, locale);
           } catch {
             /* report may still be generating */
           }

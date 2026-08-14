@@ -47,8 +47,9 @@ export function defineIntegrationsApi(client: HttpClient) {
       });
     },
 
-    async downloadAiAnalysisPdf(consultationId: string) {
-      const res = await client.fetchApi(`/ai/consultations/${consultationId}/analysis-pdf`);
+    async downloadAiAnalysisPdf(consultationId: string, locale?: string) {
+      const qs = locale ? `?locale=${encodeURIComponent(locale)}` : '';
+      const res = await client.fetchApi(`/ai/consultations/${consultationId}/analysis-pdf${qs}`);
       if (!res.ok) {
         let message = 'PDF yuklab olishda xatolik';
         try {

@@ -10,6 +10,7 @@ import { AccessControlService, AuthUser } from '../common/access-control.service
 import { FieldCryptoService } from '../common/field-crypto.service';
 import { StorageService } from '../storage/storage.service';
 import { buildAiAnalysisPdfBuffer } from './clinical-conclusion-pdf';
+import { normalizePdfLocale, type PdfLocale } from './pdf-labels';
 
 const SYSTEM_PROMPT = `Siz ${BRAND.name} platformasining AI-yordamchi shifokorisiz (telemedicine konsilium yordamchisi).
 MUHIM: Siz HECH QACHON yakuniy, rasmiy tibbiy tashxis qo'ymaysiz — bu faqat AI konsensus xulosasi.
@@ -417,7 +418,12 @@ export class AiService {
   }
 
   /** AI klinik xulosasini PDF formatida */
-  async buildAnalysisPdf(consultationId: string, user: AuthUser): Promise<{ buffer: Buffer; fileName: string }> {
+  async buildAnalysisPdf(
+    consultationId: string,
+    user: AuthUser,
+    localeRaw?: string,
+  ): Promise<{ buffer: Buffer; fileName: string }> {
+    const locale = normalizePdfLocale(localeRaw);
     const consultation = await this.prisma.consultation.findUnique({
       where: { id: consultationId },
       include: {
@@ -432,12 +438,29 @@ export class AiService {
     this.access.assertConsultationAccess(user, consultation);
     if (!consultation.aiAnalysis) throw new NotFoundException('AI tahlil topilmadi');
 
-    const buffer = await this.buildAnalysisPdfBufferForConsultation(consultation);
-    const fileName = `tashxis-${consultationId.slice(0, 8)}.pdf`;
+    const fileName = this.pdfFileName(consultationId, locale);
+    const cachedKey = this.pdfFileKey(consultationId, locale);
+    try {
+      const { buffer } = await this.storage.getObjectBuffer(cachedKey);
+      return { buffer, fileName };
+    } catch {
+      /* generate on demand */
+    }
+
+    if (locale === 'uz') {
+      try {
+        const legacy = await this.storage.getObjectBuffer(this.legacyPdfFileKey(consultationId));
+        return { buffer: legacy.buffer, fileName: `tashxis-${consultationId.slice(0, 8)}.pdf` };
+      } catch {
+        /* ignore */
+      }
+    }
+
+    const buffer = await this.buildAnalysisPdfBufferForConsultation(consultation, locale);
     return { buffer, fileName };
   }
 
-  /** Yakunlashda UT operator uchun tashxis PDF saqlash */
+  /** Yakunlashda UT operator uchun tashxis PDF saqlash (3 til) */
   async persistAnalysisReport(consultationId: string, generatedById?: string): Promise<void> {
     const consultation = await this.prisma.consultation.findUnique({
       where: { id: consultationId },
@@ -454,10 +477,16 @@ export class AiService {
       return;
     }
 
-    const buffer = await this.buildAnalysisPdfBufferForConsultation(consultation);
-    const fileName = `tashxis-${consultationId.slice(0, 8)}.pdf`;
-    const fileKey = `reports/${consultationId}/${fileName}`;
-    await this.storage.uploadBuffer(fileKey, buffer, 'application/pdf');
+    const locales: PdfLocale[] = ['uz', 'ru', 'en'];
+    for (const locale of locales) {
+      await this.ensureAnalysisLocaleSnapshot(consultationId, locale);
+      const buffer = await this.buildAnalysisPdfBufferForConsultation(consultation, locale);
+      const fileKey = this.pdfFileKey(consultationId, locale);
+      await this.storage.uploadBuffer(fileKey, buffer, 'application/pdf');
+    }
+
+    const fileName = this.pdfFileName(consultationId, 'uz');
+    const fileKey = this.pdfFileKey(consultationId, 'uz');
 
     await this.prisma.consultationReport.upsert({
       where: { consultationId },
@@ -489,6 +518,109 @@ export class AiService {
     }
   }
 
+  private pdfFileName(consultationId: string, locale: PdfLocale): string {
+    return `tashxis-${consultationId.slice(0, 8)}-${locale}.pdf`;
+  }
+
+  private pdfFileKey(consultationId: string, locale: PdfLocale): string {
+    return `reports/${consultationId}/${this.pdfFileName(consultationId, locale)}`;
+  }
+
+  private legacyPdfFileKey(consultationId: string): string {
+    return `reports/${consultationId}/tashxis-${consultationId.slice(0, 8)}.pdf`;
+  }
+
+  private async ensureAnalysisLocaleSnapshot(consultationId: string, targetLocale: PdfLocale): Promise<void> {
+    const analysis = await this.prisma.aiAnalysis.findUnique({ where: { consultationId } });
+    if (!analysis) return;
+
+    const raw = (analysis.rawResponse as Record<string, unknown>) || {};
+    const contentLocale = normalizeAiLocale(raw.contentLocale);
+    if (contentLocale === targetLocale) return;
+
+    const snapshots = (raw.localeSnapshots as Record<string, unknown>) || {};
+    if (snapshots[targetLocale]) return;
+
+    const langNames: Record<PdfLocale, string> = { uz: "o'zbek", ru: 'rus', en: 'English' };
+    const payload = {
+      summary: analysis.summary,
+      diagnoses: analysis.diagnoses,
+      recommendations: analysis.recommendations,
+      redFlags: analysis.redFlags,
+      clinicalConclusion: raw.clinicalConclusion,
+    };
+
+    const text = await this.callOpenAiChat(
+      [{
+        role: 'user',
+        content:
+          `Translate this clinical AI analysis JSON from ${langNames[contentLocale]} to ${langNames[targetLocale]}. `
+          + 'Keep ICD-10 codes, numbers, URLs, and protocol references unchanged. '
+          + 'Return ONLY valid JSON with keys: summary, diagnoses, recommendations, redFlags, clinicalConclusion (same nested structure).\n\n'
+          + JSON.stringify(payload),
+      }],
+      {
+        json: true,
+        maxTokens: 12288,
+        systemPrompt: `You are a medical translator. Output professional clinical ${langNames[targetLocale]}. JSON only.`,
+      },
+    );
+
+    if (!text) {
+      this.logger.warn(`PDF locale ${targetLocale}: translation failed for ${consultationId}`);
+      return;
+    }
+
+    try {
+      const translated = JSON.parse(text) as Record<string, unknown>;
+      await this.prisma.aiAnalysis.update({
+        where: { consultationId },
+        data: {
+          rawResponse: {
+            ...raw,
+            localeSnapshots: {
+              ...snapshots,
+              [targetLocale]: translated,
+            },
+          } as Prisma.InputJsonValue,
+        },
+      });
+    } catch {
+      this.logger.warn(`PDF locale ${targetLocale}: invalid translation JSON for ${consultationId}`);
+    }
+  }
+
+  private resolveAnalysisForLocale(
+    analysis: {
+      summary: string;
+      triageLevel: string;
+      diagnoses: unknown;
+      recommendations: unknown;
+      redFlags: unknown;
+      rawResponse: unknown;
+    },
+    locale: PdfLocale,
+  ) {
+    const raw = (analysis.rawResponse as Record<string, unknown>) || {};
+    const contentLocale = normalizeAiLocale(raw.contentLocale);
+    if (contentLocale === locale) return analysis;
+
+    const snap = (raw.localeSnapshots as Record<string, Record<string, unknown>> | undefined)?.[locale];
+    if (!snap) return analysis;
+
+    return {
+      ...analysis,
+      summary: typeof snap.summary === 'string' ? snap.summary : analysis.summary,
+      diagnoses: snap.diagnoses ?? analysis.diagnoses,
+      recommendations: snap.recommendations ?? analysis.recommendations,
+      redFlags: snap.redFlags ?? analysis.redFlags,
+      rawResponse: {
+        ...raw,
+        clinicalConclusion: snap.clinicalConclusion ?? raw.clinicalConclusion,
+      },
+    };
+  }
+
   private async buildAnalysisPdfBufferForConsultation(
     consultation: {
       id: string;
@@ -514,14 +646,20 @@ export class AiService {
         vitalSigns: unknown;
       } | null;
     },
+    locale: PdfLocale = 'uz',
   ): Promise<Buffer> {
     const analysis = consultation.aiAnalysis;
     if (!analysis) throw new NotFoundException('AI tahlil topilmadi');
+
+    await this.ensureAnalysisLocaleSnapshot(consultation.id, locale);
+    const fresh = await this.prisma.aiAnalysis.findUnique({ where: { consultationId: consultation.id } });
+    const resolved = this.resolveAnalysisForLocale(fresh ?? analysis, locale);
+
     const p = this.crypto.unprotectPatient(consultation.patient as Record<string, unknown>) as typeof consultation.patient;
-    const diagnoses = (analysis.diagnoses as Array<{ name: string; icd10Code: string; confidence: number; reasoning: string }>) || [];
-    const recommendations = (analysis.recommendations as string[]) || [];
-    const redFlags = (analysis.redFlags as string[]) || [];
-    const rawResponse = (analysis.rawResponse as Record<string, unknown> | null) ?? null;
+    const diagnoses = (resolved.diagnoses as Array<{ name: string; icd10Code: string; confidence: number; reasoning: string }>) || [];
+    const recommendations = (resolved.recommendations as string[]) || [];
+    const redFlags = (resolved.redFlags as string[]) || [];
+    const rawResponse = (resolved.rawResponse as Record<string, unknown> | null) ?? null;
     const cr = consultation.clinicalRecord;
     const age = calculateAge(p.birthDate);
 
@@ -534,8 +672,8 @@ export class AiService {
       facilityName: consultation.utFacility.name,
       facilityCode: consultation.utFacility.code,
       doctorName: consultation.mtDoctor?.fullName,
-      triageLevel: analysis.triageLevel,
-      summary: analysis.summary,
+      triageLevel: resolved.triageLevel,
+      summary: resolved.summary,
       diagnoses,
       recommendations,
       redFlags,
@@ -548,7 +686,7 @@ export class AiService {
       height: cr?.height,
       bmi: cr?.bmi,
       vitalSigns: (cr?.vitalSigns as Record<string, number>) ?? {},
-    });
+    }, locale);
   }
 
   async submitFeedback(aiAnalysisId: string, userId: string, rating: string, comment?: string) {

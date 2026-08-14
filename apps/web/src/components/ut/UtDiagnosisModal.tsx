@@ -15,7 +15,7 @@ interface UtDiagnosisModalProps {
 }
 
 export function UtDiagnosisModal({ consultation, open, onClose }: UtDiagnosisModalProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState('');
 
@@ -31,7 +31,7 @@ export function UtDiagnosisModal({ consultation, open, onClose }: UtDiagnosisMod
         const link = await api.getReportLink(consultation.id);
         window.open(link.url, '_blank', 'noopener,noreferrer');
       } else {
-        await api.downloadAiAnalysisPdf(consultation.id);
+        await api.downloadAiAnalysisPdf(consultation.id, locale);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : t('clinical.pdfError'));
