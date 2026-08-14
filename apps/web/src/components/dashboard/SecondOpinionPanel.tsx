@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth-context';
 import { isMtDoctor } from '@ishifo/shared';
 import { MessageSquarePlus } from 'lucide-react';
 import { toUserMessage } from '@/lib/utils';
+import { useI18n } from '@/i18n';
 
 interface SecondOpinionPanelProps {
   consultationId?: string;
@@ -13,6 +14,7 @@ interface SecondOpinionPanelProps {
 }
 
 export function SecondOpinionPanel({ consultationId, onRequested }: SecondOpinionPanelProps) {
+  const { t } = useI18n();
   const { user } = useAuth();
   const [question, setQuestion] = useState('');
   const [assignedDoctorId, setAssignedDoctorId] = useState('');
@@ -49,11 +51,11 @@ export function SecondOpinionPanel({ consultationId, onRequested }: SecondOpinio
       );
       setQuestion('');
       setAssignedDoctorId('');
-      setMessage('Ikkinchi fikr so\'rovi yuborildi');
+      setMessage(t('secondOpinion.requestedOk'));
       load();
       onRequested?.();
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : 'Xatolik');
+      setMessage(err instanceof Error ? err.message : t('errors.generic'));
     } finally {
       setLoading(false);
     }
@@ -67,9 +69,9 @@ export function SecondOpinionPanel({ consultationId, onRequested }: SecondOpinio
       setRespondingId(null);
       setResponseText('');
       load();
-      setMessage('Javob yuborildi');
+      setMessage(t('secondOpinion.responseOk'));
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : 'Xatolik');
+      setMessage(err instanceof Error ? err.message : t('errors.generic'));
     } finally {
       setLoading(false);
     }
@@ -82,14 +84,14 @@ export function SecondOpinionPanel({ consultationId, onRequested }: SecondOpinio
           {opinions.map((o) => (
             <div key={o.id} className="rounded-xl border border-slate-100 bg-slate-50/80 p-3 text-sm">
               <p className="text-xs text-slate-500 mb-1">
-                {o.requestedBy?.fullName || 'So\'rovchi'}
+                {o.requestedBy?.fullName || t('secondOpinion.requester')}
                 {o.assignedDoctor ? ` → ${o.assignedDoctor.fullName}` : ''}
                 · {o.status}
               </p>
               <p className="text-slate-800">{o.question}</p>
               {o.response && (
                 <p className="mt-2 text-slate-700 bg-white rounded-lg p-2 border border-slate-100">
-                  <span className="text-xs font-semibold text-violet-600">Javob: </span>
+                  <span className="text-xs font-semibold text-violet-600">{t('secondOpinion.responseLabel')}</span>
                   {o.response}
                 </p>
               )}
@@ -100,20 +102,20 @@ export function SecondOpinionPanel({ consultationId, onRequested }: SecondOpinio
                       className="form-input min-h-[60px] text-xs w-full"
                       value={responseText}
                       onChange={(e) => setResponseText(e.target.value)}
-                      placeholder="Javobingiz..."
+                      placeholder={t('secondOpinion.responsePlaceholder')}
                     />
                     <div className="flex gap-2">
                       <button type="button" onClick={() => submitResponse(o.id)} disabled={loading} className="btn-primary !text-xs !py-1.5">
-                        Yuborish
+                        {t('common.send')}
                       </button>
                       <button type="button" onClick={() => setRespondingId(null)} className="btn-secondary !text-xs !py-1.5">
-                        Bekor
+                        {t('common.cancelShort')}
                       </button>
                     </div>
                   </div>
                 ) : (
                   <button type="button" onClick={() => setRespondingId(o.id)} className="mt-2 text-xs text-violet-600 font-medium">
-                    Javob berish
+                    {t('secondOpinion.respond')}
                   </button>
                 )
               )}
@@ -125,7 +127,7 @@ export function SecondOpinionPanel({ consultationId, onRequested }: SecondOpinio
       <div className="panel p-4">
         <div className="flex items-center gap-2 mb-3">
           <MessageSquarePlus size={16} className="text-violet-600" />
-          <h3 className="font-semibold text-sm text-slate-900">Yangi so&apos;rov</h3>
+          <h3 className="font-semibold text-sm text-slate-900">{t('secondOpinion.newRequest')}</h3>
         </div>
         {doctors.length > 0 && (
           <select
@@ -133,7 +135,7 @@ export function SecondOpinionPanel({ consultationId, onRequested }: SecondOpinio
             value={assignedDoctorId}
             onChange={(e) => setAssignedDoctorId(e.target.value)}
           >
-            <option value="">Shifokor tanlang (ixtiyoriy)</option>
+            <option value="">{t('secondOpinion.pickDoctor')}</option>
             {doctors.map((d) => (
               <option key={d.id} value={d.id}>{d.fullName}{d.specialty ? ` (${d.specialty})` : ''}</option>
             ))}
@@ -141,7 +143,7 @@ export function SecondOpinionPanel({ consultationId, onRequested }: SecondOpinio
         )}
         <textarea
           className="form-input min-h-[72px] text-sm"
-          placeholder="Murakkab holat — ikkinchi shifokordan fikr so'rang..."
+          placeholder={t('secondOpinion.questionPlaceholder')}
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
         />
@@ -151,7 +153,7 @@ export function SecondOpinionPanel({ consultationId, onRequested }: SecondOpinio
           disabled={loading || !question.trim()}
           className="btn-secondary !text-xs mt-2 w-full disabled:opacity-50"
         >
-          {loading ? 'Yuborilmoqda...' : 'So\'rov yuborish'}
+          {loading ? t('common.submitting') : t('secondOpinion.submit')}
         </button>
         {message && <p className="text-xs text-slate-600 mt-2">{message}</p>}
       </div>

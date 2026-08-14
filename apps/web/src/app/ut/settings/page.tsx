@@ -8,9 +8,11 @@ import { getRoleHomePath } from '@/lib/auth-utils';
 import { UtShell } from '@/components/ut/UtShell';
 import { SettingsContent } from '@/components/settings/SettingsContent';
 import { useUtSessions } from '@/hooks/use-ut-sessions';
+import { useI18n } from '@/i18n';
 
 export default function UtSettingsPage() {
   const { user, loading } = useAuth();
+  const { t } = useI18n();
   const router = useRouter();
   const { sessions, inProgressList } = useUtSessions(!!user && isUtRole(user?.role || ''));
 
@@ -22,7 +24,7 @@ export default function UtSettingsPage() {
   if (loading || !user) {
     return (
       <div className="min-h-screen bg-surface flex items-center justify-center">
-        <p className="text-sm text-slate-500 animate-pulse">Yuklanmoqda...</p>
+        <p className="text-sm text-slate-500 animate-pulse">{t('common.loading')}</p>
       </div>
     );
   }

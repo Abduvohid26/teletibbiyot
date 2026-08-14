@@ -6,6 +6,7 @@ import { Users, X } from 'lucide-react';
 import { Consultation } from '@/lib/api';
 import { DoctorLiveQueuePanel } from '@/components/dashboard/DoctorLiveQueuePanel';
 import { cn } from '@/lib/utils';
+import { useI18n } from '@/i18n';
 
 interface DoctorLiveQueueDrawerProps {
   open: boolean;
@@ -28,6 +29,8 @@ export function DoctorLiveQueueDrawer({
   onStart,
   onComplete,
 }: DoctorLiveQueueDrawerProps) {
+  const { t } = useI18n();
+
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
@@ -41,7 +44,7 @@ export function DoctorLiveQueueDrawer({
     <>
       <button
         type="button"
-        aria-label="Navbatni yopish"
+        aria-label={t('queue.closeAria')}
         className={cn(
           'lg:hidden fixed inset-0 z-[998] bg-slate-900/40 backdrop-blur-[2px] transition-opacity',
           open ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none',
@@ -55,7 +58,7 @@ export function DoctorLiveQueueDrawer({
         )}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200/60 shrink-0">
-          <p className="text-sm font-bold text-slate-900">Bemorlar</p>
+          <p className="text-sm font-bold text-slate-900">{t('queue.patients')}</p>
           <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500">
             <X size={18} />
           </button>
@@ -84,6 +87,7 @@ export function DoctorMobileQueueFab({
   totalCount: number;
   onOpen: () => void;
 }) {
+  const { t } = useI18n();
   if (totalCount === 0) return null;
 
   return (
@@ -93,7 +97,7 @@ export function DoctorMobileQueueFab({
       className="lg:hidden fixed bottom-3 right-3 z-[997] inline-flex items-center gap-1.5 rounded-full bg-brand-600 text-white text-xs font-bold px-3.5 py-2 shadow-lg shadow-brand-600/30"
     >
       <Users size={14} />
-      Navbat
+      {t('queue.fab')}
       {queuedCount > 0 && (
         <span className="bg-white/25 rounded-full min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center text-[10px]">
           {queuedCount}

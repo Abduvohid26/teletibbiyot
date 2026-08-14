@@ -18,6 +18,7 @@ import {
 import { AiAnalysis } from '@/lib/api';
 import { getClinicalConclusion } from '@/lib/clinical-conclusion';
 import { formatTriage, cn } from '@/lib/utils';
+import { useI18n, LOCALE_LABELS, isLocale, type Locale } from '@/i18n';
 
 interface ClinicalConclusionReportProps {
   analysis: AiAnalysis;
@@ -25,10 +26,35 @@ interface ClinicalConclusionReportProps {
   expanded?: boolean;
 }
 
+function readContentLocale(analysis: AiAnalysis): Locale | null {
+  const top = (analysis as { contentLocale?: unknown }).contentLocale;
+  if (isLocale(top)) return top;
+  const raw = analysis.rawResponse;
+  if (raw && typeof raw === 'object' && 'contentLocale' in raw && isLocale(raw.contentLocale)) {
+    return raw.contentLocale;
+  }
+  return null;
+}
+
+function triageLevelKey(level?: string): string {
+  switch (level) {
+    case 'MEDIUM':
+      return 'clinical.triageMedium';
+    case 'HIGH':
+      return 'clinical.triageHigh';
+    case 'EMERGENCY':
+      return 'clinical.triageEmergency';
+    case 'LOW':
+    default:
+      return 'clinical.triageLow';
+  }
+}
+
 export function ClinicalConclusionReport({ analysis, compact, expanded }: ClinicalConclusionReportProps) {
+  const { t } = useI18n();
   const cc = useMemo(() => getClinicalConclusion(analysis), [analysis]);
   const triage = formatTriage(analysis.triageLevel);
-  const primary = cc.consensusDiagnoses?.[0];
+  const triageLabel = t(triageLevelKey(analysis.triageLevel));
   const dense = compact && !expanded;
   const diet = cc.dietByDiagnosis;
   const hasDietByDiagnosis = !!diet && (
@@ -37,26 +63,32 @@ export function ClinicalConclusionReport({ analysis, compact, expanded }: Clinic
     || (diet.restricted?.length ?? 0) > 0
     || !!diet.notes
   );
+  const contentLocale = readContentLocale(analysis);
 
   return (
     <div className={cn('space-y-3', dense && 'space-y-2')}>
       <div className={cn('rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50/90 to-indigo-50/60', dense ? 'p-2' : 'p-3')}>
-        <p className="text-[10px] font-bold uppercase tracking-widest text-violet-600">YAKUNIY KLINIK XULOSA</p>
-        <p className="text-xs text-slate-500 mt-0.5">Konsilium konsensusi asosida — tibbiy hujjat</p>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-violet-600">{t('clinical.finalTitle')}</p>
+        <p className="text-xs text-slate-500 mt-0.5">{t('clinical.finalSubtitle')}</p>
+        {contentLocale && (
+          <p className="text-[10px] text-slate-400 mt-1">
+            {t('clinical.generatedIn', { lang: LOCALE_LABELS[contentLocale] })}
+          </p>
+        )}
         <div className="flex items-center gap-2 mt-2 flex-wrap">
           <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-full bg-white/80', triage.color)}>
-            {triage.label} xavf
+            {t('clinical.triageRisk', { level: triageLabel })}
           </span>
           {cc.qualityScore?.overall != null && (
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-white/80 text-slate-600">
-              Sifat: {cc.qualityScore.overall}/100
+              {t('clinical.qualityBadge', { score: cc.qualityScore.overall })}
             </span>
           )}
         </div>
       </div>
 
       {cc.mainConclusion && (
-        <Section title="Asosiy xulosa" subtitle="Konsensus tashxis va kritik topilmalar" icon={Stethoscope} compact={dense}>
+        <Section title={t('clinical.mainConclusion')} subtitle={t('clinical.mainConclusionSub')} icon={Stethoscope} compact={dense}>
           <p className={cn('text-slate-700 leading-relaxed', dense ? 'text-xs' : 'text-sm')}>
             {cc.mainConclusion}
           </p>
@@ -64,7 +96,7 @@ export function ClinicalConclusionReport({ analysis, compact, expanded }: Clinic
       )}
 
       {(cc.consensusDiagnoses?.length ?? 0) > 0 && (
-        <Section title="Konsensus tashxis(lar)" subtitle="MKB-10 — Xalqaro kasalliklar klassifikatsiyasi (10-reviziya)" icon={HeartPulse} compact={dense}>
+        <Section title={t('clinical.consensusDiagnoses')} subtitle={t('clinical.icd10Subtitle')} icon={HeartPulse} compact={dense}>
           <div className="space-y-2">
             {cc.consensusDiagnoses!.map((d, i) => (
               <div key={i} className={cn('rounded-lg bg-white/80 border border-slate-100', dense ? 'p-2' : 'p-3')}>
@@ -76,7 +108,7 @@ export function ClinicalConclusionReport({ analysis, compact, expanded }: Clinic
                 </div>
                 {d.icd10Code && (
                   <p className="text-[10px] text-slate-500 mt-0.5">
-                    MKB-10: <span className="font-mono font-semibold text-slate-700">{d.icd10Code}</span>
+                    {t('clinical.icd10')}: <span className="font-mono font-semibold text-slate-700">{d.icd10Code}</span>
                   </p>
                 )}
                 {d.protocolReference && (
@@ -84,13 +116,13 @@ export function ClinicalConclusionReport({ analysis, compact, expanded }: Clinic
                 )}
                 {d.justification && (
                   <div className="mt-2">
-                    <p className="text-[9px] font-semibold uppercase text-slate-400 mb-0.5">Asoslash</p>
+                    <p className="text-[9px] font-semibold uppercase text-slate-400 mb-0.5">{t('clinical.justification')}</p>
                     <p className={cn('text-slate-600 leading-relaxed', dense ? 'text-[10px]' : 'text-xs')}>{d.justification}</p>
                   </div>
                 )}
                 {(d.logicChain?.length ?? 0) > 0 && (
                   <div className="mt-2">
-                    <p className="text-[9px] font-semibold uppercase text-slate-400 mb-1">Mantiqiy zanjir</p>
+                    <p className="text-[9px] font-semibold uppercase text-slate-400 mb-1">{t('clinical.logicChain')}</p>
                     <ol className="space-y-0.5">
                       {d.logicChain!.map((step, j) => (
                         <li key={j} className={cn('text-slate-600 flex gap-1.5', dense ? 'text-[10px]' : 'text-xs')}>
@@ -108,7 +140,7 @@ export function ClinicalConclusionReport({ analysis, compact, expanded }: Clinic
       )}
 
       {(cc.alternativeDiagnoses?.length ?? 0) > 0 && (
-        <Section title="Muqobil tashxis" icon={Stethoscope} compact={dense}>
+        <Section title={t('clinical.alternatives')} icon={Stethoscope} compact={dense}>
           <div className="space-y-1.5">
             {cc.alternativeDiagnoses!.map((d, i) => (
               <div key={i} className={cn('rounded-lg bg-slate-50 border border-slate-100', dense ? 'p-2' : 'p-2.5')}>
@@ -127,7 +159,7 @@ export function ClinicalConclusionReport({ analysis, compact, expanded }: Clinic
       )}
 
       {(cc.scientificArticles?.length ?? 0) > 0 && (
-        <Section title="Tegishli ilmiy maqolalar" icon={BookOpen} compact={dense}>
+        <Section title={t('clinical.scientificArticles')} icon={BookOpen} compact={dense}>
           <ul className="space-y-1.5">
             {cc.scientificArticles!.map((a, i) => (
               <li key={i} className={cn('rounded-lg bg-white/70 border border-slate-100', dense ? 'p-2' : 'p-2.5')}>
@@ -154,11 +186,11 @@ export function ClinicalConclusionReport({ analysis, compact, expanded }: Clinic
       )}
 
       {(cc.treatmentSteps?.length ?? 0) > 0 && (
-        <Section title="Tavsiya etilgan davolash rejasi" icon={CheckCircle2} compact={dense}>
+        <Section title={t('clinical.treatmentPlan')} icon={CheckCircle2} compact={dense}>
           <ol className="space-y-1">
             {cc.treatmentSteps!.map((step, i) => (
               <li key={i} className={cn('flex gap-2 text-slate-700', dense ? 'text-xs' : 'text-sm')}>
-                <span className="font-bold text-emerald-600 shrink-0">qadam:</span>
+                <span className="font-bold text-emerald-600 shrink-0">{t('clinical.stepLabel')}</span>
                 <span>{step.replace(/^(qadam:\s*)?/i, '').replace(/^\d+\.\s*/, '')}</span>
               </li>
             ))}
@@ -167,10 +199,10 @@ export function ClinicalConclusionReport({ analysis, compact, expanded }: Clinic
       )}
 
       {((cc.medicationWarnings?.length ?? 0) > 0 || (cc.medications?.length ?? 0) > 0) && (
-        <Section title="Dori-darmonlar bo'yicha tavsiyalar (O'zbekiston)" icon={Pill} compact={dense}>
+        <Section title={t('clinical.medicationsTitle')} icon={Pill} compact={dense}>
           {(cc.medicationWarnings?.length ?? 0) > 0 && (
             <div className="mb-2 p-2 rounded-lg bg-amber-50 border border-amber-200/80">
-              <p className="text-[9px] font-bold uppercase text-amber-700 mb-1">Farmakolog ogohlantirishlari</p>
+              <p className="text-[9px] font-bold uppercase text-amber-700 mb-1">{t('clinical.pharmaWarnings')}</p>
               <ul className="space-y-0.5">
                 {cc.medicationWarnings!.map((w, i) => (
                   <li key={i} className={cn('text-amber-800', dense ? 'text-[10px]' : 'text-xs')}>• {w}</li>
@@ -183,8 +215,8 @@ export function ClinicalConclusionReport({ analysis, compact, expanded }: Clinic
               {cc.medications!.map((m, i) => (
                 <div key={i} className={cn('rounded-lg bg-white/80 border border-slate-100', dense ? 'p-2' : 'p-2.5')}>
                   <p className={cn('font-bold text-slate-900', dense ? 'text-xs' : 'text-sm')}>{m.name}</p>
-                  {m.dose && <p className="text-[10px] text-slate-600">Doza: {m.dose}</p>}
-                  {m.tradeNames && <p className="text-[10px] text-slate-500">Mahalliy nomlar: {m.tradeNames}</p>}
+                  {m.dose && <p className="text-[10px] text-slate-600">{t('clinical.dose')}: {m.dose}</p>}
+                  {m.tradeNames && <p className="text-[10px] text-slate-500">{t('clinical.tradeNames')}: {m.tradeNames}</p>}
                   {m.instructions && <p className={cn('text-slate-600 mt-1', dense ? 'text-[10px]' : 'text-xs')}>{m.instructions}</p>}
                 </div>
               ))}
@@ -194,26 +226,26 @@ export function ClinicalConclusionReport({ analysis, compact, expanded }: Clinic
       )}
 
       {((cc.additionalTests?.length ?? 0) > 0 || cc.followUp || cc.patientRouting?.level) && (
-        <Section title="Keyingi qadamlar rejasi" icon={Route} compact={dense}>
+        <Section title={t('clinical.nextSteps')} icon={Route} compact={dense}>
           {(cc.additionalTests?.length ?? 0) > 0 && (
             <div className="mb-2">
-              <p className="text-[9px] font-bold uppercase text-slate-400 mb-1">Qo'shimcha tekshiruvlar</p>
+              <p className="text-[9px] font-bold uppercase text-slate-400 mb-1">{t('clinical.tests')}</p>
               <ul className="space-y-0.5">
-                {cc.additionalTests!.map((t, i) => (
-                  <li key={i} className={cn('text-slate-700', dense ? 'text-[10px]' : 'text-xs')}>• {t}</li>
+                {cc.additionalTests!.map((item, i) => (
+                  <li key={i} className={cn('text-slate-700', dense ? 'text-[10px]' : 'text-xs')}>• {item}</li>
                 ))}
               </ul>
             </div>
           )}
           {cc.patientRouting?.level && (
             <p className={cn('text-slate-700 mb-1', dense ? 'text-[10px]' : 'text-xs')}>
-              <span className="font-semibold">Yo&apos;nalish:</span> {cc.patientRouting.level}
+              <span className="font-semibold">{t('clinical.routingLabel')}:</span> {cc.patientRouting.level}
               {cc.patientRouting.description ? ` — ${cc.patientRouting.description}` : ''}
             </p>
           )}
           {(cc.recommendedSpecialists?.length ?? 0) > 0 && (
             <div className="mb-1">
-              <p className="text-[9px] font-bold uppercase text-slate-400 mb-0.5">Tavsiya etilgan mutaxassislar</p>
+              <p className="text-[9px] font-bold uppercase text-slate-400 mb-0.5">{t('clinical.recommendedSpecialists')}</p>
               {cc.recommendedSpecialists!.map((s, i) => (
                 <p key={i} className={cn('text-slate-700', dense ? 'text-[10px]' : 'text-xs')}>• {s}</p>
               ))}
@@ -221,17 +253,17 @@ export function ClinicalConclusionReport({ analysis, compact, expanded }: Clinic
           )}
           {cc.followUp && (
             <p className={cn('text-brand-700 font-medium', dense ? 'text-[10px]' : 'text-xs')}>
-              Keyingi kuzatuv: {cc.followUp}
+              {t('clinical.nextFollowUp')}: {cc.followUp}
             </p>
           )}
         </Section>
       )}
 
       {((cc.riskFactors?.length ?? 0) > 0 || cc.riskSeverity) && (
-        <Section title="Xavf omillari" icon={Shield} compact={dense}>
+        <Section title={t('clinical.risk')} icon={Shield} compact={dense}>
           {cc.riskSeverity && (
             <p className={cn('font-semibold text-slate-800 mb-1', dense ? 'text-[10px]' : 'text-xs')}>
-              Holat og&apos;irligi: {cc.riskSeverity.label ?? 'Baholangan'}
+              {t('clinical.severity')}: {cc.riskSeverity.label ?? t('clinical.assessed')}
               {cc.riskSeverity.score != null && ` (${cc.riskSeverity.score}/${cc.riskSeverity.max ?? 10})`}
             </p>
           )}
@@ -244,22 +276,22 @@ export function ClinicalConclusionReport({ analysis, compact, expanded }: Clinic
       )}
 
       {(cc.prognosisShort || cc.prognosisLong) && (
-        <Section title="Kasallik prognozi" icon={HeartPulse} compact={dense}>
+        <Section title={t('clinical.diseasePrognosis')} icon={HeartPulse} compact={dense}>
           {cc.prognosisShort && (
             <div className="mb-2">
-              <p className="text-[10px] font-bold uppercase text-slate-400 mb-0.5">Qisqa muddatli (1–3 oy)</p>
+              <p className="text-[10px] font-bold uppercase text-slate-400 mb-0.5">{t('clinical.prognosisShort')}</p>
               <p className={cn('text-slate-700', dense ? 'text-xs' : 'text-sm')}>{cc.prognosisShort}</p>
             </div>
           )}
           {cc.prognosisLong && (
             <div className="mb-2">
-              <p className="text-[10px] font-bold uppercase text-slate-400 mb-0.5">Uzoq muddatli (1–5 yil)</p>
+              <p className="text-[10px] font-bold uppercase text-slate-400 mb-0.5">{t('clinical.prognosisLong')}</p>
               <p className={cn('text-slate-700', dense ? 'text-xs' : 'text-sm')}>{cc.prognosisLong}</p>
             </div>
           )}
           {(cc.prognosisFactors?.length ?? 0) > 0 && (
             <div>
-              <p className="text-[10px] font-bold uppercase text-slate-400 mb-1">Prognozga ta&apos;sir etuvchi omillar</p>
+              <p className="text-[10px] font-bold uppercase text-slate-400 mb-1">{t('clinical.prognosisFactors')}</p>
               <ul className="space-y-0.5">
                 {cc.prognosisFactors!.map((f, i) => (
                   <li key={i} className={cn('text-slate-600', dense ? 'text-xs' : 'text-sm')}>• {f}</li>
@@ -271,13 +303,13 @@ export function ClinicalConclusionReport({ analysis, compact, expanded }: Clinic
       )}
 
       {((cc.dietGeneral?.length ?? 0) > 0 || (cc.preventionTips?.length ?? 0) > 0 || hasDietByDiagnosis) && (
-        <Section title="To'g'ri ovqatlanish va kasalliklarni oldini olish (profilaktika)" icon={Utensils} compact={dense}>
+        <Section title={t('clinical.dietPreventionTitle')} icon={Utensils} compact={dense}>
           <p className={cn('text-slate-600 mb-2', dense ? 'text-xs' : 'text-sm')}>
-            Tashxisga mos parhez va profilaktika choralari.
+            {t('clinical.dietPreventionIntro')}
           </p>
           {(cc.dietGeneral?.length ?? 0) > 0 && (
             <div className="mb-2">
-              <p className="text-[10px] font-bold uppercase text-slate-400 mb-1">To&apos;g&apos;ri ovqatlanish bo&apos;yicha</p>
+              <p className="text-[10px] font-bold uppercase text-slate-400 mb-1">{t('clinical.dietGeneralTitle')}</p>
               <ul className="space-y-0.5">
                 {cc.dietGeneral!.map((d, i) => (
                   <li key={i} className={cn('text-slate-700', dense ? 'text-xs' : 'text-sm')}>• {d}</li>
@@ -287,17 +319,17 @@ export function ClinicalConclusionReport({ analysis, compact, expanded }: Clinic
           )}
           {(cc.preventionTips?.length ?? 0) > 0 && (
             <div className="mb-2">
-              <p className="text-[10px] font-bold uppercase text-slate-400 mb-1">Profilaktika va oldini olish</p>
+              <p className="text-[10px] font-bold uppercase text-slate-400 mb-1">{t('clinical.preventionTitle')}</p>
               <ul className="space-y-0.5">
-                {cc.preventionTips!.map((p, i) => (
-                  <li key={i} className={cn('text-slate-600', dense ? 'text-xs' : 'text-sm')}>• {p}</li>
+                {cc.preventionTips!.map((tip, i) => (
+                  <li key={i} className={cn('text-slate-600', dense ? 'text-xs' : 'text-sm')}>• {tip}</li>
                 ))}
               </ul>
             </div>
           )}
           {hasDietByDiagnosis && diet && (
             <div className={cn('rounded-lg bg-emerald-50/80 border border-emerald-100', dense ? 'p-2' : 'p-2.5')}>
-              <p className="text-[10px] font-bold uppercase text-emerald-800 mb-1">Tashxis bo&apos;yicha individual parhez</p>
+              <p className="text-[10px] font-bold uppercase text-emerald-800 mb-1">{t('clinical.dietByDiagnosis')}</p>
               {diet.diagnosis && (
                 <p className={cn('font-semibold text-emerald-900 mb-1', dense ? 'text-xs' : 'text-sm')}>
                   {diet.diagnosis}
@@ -305,12 +337,12 @@ export function ClinicalConclusionReport({ analysis, compact, expanded }: Clinic
               )}
               {(diet.allowed?.length ?? 0) > 0 && (
                 <p className={cn('text-slate-700', dense ? 'text-xs' : 'text-sm')}>
-                  <span className="font-medium text-emerald-700">Ruxsat etilgan:</span> {diet.allowed!.join('; ')}
+                  <span className="font-medium text-emerald-700">{t('clinical.allowed')}:</span> {diet.allowed!.join('; ')}
                 </p>
               )}
               {(diet.restricted?.length ?? 0) > 0 && (
                 <p className={cn('text-slate-700 mt-0.5', dense ? 'text-xs' : 'text-sm')}>
-                  <span className="font-medium text-red-600">Cheklangan:</span> {diet.restricted!.join('; ')}
+                  <span className="font-medium text-red-600">{t('clinical.restricted')}:</span> {diet.restricted!.join('; ')}
                 </p>
               )}
               {diet.notes && (
@@ -322,18 +354,18 @@ export function ClinicalConclusionReport({ analysis, compact, expanded }: Clinic
       )}
 
       {(cc.herbalMedicine?.length ?? 0) > 0 && (
-        <Section title="Xalq tabobati va dorivor o'simliklar (qo'shimcha)" icon={Leaf} compact={dense}>
+        <Section title={t('clinical.herbalTitle')} icon={Leaf} compact={dense}>
           <p className={cn('text-slate-500 mb-2 italic', dense ? 'text-xs' : 'text-sm')}>
-            Bu bo&apos;lim rasmiy dori-darmonlar va shifokor ko&apos;rsatmasining o&apos;rnini bosmaydi; faqat qo&apos;shimcha ma&apos;lumot sifatida beriladi.
+            {t('clinical.herbalDisclaimer')}
           </p>
           <div className="space-y-1.5">
             {cc.herbalMedicine!.map((h, i) => (
               <div key={i} className={cn('rounded-lg bg-green-50/60 border border-green-100', dense ? 'p-2' : 'p-2.5')}>
                 <p className={cn('font-semibold text-slate-800', dense ? 'text-xs' : 'text-sm')}>{h.name}</p>
-                {h.part && <p className="text-[10px] text-slate-500">Qismi: {h.part}</p>}
-                {h.preparation && <p className="text-[10px] text-slate-600">Tayyorlash: {h.preparation}</p>}
+                {h.part && <p className="text-[10px] text-slate-500">{t('clinical.part')}: {h.part}</p>}
+                {h.preparation && <p className="text-[10px] text-slate-600">{t('clinical.preparation')}: {h.preparation}</p>}
                 {h.context && <p className={cn('text-slate-600', dense ? 'text-[10px]' : 'text-xs')}>{h.context}</p>}
-                {h.caution && <p className="text-[10px] text-amber-700 mt-0.5">Ehtiyotkorlik: {h.caution}</p>}
+                {h.caution && <p className="text-[10px] text-amber-700 mt-0.5">{t('clinical.caution')}: {h.caution}</p>}
               </div>
             ))}
           </div>
@@ -341,7 +373,7 @@ export function ClinicalConclusionReport({ analysis, compact, expanded }: Clinic
       )}
 
       {cc.qualityScore?.overall != null && (
-        <Section title="Tibbiy yordam sifati (protokol asosida)" icon={FlaskConical} compact={dense}>
+        <Section title={t('clinical.qualityProtocol')} icon={FlaskConical} compact={dense}>
           <div className="flex items-center gap-3">
             <div className={cn('font-bold text-brand-600', dense ? 'text-xl' : 'text-2xl')}>
               {cc.qualityScore.overall}/100
@@ -354,7 +386,7 @@ export function ClinicalConclusionReport({ analysis, compact, expanded }: Clinic
       )}
 
       {(cc.recordedFindings?.length ?? 0) > 0 && (
-        <Section title="Kartada qayd etilgan ma'lumotlar" icon={CheckCircle2} compact={dense}>
+        <Section title={t('clinical.cardFindings')} icon={CheckCircle2} compact={dense}>
           <ul className="space-y-0.5">
             {cc.recordedFindings!.map((f, i) => (
               <li key={i} className={cn('text-slate-700', dense ? 'text-xs' : 'text-sm')}>• {f}</li>
@@ -364,12 +396,16 @@ export function ClinicalConclusionReport({ analysis, compact, expanded }: Clinic
       )}
 
       {(cc.rejectedHypotheses?.length ?? 0) > 0 && (
-        <Section title="Rad etilgan gipotezalar" icon={AlertTriangle} compact={dense}>
+        <Section title={t('clinical.rejectedHypotheses')} icon={AlertTriangle} compact={dense}>
           <div className="space-y-1.5">
             {cc.rejectedHypotheses!.map((h, i) => (
               <div key={i} className={cn('rounded-lg bg-slate-50 border border-slate-100', dense ? 'p-2' : 'p-2.5')}>
                 <p className={cn('font-semibold text-slate-800', dense ? 'text-xs' : 'text-sm')}>{h.name}</p>
-                {h.reason && <p className={cn('text-slate-600 mt-0.5', dense ? 'text-xs' : 'text-sm')}>Sabab: {h.reason}</p>}
+                {h.reason && (
+                  <p className={cn('text-slate-600 mt-0.5', dense ? 'text-xs' : 'text-sm')}>
+                    {t('clinical.reason')}: {h.reason}
+                  </p>
+                )}
               </div>
             ))}
           </div>
@@ -378,7 +414,7 @@ export function ClinicalConclusionReport({ analysis, compact, expanded }: Clinic
 
       {analysis.redFlags.length > 0 && (
         <div className={cn('rounded-xl bg-red-50 border border-red-200', dense ? 'p-2' : 'p-3')}>
-          <p className={cn('font-bold text-red-700 mb-1', dense ? 'text-xs' : 'text-sm')}>Qizil bayroqlar</p>
+          <p className={cn('font-bold text-red-700 mb-1', dense ? 'text-xs' : 'text-sm')}>{t('clinical.redFlags')}</p>
           {analysis.redFlags.map((flag, i) => (
             <p key={i} className={cn('text-red-600', dense ? 'text-xs' : 'text-sm')}>{flag}</p>
           ))}

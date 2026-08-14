@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { X, Radio } from 'lucide-react';
 import { Consultation } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { useI18n } from '@/i18n';
 
 interface UtLiveQueuePanelProps {
   activeId?: string;
@@ -26,6 +27,7 @@ export function UtLiveQueuePanel({
   onCancel,
   className,
 }: UtLiveQueuePanelProps) {
+  const { t } = useI18n();
   const active = sessions.find((c) => c.id === activeId) ?? null;
 
   const { currentList, waitingList } = useMemo(() => {
@@ -62,7 +64,7 @@ export function UtLiveQueuePanel({
         {currentList.length > 0 && (
           <section>
             <h3 className="px-1 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-              Hozirgi
+              {t('ut.current')}
             </h3>
             <div className="space-y-1">
               {currentList.map((c) => (
@@ -81,7 +83,7 @@ export function UtLiveQueuePanel({
         {waitingList.length > 0 && (
           <section>
             <h3 className="px-1 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-              Navbat ({waitingList.length})
+              {t('ut.queueSection', { count: waitingList.length })}
             </h3>
             <div className="space-y-1">
               {waitingList.map((c) => (
@@ -114,6 +116,7 @@ function QueueRow({
   onSelect: () => void;
   onCancel?: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <div
       className={cn(
@@ -142,7 +145,7 @@ function QueueRow({
           <p className="text-sm font-semibold truncate leading-tight">{c.patient.fullName}</p>
           {c.mtDoctor?.fullName && (
             <p className={cn('text-[11px] truncate', active ? 'text-white/75' : 'text-slate-500')}>
-              {live ? 'Jarayonda' : 'Navbatda'} · {c.mtDoctor.fullName}
+              {live ? t('status.inProgress') : t('status.queued')} · {c.mtDoctor.fullName}
             </p>
           )}
         </div>
@@ -158,7 +161,7 @@ function QueueRow({
             'p-1.5 mr-1 shrink-0 rounded-md',
             active ? 'hover:bg-white/20 text-white/90' : 'hover:bg-red-50 text-red-500',
           )}
-          aria-label="Navbatdan bekor qilish"
+          aria-label={t('ut.cancelFromQueue')}
         >
           <X size={14} />
         </button>
@@ -167,12 +170,12 @@ function QueueRow({
   );
 }
 
-/** Header yoki mobil tugma uchun navbat soni */
 export function UtQueueCountPill({ count }: { count: number }) {
+  const { t } = useI18n();
   if (count <= 0) return null;
   return (
     <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 text-xs font-bold px-2 py-0.5 ring-1 ring-amber-200/80">
-      {count} navbat
+      {t('ut.queueCountPill', { count })}
     </span>
   );
 }

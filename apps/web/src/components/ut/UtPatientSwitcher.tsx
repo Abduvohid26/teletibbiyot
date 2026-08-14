@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { ChevronDown, Radio, User, X } from 'lucide-react';
 import { Consultation } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { useI18n } from '@/i18n';
 
 interface UtPatientSwitcherProps {
   activeId?: string;
@@ -31,6 +32,7 @@ export function UtPatientSwitcher({
   onCancel,
   className,
 }: UtPatientSwitcherProps) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [menuStyle, setMenuStyle] = useState<{ top: number; left: number; width: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -106,8 +108,8 @@ export function UtPatientSwitcher({
   if (!hasMenu) return null;
 
   const activeSubtitle = active?.status === 'IN_PROGRESS'
-    ? active.mtDoctor?.fullName || 'Jonli efir'
-    : active?.mtDoctor?.fullName || 'Navbatda';
+    ? active.mtDoctor?.fullName || t('ut.liveFallback')
+    : active?.mtDoctor?.fullName || t('status.queued');
 
   const menu = open && menuStyle && typeof document !== 'undefined'
     ? createPortal(
@@ -124,7 +126,7 @@ export function UtPatientSwitcher({
           className="rounded-xl border border-white/60 bg-white/70 backdrop-blur-xl shadow-xl overflow-hidden max-h-[min(70vh,420px)] overflow-y-auto"
         >
           {currentList.length > 0 && (
-            <Section title="Hozirgi">
+            <Section title={t('ut.current')}>
               {currentList.map((c) => (
                 <QueueRow
                   key={c.id}
@@ -138,7 +140,7 @@ export function UtPatientSwitcher({
           )}
 
           {waitingList.length > 0 && (
-            <Section title={`Navbat (${waitingList.length})`}>
+            <Section title={t('ut.queueSection', { count: waitingList.length })}>
               {waitingList.map((c) => (
                 <QueueRow
                   key={c.id}
@@ -174,7 +176,7 @@ export function UtPatientSwitcher({
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-bold text-slate-900 truncate leading-tight">
-            {active ? active.patient.fullName : 'Tanlang'}
+            {active ? active.patient.fullName : t('ut.select')}
           </p>
           {active && (
             <p className="text-[10px] text-slate-500 truncate hidden lg:block">{activeSubtitle}</p>
@@ -213,6 +215,7 @@ function QueueRow({
   onSelect: () => void;
   onCancel?: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <div
       className={cn(
@@ -257,7 +260,7 @@ function QueueRow({
             'mr-1 shrink-0 inline-flex items-center justify-center rounded-md p-1.5',
             active ? 'hover:bg-white/20 text-white/90' : 'hover:bg-red-50 text-red-500',
           )}
-          aria-label="Navbatdan bekor qilish"
+          aria-label={t('ut.cancelFromQueue')}
         >
           <X size={14} />
         </button>

@@ -1,13 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { api, SessionRecording } from '@/lib/api';
 import { Video, Play, X } from 'lucide-react';
 import { ROLES_MT_DASHBOARD } from '@/lib/roles';
+import { useI18n } from '@/i18n';
 
 interface RecordingRow extends SessionRecording {
   consultation?: {
@@ -18,6 +17,7 @@ interface RecordingRow extends SessionRecording {
 }
 
 export default function RecordingsPage() {
+  const { t } = useI18n();
   const { user, loading: authLoading } = useRequireAuth([...ROLES_MT_DASHBOARD]);
   const [items, setItems] = useState<RecordingRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,14 +30,14 @@ export default function RecordingsPage() {
     setError('');
     api.getCompletedRecordings()
       .then(setItems)
-      .catch((err) => setError(err instanceof Error ? err.message : 'Yozuvlarni yuklashda xatolik'))
+      .catch((err) => setError(err instanceof Error ? err.message : t('recordings.loadError')))
       .finally(() => setLoading(false));
-  }, [authLoading, user]);
+  }, [authLoading, user, t]);
 
   if (authLoading || !user) return null;
 
   return (
-    <DashboardLayout title="Video yozuvlar" subtitle="QA va sifat nazorati — rozilik bilan yozilgan sessiyalar">
+    <DashboardLayout title={t('recordings.title')} subtitle={t('recordings.subtitle')}>
       {error && (
         <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl p-3.5">{error}</div>
       )}
@@ -53,34 +53,34 @@ export default function RecordingsPage() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Bemor</th>
-                <th>UT</th>
-                <th>Shifokor</th>
-                <th>Davomiylik</th>
-                <th className="text-right">Amal</th>
+                <th>{t('recordings.colPatient')}</th>
+                <th>{t('recordings.colUt')}</th>
+                <th>{t('recordings.colDoctor')}</th>
+                <th>{t('recordings.colDuration')}</th>
+                <th className="text-right">{t('recordings.colAction')}</th>
               </tr>
             </thead>
             <tbody>
               {items.map((r) => (
                 <tr key={r.id}>
-                  <td>{r.consultation?.patient?.fullName ?? '—'}</td>
-                  <td>{r.consultation?.utFacility?.code ?? '—'}</td>
-                  <td>{r.consultation?.mtDoctor?.fullName ?? '—'}</td>
-                  <td>{r.duration ? `${Math.round(r.duration / 60)} daq` : '—'}</td>
+                  <td>{r.consultation?.patient?.fullName ?? t('common.emptyDash')}</td>
+                  <td>{r.consultation?.utFacility?.code ?? t('common.emptyDash')}</td>
+                  <td>{r.consultation?.mtDoctor?.fullName ?? t('common.emptyDash')}</td>
+                  <td>{r.duration ? t('common.minutesShort', { n: Math.round(r.duration / 60) }) : t('common.emptyDash')}</td>
                   <td className="text-right">
                     {r.playbackUrl ? (
                       <button
                         type="button"
                         onClick={() => {
                           setPlayerUrl(r.playbackUrl!);
-                          setPlayerTitle(r.consultation?.patient?.fullName || 'Yozuv');
+                          setPlayerTitle(r.consultation?.patient?.fullName || t('recordings.defaultTitle'));
                         }}
                         className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 hover:text-brand-700"
                       >
-                        <Play size={14} /> Ko&apos;rish
+                        <Play size={14} /> {t('common.view')}
                       </button>
                     ) : (
-                      <span className="text-xs text-slate-400">Mavjud emas</span>
+                      <span className="text-xs text-slate-400">{t('common.unavailable')}</span>
                     )}
                   </td>
                 </tr>
@@ -90,7 +90,7 @@ export default function RecordingsPage() {
           {items.length === 0 && (
             <div className="empty-state py-16">
               <Video size={32} className="mb-3 opacity-40" />
-              <p>Yakunlangan yozuvlar yo&apos;q</p>
+              <p>{t('recordings.empty')}</p>
             </div>
           )}
         </div>
@@ -107,9 +107,9 @@ export default function RecordingsPage() {
             </div>
             <video src={playerUrl} controls autoPlay className="w-full max-h-[70vh] bg-black" />
             <div className="px-4 py-2 text-xs text-slate-500 border-t">
-              Yozuv faqat bemor roziligi bilan saqlanadi. Tashqi havola:{' '}
+              {t('recordings.consentNote')}{' '}
               <a href={playerUrl} target="_blank" rel="noopener noreferrer" className="text-brand-600 underline">
-                yangi oynada
+                {t('recordings.openInNew')}
               </a>
             </div>
           </div>

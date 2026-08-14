@@ -13,6 +13,7 @@ import {
 import { QUALITY_PROFILES, getAudioConstraints, getVideoConstraints, acquireUserMedia } from '@/lib/webrtc-quality';
 import { UT_CAMERA_FEEDS } from '@/lib/video-config';
 import Link from 'next/link';
+import { useI18n } from '@/i18n';
 
 interface MediaDevicePanelProps {
   role?: 'mt' | 'ut';
@@ -314,12 +315,13 @@ function Toggle({
 }
 
 export function MediaSettingsLink({ className }: { className?: string }) {
+  const { t } = useI18n();
   return (
     <Link
       href="/ut/settings#video-audio"
       className={cn('inline-flex items-center gap-1 text-xs text-brand-600 hover:underline font-medium', className)}
     >
-      <Settings2 size={12} /> Video sozlamalari
+      <Settings2 size={12} /> {t('video.videoSettings')}
     </Link>
   );
 }

@@ -22,6 +22,8 @@ import { useCancelConsultation } from '@/hooks/use-cancel-consultation';
 import { calculateAge, cn, formatStatus, formatTriage } from '@/lib/utils';
 import { toast } from '@/lib/toast';
 import { dispatchDoctorSelect } from '@/hooks/use-doctor-header-data';
+import { useI18n } from '@/i18n';
+import { triageLabelKey } from '@/i18n/labels';
 
 type QueueFilter = 'all' | 'queued' | 'live' | 'completed' | 'cancelled';
 
@@ -65,6 +67,7 @@ export function DoctorPatientsView({
   onReload,
   error,
 }: DoctorPatientsViewProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const [filter, setFilter] = useState<QueueFilter>('all');
   const [search, setSearch] = useState('');
@@ -175,7 +178,7 @@ export function DoctorPatientsView({
     try {
       await onStartConsultation(id);
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Boshlashda xatolik', 'error');
+      toast(err instanceof Error ? err.message : t('patients.startError'), 'error');
     } finally {
       setStartingId(null);
     }
@@ -204,7 +207,7 @@ export function DoctorPatientsView({
   const statCards = [
     {
       id: 'all' as const,
-      label: 'Faol navbat',
+      label: t('patients.activeQueue'),
       value: counts.all,
       icon: Radio,
       tone: 'from-brand-400/15 to-sky-300/10 text-brand-900 ring-brand-200/50',
@@ -212,7 +215,7 @@ export function DoctorPatientsView({
     },
     {
       id: 'queued' as const,
-      label: 'Navbatda',
+      label: t('status.queued'),
       value: counts.queued,
       icon: Clock,
       tone: 'from-amber-400/20 to-orange-300/10 text-amber-800 ring-amber-200/60',
@@ -220,7 +223,7 @@ export function DoctorPatientsView({
     },
     {
       id: 'live' as const,
-      label: 'Jonli qabul',
+      label: t('patients.liveReception'),
       value: counts.live,
       icon: Radio,
       tone: 'from-emerald-400/20 to-teal-300/10 text-emerald-900 ring-emerald-200/60',
@@ -228,7 +231,7 @@ export function DoctorPatientsView({
     },
     {
       id: 'completed' as const,
-      label: 'Yakunlangan',
+      label: t('status.completed'),
       value: counts.completed,
       icon: CheckCircle2,
       tone: 'from-violet-400/15 to-indigo-300/10 text-violet-900 ring-violet-200/50',
@@ -236,7 +239,7 @@ export function DoctorPatientsView({
     },
     {
       id: 'cancelled' as const,
-      label: 'Bekor qilingan',
+      label: t('status.cancelled'),
       value: counts.cancelled,
       icon: XCircle,
       tone: 'from-red-400/15 to-rose-300/10 text-red-900 ring-red-200/50',
@@ -245,7 +248,7 @@ export function DoctorPatientsView({
   ];
 
   const facilityOptions = [
-    { value: '', label: 'Barcha UT' },
+    { value: '', label: t('filters.allFacilities') },
     ...(options?.facilities.map((f) => ({ value: f.id, label: f.code })) ?? []),
   ];
 
@@ -260,15 +263,15 @@ export function DoctorPatientsView({
             <div className="ut-glass-banner border-red-200/70 bg-red-50/75 text-red-700 text-xs px-3 py-2 flex items-center justify-between">
               <span className="truncate">{error}</span>
               <button type="button" onClick={onReload} className="text-[10px] font-semibold underline shrink-0 ml-2">
-                Qayta
+                {t('dashboard.retryShort')}
               </button>
             </div>
           )}
 
           <div>
-            <h1 className="text-lg font-bold text-slate-900 tracking-tight">Bemorlar va navbat</h1>
+            <h1 className="text-lg font-bold text-slate-900 tracking-tight">{t('patients.doctorTitle')}</h1>
             <p className="text-sm text-slate-500">
-              Header switcher yoki ro&apos;yxatdan tanlang — Boshlash / Ulash / Bekor
+              {t('patients.doctorSubtitle')}
             </p>
           </div>
 
@@ -301,7 +304,7 @@ export function DoctorPatientsView({
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Bemor ismi, telefon yoki UT kodi..."
+              placeholder={t('filters.searchPatientUt')}
               className="form-input ut-glass-input !py-2.5 !pl-9 !text-sm w-full"
             />
           </div>
@@ -309,8 +312,8 @@ export function DoctorPatientsView({
           {isHistoryFilter && (
             <SmartFilterBar
               fields={[
-                { key: 'search', label: 'Qidirish', type: 'search', value: listFilters.search || '', placeholder: 'Bemor ismi...' },
-                { key: 'triageLevel', label: 'Xavf', type: 'select', value: listFilters.triageLevel || '', options: TRIAGE_OPTIONS },
+                { key: 'search', label: t('common.search'), type: 'search', value: listFilters.search || '', placeholder: t('filters.searchPatientShort') },
+                { key: 'triageLevel', label: t('filter.risk'), type: 'select', value: listFilters.triageLevel || '', options: TRIAGE_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) })) },
                 { key: 'utId', label: 'UT', type: 'select', value: listFilters.utId || '', options: facilityOptions },
               ]}
               onChange={setListFilter}
@@ -323,7 +326,7 @@ export function DoctorPatientsView({
             <div className="space-y-4">
               {currentList.length > 0 && (
                 <section className="space-y-2">
-                  <h2 className="px-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">Hozirgi</h2>
+                  <h2 className="px-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">{t('patients.current')}</h2>
                   {currentList.map((c) => (
                     <ActiveQueueCard
                       key={c.id}
@@ -343,7 +346,7 @@ export function DoctorPatientsView({
               {waitingList.length > 0 && (
                 <section className="space-y-2">
                   <h2 className="px-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    Navbat ({waitingList.length})
+                    {t('patients.queueCount', { count: waitingList.length })}
                   </h2>
                   {waitingList.map((c) => (
                     <ActiveQueueCard
@@ -362,9 +365,9 @@ export function DoctorPatientsView({
               {showActiveEmpty && (
                 <div className="ut-glass-empty flex flex-col items-center py-14 px-4 text-center">
                   <Stethoscope className="w-8 h-8 text-slate-300 mb-3" />
-                  <h2 className="font-bold text-slate-800 text-sm mb-1">Navbat bo&apos;sh</h2>
+                  <h2 className="font-bold text-slate-800 text-sm mb-1">{t('patients.queueEmpty')}</h2>
                   <p className="text-sm text-slate-500 max-w-sm">
-                    UT yangi bemor yuborganida shu yerda ko&apos;rinadi
+                    {t('patients.queueEmptyHint')}
                   </p>
                 </div>
               )}
@@ -372,13 +375,13 @@ export function DoctorPatientsView({
           ) : historyLoading ? (
             <div className="flex items-center justify-center py-12 text-slate-400 gap-2">
               <Loader2 size={18} className="animate-spin" />
-              <span className="text-sm">Yuklanmoqda...</span>
+              <span className="text-sm">{t('common.loading')}</span>
             </div>
           ) : historyList.length === 0 ? (
             <div className="ut-glass-empty flex flex-col items-center py-14 px-4 text-center">
               <Stethoscope className="w-8 h-8 text-slate-300 mb-3" />
-              <h2 className="font-bold text-slate-800 text-sm mb-1">Bemor topilmadi</h2>
-              <p className="text-sm text-slate-500 max-w-sm">Filter yoki qidiruvni o&apos;zgartiring</p>
+              <h2 className="font-bold text-slate-800 text-sm mb-1">{t('patients.notFound')}</h2>
+              <p className="text-sm text-slate-500 max-w-sm">{t('patients.notFoundHint')}</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -415,6 +418,7 @@ function ActiveQueueCard({
   onContinue?: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useI18n();
   const status = formatStatus(c.status);
   const triage = formatTriage(c.triageLevel);
   const age = calculateAge(c.patient.birthDate);
@@ -448,15 +452,15 @@ function ActiveQueueCard({
             <p className={cn('font-semibold truncate', active ? 'text-brand-900' : 'text-slate-900')}>
               {c.patient.fullName}
             </p>
-            <span className={cn('status-badge !text-[10px]', status.className)}>{status.label}</span>
+            <span className={cn('status-badge !text-[10px]', status.className)}>{t(status.labelKey)}</span>
             {c.triageLevel && (
               <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-md', triage.color)}>
-                {triage.label}
+                {t(triageLabelKey(c.triageLevel))}
               </span>
             )}
           </div>
           <p className="text-xs text-slate-500 mt-0.5 truncate">
-            {live ? 'Jarayonda' : 'Sizga biriktirilgan'} · {c.utFacility?.code ?? 'UT'} · {age ?? '—'} yosh · {c.patient.phone}
+            {live ? t('status.inProgress') : t('patients.assignedToYou')} · {c.utFacility?.code ?? 'UT'} · {age != null ? t('common.years', { age }) : t('common.emptyDash')} · {c.patient.phone}
           </p>
           {c.clinicalRecord?.complaints && (
             <p className="text-xs text-slate-600 mt-1 line-clamp-1">{c.clinicalRecord.complaints}</p>
@@ -479,7 +483,7 @@ function ActiveQueueCard({
             )}
           >
             {continuingId === c.id ? <Loader2 size={13} className="animate-spin" /> : <Radio size={13} />}
-            Ulash
+            {t('common.connect')}
           </button>
         )}
         {onStart && (
@@ -495,7 +499,7 @@ function ActiveQueueCard({
             )}
           >
             {startingId === c.id ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />}
-            Boshlash
+            {t('common.start')}
           </button>
         )}
         <button
@@ -505,7 +509,7 @@ function ActiveQueueCard({
             'inline-flex items-center justify-center rounded-xl p-2 transition-colors',
             active ? 'hover:bg-white/60 text-red-600' : 'hover:bg-red-50 text-red-500',
           )}
-          aria-label="Bekor qilish"
+          aria-label={t('queue.cancelAria')}
         >
           <XCircle size={16} />
         </button>
@@ -515,6 +519,7 @@ function ActiveQueueCard({
 }
 
 function HistoryCard({ c }: { c: Consultation }) {
+  const { t } = useI18n();
   const status = formatStatus(c.status);
   const triage = formatTriage(c.triageLevel);
   const age = calculateAge(c.patient.birthDate);
@@ -528,22 +533,22 @@ function HistoryCard({ c }: { c: Consultation }) {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-semibold text-slate-900 truncate">{c.patient.fullName}</p>
-            <span className={cn('status-badge !text-[10px]', status.className)}>{status.label}</span>
+            <span className={cn('status-badge !text-[10px]', status.className)}>{t(status.labelKey)}</span>
             {c.triageLevel && (
               <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-md', triage.color)}>
-                {triage.label}
+                {t(triageLabelKey(c.triageLevel))}
               </span>
             )}
           </div>
           <p className="text-xs text-slate-500 mt-0.5 truncate">
-            {c.utFacility?.code ?? 'UT'} · {age ?? '—'} yosh · {c.patient.phone}
+            {c.utFacility?.code ?? 'UT'} · {age != null ? t('common.years', { age }) : t('common.emptyDash')} · {c.patient.phone}
           </p>
           {c.clinicalRecord?.complaints && (
             <p className="text-xs text-slate-600 mt-1 line-clamp-1">{c.clinicalRecord.complaints}</p>
           )}
           {c.status === 'CANCELLED' && c.cancelReason && (
             <p className="text-xs text-red-700 mt-1 line-clamp-2">
-              Sabab: {c.cancelReason}
+              {t('common.reason', { reason: c.cancelReason })}
               {c.cancelledBy?.fullName ? ` · ${c.cancelledBy.fullName}` : ''}
             </p>
           )}

@@ -23,6 +23,7 @@ import {
   clearJoined,
   clearOtherJoined,
 } from '@/lib/video-room-session';
+import { useI18n } from '@/i18n';
 
 interface VideoConsultationProps {
   facilityCode?: string;
@@ -35,9 +36,14 @@ interface VideoConsultationProps {
 
 const ALL_CAMERAS_VIEW = 'all';
 
-function shortFeedLabel(feed: (typeof UT_CAMERA_FEEDS)[number]) {
-  if (feed.id === 'close') return 'Bemor';
-  if (feed.id === 'equipment') return 'Qurilmalar';
+function shortFeedLabel(
+  feed: (typeof UT_CAMERA_FEEDS)[number],
+  t: (key: string, params?: Record<string, string | number>) => string,
+) {
+  if (feed.id === 'close') return t('video.camPatient');
+  if (feed.id === 'equipment') return t('video.camEquipment');
+  if (feed.id === 'main') return t('video.camMain');
+  if (feed.id === 'room') return t('video.camRoom');
   return feed.label.split(' ')[0];
 }
 
@@ -53,6 +59,7 @@ export function VideoConsultation({
   compact = false,
   reconnectSignal = 0,
 }: VideoConsultationProps) {
+  const { t } = useI18n();
   const [activeCamera, setActiveCamera] = useState(compact ? 'equipment' : 'close');
   const [showPtz, setShowPtz] = useState(false);
   // Meet: refreshda auto-rejoin; Leave da lobby; sessionStorage da saqlanadi.
@@ -180,10 +187,10 @@ export function VideoConsultation({
           <Video className="w-10 h-10 text-slate-300" />
           <div className="text-center max-w-xs">
             <p className={cn('font-semibold text-slate-700', compact ? 'text-xs' : 'text-sm')}>
-              {observeMode ? 'Kuzatiladigan konsultatsiya tanlanmagan' : 'Faol video sessiya yo\'q'}
+              {observeMode ? t('video.noObserveSession') : t('video.noActiveSession')}
             </p>
             <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-              Navbatdan &quot;Boshlash&quot; tugmasini bosing. Video faqat konsultatsiya boshlanganda ulanadi.
+              {t('video.startFromQueueHint')}
             </p>
           </div>
           <MediaSettingsLink />
@@ -276,7 +283,7 @@ export function VideoConsultation({
                     live={live}
                   />
                   <span className="absolute top-1 left-1 bg-black/60 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded pointer-events-none">
-                    {shortFeedLabel(feed)}
+                    {shortFeedLabel(feed, t)}
                   </span>
                   {!live && (
                     <span className="absolute inset-0 flex items-center justify-center bg-slate-900/40 pointer-events-none">
@@ -296,7 +303,7 @@ export function VideoConsultation({
                 'absolute inset-0 w-full h-full',
                 activeCamera === 'equipment' ? '[&_video]:object-contain' : '[&_video]:object-cover',
               )}
-              placeholder={`${activeFeed.label} — UT kamera kutmoqda`}
+              placeholder={t('video.waitingUtCamera', { label: activeFeed.label })}
               live={!!mainStream}
               resolution={connectionStats.resolution}
             />
@@ -308,7 +315,7 @@ export function VideoConsultation({
 
         {!observeMode && localPreview && (
           <div className="absolute w-36 sm:w-44 aspect-video rounded-lg overflow-hidden ring-2 ring-white/20 shadow-lg z-10 bottom-3 right-3">
-            <VideoTile stream={localPreview} mirror muted label="Siz" />
+            <VideoTile stream={localPreview} mirror muted label={t('video.you')} />
             {!camOn && (
               <div className="absolute inset-0 bg-slate-800/80 flex items-center justify-center">
                 <VideoOff className="w-5 h-5 text-slate-400" />
@@ -319,7 +326,7 @@ export function VideoConsultation({
 
         {observeMode ? (
           <div className="absolute top-3 left-3 z-10 flex items-center gap-2 bg-violet-600/80 text-white text-xs font-bold px-2.5 py-1 rounded-lg">
-            <Eye size={14} /> Kuzatuv — {facilityCode}
+            <Eye size={14} /> {t('video.observeBadge', { code: facilityCode })}
           </div>
         ) : (
           <div className="absolute top-3 left-3 z-10">
@@ -338,10 +345,10 @@ export function VideoConsultation({
               )}
               title={
                 recording
-                  ? 'Yozuv olinmoqda'
+                  ? t('video.recording')
                   : uploading
-                    ? 'Yozuv yuklanmoqda...'
-                    : 'Yozuv o\'tkazildi (rozilik yo\'q)'
+                    ? t('video.recordingUploading')
+                    : t('video.recordingSkipped')
               }
             />
           )}
@@ -350,7 +357,7 @@ export function VideoConsultation({
               'w-2.5 h-2.5 rounded-full animate-pulse ring-2 ring-black/20',
               connected ? 'bg-emerald-500' : videoPaused ? 'bg-amber-500' : 'bg-slate-400',
             )}
-            title={connected ? 'Jonli' : videoPaused ? 'Uzilgan' : 'Ulanmoqda'}
+            title={connected ? t('video.live') : videoPaused ? t('video.disconnected') : t('video.connectingShort')}
           />
         </div>
 
@@ -373,10 +380,10 @@ export function VideoConsultation({
           <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-sm px-4">
             <VideoOff className="w-10 h-10 text-slate-300 mb-2" />
             <p className={cn('font-semibold text-white text-center', compact ? 'text-xs' : 'text-sm')}>
-              Kamera ruxsati kerak
+              {t('video.cameraPermissionTitle')}
             </p>
             <p className="text-[11px] text-slate-300 text-center mt-1 max-w-xs leading-relaxed">
-              Konsultatsiya davom etadi. UT kameralarini ko&apos;rishingiz mumkin — shifokor kamerasi uchun ruxsat bering.
+              {t('video.cameraPermissionBody')}
             </p>
             <button
               type="button"
@@ -387,7 +394,7 @@ export function VideoConsultation({
               )}
             >
               <Video size={compact ? 14 : 16} />
-              Ruxsat berish
+              {t('video.grantPermission')}
             </button>
           </div>
         )}
@@ -395,14 +402,14 @@ export function VideoConsultation({
         {virtualCameraWarning.length > 0 && (
           <div className="absolute bottom-3 left-3 z-10 max-w-xs bg-amber-500/90 text-white text-[10px] rounded-lg px-2.5 py-2 flex items-start gap-1.5">
             <AlertTriangle size={12} className="shrink-0 mt-0.5" />
-            <span>UT virtual kamera: {virtualCameraWarning.join(', ')} — qo&apos;shimcha jismoniy kamera ulang</span>
+            <span>{t('video.virtualCameraWarning', { names: virtualCameraWarning.join(', ') })}</span>
           </div>
         )}
 
         {networkAudioOnly && (
           <div className="absolute top-12 left-3 right-3 z-10 max-w-sm bg-sky-600/90 text-white text-[11px] rounded-lg px-3 py-2 flex items-start gap-1.5 pointer-events-none">
             <AlertTriangle size={12} className="shrink-0 mt-0.5" />
-            <span>Tarmoq sekin — video pasaytirildi, ovoz ishlayveradi</span>
+            <span>{t('video.networkAudioOnly')}</span>
           </div>
         )}
 
@@ -412,7 +419,7 @@ export function VideoConsultation({
             phase={roomPhase}
             error={error}
             compact={compact}
-            peerLabel={peerDisplayName || 'UT operator'}
+            peerLabel={peerDisplayName || t('common.operator')}
             onRetry={roomPhase === 'error' ? handleReconnect : undefined}
           />
         )}
@@ -421,10 +428,10 @@ export function VideoConsultation({
           <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950/75 backdrop-blur-sm px-4">
             <VideoOff className="w-10 h-10 text-slate-400 mb-2" />
             <p className={cn('font-semibold text-white text-center', compact ? 'text-xs' : 'text-sm')}>
-              Video uzildi
+              {t('video.pausedTitle')}
             </p>
             <p className="text-[11px] text-slate-300 text-center mt-1 max-w-xs leading-relaxed">
-              Konsultatsiya jarayonda davom etadi. Qayta ulash uchun tugmani bosing.
+              {t('video.pausedSub')}
             </p>
             <button
               type="button"
@@ -435,26 +442,26 @@ export function VideoConsultation({
               )}
             >
               <Phone size={compact ? 14 : 16} />
-              Qayta ulash
+              {t('video.reconnect')}
             </button>
           </div>
         )}
 
         {!observeMode && showPtz && !isAllView && (
           <div className="absolute bottom-16 right-28 bg-black/70 rounded-lg p-2 z-10">
-            <p className="text-[9px] text-white/70 text-center col-span-3 mb-1">PTZ boshqaruv</p>
+            <p className="text-[9px] text-white/70 text-center col-span-3 mb-1">{t('video.ptzControl')}</p>
             <div className="grid grid-cols-3 gap-1">
             <div />
-            <button type="button" onClick={() => sendPtz('up')} className="p-1.5 text-white hover:bg-white/20 rounded" aria-label="Yuqoriga"><ChevronUp size={16} /></button>
+            <button type="button" onClick={() => sendPtz('up')} className="p-1.5 text-white hover:bg-white/20 rounded" aria-label={t('video.ptzUp')}><ChevronUp size={16} /></button>
             <div />
-            <button type="button" onClick={() => sendPtz('left')} className="p-1.5 text-white hover:bg-white/20 rounded" aria-label="Chapga"><ChevronLeft size={16} /></button>
+            <button type="button" onClick={() => sendPtz('left')} className="p-1.5 text-white hover:bg-white/20 rounded" aria-label={t('video.ptzLeft')}><ChevronLeft size={16} /></button>
             <span className="p-1.5 text-white text-xs text-center">PTZ</span>
-            <button type="button" onClick={() => sendPtz('right')} className="p-1.5 text-white hover:bg-white/20 rounded" aria-label="O'ngga"><ChevronRight size={16} /></button>
+            <button type="button" onClick={() => sendPtz('right')} className="p-1.5 text-white hover:bg-white/20 rounded" aria-label={t('video.ptzRight')}><ChevronRight size={16} /></button>
             <div />
-            <button type="button" onClick={() => sendPtz('down')} className="p-1.5 text-white hover:bg-white/20 rounded" aria-label="Pastga"><ChevronDown size={16} /></button>
+            <button type="button" onClick={() => sendPtz('down')} className="p-1.5 text-white hover:bg-white/20 rounded" aria-label={t('video.ptzDown')}><ChevronDown size={16} /></button>
             <div />
-            <button type="button" onClick={() => sendPtz('zoom-in')} className="p-1.5 text-white hover:bg-white/20 rounded" aria-label="Yaqinlashtirish"><ZoomIn size={16} /></button>
-            <button type="button" onClick={() => sendPtz('zoom-out')} className="p-1.5 text-white hover:bg-white/20 rounded" aria-label="Uzoqlashtirish"><ZoomOut size={16} /></button>
+            <button type="button" onClick={() => sendPtz('zoom-in')} className="p-1.5 text-white hover:bg-white/20 rounded" aria-label={t('video.ptzZoomIn')}><ZoomIn size={16} /></button>
+            <button type="button" onClick={() => sendPtz('zoom-out')} className="p-1.5 text-white hover:bg-white/20 rounded" aria-label={t('video.ptzZoomOut')}><ZoomOut size={16} /></button>
             </div>
           </div>
         )}
@@ -477,7 +484,7 @@ export function VideoConsultation({
             >
               <VideoTile stream={stream} muted className="w-full h-full" placeholder={feed.label} live={!!stream} />
               <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] px-1.5 py-0.5 truncate pointer-events-none">
-                {shortFeedLabel(feed)}
+                {shortFeedLabel(feed, t)}
               </span>
             </button>
           );
@@ -517,7 +524,7 @@ export function VideoConsultation({
                   'text-[8px] font-semibold px-1 py-0.5 truncate text-center',
                   live ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500',
                 )}>
-                  {shortFeedLabel(feed)}
+                  {shortFeedLabel(feed, t)}
                 </span>
               </button>
             );
@@ -535,9 +542,9 @@ export function VideoConsultation({
         {!observeMode && (
           <>
             <div className="flex items-center gap-1 glass-control-bar shadow-glass">
-              <ControlBtn active={micOn} onClick={toggleMic} icon={micOn ? Mic : MicOff} compact={compact} label="Mic" />
-              <ControlBtn active={speakerOn} onClick={toggleSpeaker} icon={speakerOn ? Volume2 : VolumeX} compact={compact} label="Ovoz" />
-              <ControlBtn active={camOn} onClick={toggleCam} icon={camOn ? Video : VideoOff} compact={compact} label="Kamera" />
+              <ControlBtn active={micOn} onClick={toggleMic} icon={micOn ? Mic : MicOff} compact={compact} label={t('video.mic')} />
+              <ControlBtn active={speakerOn} onClick={toggleSpeaker} icon={speakerOn ? Volume2 : VolumeX} compact={compact} label={t('video.speaker')} />
+              <ControlBtn active={camOn} onClick={toggleCam} icon={camOn ? Video : VideoOff} compact={compact} label={t('video.cam')} />
               <ControlBtn active={showPtz} onClick={() => setShowPtz(!showPtz)} icon={MoreHorizontal} compact={compact} label="PTZ" />
             </div>
             <button
@@ -549,7 +556,7 @@ export function VideoConsultation({
               )}
             >
               <PhoneOff size={compact ? 14 : 16} />
-              {compact ? 'Uzish' : 'Video uzish'}
+              {compact ? t('video.leave') : t('video.leaveVideo')}
             </button>
             {videoPaused && (
               <button
@@ -561,13 +568,13 @@ export function VideoConsultation({
                 )}
               >
                 <Phone size={compact ? 14 : 16} />
-                Qayta ulash
+                {t('video.reconnect')}
               </button>
             )}
           </>
         )}
         {observeMode && (
-          <p className="text-xs text-slate-500">Faqat kuzatish — video uzilmaydi</p>
+          <p className="text-xs text-slate-500">{t('video.observeOnly')}</p>
         )}
       </div>
     </div>
@@ -586,11 +593,15 @@ function AllCamerasButton({
   compact?: boolean;
   onClick: () => void;
 }) {
+  const { t } = useI18n();
+  const hint = t('video.allCamerasHint');
+  const label = t('video.allCameras');
+
   if (compact) {
     return (
       <button
         type="button"
-        title="Hammasi — 4 ta kamera bir vaqtda"
+        title={hint}
         onClick={onClick}
         className={cn(
           'relative flex flex-col shrink-0 rounded-lg overflow-hidden border-2 transition-all w-[4.5rem]',
@@ -606,7 +617,7 @@ function AllCamerasButton({
           'text-[8px] font-semibold px-1 py-0.5 truncate text-center',
           active ? 'bg-brand-600 text-white' : liveCount > 0 ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-500',
         )}>
-          Hammasi
+          {label}
         </span>
       </button>
     );
@@ -615,7 +626,7 @@ function AllCamerasButton({
   return (
     <button
       type="button"
-      title="Hammasi — 4 ta kamera bir vaqtda"
+      title={hint}
       onClick={onClick}
       className={cn(
         'relative aspect-video rounded-lg overflow-hidden border-2 transition-all bg-slate-900',
@@ -629,7 +640,7 @@ function AllCamerasButton({
       </div>
       <LayoutGrid size={14} className="absolute top-1.5 right-1.5 text-white/40" />
       <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] px-1.5 py-0.5 truncate pointer-events-none">
-        Hammasi
+        {label}
       </span>
     </button>
   );

@@ -5,6 +5,7 @@ import { api, AiAnalysisStep } from '@/lib/api';
 import { CheckCircle2, Loader2 } from 'lucide-react';
 import { cn, toUserMessage } from '@/lib/utils';
 import { toast } from '@/lib/toast';
+import { useI18n } from '@/i18n';
 
 interface AiStepConfirmProps {
   consultationId?: string;
@@ -15,6 +16,7 @@ interface AiStepConfirmProps {
 }
 
 export function AiStepConfirm({ consultationId, steps, onConfirmed, canConfirm, compact }: AiStepConfirmProps) {
+  const { t } = useI18n();
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   if (!steps?.length || !consultationId) return null;
@@ -27,7 +29,7 @@ export function AiStepConfirm({ consultationId, steps, onConfirmed, canConfirm, 
       await api.confirmAiStep(consultationId, stepId);
       onConfirmed?.();
     } catch (err) {
-      toast(toUserMessage(err, 'Tasdiqlashda xatolik'), 'error');
+      toast(toUserMessage(err, t('aiStep.confirmError')), 'error');
     } finally {
       setConfirmingId(null);
     }
@@ -57,14 +59,14 @@ export function AiStepConfirm({ consultationId, steps, onConfirmed, canConfirm, 
               onClick={() => handleConfirm(step.id)}
               className="text-[10px] font-semibold text-brand-600 hover:underline shrink-0 disabled:opacity-50"
             >
-              {confirmingId === step.id ? '...' : 'Tasdiqlash'}
+              {confirmingId === step.id ? '...' : t('common.confirm')}
             </button>
           )}
         </div>
       ))}
       {canConfirm && pending.length > 0 && !compact && (
         <p className="text-[10px] text-amber-700 bg-amber-50 rounded-lg p-2">
-          Yakunlashdan oldin {pending.length} ta AI bosqichini tasdiqlang
+          {t('aiStep.pendingHint', { count: pending.length })}
         </p>
       )}
     </div>

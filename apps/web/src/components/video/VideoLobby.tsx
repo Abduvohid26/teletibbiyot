@@ -3,29 +3,27 @@
 import { Radio, Video } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MediaSettingsLink } from './MediaDevicePanel';
+import { useI18n } from '@/i18n';
 
 interface VideoLobbyProps {
-  /** "Jonli efirga qo'shilish" bosilganda */
   onJoin: () => void;
   role: 'mt' | 'ut' | 'observe';
-  /** Qarshi tomon nomi (masalan shifokor yoki bemor ismi) */
   peerName?: string;
   compact?: boolean;
 }
 
 /**
- * Google Meet uslubidagi "lobby" (kutish) ekrani.
- * Birinchi kirishda Join; refreshda session saqlangan bo'lsa auto-rejoin
- * (parent sessionStorage orqali). Explicit Leave dan keyin yana shu ekran.
+ * Google Meet–style lobby. Join on first entry; refresh may auto-rejoin via parent sessionStorage.
  */
 export function VideoLobby({ onJoin, role, peerName, compact = false }: VideoLobbyProps) {
-  const title = role === 'observe' ? 'Kuzatuvga qo\'shilish' : 'Jonli efirga qo\'shilish';
+  const { t } = useI18n();
+  const title = role === 'observe' ? t('video.joinObserve') : t('video.joinLive');
   const subtitle =
     role === 'observe'
-      ? 'Konsultatsiyani real vaqtda kuzatish uchun qo\'shiling'
+      ? t('video.lobbyObserveSub')
       : role === 'ut'
-        ? 'Shifokor bilan jonli video aloqani boshlash uchun qo\'shiling'
-        : 'Bemor bilan jonli video aloqani boshlash uchun qo\'shiling';
+        ? t('video.lobbyUtSub')
+        : t('video.lobbyMtSub');
 
   return (
     <div
@@ -44,7 +42,8 @@ export function VideoLobby({ onJoin, role, peerName, compact = false }: VideoLob
         <p className="text-slate-300 text-xs mt-1 leading-relaxed">{subtitle}</p>
         {peerName && (
           <p className="text-slate-400 text-[11px] mt-2">
-            {role === 'ut' ? 'Shifokor' : 'Bemor'}: <span className="text-slate-200 font-medium">{peerName}</span>
+            {role === 'ut' ? t('common.doctor') : t('common.patient')}:{' '}
+            <span className="text-slate-200 font-medium">{peerName}</span>
           </p>
         )}
       </div>

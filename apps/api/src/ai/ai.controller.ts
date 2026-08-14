@@ -7,6 +7,7 @@ import {
   UseGuards,
   Request,
   Res,
+  Headers,
   NotFoundException,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
@@ -75,9 +76,13 @@ export class AiController {
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Roles(...ROLES_MT_DOCTOR, ...ROLES_ADMIN)
   @ApiOperation({ summary: 'AI tahlilni qayta ishga tushirish' })
-  async analyze(@Param('id') id: string, @Request() req: { user: AuthUser }) {
+  async analyze(
+    @Param('id') id: string,
+    @Request() req: { user: AuthUser },
+    @Headers('x-locale') locale?: string,
+  ) {
     await this.assertConsultationAccess(req.user, id);
-    return this.aiService.analyzeConsultation(id);
+    return this.aiService.analyzeConsultation(id, locale);
   }
 
   @Post('consultations/:id/chat')
@@ -88,9 +93,10 @@ export class AiController {
     @Param('id') id: string,
     @Body() dto: AiChatDto,
     @Request() req: { user: AuthUser },
+    @Headers('x-locale') locale?: string,
   ) {
     await this.assertConsultationAccess(req.user, id);
-    return this.aiService.chatWithAi(id, dto.question);
+    return this.aiService.chatWithAi(id, dto.question, locale);
   }
 
   @Post('consultations/:consultationId/steps/:stepId/confirm')

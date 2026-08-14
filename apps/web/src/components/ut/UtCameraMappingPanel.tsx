@@ -13,6 +13,7 @@ import {
 } from '@/lib/media-preferences';
 import { UT_CAMERA_SLOTS, type UtCameraSlotId } from '@/lib/ut-camera-slots';
 import { getUtVideoConstraints } from '@/lib/webrtc-quality';
+import { useI18n } from '@/i18n';
 
 interface UtCameraMappingPanelProps {
   compact?: boolean;
@@ -20,6 +21,7 @@ interface UtCameraMappingPanelProps {
 }
 
 export function UtCameraMappingPanel({ compact, onPrefsChange }: UtCameraMappingPanelProps) {
+  const { t } = useI18n();
   const [prefs, setPrefs] = useState<MediaPreferences>(() => loadMediaPreferences());
   const {
     videoInputs,
@@ -58,12 +60,12 @@ export function UtCameraMappingPanel({ compact, onPrefsChange }: UtCameraMapping
         <div className="flex items-start gap-2 text-xs text-amber-800 bg-amber-50 rounded-xl p-2.5 ring-1 ring-amber-100">
           <AlertTriangle size={15} className="shrink-0 mt-0.5" />
           <div className="min-w-0">
-            <p className="font-semibold">Kamera va mikrofon ruxsati kerak</p>
+            <p className="font-semibold">{t('ut.cameraPermissionTitle')}</p>
             <p className="text-amber-700/90 mt-0.5 leading-snug">
-              USB kameralarni ko&apos;rish uchun brauzer ruxsatini bering.
+              {t('ut.cameraPermissionBody')}
             </p>
             <button type="button" onClick={requestPermission} className="text-brand-700 font-bold mt-1.5 hover:underline">
-              Ruxsat berish
+              {t('video.grantPermission')}
             </button>
           </div>
         </div>
@@ -75,7 +77,7 @@ export function UtCameraMappingPanel({ compact, onPrefsChange }: UtCameraMapping
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-slate-600 leading-snug max-w-xl">
-          Kompyuterga ulangan har bir kamerani mos slotga biriktiring. Jonli efirda shifokor aynan shu nomlar bilan ko&apos;radi.
+          {t('ut.cameraMappingHint')}
         </p>
         <button
           type="button"
@@ -83,7 +85,7 @@ export function UtCameraMappingPanel({ compact, onPrefsChange }: UtCameraMapping
           className="btn-secondary !py-1 !px-2.5 !text-xs shrink-0 inline-flex items-center gap-1"
         >
           <RefreshCw size={12} />
-          Kameralarni yangilash
+          {t('ut.refreshCameras')}
         </button>
       </div>
 
@@ -108,7 +110,7 @@ export function UtCameraMappingPanel({ compact, onPrefsChange }: UtCameraMapping
           mappedCount >= 4 ? 'bg-emerald-100 text-emerald-800' : mappedCount > 0 ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-600',
         )}>
           {mappedCount >= 4 ? <CheckCircle2 size={14} /> : <Camera size={14} />}
-          {mappedCount}/4 kamera biriktirilgan
+          {t('ut.camerasMapped', { count: mappedCount })}
         </div>
       </div>
     </div>
@@ -128,6 +130,7 @@ function CameraSlotCard({
   compact?: boolean;
   onChange: (deviceId: string) => void;
 }) {
+  const { t } = useI18n();
   const accentRing = {
     brand: 'ring-brand-500/40 border-brand-200',
     violet: 'ring-violet-500/40 border-violet-200',
@@ -150,27 +153,27 @@ function CameraSlotCard({
           </span>
           <div className="min-w-0 flex-1">
             <p className={cn('font-bold text-slate-900 leading-tight', compact ? 'text-xs' : 'text-sm')}>
-              {slot.label}
+              {t(slot.labelKey)}
             </p>
             <p className={cn('text-slate-500 mt-0.5 leading-snug', compact ? 'text-[10px]' : 'text-xs')}>
-              {slot.purpose}
+              {t(slot.purposeKey)}
             </p>
           </div>
         </div>
       </div>
 
       <div className="relative flex-1 min-h-[5.5rem] bg-slate-950">
-        <SlotPreview deviceId={deviceId} slotLabel={slot.shortLabel} />
+        <SlotPreview deviceId={deviceId} slotLabel={t(slot.shortLabelKey)} />
       </div>
 
       <div className={cn('p-2 border-t border-slate-100', compact && 'p-1.5')}>
-        <label className="sr-only">{slot.label} — kamera tanlash</label>
+        <label className="sr-only">{t('ut.selectCameraAria', { label: t(slot.labelKey) })}</label>
         <select
           className={cn('input w-full', compact ? '!py-1 !text-xs' : '!py-1.5 !text-sm')}
           value={deviceId}
           onChange={(e) => onChange(e.target.value)}
         >
-          <option value="">Kamera tanlanmagan</option>
+          <option value="">{t('ut.cameraNotSelected')}</option>
           {devices.map((d) => (
             <option key={d.deviceId} value={d.deviceId}>{d.label}</option>
           ))}
@@ -181,6 +184,7 @@ function CameraSlotCard({
 }
 
 function SlotPreview({ deviceId, slotLabel }: { deviceId: string; slotLabel: string }) {
+  const { t } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [live, setLive] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -235,23 +239,23 @@ function SlotPreview({ deviceId, slotLabel }: { deviceId: string; slotLabel: str
       {!deviceId && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-slate-500 px-2">
           <VideoOff size={18} />
-          <span className="text-[10px] text-center">Kamera tanlang</span>
+          <span className="text-[10px] text-center">{t('ut.pickCamera')}</span>
         </div>
       )}
       {deviceId && !live && !failed && (
         <div className="absolute inset-0 flex items-center justify-center text-slate-400 text-[10px] animate-pulse">
-          Yuklanmoqda...
+          {t('common.loading')}
         </div>
       )}
       {failed && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-red-400 px-2">
           <AlertTriangle size={16} />
-          <span className="text-[10px] text-center">Ochib bo&apos;lmadi</span>
+          <span className="text-[10px] text-center">{t('ut.openFailed')}</span>
         </div>
       )}
       {live && (
         <span className="absolute top-1.5 right-1.5 bg-emerald-600/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
-          JONLI
+          {t('ut.liveBadge')}
         </span>
       )}
       <span className="absolute bottom-1 left-1.5 bg-black/60 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded pointer-events-none">

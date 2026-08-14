@@ -9,6 +9,7 @@ import { AttachmentViewer, AiStatusBadge } from './AttachmentViewer';
 import { cn } from '@/lib/utils';
 import { toast } from '@/lib/toast';
 import { downloadBlob } from '@/lib/download';
+import { useI18n } from '@/i18n';
 
 const ACCEPT =
   '.pdf,.jpg,.jpeg,.png,.webp,.gif,.bmp,.tiff,.tif,.heic,.heif,.dcm,.dicom,image/*,application/pdf';
@@ -33,6 +34,7 @@ export function AttachmentManager({
   className,
   onChange,
 }: AttachmentManagerProps) {
+  const { t } = useI18n();
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -50,7 +52,7 @@ export function AttachmentManager({
       .then(setAttachments)
       .catch((err) => {
         setAttachments([]);
-        toast(err instanceof Error ? err.message : 'Hujjatlarni yuklab bo\'lmadi', 'error');
+        toast(err instanceof Error ? err.message : t('attachments.loadFailed'), 'error');
       })
       .finally(() => setLoading(false));
   }, [consultationId]);
@@ -114,7 +116,7 @@ export function AttachmentManager({
       load();
       onChange?.();
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Yuklash xatoligi', 'error');
+      toast(err instanceof Error ? err.message : t('attachments.uploadError'), 'error');
     } finally {
       setUploading(false);
     }
@@ -125,7 +127,7 @@ export function AttachmentManager({
       const { blob, fileName } = await api.fetchAttachmentFile(attachment.id);
       downloadBlob(blob, fileName);
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Yuklab olish xatoligi', 'error');
+      toast(err instanceof Error ? err.message : t('attachments.downloadError'), 'error');
     }
   };
 
@@ -146,7 +148,7 @@ export function AttachmentManager({
       <div className={cn('panel-header', compact && 'py-2.5')}>
         <Paperclip size={compact ? 14 : 16} className="text-slate-500" />
         <span className={cn('panel-title', compact && 'text-xs')}>
-          {allowUpload ? 'Bemor hujjatlari' : 'Bemor hujjatlari (UT)'}
+          {allowUpload ? t('attachments.patientDocs') : t('attachments.patientDocsUt')}
         </span>
         {(attachments.length > 0 || localFiles.length > 0) && (
           <span className="ml-auto text-[10px] font-bold text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full">
@@ -169,13 +171,13 @@ export function AttachmentManager({
             ) : (
               <Upload className="w-5 h-5 mx-auto mb-1 text-slate-300" />
             )}
-            {uploading ? 'Yuklanmoqda va AI tahlil...' : 'Rentgen, MRT, UZI, PDF yuklash (max 20MB)'}
+            {uploading ? t('attachments.uploadingAi') : t('attachments.uploadHint')}
             <input type="file" multiple accept={ACCEPT} className="hidden" onChange={handleFileSelect} disabled={uploading} />
           </label>
         )}
 
         {!consultationId && localFiles.length === 0 && !allowUpload && (
-          <p className="text-xs text-slate-400 text-center py-4">Hujjatlar yo&apos;q</p>
+          <p className="text-xs text-slate-400 text-center py-4">{t('attachments.empty')}</p>
         )}
 
         {consultationId && loading && attachments.length === 0 ? (
@@ -218,7 +220,7 @@ export function AttachmentManager({
 
         {consultationId && !loading && attachments.length === 0 && localFiles.length === 0 && (
           <p className="text-xs text-slate-400 text-center py-4">
-            Rentgen, MRT, laboratoriya natijalari va boshqa hujjatlarni yuklang
+            {t('attachments.emptyHint')}
           </p>
         )}
       </div>
@@ -255,6 +257,7 @@ function AttachmentRow({
   onRemove?: () => void;
   local?: boolean;
 }) {
+  const { t } = useI18n();
   const formatSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -275,14 +278,14 @@ function AttachmentRow({
         <div className="flex items-center gap-2 mt-0.5">
           <p className="text-[10px] text-slate-400">{formatSize(size)}</p>
           {status && <AiStatusBadge status={status} mock={mockAi} />}
-          {local && <span className="text-[10px] text-amber-600 font-medium">Yuborish kutilmoqda</span>}
+          {local && <span className="text-[10px] text-amber-600 font-medium">{t('attachments.pendingSend')}</span>}
         </div>
       </div>
       <button
         type="button"
         onClick={onView}
         className="p-1.5 rounded-lg text-brand-600 hover:bg-brand-50 shrink-0"
-        title="Ko'rish"
+        title={t('attachments.view')}
       >
         <Eye size={14} />
       </button>
@@ -291,7 +294,7 @@ function AttachmentRow({
           type="button"
           onClick={onDownload}
           className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 shrink-0"
-          title="Yuklab olish"
+          title={t('common.download')}
         >
           <Download size={14} />
         </button>

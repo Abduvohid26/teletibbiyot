@@ -8,6 +8,7 @@ import { useRequireAuth } from '@/hooks/use-require-auth';
 import { api, Consultation } from '@/lib/api';
 import { ROLES_MT_DASHBOARD, ROLES_UT } from '@/lib/roles';
 import { Scan, FileImage } from 'lucide-react';
+import { useI18n } from '@/i18n';
 
 interface DicomStudy {
   id: string;
@@ -18,6 +19,7 @@ interface DicomStudy {
 }
 
 export default function DicomViewerContent() {
+  const { t } = useI18n();
   const router = useRouter();
   const { user, loading: authLoading } = useRequireAuth([...ROLES_MT_DASHBOARD, ...ROLES_UT]);
   const searchParams = useSearchParams();
@@ -33,7 +35,7 @@ export default function DicomViewerContent() {
       .then((res) => setRecent(res.items || []))
       .catch((err) => {
         if (process.env.NODE_ENV === 'development') {
-          console.warn('Konsultatsiyalar ro\'yxati yuklanmadi:', err);
+          console.warn('Consultations list failed:', err);
         }
       });
   }, [authLoading, user]);
@@ -44,9 +46,9 @@ export default function DicomViewerContent() {
     api
       .listDicomStudies(consultationId)
       .then(setStudies)
-      .catch((err) => setError(err instanceof Error ? err.message : 'Xatolik'))
+      .catch((err) => setError(err instanceof Error ? err.message : t('errors.generic')))
       .finally(() => setLoading(false));
-  }, [authLoading, user, consultationId]);
+  }, [authLoading, user, consultationId, t]);
 
   const openViewer = (attachmentId: string) => {
     router.push(`/dashboard/dicom/view?attachmentId=${encodeURIComponent(attachmentId)}`);
@@ -58,14 +60,14 @@ export default function DicomViewerContent() {
         <div className="flex items-center gap-3">
           <Scan className="w-8 h-8 text-teal-600" />
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">DICOM / Tasvir ko&apos;rish</h1>
-            <p className="text-slate-600 text-sm">Rentgen, MRT, UZI va DICOM fayllar</p>
+            <h1 className="text-2xl font-bold text-slate-900">{t('dicom.title')}</h1>
+            <p className="text-slate-600 text-sm">{t('dicom.subtitle')}</p>
           </div>
         </div>
 
         {!consultationId && (
           <div className="panel p-4 space-y-3">
-            <p className="text-sm text-slate-600">Konsultatsiyani tanlang:</p>
+            <p className="text-sm text-slate-600">{t('dicom.selectConsultation')}</p>
             <div className="flex flex-wrap gap-2">
               {recent.map((c) => (
                 <button
@@ -79,24 +81,24 @@ export default function DicomViewerContent() {
               ))}
             </div>
             {recent.length === 0 && (
-              <p className="text-xs text-slate-400">Faol konsultatsiyalar topilmadi</p>
+              <p className="text-xs text-slate-400">{t('dicom.noActive')}</p>
             )}
           </div>
         )}
 
         {consultationId && (
           <p className="text-xs text-slate-500">
-            Konsultatsiya: <code className="bg-slate-100 px-1 rounded">{consultationId}</code>
+            {t('dicom.consultationLabel')} <code className="bg-slate-100 px-1 rounded">{consultationId}</code>
             {' · '}
-            <Link href="/dashboard/dicom" className="text-brand-600 hover:underline">Boshqasini tanlash</Link>
+            <Link href="/dashboard/dicom" className="text-brand-600 hover:underline">{t('dicom.pickOther')}</Link>
           </p>
         )}
 
         {error && <p className="text-red-600">{error}</p>}
-        {loading && <p className="text-slate-500 animate-pulse">Yuklanmoqda...</p>}
+        {loading && <p className="text-slate-500 animate-pulse">{t('common.loading')}</p>}
 
         {!loading && consultationId && studies.length === 0 && (
-          <p className="text-slate-500">Bu konsultatsiyada DICOM/tasvir fayllar topilmadi.</p>
+          <p className="text-slate-500">{t('dicom.emptyStudies')}</p>
         )}
 
         <ul className="space-y-3">
@@ -109,7 +111,7 @@ export default function DicomViewerContent() {
                 <FileImage className="text-teal-600 shrink-0" size={20} />
                 <div className="min-w-0">
                   <p className="font-medium text-slate-900 truncate">{s.fileName}</p>
-                  {s.aiSummary && <p className="text-xs text-violet-600 truncate">AI: {s.aiSummary}</p>}
+                  {s.aiSummary && <p className="text-xs text-violet-600 truncate">{t('dicom.aiPrefix', { summary: s.aiSummary })}</p>}
                 </div>
               </div>
               <button
@@ -117,7 +119,7 @@ export default function DicomViewerContent() {
                 onClick={() => openViewer(s.id)}
                 className="btn-secondary !text-xs inline-flex items-center gap-1 shrink-0"
               >
-                <FileImage size={14} /> Ko&apos;rish
+                <FileImage size={14} /> {t('common.view')}
               </button>
             </li>
           ))}

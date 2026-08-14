@@ -8,17 +8,12 @@ import { api } from '@/lib/api';
 import { toUserMessage } from '@/lib/utils';
 import { AlertTriangle, Send } from 'lucide-react';
 import { UserRole } from '@ishifo/shared';
+import { useI18n } from '@/i18n';
 
 const INCIDENT_ROLES = [UserRole.UT_OPERATOR, UserRole.MT_DOCTOR] as const;
 
-const SEVERITY_OPTIONS = [
-  { value: 'LOW', label: 'Past' },
-  { value: 'MEDIUM', label: 'O\'rta' },
-  { value: 'HIGH', label: 'Yuqori' },
-  { value: 'CRITICAL', label: 'Kritik' },
-] as const;
-
 export default function IncidentsPage() {
+  const { t } = useI18n();
   const { user, loading, authError, retryAuth } = useRequireAuth([...INCIDENT_ROLES]);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -27,6 +22,13 @@ export default function IncidentsPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
+  const severityOptions = [
+    { value: 'LOW' as const, label: t('incidents.severityLow') },
+    { value: 'MEDIUM' as const, label: t('incidents.severityMedium') },
+    { value: 'HIGH' as const, label: t('incidents.severityHigh') },
+    { value: 'CRITICAL' as const, label: t('incidents.severityCritical') },
+  ];
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
@@ -34,7 +36,7 @@ export default function IncidentsPage() {
     setSubmitting(true);
     try {
       await api.reportIncident({ title: title.trim(), description: description.trim(), severity });
-      setMessage('Incident hisoboti yuborildi. Audit jurnaliga yozildi.');
+      setMessage(t('incidents.success'));
       setTitle('');
       setDescription('');
       setSeverity('MEDIUM');
@@ -48,16 +50,13 @@ export default function IncidentsPage() {
   return (
     <AuthPageGate loading={loading} user={user} authError={authError} retryAuth={retryAuth}>
       <DashboardLayout
-        title="Incident hisoboti"
-        subtitle="Xavfsizlik, maxfiylik yoki tizim nosozligi haqida xabar bering"
+        title={t('incidents.title')}
+        subtitle={t('incidents.subtitle')}
       >
         <div className="max-w-2xl space-y-4">
           <div className="panel p-4 bg-amber-50/60 border-amber-100 text-sm text-amber-900 flex gap-3">
             <AlertTriangle className="shrink-0 mt-0.5" size={18} />
-            <p>
-              Bu forma favqulodda holatlar uchun. Ma&apos;lumotlar audit jurnaliga yoziladi va
-              administratorlar ko&apos;radi. PHI (bemor ma&apos;lumotlari)ni tavsifda yozmang.
-            </p>
+            <p>{t('incidents.warning')}</p>
           </div>
 
           {error && <div className="bg-red-50 text-red-700 text-sm rounded-xl p-3">{error}</div>}
@@ -66,7 +65,7 @@ export default function IncidentsPage() {
           <form onSubmit={handleSubmit} className="panel p-5 space-y-4">
             <div>
               <label htmlFor="incident-title" className="block text-sm font-medium text-slate-700 mb-1">
-                Sarlavha
+                {t('common.title')}
               </label>
               <input
                 id="incident-title"
@@ -75,13 +74,13 @@ export default function IncidentsPage() {
                 onChange={(e) => setTitle(e.target.value)}
                 minLength={3}
                 required
-                placeholder="Masalan: Video ulanish uzildi"
+                placeholder={t('incidents.titlePlaceholder')}
               />
             </div>
 
             <div>
               <label htmlFor="incident-severity" className="block text-sm font-medium text-slate-700 mb-1">
-                Jiddiylik
+                {t('incidents.severity')}
               </label>
               <select
                 id="incident-severity"
@@ -89,7 +88,7 @@ export default function IncidentsPage() {
                 value={severity}
                 onChange={(e) => setSeverity(e.target.value as typeof severity)}
               >
-                {SEVERITY_OPTIONS.map((opt) => (
+                {severityOptions.map((opt) => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
@@ -97,7 +96,7 @@ export default function IncidentsPage() {
 
             <div>
               <label htmlFor="incident-description" className="block text-sm font-medium text-slate-700 mb-1">
-                Tavsif
+                {t('common.description')}
               </label>
               <textarea
                 id="incident-description"
@@ -106,7 +105,7 @@ export default function IncidentsPage() {
                 onChange={(e) => setDescription(e.target.value)}
                 minLength={10}
                 required
-                placeholder="Nima bo'ldi, qachon, qaysi modul yoki konsultatsiya ID..."
+                placeholder={t('incidents.descriptionPlaceholder')}
               />
             </div>
 
@@ -116,7 +115,7 @@ export default function IncidentsPage() {
               className="btn-primary inline-flex items-center gap-2"
             >
               <Send size={16} />
-              {submitting ? 'Yuborilmoqda...' : 'Hisobot yuborish'}
+              {submitting ? t('common.submitting') : t('incidents.submit')}
             </button>
           </form>
         </div>

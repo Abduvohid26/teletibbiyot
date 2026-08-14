@@ -32,12 +32,12 @@ export function formatTriage(level?: string): { label: string; color: string } {
 
 export { toUserMessage, AppError, safeAsync } from '@/lib/errors';
 
-export function formatStatus(status: string): { label: string; className: string } {
-  const map: Record<string, { label: string; className: string }> = {
-    IN_PROGRESS: { label: 'Jarayonda', className: 'status-in-progress' },
-    QUEUED: { label: 'Navbatda', className: 'status-waiting' },
-    COMPLETED: { label: 'Yakunlangan', className: 'status-completed' },
-    CANCELLED: { label: 'Bekor qilingan', className: 'status-cancelled' },
+export function formatStatus(status: string): { labelKey: string; className: string } {
+  const map: Record<string, { labelKey: string; className: string }> = {
+    IN_PROGRESS: { labelKey: 'status.inProgress', className: 'status-in-progress' },
+    QUEUED: { labelKey: 'status.queued', className: 'status-waiting' },
+    COMPLETED: { labelKey: 'status.completed', className: 'status-completed' },
+    CANCELLED: { labelKey: 'status.cancelled', className: 'status-cancelled' },
   };
-  return map[status] || { label: status, className: 'status-completed' };
+  return map[status] || { labelKey: status, className: 'status-completed' };
 }

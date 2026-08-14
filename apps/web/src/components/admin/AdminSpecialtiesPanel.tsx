@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { GraduationCap, Plus, X } from 'lucide-react';
 import { api, Specialty } from '@/lib/api';
+import { useI18n } from '@/i18n';
 
 interface AdminSpecialtiesPanelProps {
   specialties: Specialty[];
@@ -11,6 +12,7 @@ interface AdminSpecialtiesPanelProps {
 }
 
 export function AdminSpecialtiesPanel({ specialties, onRefresh, onError }: AdminSpecialtiesPanelProps) {
+  const { t } = useI18n();
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Specialty | null>(null);
   const [name, setName] = useState('');
@@ -46,7 +48,7 @@ export function AdminSpecialtiesPanel({ specialties, onRefresh, onError }: Admin
       setShowForm(false);
       onRefresh();
     } catch (err) {
-      onError(err instanceof Error ? err.message : 'Saqlashda xatolik');
+      onError(err instanceof Error ? err.message : t('admin.saveError'));
     } finally {
       setSaving(false);
     }
@@ -59,20 +61,20 @@ export function AdminSpecialtiesPanel({ specialties, onRefresh, onError }: Admin
       await api.updateSpecialty(item.id, { isActive: !item.isActive });
       onRefresh();
     } catch (err) {
-      onError(err instanceof Error ? err.message : 'Holatni o\'zgartirishda xatolik');
+      onError(err instanceof Error ? err.message : t('admin.statusChangeError'));
     } finally {
       setTogglingId(null);
     }
   };
 
   const handleDelete = async (item: Specialty) => {
-    if (!confirm(`"${item.name}" yo'nalishini o'chirishni tasdiqlaysizmi?`)) return;
+    if (!confirm(t('admin.deleteSpecialtyConfirm', { name: item.name }))) return;
     onError('');
     try {
       await api.deleteSpecialty(item.id);
       onRefresh();
     } catch (err) {
-      onError(err instanceof Error ? err.message : 'O\'chirishda xatolik');
+      onError(err instanceof Error ? err.message : t('admin.deleteError'));
     }
   };
 
@@ -81,19 +83,19 @@ export function AdminSpecialtiesPanel({ specialties, onRefresh, onError }: Admin
       <div className="panel overflow-hidden animate-slide-up">
         <div className="panel-header bg-gradient-to-r from-slate-50 to-transparent">
           <GraduationCap size={18} className="text-brand-600" />
-          <span className="panel-title">Yo&apos;nalishlar ({specialties.length})</span>
+          <span className="panel-title">{t('admin.specialtiesTitle', { count: specialties.length })}</span>
           <button type="button" onClick={openCreate} className="ml-auto btn-primary !py-1.5 !text-xs">
-            <Plus size={14} /> Yangi yo&apos;nalish
+            <Plus size={14} /> {t('admin.newSpecialty')}
           </button>
         </div>
         <div className="overflow-x-auto">
           <table className="data-table">
             <thead>
               <tr>
-                <th>Nomi</th>
-                <th>Tartib</th>
-                <th>Holat</th>
-                <th className="text-right">Amal</th>
+                <th>{t('admin.name')}</th>
+                <th>{t('admin.sortCol')}</th>
+                <th>{t('common.status')}</th>
+                <th className="text-right">{t('admin.action')}</th>
               </tr>
             </thead>
             <tbody>
@@ -103,13 +105,13 @@ export function AdminSpecialtiesPanel({ specialties, onRefresh, onError }: Admin
                   <td className="text-slate-500">{s.sortOrder}</td>
                   <td>
                     <span className={`status-badge ${s.isActive ? 'status-in-progress' : 'bg-red-50 text-red-700 ring-red-200/60'}`}>
-                      {s.isActive ? 'Faol' : 'Nofaol'}
+                      {s.isActive ? t('common.active') : t('admin.inactive')}
                     </span>
                   </td>
                   <td className="text-right">
                     <div className="flex items-center justify-end gap-2">
                       <button type="button" onClick={() => openEdit(s)} className="text-xs font-medium text-brand-600 hover:bg-brand-50 px-2 py-1.5 rounded-lg">
-                        Tahrirlash
+                        {t('common.edit')}
                       </button>
                       <button
                         type="button"
@@ -117,10 +119,10 @@ export function AdminSpecialtiesPanel({ specialties, onRefresh, onError }: Admin
                         onClick={() => toggleActive(s)}
                         className="text-xs font-medium text-slate-600 hover:bg-slate-50 px-2 py-1.5 rounded-lg"
                       >
-                        {togglingId === s.id ? '...' : s.isActive ? 'O\'chirish' : 'Faollashtirish'}
+                        {togglingId === s.id ? '...' : s.isActive ? t('admin.deactivate') : t('admin.activate')}
                       </button>
                       <button type="button" onClick={() => handleDelete(s)} className="text-xs font-medium text-red-600 hover:bg-red-50 px-2 py-1.5 rounded-lg">
-                        O&apos;chirish
+                        {t('common.delete')}
                       </button>
                     </div>
                   </td>
@@ -129,7 +131,7 @@ export function AdminSpecialtiesPanel({ specialties, onRefresh, onError }: Admin
               {specialties.length === 0 && (
                 <tr>
                   <td colSpan={4} className="text-center text-slate-500 py-8">
-                    Yo&apos;nalishlar hali qo&apos;shilmagan
+                    {t('admin.noSpecialties')}
                   </td>
                 </tr>
               )}
@@ -142,24 +144,24 @@ export function AdminSpecialtiesPanel({ specialties, onRefresh, onError }: Admin
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className="panel p-6 w-full max-w-md animate-slide-up">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="font-bold text-slate-900">{editing ? 'Yo\'nalishni tahrirlash' : 'Yangi yo\'nalish'}</h2>
+              <h2 className="font-bold text-slate-900">{editing ? t('admin.editSpecialty') : t('admin.newSpecialty')}</h2>
               <button type="button" onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-600">
                 <X size={20} />
               </button>
             </div>
             <form onSubmit={handleSave} className="space-y-4">
               <div>
-                <label className="label">Nomi</label>
-                <input className="form-input" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Masalan: Terapevt" />
+                <label className="label">{t('admin.name')}</label>
+                <input className="form-input" required value={name} onChange={(e) => setName(e.target.value)} placeholder={t('admin.specialtyPlaceholder')} />
               </div>
               <div>
-                <label className="label">Tartib raqami</label>
+                <label className="label">{t('admin.sortOrder')}</label>
                 <input type="number" className="form-input" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} />
               </div>
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowForm(false)} className="btn-secondary flex-1">Bekor</button>
+                <button type="button" onClick={() => setShowForm(false)} className="btn-secondary flex-1">{t('common.cancelShort')}</button>
                 <button type="submit" disabled={saving} className="gradient-btn flex-1 disabled:opacity-50">
-                  {saving ? 'Saqlanmoqda...' : 'Saqlash'}
+                  {saving ? t('common.saving') : t('common.save')}
                 </button>
               </div>
             </form>

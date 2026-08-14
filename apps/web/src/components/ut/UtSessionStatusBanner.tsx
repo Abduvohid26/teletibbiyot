@@ -3,6 +3,7 @@
 import { Clock, Radio, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 import { Consultation } from '@/lib/api';
+import { useI18n } from '@/i18n';
 
 interface UtSessionStatusBannerProps {
   consultation: Consultation | null;
@@ -19,6 +20,8 @@ export function UtSessionStatusBanner({
   doctorName,
   onDismissLive,
 }: UtSessionStatusBannerProps) {
+  const { t } = useI18n();
+
   if (liveJustStarted) {
     return (
       <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 flex flex-wrap items-center justify-between gap-3 animate-fade-in">
@@ -27,17 +30,17 @@ export function UtSessionStatusBanner({
             <Radio size={18} className="text-white animate-pulse" />
           </div>
           <div>
-            <p className="font-bold text-emerald-900">Jonli efir boshlandi!</p>
+            <p className="font-bold text-emerald-900">{t('ut.liveStarted')}</p>
             <p className="text-sm text-emerald-800">
               {doctorName
-                ? `${doctorName} qabulni boshladi — efirga qo‘shiling`
-                : 'Shifokor qabulni boshladi — efirga qo‘shiling'}
+                ? t('ut.doctorStartedJoinNamed', { name: doctorName })
+                : t('ut.doctorStartedJoin')}
             </p>
           </div>
         </div>
         {onDismissLive && (
           <button type="button" onClick={onDismissLive} className="text-xs font-semibold text-emerald-700 hover:underline shrink-0">
-            Tushundim
+            {t('ut.gotIt')}
           </button>
         )}
       </div>
@@ -52,7 +55,7 @@ export function UtSessionStatusBanner({
         <div className="flex items-center gap-2 min-w-0">
           <span className="live-badge !text-[10px]">
             <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-            JONLI
+            {t('ut.liveBadge')}
           </span>
           <p className="text-sm text-emerald-900 truncate">
             <span className="font-semibold">{consultation.patient.fullName}</span>
@@ -62,7 +65,7 @@ export function UtSessionStatusBanner({
           </p>
         </div>
         {sessionCount > 1 && (
-          <p className="text-[11px] text-emerald-700 shrink-0">Yuqoridagi ro&apos;yxatdan bemor almashtiring</p>
+          <p className="text-[11px] text-emerald-700 shrink-0">{t('ut.switchPatientHint')}</p>
         )}
       </div>
     );
@@ -76,11 +79,12 @@ export function UtSessionStatusBanner({
           <Clock size={16} className="text-amber-600 shrink-0" />
           <div>
             <p className="text-sm font-semibold text-amber-900">
-              Navbatda{doctorLabel ? ` — Dr ${doctorLabel}` : ''} qabul qilishi kutilmoqda
+              {doctorLabel
+                ? t('ut.queuedWaitingNamed', { name: doctorLabel })
+                : t('ut.queuedWaiting')}
             </p>
             <p className="text-xs text-amber-800">
-              {consultation.patient.fullName} shifokorga biriktirildi. Shifokor &quot;Boshlash&quot; bosgach
-              status &quot;Jarayonda&quot; bo&apos;ladi va jonli efir ochiladi.
+              {consultation.patient.fullName}. {t('ut.queuedHint')}
             </p>
           </div>
         </div>
@@ -89,7 +93,7 @@ export function UtSessionStatusBanner({
           className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-800 hover:text-amber-950 shrink-0"
         >
           <UserPlus size={14} />
-          Yangi bemor
+          {t('nav.newPatient')}
         </Link>
       </div>
     );
@@ -105,19 +109,23 @@ export function UtIntakeActiveHint({
   sessionCount: number;
   liveCount: number;
 }) {
+  const { t } = useI18n();
   if (sessionCount === 0) return null;
 
   return (
     <div className="shrink-0 alert-info !py-2 !px-3 mb-2 animate-slide-up">
       <p className="text-[12px] text-brand-900 font-medium flex-1">
         {liveCount > 0 ? (
-          <><span className="font-bold text-emerald-700">{liveCount} jonli</span>{sessionCount > liveCount && ` · ${sessionCount - liveCount} navbat`}</>
+          <>
+            <span className="font-bold text-emerald-700">{t('ut.liveCount', { count: liveCount })}</span>
+            {sessionCount > liveCount && ` · ${t('ut.queuedCount', { count: sessionCount - liveCount })}`}
+          </>
         ) : (
-          <><span className="font-bold">{sessionCount} bemor</span> navbatda</>
+          <span className="font-bold">{t('ut.patientsInQueue', { count: sessionCount })}</span>
         )}
       </p>
       <Link href="/ut/patients" className="text-[12px] font-bold text-brand-700 hover:underline shrink-0 ml-2">
-        Ro&apos;yxat →
+        {t('ut.listArrow')}
       </Link>
     </div>
   );

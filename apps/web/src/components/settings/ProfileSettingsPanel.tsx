@@ -6,12 +6,14 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
+import { useI18n } from '@/i18n';
 
 interface ProfileSettingsPanelProps {
   compact?: boolean;
 }
 
 export function ProfileSettingsPanel({ compact }: ProfileSettingsPanelProps) {
+  const { t } = useI18n();
   const { user, refreshUser } = useAuth();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -59,20 +61,20 @@ export function ProfileSettingsPanel({ compact }: ProfileSettingsPanelProps) {
       }
 
       if (!payload.fullName && payload.phone === undefined && !payload.newPassword) {
-        toast('O\'zgartirish kiritilmadi', 'info');
+        toast(t('profile.noChanges'), 'info');
         setEditing(false);
         return;
       }
 
       await api.updateProfile(payload);
       if (payload.newPassword) {
-        toast('Parol yangilandi', 'success');
+        toast(t('profile.passwordUpdated'), 'success');
       }
       await refreshUser();
-      toast('Profil yangilandi', 'success');
+      toast(t('profile.updated'), 'success');
       resetForm();
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Saqlashda xatolik', 'error');
+      toast(err instanceof Error ? err.message : t('profile.saveError'), 'error');
     } finally {
       setSaving(false);
     }
@@ -90,7 +92,7 @@ export function ProfileSettingsPanel({ compact }: ProfileSettingsPanelProps) {
       <div className="flex items-center justify-between gap-2">
         {!compact && (
           <p className="text-xs text-slate-500">
-            Ism, telefon va parolni o&apos;zgartirishingiz mumkin
+            {t('profile.hint')}
           </p>
         )}
         {!editing ? (
@@ -103,7 +105,7 @@ export function ProfileSettingsPanel({ compact }: ProfileSettingsPanelProps) {
             )}
           >
             <Pencil size={compact ? 13 : 14} />
-            Tahrirlash
+            {t('common.edit')}
           </button>
         ) : (
           <div className="flex items-center gap-1.5 ml-auto">
@@ -114,7 +116,7 @@ export function ProfileSettingsPanel({ compact }: ProfileSettingsPanelProps) {
               className="btn-secondary !py-1.5 !px-2.5 !text-xs inline-flex items-center gap-1"
             >
               <X size={13} />
-              Bekor
+              {t('profile.cancelShort')}
             </button>
             <button
               type="button"
@@ -123,7 +125,7 @@ export function ProfileSettingsPanel({ compact }: ProfileSettingsPanelProps) {
               className="gradient-btn !py-1.5 !px-2.5 !text-xs inline-flex items-center gap-1"
             >
               <Save size={13} />
-              {saving ? 'Saqlanmoqda...' : 'Saqlash'}
+              {saving ? t('profile.saving') : t('common.save')}
             </button>
           </div>
         )}
@@ -131,15 +133,15 @@ export function ProfileSettingsPanel({ compact }: ProfileSettingsPanelProps) {
 
       {editing ? (
         <div className={cn('space-y-3', compact && 'text-sm')}>
-          <Field label="Ism" compact={compact}>
+          <Field label={t('profile.fullName')} compact={compact}>
             <input
               className={inputClass}
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              placeholder="To'liq ism"
+              placeholder={t('profile.fullNamePlaceholder')}
             />
           </Field>
-          <Field label="Telefon" compact={compact}>
+          <Field label={t('profile.phone')} compact={compact}>
             <input
               className={inputClass}
               value={phone}
@@ -148,8 +150,8 @@ export function ProfileSettingsPanel({ compact }: ProfileSettingsPanelProps) {
             />
           </Field>
           <div className="pt-2 border-t border-slate-100 space-y-3">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Parolni almashtirish</p>
-            <Field label="Joriy parol" compact={compact}>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{t('profile.changePassword')}</p>
+            <Field label={t('profile.currentPassword')} compact={compact}>
               <input
                 type="password"
                 className={inputClass}
@@ -158,25 +160,25 @@ export function ProfileSettingsPanel({ compact }: ProfileSettingsPanelProps) {
                 autoComplete="current-password"
               />
             </Field>
-            <Field label="Yangi parol" compact={compact}>
+            <Field label={t('profile.newPassword')} compact={compact}>
               <input
                 type="password"
                 className={inputClass}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 autoComplete="new-password"
-                placeholder="Kamida 8 belgi"
+                placeholder={t('profile.minChars')}
               />
             </Field>
           </div>
         </div>
       ) : (
         <div className={cn(compact ? 'space-y-2' : 'space-y-0')}>
-          <InfoRow label="Ism" value={user.fullName} compact={compact} />
-          <InfoRow label="Email" value={user.email} compact={compact} />
-          <InfoRow label="Telefon" value={user.phone || '—'} compact={compact} />
-          <InfoRow label="Rol" value={user.role} compact={compact} />
-          <InfoRow label="Muassasa" value={user.facility?.name || '—'} icon={Building2} compact={compact} />
+          <InfoRow label={t('profile.fullName')} value={user.fullName} compact={compact} />
+          <InfoRow label={t('profile.email')} value={user.email} compact={compact} />
+          <InfoRow label={t('profile.phone')} value={user.phone || '—'} compact={compact} />
+          <InfoRow label={t('profile.role')} value={user.role} compact={compact} />
+          <InfoRow label={t('profile.facility')} value={user.facility?.name || '—'} icon={Building2} compact={compact} />
         </div>
       )}
     </div>

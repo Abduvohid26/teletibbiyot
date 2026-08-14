@@ -30,6 +30,8 @@ import { isValidUzPhone, normalizeUzPhone } from '@/lib/phone';
 import { UZ_REGION_NAMES, getDistrictsForRegion } from '@/lib/uz-locations';
 import { SearchableSelect } from '@/components/ut/SearchableSelect';
 import type { DoctorOption } from '@/lib/api/types';
+import { useI18n } from '@/i18n';
+import { LOCALE_BCP47 } from '@/i18n/locales';
 
 const IN = 'input ut-glass-input !py-2 !px-3 !text-sm !min-h-[2.5rem] leading-snug placeholder:text-slate-400 placeholder:font-normal';
 const TA = 'input ut-glass-input !py-2 !px-3 !text-sm !min-h-0 !h-[2.875rem] resize-none leading-snug placeholder:text-slate-400 placeholder:font-normal';
@@ -43,10 +45,13 @@ const PRESENCE_RANK: Record<DoctorPresence, number> = {
   offline: 2,
 };
 
-function presenceLabel(status: DoctorPresence | undefined) {
-  if (status === 'online') return 'Online';
-  if (status === 'in_meet') return 'Meet';
-  return 'Offline';
+function presenceLabel(
+  status: DoctorPresence | undefined,
+  t: (key: string) => string,
+) {
+  if (status === 'online') return t('presence.online');
+  if (status === 'in_meet') return t('presence.inMeet');
+  return t('presence.offline');
 }
 
 function presenceDotClass(status: DoctorPresence | undefined) {
@@ -55,12 +60,12 @@ function presenceDotClass(status: DoctorPresence | undefined) {
   return 'bg-slate-400';
 }
 
-function sortDoctorsByPresence(list: DoctorOption[]) {
+function sortDoctorsByPresence(list: DoctorOption[], localeTag = 'uz-UZ') {
   return [...list].sort((a, b) => {
     const ra = PRESENCE_RANK[a.presence || 'offline'];
     const rb = PRESENCE_RANK[b.presence || 'offline'];
     if (ra !== rb) return ra - rb;
-    return a.fullName.localeCompare(b.fullName, 'uz');
+    return a.fullName.localeCompare(b.fullName, localeTag);
   });
 }
 
@@ -101,6 +106,8 @@ function emptyVitals() {
 
 export default function UTClientPage() {
   const { user, loading } = useAuth();
+  const { t, locale } = useI18n();
+  const localeTag = LOCALE_BCP47[locale];
   const router = useRouter();
 
   useEffect(() => {
@@ -137,13 +144,13 @@ export default function UTClientPage() {
     api.getDoctors()
       .then((list) => {
         // Faqat faol MT shifokorlar — avto tanlash yo'q
-        setDoctors(sortDoctorsByPresence(list));
+        setDoctors(sortDoctorsByPresence(list, localeTag));
         setSelectedDoctorId('');
       })
       .catch(() => setDoctors([]));
   }, [user]);
 
-  const sortedDoctors = useMemo(() => sortDoctorsByPresence(doctors), [doctors]);
+  const sortedDoctors = useMemo(() => sortDoctorsByPresence(doctors, localeTag), [doctors, localeTag]);
   const selectedDoctor = useMemo(
     () => sortedDoctors.find((d) => d.id === selectedDoctorId),
     [sortedDoctors, selectedDoctorId],
@@ -166,10 +173,10 @@ export default function UTClientPage() {
       return consultation;
     }).then((r) => {
       if (r.synced > 0) {
-        setOfflineNotice(`${r.synced} ta offline ma'lumot sinxronlandi`);
-        toast(`${r.synced} ta offline ma'lumot yuborildi`, 'success');
+        setOfflineNotice(t('ut.offlineSynced', { count: r.synced }));
+        toast(t('ut.offlineSent', { count: r.synced }), 'success');
       }
-      if (r.failed > 0) toast(`${r.failed} ta offline ma'lumot sinxronlanmadi`, 'error');
+      if (r.failed > 0) toast(t('ut.offlineFailed', { count: r.failed }), 'error');
     });
   }, []);
 
@@ -182,12 +189,13 @@ export default function UTClientPage() {
     createdConsultationId ? [createdConsultationId] : [],
     {
       onConsultationStarted: (payload) => {
-        toast(`${payload.doctorName || 'Shifokor'} konsultatsiyani boshladi`, 'success');
+        toast(t('ut.doctorStartedConsult', { name: payload.doctorName || t('common.doctor') }), 'success');
       },
       onDoctorPresenceUpdated: ({ doctorId, status }) => {
         setDoctors((prev) =>
           sortDoctorsByPresence(
             prev.map((d) => (d.id === doctorId ? { ...d, presence: status } : d)),
+            localeTag,
           ),
         );
       },
@@ -201,16 +209,16 @@ export default function UTClientPage() {
   };
 
   const validateForm = (): string | null => {
-    if (!patientData.fullName.trim()) return 'F.I.Sh. kiritilishi shart';
-    if (!patientData.birthDate) return 'Tug\'ilgan sana kiritilishi shart';
-    if (!patientData.region.trim()) return 'Viloyat tanlanishi shart';
-    if (!patientData.district.trim()) return 'Tuman kiritilishi shart';
+    if (!patientData.fullName.trim()) return t('ut.validationFullName');
+    if (!patientData.birthDate) return t('ut.validationBirthDate');
+    if (!patientData.region.trim()) return t('ut.validationRegion');
+    if (!patientData.district.trim()) return t('ut.validationDistrict');
     if (!isValidUzPhone(patientData.phone)) {
-      return 'Telefon: +998 XX XXX XX XX yoki 9 ta raqam kiriting';
+      return t('ut.validationPhone');
     }
-    if (!clinicalData.complaints.trim()) return 'Shikoyatlar kiritilishi shart';
-    if (!clinicalData.weight.trim()) return 'Vazn kiritilishi shart';
-    if (!clinicalData.height.trim()) return 'Bo\'y kiritilishi shart';
+    if (!clinicalData.complaints.trim()) return t('ut.validationComplaints');
+    if (!clinicalData.weight.trim()) return t('ut.validationWeight');
+    if (!clinicalData.height.trim()) return t('ut.validationHeight');
     return null;
   };
 
@@ -232,7 +240,7 @@ export default function UTClientPage() {
     }
 
     if (!selectedDoctorId) {
-      toast('Shifokorni tanlang', 'error');
+      toast(t('ut.selectDoctor'), 'error');
       return;
     }
 
@@ -288,8 +296,8 @@ export default function UTClientPage() {
           files: filesPayload,
         });
         setSuccess(true);
-        setOfflineNotice('Internet yo\'q — ma\'lumotlar saqlandi, ulanish tiklanganda yuboriladi');
-        toast('Offline saqlandi — internet tiklanganda yuboriladi', 'info');
+        setOfflineNotice(t('ut.offlineSavedNotice'));
+        toast(t('ut.offlineSavedToast'), 'info');
         return;
       }
 
@@ -308,10 +316,10 @@ export default function UTClientPage() {
         sessionStorage.setItem(UT_ACTIVE_CONSULTATION_KEY, consultation.id);
       }
       setFiles([]);
-      toast('Navbatga yuborildi — shifokor qabul qilishini kuting', 'success');
+      toast(t('ut.queuedSuccess'), 'success');
       router.push('/ut/vitals');
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Xatolik yuz berdi';
+      const message = err instanceof Error ? err.message : t('errors.generic');
       toast(message, 'error');
     } finally {
       setSubmitting(false);
@@ -319,7 +327,7 @@ export default function UTClientPage() {
   };
 
   if (loading) {
-    return <AuthLoadingScreen message="Yuklanmoqda..." />;
+    return <AuthLoadingScreen message={t('common.loading')} />;
   }
 
   if (success) {
@@ -329,23 +337,23 @@ export default function UTClientPage() {
           <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-5">
             <CheckCircle2 className="w-10 h-10 text-emerald-500" />
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Muvaffaqiyatli yuborildi!</h2>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">{t('ut.successTitle')}</h2>
           <p className="text-slate-500 mb-4 leading-relaxed">
-            Bemor ma&apos;lumotlari markazga yuborildi va konsultatsiya navbatiga qo&apos;shildi.
-            {uploadedFileCount > 0 ? ' Hujjatlar AI tahliliga yuborildi.' : ' Shifokor navbatdan qabul qilgach klinik tahlil boshlanadi.'}
+            {t('ut.successBody')}
+            {uploadedFileCount > 0 ? t('ut.successBodyWithFiles') : t('ut.successBodyNoFiles')}
           </p>
           <div className="text-left text-sm bg-brand-50 border border-brand-100 rounded-xl p-4 mb-6 space-y-2">
-            <p className="font-semibold text-brand-900">Video aloqa uchun keyingi qadamlar:</p>
-            <p className="text-brand-800"><span className="font-bold">1.</span> UT: &quot;Jonli video va vital&quot; sahifasiga o&apos;ting va kameraga ruxsat bering</p>
-            <p className="text-brand-800"><span className="font-bold">2.</span> Markaz shifokori navbatdan konsultatsiyani <span className="font-semibold">Boshlash</span> tugmasini bosishi kerak</p>
-            <p className="text-brand-800"><span className="font-bold">3.</span> Ikkala tomonda ham video avtomatik ulanadi</p>
+            <p className="font-semibold text-brand-900">{t('ut.successNextSteps')}</p>
+            <p className="text-brand-800"><span className="font-bold">1.</span> {t('ut.successStep1')}</p>
+            <p className="text-brand-800"><span className="font-bold">2.</span> {t('ut.successStep2')}</p>
+            <p className="text-brand-800"><span className="font-bold">3.</span> {t('ut.successStep3')}</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link href="/ut/vitals" className="gradient-btn px-8 inline-flex items-center justify-center gap-2">
-              <Activity size={16} /> Jonli video va vital
+              <Activity size={16} /> {t('ut.goLiveVitals')}
             </Link>
             <button type="button" onClick={resetForm} className="btn-secondary px-8">
-              Yana bemor qo&apos;shish
+              {t('ut.addAnotherPatient')}
             </button>
           </div>
         </div>
@@ -366,49 +374,49 @@ export default function UTClientPage() {
         <div className="ut-intake-grid flex-1 min-h-0">
           <UtIntakeSection
             id="shaxsiy"
-            title="Shaxsiy ma'lumotlar"
+            title={t('ut.sectionPersonal')}
             icon={User}
             accent="blue"
             className="ut-intake-shaxsiy"
           >
             <div className="grid grid-cols-2 gap-x-2 gap-y-1 h-full content-start">
               <div className="col-span-2">
-                <FormField label="F.I.Sh." required dense>
-                  <input className={IN} value={patientData.fullName} onChange={(e) => setPatientData({ ...patientData, fullName: e.target.value })} placeholder="Masalan: Aliyev Vali Valijon o'g'li" />
+                <FormField label={t('ut.fieldFullName')} required dense>
+                  <input className={IN} value={patientData.fullName} onChange={(e) => setPatientData({ ...patientData, fullName: e.target.value })} placeholder={t('ut.placeholderFullName')} />
                 </FormField>
               </div>
-              <FormField label="Passport" dense>
+              <FormField label={t('ut.fieldPassport')} dense>
                 <input className={IN} value={patientData.passportNumber} onChange={(e) => setPatientData({ ...patientData, passportNumber: e.target.value })} placeholder="AA 1234567" />
               </FormField>
-              <FormField label="Tug'ilgan sana" required dense>
+              <FormField label={t('ut.fieldBirthDate')} required dense>
                 <input type="date" className={IN} value={patientData.birthDate} onChange={(e) => setPatientData({ ...patientData, birthDate: e.target.value })} />
               </FormField>
-              <FormField label="Jinsi" required dense>
+              <FormField label={t('ut.fieldGender')} required dense>
                 <select className={IN} value={patientData.gender} onChange={(e) => setPatientData({ ...patientData, gender: e.target.value })}>
-                  <option value="MALE">Erkak</option>
-                  <option value="FEMALE">Ayol</option>
+                  <option value="MALE">{t('gender.male')}</option>
+                  <option value="FEMALE">{t('gender.female')}</option>
                 </select>
               </FormField>
-              <FormField label="Viloyat" required dense>
+              <FormField label={t('ut.fieldRegion')} required dense>
                 <SearchableSelect
                   className={IN}
                   value={patientData.region}
                   options={UZ_REGION_NAMES}
-                  placeholder="Masalan: far → Farg'ona"
+                  placeholder={t('ut.placeholderRegion')}
                   onChange={(region) => setPatientData({ ...patientData, region, district: '' })}
                 />
               </FormField>
-              <FormField label="Tuman" required dense>
+              <FormField label={t('ut.fieldDistrict')} required dense>
                 <SearchableSelect
                   className={IN}
                   value={patientData.district}
                   options={districtOptions}
-                  placeholder={patientData.region ? 'Tuman tanlang' : 'Avval viloyat tanlang'}
+                  placeholder={patientData.region ? t('ut.placeholderDistrict') : t('ut.placeholderDistrictDisabled')}
                   disabled={!patientData.region}
                   onChange={(district) => setPatientData({ ...patientData, district })}
                 />
               </FormField>
-              <FormField label="Telefon" required dense>
+              <FormField label={t('ut.fieldPhone')} required dense>
                 <input
                   className={IN}
                   value={patientData.phone}
@@ -423,8 +431,8 @@ export default function UTClientPage() {
                 />
               </FormField>
               <div className="col-span-2">
-                <FormField label="Manzil" dense>
-                  <input className={IN} value={patientData.address} onChange={(e) => setPatientData({ ...patientData, address: e.target.value })} placeholder="Ko'cha, uy raqami" />
+                <FormField label={t('ut.fieldAddress')} dense>
+                  <input className={IN} value={patientData.address} onChange={(e) => setPatientData({ ...patientData, address: e.target.value })} placeholder={t('ut.placeholderAddress')} />
                 </FormField>
               </div>
             </div>
@@ -432,29 +440,29 @@ export default function UTClientPage() {
 
           <UtIntakeSection
             id="klinik"
-            title="Klinik ma'lumotlar"
+            title={t('ut.sectionClinical')}
             icon={Stethoscope}
             accent="purple"
             className="ut-intake-klinik"
           >
             <div className="grid grid-cols-2 gap-x-2 gap-y-1 h-full content-start">
               <div className="col-span-2">
-                <FormField label="Shikoyatlar" required dense>
-                  <textarea className={TA} value={clinicalData.complaints} onChange={(e) => setClinicalData({ ...clinicalData, complaints: e.target.value })} placeholder="Bemor shikoyatlarini kiriting..." />
+                <FormField label={t('ut.fieldComplaints')} required dense>
+                  <textarea className={TA} value={clinicalData.complaints} onChange={(e) => setClinicalData({ ...clinicalData, complaints: e.target.value })} placeholder={t('ut.placeholderComplaints')} />
                 </FormField>
               </div>
-              <FormField label="Dorilar" dense>
-                <textarea className={TA_SM} value={clinicalData.medications} onChange={(e) => setClinicalData({ ...clinicalData, medications: e.target.value })} placeholder="Qabul qilinayotgan dorilar" />
+              <FormField label={t('ut.fieldMedications')} dense>
+                <textarea className={TA_SM} value={clinicalData.medications} onChange={(e) => setClinicalData({ ...clinicalData, medications: e.target.value })} placeholder={t('ut.placeholderMedications')} />
               </FormField>
-              <FormField label="Allergiya" dense>
-                <textarea className={TA_SM} value={clinicalData.allergies} onChange={(e) => setClinicalData({ ...clinicalData, allergies: e.target.value })} placeholder="Ma'lum allergiyalar yo'q" />
+              <FormField label={t('ut.fieldAllergies')} dense>
+                <textarea className={TA_SM} value={clinicalData.allergies} onChange={(e) => setClinicalData({ ...clinicalData, allergies: e.target.value })} placeholder={t('ut.placeholderAllergies')} />
               </FormField>
             </div>
           </UtIntakeSection>
 
           <UtIntakeSection
             id="vital"
-            title="Vital ko'rsatkichlar"
+            title={t('ut.sectionVitals')}
             icon={HeartPulse}
             accent="violet"
             className="ut-intake-vital"
@@ -469,25 +477,25 @@ export default function UTClientPage() {
 
           <UtIntakeSection
             id="tekshiruv"
-            title="Tekshiruv natijalari"
+            title={t('ut.sectionExam')}
             icon={FileText}
             accent="teal"
             className="ut-intake-tekshiruv"
           >
             <div className="grid grid-cols-2 gap-1.5 h-full min-h-0">
-              <UtIntakeSubCard title="Diagnostika" icon={ScanLine} accent="teal" className="min-h-0 flex flex-col">
+              <UtIntakeSubCard title={t('ut.subDiagnostics')} icon={ScanLine} accent="teal" className="min-h-0 flex flex-col">
                 <label className="flex-1 border border-dashed border-slate-200 rounded-lg p-1.5 text-center text-slate-400 hover:border-teal-300 cursor-pointer flex flex-col items-center justify-center gap-0.5 min-h-[4.75rem]">
                   <Upload className="w-4 h-4 text-slate-300" />
-                  <span className="text-sm leading-tight">Fayl yuklash</span>
+                  <span className="text-sm leading-tight">{t('ut.uploadFile')}</span>
                   <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.bmp,.tiff,.tif,.heic,.dcm,.dicom,image/*,application/pdf" className="hidden" onChange={handleFileSelect} />
                 </label>
                 {files.length > 0 && (
-                  <p className="text-sm text-teal-700 mt-0.5 truncate">{files.length} ta fayl tanlandi</p>
+                  <p className="text-sm text-teal-700 mt-0.5 truncate">{t('ut.filesSelected', { count: files.length })}</p>
                 )}
               </UtIntakeSubCard>
 
-              <UtIntakeSubCard title="Oilaviy" icon={User} accent="amber" className="min-h-0">
-                <textarea className={TA_SM} value={clinicalData.familyHistory} onChange={(e) => setClinicalData({ ...clinicalData, familyHistory: e.target.value })} placeholder="Oilaviy anamnez..." />
+              <UtIntakeSubCard title={t('ut.subFamily')} icon={User} accent="amber" className="min-h-0">
+                <textarea className={TA_SM} value={clinicalData.familyHistory} onChange={(e) => setClinicalData({ ...clinicalData, familyHistory: e.target.value })} placeholder={t('ut.placeholderFamily')} />
               </UtIntakeSubCard>
             </div>
           </UtIntakeSection>
@@ -495,16 +503,16 @@ export default function UTClientPage() {
           <div className="ut-intake-footer">
             <div className="ut-intake-footer-inner justify-end gap-3 flex-wrap">
             <label className="flex items-center gap-1.5 shrink-0">
-              <span className="text-sm text-slate-600 whitespace-nowrap">Shifokor</span>
+              <span className="text-sm text-slate-600 whitespace-nowrap">{t('ut.doctorLabel')}</span>
               <select
                 className={`${IN} !w-[12rem] sm:!w-[15rem] !min-h-[2rem] !py-1`}
                 value={selectedDoctorId}
                 onChange={(e) => setSelectedDoctorId(e.target.value)}
               >
-                <option value="">Shifokor tanlang</option>
+                <option value="">{t('ut.selectDoctor')}</option>
                 {sortedDoctors.map((d) => (
                   <option key={d.id} value={d.id}>
-                    {presenceLabel(d.presence)} · {d.fullName}
+                    {presenceLabel(d.presence, t)} · {d.fullName}
                     {d.specialtyRef?.name || d.specialty ? ` — ${d.specialtyRef?.name || d.specialty}` : ''}
                   </option>
                 ))}
@@ -514,14 +522,14 @@ export default function UTClientPage() {
                   className="inline-flex items-center gap-1 text-xs text-slate-600 whitespace-nowrap"
                   title={
                     selectedDoctor.presence === 'in_meet'
-                      ? 'Shifokor hozir Meetda'
+                      ? t('presence.doctorInMeet')
                       : selectedDoctor.presence === 'online'
-                        ? 'Shifokor online'
-                        : 'Shifokor offline'
+                        ? t('presence.doctorOnline')
+                        : t('presence.doctorOffline')
                   }
                 >
                   <span className={`inline-block h-2 w-2 rounded-full ${presenceDotClass(selectedDoctor.presence)}`} />
-                  {presenceLabel(selectedDoctor.presence)}
+                  {presenceLabel(selectedDoctor.presence, t)}
                 </span>
               )}
             </label>
@@ -532,7 +540,7 @@ export default function UTClientPage() {
               className="gradient-btn !py-2 !px-4 !text-sm disabled:opacity-50 flex items-center gap-1.5 shrink-0 shadow-sm"
             >
               <Send size={16} />
-              {submitting ? 'Yuborilmoqda...' : 'Shifokorga yuborish'}
+              {submitting ? t('ut.sending') : t('ut.sendToDoctor')}
             </button>
             </div>
           </div>

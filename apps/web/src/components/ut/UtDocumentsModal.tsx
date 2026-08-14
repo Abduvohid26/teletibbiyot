@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { AttachmentManager } from '@/components/attachments/AttachmentManager';
+import { useI18n } from '@/i18n';
 
 interface UtDocumentsModalProps {
   open: boolean;
@@ -19,6 +20,8 @@ export function UtDocumentsModal({
   onClose,
   onChange,
 }: UtDocumentsModalProps) {
+  const { t } = useI18n();
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -46,7 +49,7 @@ export function UtDocumentsModal({
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 shrink-0">
           <div className="min-w-0">
             <h3 id="ut-documents-title" className="font-semibold text-slate-900 text-sm">
-              Bemor hujjatlari
+              {t('ut.patientDocuments')}
             </h3>
             {patientName && (
               <p className="text-xs text-slate-500 truncate mt-0.5">{patientName}</p>
@@ -56,7 +59,7 @@ export function UtDocumentsModal({
             type="button"
             onClick={onClose}
             className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 shrink-0"
-            aria-label="Yopish"
+            aria-label={t('common.close')}
           >
             <X size={16} />
           </button>

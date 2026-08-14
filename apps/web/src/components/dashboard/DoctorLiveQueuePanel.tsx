@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { Play, Radio, X } from 'lucide-react';
 import { Consultation } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { useI18n } from '@/i18n';
 
 interface DoctorLiveQueuePanelProps {
   activeId?: string;
@@ -34,6 +35,7 @@ export function DoctorLiveQueuePanel({
   onComplete,
   className,
 }: DoctorLiveQueuePanelProps) {
+  const { t } = useI18n();
   const active = inProgress.find((c) => c.id === activeId)
     ?? queued.find((c) => c.id === activeId)
     ?? null;
@@ -65,7 +67,7 @@ export function DoctorLiveQueuePanel({
             onClick={onComplete}
             className="w-full gradient-btn !py-2 !text-xs"
           >
-            Yakunlash
+            {t('queue.complete')}
           </button>
         </div>
       )}
@@ -73,7 +75,7 @@ export function DoctorLiveQueuePanel({
         {currentList.length > 0 && (
           <section>
             <h3 className="px-1 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-              Hozirgi
+              {t('queue.current')}
             </h3>
             <div className="space-y-1">
               {currentList.map((c) => (
@@ -94,7 +96,7 @@ export function DoctorLiveQueuePanel({
         {waitingList.length > 0 && (
           <section>
             <h3 className="px-1 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-              Navbat ({waitingList.length})
+              {t('queue.waiting', { count: waitingList.length })}
             </h3>
             <div className="space-y-1">
               {waitingList.map((c) => (
@@ -132,6 +134,7 @@ function QueueRow({
   onReconnect?: () => void;
   onCancel?: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <div
       className={cn(
@@ -178,7 +181,7 @@ function QueueRow({
           )}
         >
           <Radio size={11} />
-          Davom
+          {t('common.continue')}
         </button>
       )}
       {onStart && (
@@ -193,7 +196,7 @@ function QueueRow({
           )}
         >
           <Play size={11} />
-          Boshlash
+          {t('common.start')}
         </button>
       )}
       {onCancel && (
@@ -204,7 +207,7 @@ function QueueRow({
             'mr-1 shrink-0 inline-flex items-center justify-center rounded-md p-1.5',
             active ? 'hover:bg-white/20 text-white/90' : 'hover:bg-red-50 text-red-500',
           )}
-          aria-label="Bekor qilish"
+          aria-label={t('queue.cancelAria')}
         >
           <X size={14} />
         </button>
@@ -214,10 +217,11 @@ function QueueRow({
 }
 
 export function DoctorQueueCountPill({ count }: { count: number }) {
+  const { t } = useI18n();
   if (count <= 0) return null;
   return (
     <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 text-xs font-bold px-2 py-0.5 ring-1 ring-amber-200/80">
-      {count} navbat
+      {t('queue.pill', { count })}
     </span>
   );
 }

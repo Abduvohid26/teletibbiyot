@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { getAiAnalysisMeta } from '@/lib/ai-analysis-meta';
 import { ClinicalConclusionReport } from '@/components/dashboard/ClinicalConclusionReport';
+import { useI18n } from '@/i18n';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -20,15 +21,16 @@ interface AiAnalysisPanelProps {
   compact?: boolean;
 }
 
-const SUGGESTED_QUESTIONS = [
-  'Muqobil tashxislar qanchalik ehtimol va nima uchun?',
-  'Qaysi qo\'shimcha tekshiruvlar kerak — urg\'u bilan?',
-  'Dori-darmonlar o\'zaro ta\'siri va xavfsizlik?',
-  'Parhez, hayot tarzi va profilaktika batafsil?',
-  'Prognoz, ogohlantirish belgilari va kuzatuv rejasi?',
-];
+const SUGGESTED_QUESTION_KEYS = [
+  'clinical.suggestAlt',
+  'clinical.suggestTests',
+  'clinical.suggestMeds',
+  'clinical.suggestDiet',
+  'clinical.suggestPrognosis',
+] as const;
 
 export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }: AiAnalysisPanelProps) {
+  const { t } = useI18n();
   const [question, setQuestion] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
@@ -58,7 +60,7 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
       const res = await api.aiChat(consultationId, text);
       setChatMessages((prev) => [...prev, { role: 'assistant', text: res.answer }]);
     } catch {
-      setChatMessages((prev) => [...prev, { role: 'assistant', text: 'Javob olishda xatolik yuz berdi.' }]);
+      setChatMessages((prev) => [...prev, { role: 'assistant', text: t('clinical.chatError') }]);
     } finally {
       setLoading(false);
     }
@@ -72,7 +74,7 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
       await api.analyzeConsultation(consultationId);
       onRefresh?.();
     } catch {
-      setFeedbackError('AI qayta tahlil qilishda xatolik yuz berdi');
+      setFeedbackError(t('clinical.reanalyzeError'));
     } finally {
       setAnalyzing(false);
     }
@@ -85,7 +87,7 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
     try {
       await api.downloadAiAnalysisPdf(consultationId);
     } catch (err) {
-      setFeedbackError(err instanceof Error ? err.message : 'PDF yuklab olishda xatolik');
+      setFeedbackError(err instanceof Error ? err.message : t('clinical.pdfError'));
     } finally {
       setDownloading(false);
     }
@@ -98,7 +100,7 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
       await api.submitAiFeedback(analysis.id, rating);
       setFeedbackSent(true);
     } catch (err) {
-      setFeedbackError(err instanceof Error ? err.message : 'Fikr yuborishda xatolik');
+      setFeedbackError(err instanceof Error ? err.message : t('clinical.feedbackError'));
     }
   };
 
@@ -107,18 +109,18 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
       <div className="glass-panel h-full flex flex-col overflow-hidden min-h-0">
         <div className="glass-header shrink-0 bg-gradient-to-r from-violet-500/10 to-indigo-500/10 py-2 px-3">
           <Sparkles size={16} className="text-violet-600" />
-          <span className="panel-title text-sm">AI klinik xulosa</span>
+          <span className="panel-title text-sm">{t('clinical.title')}</span>
         </div>
         <div className="flex-1 overflow-hidden flex flex-col justify-center p-4 gap-3">
           <div className="text-center space-y-2">
             <Brain className="w-10 h-10 text-slate-300 mx-auto" />
             <p className="text-sm font-medium text-slate-600">
-              {consultationId ? 'AI tahlil hali tayyor emas' : 'Faol konsultatsiya tanlang'}
+              {consultationId ? t('clinical.notReadyYet') : t('clinical.selectConsultation')}
             </p>
             <p className="text-xs text-slate-400">
               {consultationId
-                ? 'To\'liq Konsilium xulosasi — barcha bo\'limlar bilan tayyorlanadi'
-                : 'Navbatdan konsultatsiyani boshlang'}
+                ? t('clinical.fullReport')
+                : t('clinical.startFromQueue')}
             </p>
           </div>
           {feedbackError && (
@@ -132,7 +134,7 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
               className="btn-secondary text-xs inline-flex items-center justify-center gap-1.5 w-full"
             >
               <RefreshCw size={14} className={analyzing ? 'animate-spin' : ''} />
-              {analyzing ? 'Tahlil qilinmoqda...' : 'AI tahlilni boshlash'}
+              {analyzing ? t('clinical.analyzing') : t('clinical.startAnalysis')}
             </button>
           )}
         </div>
@@ -146,14 +148,14 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
     <div className="panel h-full flex flex-col overflow-hidden min-h-0">
       <div className="panel-header bg-gradient-to-r from-violet-50/80 to-indigo-50/50 shrink-0 py-2 px-3 gap-2">
         <Sparkles size={16} className="text-violet-600 shrink-0" />
-        <span className="panel-title text-sm flex-1 min-w-0 truncate">AI klinik xulosa</span>
+        <span className="panel-title text-sm flex-1 min-w-0 truncate">{t('clinical.title')}</span>
         <div className="flex items-center gap-1 shrink-0">
           {consultationId && (
             <button
               type="button"
               onClick={() => void handleDownloadPdf()}
               disabled={downloading}
-              title="PDF yuklab olish"
+              title={t('clinical.downloadPdf')}
               className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-violet-600 hover:bg-violet-700 text-white text-[10px] font-semibold disabled:opacity-60"
             >
               <Download size={12} className={downloading ? 'animate-pulse' : ''} />
@@ -165,7 +167,7 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
               type="button"
               onClick={() => void handleReanalyze()}
               disabled={analyzing}
-              title="Qayta tahlil"
+              title={t('clinical.reanalyze')}
               className="p-1.5 rounded-lg hover:bg-white/60 text-violet-600"
             >
               <RefreshCw size={14} className={analyzing ? 'animate-spin' : ''} />
@@ -174,7 +176,7 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
           <button
             type="button"
             onClick={() => setChatOpen((v) => !v)}
-            title="AI chat"
+            title={t('clinical.chat')}
             className={cn(
               'p-1.5 rounded-lg text-violet-600',
               chatOpen ? 'bg-violet-100' : 'hover:bg-white/60',
@@ -189,7 +191,7 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
         {isUnavailable && (
           <div className="rounded-xl border bg-red-50 border-red-200 mb-3 p-3">
             <p className="text-xs font-medium text-red-700">
-              AI xizmati mavjud emas — shifokor mustaqil klinik baholash o&apos;tkazishi kerak
+              {t('clinical.unavailable')}
             </p>
           </div>
         )}
@@ -198,13 +200,13 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
 
         {!feedbackSent && (
           <div className="flex items-center gap-2 pt-3 mt-3 border-t border-slate-100">
-            <span className="text-xs text-slate-400">Tahlil foydali bo&apos;ldimi?</span>
+            <span className="text-xs text-slate-400">{t('clinical.helpfulQuestion')}</span>
             <button type="button" onClick={() => void handleFeedback('HELPFUL')} className="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-600"><ThumbsUp size={14} /></button>
             <button type="button" onClick={() => void handleFeedback('HARMFUL')} className="p-1.5 rounded-lg hover:bg-red-50 text-red-500"><ThumbsDown size={14} /></button>
           </div>
         )}
         {feedbackSent && (
-          <p className="text-xs text-emerald-600 pt-2">Fikr-mulohaza yuborildi — rahmat!</p>
+          <p className="text-xs text-emerald-600 pt-2">{t('clinical.feedbackThanks')}</p>
         )}
         {feedbackError && (
           <p className="text-xs text-red-600 pt-1">{feedbackError}</p>
@@ -216,18 +218,21 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
           <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-2">
             {chatMessages.length === 0 && (
               <div className="space-y-2">
-                <p className="text-[10px] text-slate-500 px-1">AI ga savol bering — xulosa bo&apos;yicha batafsil javob olasiz:</p>
+                <p className="text-[10px] text-slate-500 px-1">{t('clinical.askAi')}</p>
                 <div className="flex flex-wrap gap-1">
-                  {SUGGESTED_QUESTIONS.map((sq) => (
-                    <button
-                      key={sq}
-                      type="button"
-                      onClick={() => void handleAsk(sq)}
-                      className="text-[10px] px-2 py-1 rounded-full bg-white border border-violet-200 text-violet-700 hover:bg-violet-50"
-                    >
-                      {sq}
-                    </button>
-                  ))}
+                  {SUGGESTED_QUESTION_KEYS.map((key) => {
+                    const sq = t(key);
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => void handleAsk(sq)}
+                        className="text-[10px] px-2 py-1 rounded-full bg-white border border-violet-200 text-violet-700 hover:bg-violet-50"
+                      >
+                        {sq}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -245,7 +250,7 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
               </div>
             ))}
             {loading && (
-              <p className="text-xs text-slate-400 animate-pulse px-1">AI javob tayyorlanmoqda...</p>
+              <p className="text-xs text-slate-400 animate-pulse px-1">{t('clinical.preparingAnswer')}</p>
             )}
             <div ref={chatEndRef} />
           </div>
@@ -256,7 +261,7 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && void handleAsk()}
-                placeholder="AI ga savol bering..."
+                placeholder={t('clinical.askPlaceholder')}
                 className="input flex-1 !py-2 !text-xs"
               />
               <button

@@ -7,14 +7,10 @@ import { useConsultationRealtime } from '@/hooks/use-consultation-realtime';
 import { toast } from '@/lib/toast';
 import { Send, Bot, Stethoscope } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-const SYSTEM_HINTS = [
-  { role: 'system', text: 'Konsultatsiya boshlanganda chat avtomatik faollashadi.' },
-  { role: 'system', text: 'UT operator va shifokor xabarlari shu yerda saqlanadi.' },
-  { role: 'system', text: 'Tez xabar yuborish uchun Enter tugmasidan foydalaning.' },
-];
+import { useI18n } from '@/i18n';
 
 export function ChatTranscript({ consultationId, compact }: { consultationId?: string; compact?: boolean }) {
+  const { t } = useI18n();
   const { user } = useAuth();
   const [messages, setMessages] = useState<ConsultationMessage[]>([]);
   const [text, setText] = useState('');
@@ -25,8 +21,8 @@ export function ChatTranscript({ consultationId, compact }: { consultationId?: s
     if (!consultationId) return;
     api.getConsultationMessages(consultationId)
       .then(setMessages)
-      .catch((err) => toast(err instanceof Error ? err.message : 'Chat yuklanmadi', 'error'));
-  }, [consultationId]);
+      .catch((err) => toast(err instanceof Error ? err.message : t('chat.loadError'), 'error'));
+  }, [consultationId, t]);
 
   useConsultationRealtime(consultationId ? [consultationId] : [], {
     onChatMessagePersisted: () => load(),
@@ -52,7 +48,7 @@ export function ChatTranscript({ consultationId, compact }: { consultationId?: s
       setMessages((prev) => [...prev, msg]);
       setText('');
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Xabar yuborilmadi', 'error');
+      toast(err instanceof Error ? err.message : t('chat.sendError'), 'error');
     } finally {
       setSending(false);
     }
@@ -62,15 +58,21 @@ export function ChatTranscript({ consultationId, compact }: { consultationId?: s
     ? messages
     : null;
 
+  const systemHints = [
+    t('chat.hint1'),
+    t('chat.hint2'),
+    t('chat.hint3'),
+  ];
+
   return (
     <div className="flex flex-col h-full min-h-0">
       <div className={cn('flex-1 overflow-y-auto space-y-1.5 pr-0.5', compact ? 'max-h-none' : 'max-h-48')}>
         {!displayMessages ? (
           <div className="space-y-1.5">
-            {SYSTEM_HINTS.map((hint, i) => (
-              <div key={i} className="flex items-start gap-2 glass-preview-card !p-2">
+            {systemHints.map((hint) => (
+              <div key={hint} className="flex items-start gap-2 glass-preview-card !p-2">
                 <Bot size={12} className="text-violet-500 shrink-0 mt-0.5" />
-                <p className="text-[10px] text-slate-500 leading-relaxed">{hint.text}</p>
+                <p className="text-[10px] text-slate-500 leading-relaxed">{hint}</p>
               </div>
             ))}
             <div className="flex items-start gap-2 glass-preview-card !p-2 opacity-70">
@@ -104,7 +106,7 @@ export function ChatTranscript({ consultationId, compact }: { consultationId?: s
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && send()}
-          placeholder={consultationId ? 'Xabar yozing...' : 'Konsultatsiya kerak...'}
+          placeholder={consultationId ? t('chat.placeholder') : t('chat.needConsultation')}
           disabled={!consultationId}
           className={cn(
             'flex-1 rounded-lg px-2 py-1.5 text-[10px] transition-all',

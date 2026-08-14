@@ -14,7 +14,7 @@ import { buildAiAnalysisPdfBuffer } from './clinical-conclusion-pdf';
 const SYSTEM_PROMPT = `Siz ${BRAND.name} platformasining AI-yordamchi shifokorisiz (telemedicine konsilium yordamchisi).
 MUHIM: Siz HECH QACHON yakuniy, rasmiy tibbiy tashxis qo'ymaysiz — bu faqat AI konsensus xulosasi.
 O'zbekiston SSV klinik protokollari, MKB-10 va dalillarga asoslangan tibbiyot (EBM) asosida yozing.
-Barcha matnlar o'zbek tilida, professional klinik uslubda bo'lsin.
+{LANG_RULE}
 
 ════════════════════════════════════════════════════════
 HAJM TALABI (majburiy) — hozirgi qisqa xulosadan 2–3 baravar batafsil:
@@ -88,11 +88,37 @@ diagnoses massivida eng yuqori ishonchli tashxis birinchi.`;
 
 const CHAT_SYSTEM_PROMPT = `Siz ${BRAND.name} telemedicine platformasining AI klinik yordamchisisiz.
 Shifokor sizga bemorning AI klinik xulosasi haqida qo'shimcha savollar beradi.
-Javob: aniq, BATAFSIL (kamida 2–3 paragraf yoki 8–15 jumla), o'zbek tilida, professional tibbiy uslubda.
+{LANG_RULE}
+Javob: aniq, BATAFSIL (kamida 2–3 paragraf yoki 8–15 jumla), professional tibbiy uslubda.
 Struktura: 1) qisqa javob, 2) klinik asoslash, 3) differensial / xavf, 4) amaliy tavsiyalar, 5) qo'shimcha tekshiruvlar.
 MUHIM: Yakuniy rasmiy tashxis qo'ymang — faqat AI maslahati.
 Klinik xulosa kontekstidan foydalaning. Ma'lumot yetarli bo'lmasa — qaysi tekshiruv kerakligini aniq yozing.
 Markdown ishlatmang — oddiy matn.`;
+
+type AiLocale = 'uz' | 'ru' | 'en';
+
+function normalizeAiLocale(value: unknown): AiLocale {
+  if (value === 'ru' || value === 'en' || value === 'uz') return value;
+  if (typeof value === 'string') {
+    const base = value.toLowerCase().split('-')[0];
+    if (base === 'ru' || base === 'en' || base === 'uz') return base;
+  }
+  return 'uz';
+}
+
+function langRuleFor(locale: AiLocale): string {
+  if (locale === 'ru') {
+    return 'Все текстовые поля ответа (summary, clinicalConclusion и т.д.) пишите ТОЛЬКО на русском языке, профессиональным клиническим стилем. Не смешивайте языки.';
+  }
+  if (locale === 'en') {
+    return 'Write ALL text fields in the response (summary, clinicalConclusion, etc.) ONLY in English, professional clinical style. Do not mix languages.';
+  }
+  return "Barcha matnlar o'zbek tilida, professional klinik uslubda bo'lsin. Tillarni aralashtirmang.";
+}
+
+function withLang(prompt: string, locale: AiLocale): string {
+  return prompt.replace('{LANG_RULE}', langRuleFor(locale));
+}
 
 interface OpenAiAnalysisResult {
   summary: string;
@@ -128,7 +154,8 @@ export class AiService {
     private storage: StorageService,
   ) {}
 
-  async analyzeConsultation(consultationId: string): Promise<unknown> {
+  async analyzeConsultation(consultationId: string, localeRaw?: string): Promise<unknown> {
+    const locale = normalizeAiLocale(localeRaw);
     const consultation = await this.prisma.consultation.findUnique({
       where: { id: consultationId },
       include: {
@@ -197,13 +224,17 @@ export class AiService {
         : {}),
     });
 
-    let result = await this.callOpenAiAnalysis(clinicalData);
+    let result = await this.callOpenAiAnalysis(clinicalData, locale);
     if (!result) {
       await this.saveUnavailableAnalysis(consultationId);
       return { aiUnavailable: true };
     }
 
     const triageLevel = result.triageLevel as TriageLevel;
+    const rawResponse = {
+      ...result,
+      contentLocale: locale,
+    } as Prisma.InputJsonValue;
 
     await this.prisma.aiAnalysis.upsert({
       where: { consultationId },
@@ -214,7 +245,7 @@ export class AiService {
         triageLevel,
         recommendations: result.recommendations,
         redFlags: result.redFlags,
-        rawResponse: result as Prisma.InputJsonValue,
+        rawResponse,
       },
       update: {
         summary: result.summary,
@@ -222,7 +253,7 @@ export class AiService {
         triageLevel,
         recommendations: result.recommendations,
         redFlags: result.redFlags,
-        rawResponse: result as Prisma.InputJsonValue,
+        rawResponse,
       },
     });
 
@@ -326,6 +357,7 @@ export class AiService {
 
   private async callOpenAiAnalysis(
     clinicalData: Record<string, unknown>,
+    locale: AiLocale = 'uz',
   ): Promise<OpenAiAnalysisResult | null> {
     const text = await this.callOpenAiChat(
       [
@@ -339,7 +371,7 @@ export class AiService {
             + `Faqat JSON obyekt qaytaring:\n${JSON.stringify(clinicalData, null, 2)}`,
         },
       ],
-      { json: true, maxTokens: 12288 },
+      { json: true, maxTokens: 12288, systemPrompt: withLang(SYSTEM_PROMPT, locale) },
     );
 
     if (!text) return null;
@@ -562,7 +594,8 @@ export class AiService {
     return copy;
   }
 
-  async chatWithAi(consultationId: string, question: string) {
+  async chatWithAi(consultationId: string, question: string, localeRaw?: string) {
+    const locale = normalizeAiLocale(localeRaw);
     const consultation = await this.prisma.consultation.findUnique({
       where: { id: consultationId },
       include: { aiAnalysis: true, clinicalRecord: true, patient: true },
@@ -595,7 +628,7 @@ export class AiService {
           }), null, 2)}\n\nShifokor savoli: ${question}`,
         },
       ],
-      { maxTokens: 4096, systemPrompt: CHAT_SYSTEM_PROMPT },
+      { maxTokens: 4096, systemPrompt: withLang(CHAT_SYSTEM_PROMPT, locale) },
     );
 
     if (!answer) {

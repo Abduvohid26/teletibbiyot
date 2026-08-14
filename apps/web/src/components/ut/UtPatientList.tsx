@@ -9,6 +9,7 @@ import { formatStatus } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { UtQuickNav } from '@/components/ut/UtNavTabs';
 import { UtDiagnosisModal } from '@/components/ut/UtDiagnosisModal';
+import { useI18n } from '@/i18n';
 
 type Filter = 'all' | 'live' | 'queued' | 'tashxis';
 
@@ -33,6 +34,7 @@ export function UtPatientList({
   sessionCount = 0,
   liveCount = 0,
 }: UtPatientListProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
@@ -89,10 +91,10 @@ export function UtPatientList({
   };
 
   const tabs: { id: Filter; label: string; icon: React.ElementType; count: number; tone: string }[] = [
-    { id: 'all', label: 'Hammasi', icon: Stethoscope, count: counts.all, tone: 'text-slate-600' },
-    { id: 'live', label: 'Jonli', icon: Radio, count: counts.live, tone: 'text-emerald-600' },
-    { id: 'queued', label: 'Navbat', icon: Clock, count: counts.queued, tone: 'text-amber-700' },
-    { id: 'tashxis', label: 'Tashxis', icon: FileText, count: counts.tashxis, tone: 'text-violet-600' },
+    { id: 'all', label: t('common.all'), icon: Stethoscope, count: counts.all, tone: 'text-slate-600' },
+    { id: 'live', label: t('nav.liveShort'), icon: Radio, count: counts.live, tone: 'text-emerald-600' },
+    { id: 'queued', label: t('ut.queue'), icon: Clock, count: counts.queued, tone: 'text-amber-700' },
+    { id: 'tashxis', label: t('ut.filterDiagnosis'), icon: FileText, count: counts.tashxis, tone: 'text-violet-600' },
   ];
 
   if (sessions.length === 0) {
@@ -102,12 +104,12 @@ export function UtPatientList({
           <Stethoscope className="w-7 h-7 text-slate-300" />
         </div>
         <div>
-          <h2 className="font-bold text-slate-800 text-sm mb-1">Hozircha bemor yo&apos;q</h2>
-          <p className="text-sm text-slate-500 max-w-xs">Yangi bemor qabul qiling yoki jonli efirga o&apos;ting</p>
+          <h2 className="font-bold text-slate-800 text-sm mb-1">{t('ut.noPatientsYet')}</h2>
+          <p className="text-sm text-slate-500 max-w-xs">{t('ut.noPatientsHint')}</p>
         </div>
         <UtQuickNav sessionCount={sessionCount} liveCount={liveCount} />
         <Link href="/ut" className="gradient-btn !text-sm inline-flex items-center gap-1.5">
-          <UserPlus size={14} /> Bemor qabul qilish
+          <UserPlus size={14} /> {t('ut.admitPatient')}
         </Link>
       </div>
     );
@@ -144,7 +146,7 @@ export function UtPatientList({
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Ism, telefon yoki PINFL bo'yicha qidirish..."
+            placeholder={t('ut.searchPatients')}
             className="form-input ut-glass-input !py-2 !pl-8 !text-sm w-full"
           />
         </div>
@@ -152,7 +154,7 @@ export function UtPatientList({
         <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-2 gap-1.5 content-start overflow-y-auto auto-rows-min">
           {filtered.length === 0 ? (
             <p className="col-span-full text-sm text-slate-500 text-center py-6">
-              {filter === 'tashxis' ? 'Yakunlangan tashxislar hali yo\'q' : 'Natija topilmadi'}
+              {filter === 'tashxis' ? t('ut.noDiagnosesYet') : t('ut.noResults')}
             </p>
           ) : (
             filtered.map((c) => {
@@ -177,7 +179,7 @@ export function UtPatientList({
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-slate-900 truncate text-sm">{c.patient.fullName}</p>
                       <p className="text-xs text-slate-500 truncate">
-                        {primaryDx ? `${primaryDx.name} (${primaryDx.icd10Code})` : 'Tashxis'}
+                        {primaryDx ? `${primaryDx.name} (${primaryDx.icd10Code})` : t('ut.filterDiagnosis')}
                         {c.mtDoctor?.fullName && ` · ${c.mtDoctor.fullName}`}
                       </p>
                     </div>
@@ -187,7 +189,7 @@ export function UtPatientList({
                         onClick={() => setDiagnosisView(c)}
                         className="ut-glass-btn !text-[10px] !py-1 !px-2 inline-flex items-center gap-1"
                       >
-                        <Eye size={12} /> O&apos;qish
+                        <Eye size={12} /> {t('ut.read')}
                       </button>
                       <button
                         type="button"
@@ -228,7 +230,7 @@ export function UtPatientList({
                       {c.mtDoctor?.fullName && ` · ${c.mtDoctor.fullName}`}
                     </p>
                   </div>
-                  <span className={cn('status-badge shrink-0', st.className)}>{st.label}</span>
+                  <span className={cn('status-badge shrink-0', st.className)}>{t(st.labelKey)}</span>
                   <ChevronRight size={14} className="text-slate-300 shrink-0" />
                 </button>
               );

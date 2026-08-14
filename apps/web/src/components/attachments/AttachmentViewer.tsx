@@ -6,6 +6,7 @@ import { X, Download, Loader2, ZoomIn } from 'lucide-react';
 import { api, Attachment } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { downloadBlob, triggerDownload } from '@/lib/download';
+import { useI18n } from '@/i18n';
 
 interface AttachmentViewerProps {
   attachment: Attachment | null;
@@ -14,6 +15,7 @@ interface AttachmentViewerProps {
 }
 
 export function AttachmentViewer({ attachment, previewUrl, onClose }: AttachmentViewerProps) {
+  const { t } = useI18n();
   const [url, setUrl] = useState(previewUrl || '');
   const [loading, setLoading] = useState(!previewUrl && !!attachment);
   const [error, setError] = useState('');
@@ -47,7 +49,7 @@ export function AttachmentViewer({ attachment, previewUrl, onClose }: Attachment
       .catch((err) => {
         if (cancelled) return;
         setUrl('');
-        setError(err instanceof Error ? err.message : 'Faylni yuklab bo\'lmadi');
+        setError(err instanceof Error ? err.message : t('attachments.fileLoadFailed'));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -70,7 +72,7 @@ export function AttachmentViewer({ attachment, previewUrl, onClose }: Attachment
   if (!attachment && !previewUrl) return null;
   if (!mounted) return null;
 
-  const fileName = attachment?.fileName || 'Ko\'rish';
+  const fileName = attachment?.fileName || t('attachments.view');
   const fileType = attachment?.fileType || '';
   const isImage = fileType.startsWith('image/') || /\.(jpe?g|png|gif|webp|bmp|tiff?|heic)$/i.test(fileName);
   const isPdf = fileType === 'application/pdf' || fileName.toLowerCase().endsWith('.pdf');
@@ -111,7 +113,7 @@ export function AttachmentViewer({ attachment, previewUrl, onClose }: Attachment
                 type="button"
                 onClick={handleDownload}
                 className="p-2 rounded-lg text-slate-500 hover:bg-slate-100"
-                title="Yuklab olish"
+                title={t('common.download')}
               >
                 <Download size={18} />
               </button>
@@ -126,7 +128,7 @@ export function AttachmentViewer({ attachment, previewUrl, onClose }: Attachment
           {loading ? (
             <Loader2 className="animate-spin text-brand-500" size={32} />
           ) : !url ? (
-            <p className="text-sm text-slate-500">{error || 'Faylni yuklab bo\'lmadi'}</p>
+            <p className="text-sm text-slate-500">{error || t('attachments.fileLoadFailed')}</p>
           ) : isImage ? (
             <img
               src={url}
@@ -138,9 +140,9 @@ export function AttachmentViewer({ attachment, previewUrl, onClose }: Attachment
           ) : (
             <div className="text-center py-12">
               <ZoomIn className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-              <p className="text-sm text-slate-600 mb-4">Ushbu format brauzerda ko&apos;rinmaydi</p>
+              <p className="text-sm text-slate-600 mb-4">{t('attachments.cannotPreview')}</p>
               <button type="button" onClick={handleDownload} className="btn-primary">
-                Yuklab olish
+                {t('common.download')}
               </button>
             </div>
           )}
@@ -157,6 +159,7 @@ export function AttachmentViewer({ attachment, previewUrl, onClose }: Attachment
 }
 
 function AiFindingsBar({ findings }: { findings: Record<string, unknown> }) {
+  const { t } = useI18n();
   const abnormalities = (findings.abnormalities as string[]) || [];
   const recs = (findings.recommendations as string[]) || [];
   if (!abnormalities.length && !recs.length) return null;
@@ -164,16 +167,17 @@ function AiFindingsBar({ findings }: { findings: Record<string, unknown> }) {
   return (
     <div className="shrink-0 border-t border-slate-100 px-4 py-3 bg-violet-50/50 text-xs space-y-1 max-h-28 overflow-y-auto">
       {abnormalities.length > 0 && (
-        <p><span className="font-semibold text-red-700">Anomaliyalar:</span> {abnormalities.join('; ')}</p>
+        <p><span className="font-semibold text-red-700">{t('attachments.abnormalities')}</span> {abnormalities.join('; ')}</p>
       )}
       {recs.length > 0 && (
-        <p><span className="font-semibold text-brand-700">Tavsiyalar:</span> {recs.join('; ')}</p>
+        <p><span className="font-semibold text-brand-700">{t('attachments.recommendations')}</span> {recs.join('; ')}</p>
       )}
     </div>
   );
 }
 
 export function AiStatusBadge({ status, mock }: { status?: string; mock?: boolean }) {
+  const { t } = useI18n();
   const styles: Record<string, string> = {
     PENDING: 'bg-slate-100 text-slate-600',
     PROCESSING: 'bg-amber-50 text-amber-700',
@@ -182,11 +186,11 @@ export function AiStatusBadge({ status, mock }: { status?: string; mock?: boolea
     SKIPPED: 'bg-slate-100 text-slate-500',
   };
   const labels: Record<string, string> = {
-    PENDING: 'Kutilmoqda',
-    PROCESSING: 'AI tahlil...',
-    DONE: mock ? 'AI tahlil yo\'q' : 'AI tahlil ✓',
-    FAILED: 'Xatolik',
-    SKIPPED: 'O\'tkazildi',
+    PENDING: t('attachments.aiPending'),
+    PROCESSING: t('attachments.aiProcessing'),
+    DONE: mock ? t('attachments.aiDoneMock') : t('attachments.aiDone'),
+    FAILED: t('attachments.aiFailed'),
+    SKIPPED: t('attachments.aiSkipped'),
   };
   const s = status || 'PENDING';
   return (

@@ -1,37 +1,37 @@
 import { UT_CAMERA_FEEDS } from './video-config';
 
-/** Jonli efirdagi kamera raqamlari bilan mos slotlar */
+/** Jonli efirdagi kamera raqamlari bilan mos slotlar — labels via i18n keys */
 export const UT_CAMERA_SLOTS = [
   {
     id: 'close',
     num: 1,
-    label: 'Bemor yaqindan',
-    shortLabel: 'Bemor',
-    purpose: 'Bemor yuzini yaqin plandan ko\'rsatadi. Shifokor PTZ orqali boshqarishi mumkin.',
+    labelKey: 'ut.cameraCloseLabel',
+    shortLabelKey: 'ut.cameraCloseShort',
+    purposeKey: 'ut.cameraClosePurpose',
     accent: 'brand' as const,
   },
   {
     id: 'main',
     num: 2,
-    label: "Asosiy ko'rinish",
-    shortLabel: 'Asosiy',
-    purpose: 'Xona va bemorning umumiy/keng ko\'rinishi.',
+    labelKey: 'ut.cameraMainLabel',
+    shortLabelKey: 'ut.cameraMainShort',
+    purposeKey: 'ut.cameraMainPurpose',
     accent: 'slate' as const,
   },
   {
     id: 'room',
     num: 3,
-    label: "Xona ko'rinishi",
-    shortLabel: 'Xona',
-    purpose: 'Butun xona konteksti — bemor atrofi va hodimlar harakati.',
+    labelKey: 'ut.cameraRoomLabel',
+    shortLabelKey: 'ut.cameraRoomShort',
+    purposeKey: 'ut.cameraRoomPurpose',
     accent: 'slate' as const,
   },
   {
     id: 'equipment',
     num: 4,
-    label: 'Patient monitor',
-    shortLabel: 'Monitor',
-    purpose: 'Vital monitor, EKG va boshqa tibbiy qurilmalar ekrani. Shifokor chap panelda ko\'radi.',
+    labelKey: 'ut.cameraEquipmentLabel',
+    shortLabelKey: 'ut.cameraEquipmentShort',
+    purposeKey: 'ut.cameraEquipmentPurpose',
     accent: 'violet' as const,
   },
 ] as const;

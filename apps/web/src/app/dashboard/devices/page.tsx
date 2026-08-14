@@ -7,10 +7,11 @@ import { useRequireAuth } from '@/hooks/use-require-auth';
 import { useConsultationRealtime } from '@/hooks/use-consultation-realtime';
 import { CheckCircle2, XCircle, RefreshCw, Cpu } from 'lucide-react';
 import { ROLES_MT_DASHBOARD, ROLES_UT } from '@/lib/roles';
-import { UserRole } from '@ishifo/shared';
-import { isUtRole, canAccessAdmin } from '@ishifo/shared';
+import { isUtRole } from '@ishifo/shared';
+import { useI18n } from '@/i18n';
 
 export default function DevicesPage() {
+  const { t } = useI18n();
   const { user, loading: authLoading } = useRequireAuth([...ROLES_MT_DASHBOARD, ...ROLES_UT]);
   const [devices, setDevices] = useState<DeviceStatus[]>([]);
   const [facilities, setFacilities] = useState<Facility[]>([]);
@@ -43,7 +44,7 @@ export default function DevicesPage() {
       const fac = facs.find((f) => f.id === facilityId);
       await loadDevices(facilityId || '', fac?.name);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Xatolik yuz berdi');
+      setError(err instanceof Error ? err.message : t('errors.generic'));
     } finally {
       setLoading(false);
     }
@@ -67,7 +68,7 @@ export default function DevicesPage() {
       await api.updateDevice(device.id, connected, connected ? 'ONLINE' : 'OFFLINE');
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Qurilma holatini yangilashda xatolik');
+      setError(err instanceof Error ? err.message : t('devices.updateError'));
     } finally {
       setUpdatingId(null);
     }
@@ -79,8 +80,8 @@ export default function DevicesPage() {
 
   return (
     <DashboardLayout
-      title="Qurilmalar holati"
-      subtitle={facilityLabel ? `${facilityLabel}` : 'Muassasa tanlanmagan'}
+      title={t('devices.title')}
+      subtitle={facilityLabel ? `${facilityLabel}` : t('devices.noFacility')}
       actions={
         <div className="flex items-center gap-2">
           {showFacilityPicker && facilities.length > 0 && (
@@ -95,7 +96,7 @@ export default function DevicesPage() {
             </select>
           )}
           <button onClick={load} className="btn-secondary !py-2 !text-xs">
-            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Yangilash
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> {t('common.refresh')}
           </button>
         </div>
       }
@@ -134,7 +135,7 @@ export default function DevicesPage() {
                     onClick={() => toggleDevice(d)}
                     className="text-[10px] font-medium px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700"
                   >
-                    {updatingId === d.id ? '...' : d.connected ? 'Uzish' : 'Ulash'}
+                    {updatingId === d.id ? '...' : d.connected ? t('common.disconnect') : t('common.connect')}
                   </button>
                 )}
                 {d.connected ? (
@@ -150,11 +151,9 @@ export default function DevicesPage() {
       {!loading && devices.length === 0 && (
         <div className="empty-state panel min-h-[300px]">
           <Cpu size={32} className="mb-3 opacity-40" />
-          <p>Qurilmalar topilmadi</p>
+          <p>{t('devices.empty')}</p>
           <p className="text-sm text-slate-400 mt-1">
-            {!isUtRole(user.role)
-              ? 'Muassasani tanlang yoki UT operator qurilma holatini yangilasin'
-              : 'Qurilma holatini yangilang yoki gateway ulang'}
+            {!isUtRole(user.role) ? t('devices.emptyHintStaff') : t('devices.emptyHintUt')}
           </p>
         </div>
       )}

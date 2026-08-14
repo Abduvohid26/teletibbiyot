@@ -109,6 +109,15 @@ export class HttpClient {
       if (token) headers['Authorization'] = `Bearer ${token}`;
     }
 
+    if (typeof window !== 'undefined') {
+      try {
+        const locale = window.localStorage.getItem('ishifo.locale');
+        if (locale) headers['X-Locale'] = locale;
+      } catch {
+        /* ignore */
+      }
+    }
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 

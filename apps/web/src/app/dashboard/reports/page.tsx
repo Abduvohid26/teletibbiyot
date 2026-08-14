@@ -15,7 +15,6 @@ import {
   AiInsights,
   DoctorAiAgreement,
   AnalyticsFilters,
-  PERIOD_OPTIONS,
   FilterOptions,
 } from '@/lib/analytics-types';
 import { SmartFilterBar, countActiveFilters } from '@/components/analytics/SmartFilterBar';
@@ -30,9 +29,10 @@ import { ROLES_MT_DASHBOARD } from '@/lib/roles';
 import { isMtStaff, isUtRole, UserRole } from '@ishifo/shared';
 import { useFilterOptions } from '@/hooks/use-filter-options';
 import { safeAsync } from '@/lib/errors';
-import { cn } from '@/lib/utils';
+import { useI18n } from '@/i18n';
 
 export default function ReportsPage() {
+  const { t } = useI18n();
   const router = useRouter();
   const { user, loading: authLoading } = useRequireAuth([...ROLES_MT_DASHBOARD]);
   const [filters, setFilters] = useState<AnalyticsFilters>({ period: '30d' });
@@ -91,11 +91,11 @@ export default function ReportsPage() {
       setAiInsights(ai);
       setAiAgreement(agreement);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Xatolik yuz berdi');
+      setError(err instanceof Error ? err.message : t('errors.generic'));
     } finally {
       setLoading(false);
     }
-  }, [filters, user]);
+  }, [filters, user, t]);
 
   useEffect(() => {
     if (!authLoading && user) load();
@@ -112,11 +112,16 @@ export default function ReportsPage() {
   if (isUtRole(user.role)) return null;
 
   const facilityOptions = [
-    { value: '', label: 'Barcha UT' },
+    { value: '', label: t('filters.allFacilities') },
     ...(options?.facilities.map((f) => ({ value: f.id, label: `${f.code} — ${f.district || f.name}` })) ?? []),
   ];
+  const periodOptions = [
+    { value: '7d', label: t('filters.period7d') },
+    { value: '30d', label: t('filters.period30d') },
+    { value: '90d', label: t('filters.period90d') },
+  ];
   const filterFields = [
-    { key: 'period', label: 'Davr', type: 'select' as const, value: filters.period || '30d', options: PERIOD_OPTIONS },
+    { key: 'period', label: t('common.period'), type: 'select' as const, value: filters.period || '30d', options: periodOptions },
     {
       key: 'utId',
       label: 'UT',
@@ -142,7 +147,7 @@ export default function ReportsPage() {
 
         {overview?.scopeLabel && (
           <p className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
-            Ko&apos;rinish: <span className="font-medium text-slate-700">{overview.scopeLabel}</span>
+            {t('reports.scopeLabel')} <span className="font-medium text-slate-700">{overview.scopeLabel}</span>
           </p>
         )}
 
@@ -155,29 +160,29 @@ export default function ReportsPage() {
         ) : overview && (
           <>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 animate-slide-up">
-              <MetricCard icon={Activity} label="Jami konsultatsiyalar" value={overview.totalConsultations} color="brand" />
-              <MetricCard icon={CheckCircle2} label="Yakunlangan" value={overview.completed} sub={`${overview.completionRate}%`} color="emerald" />
-              <MetricCard icon={Clock} label="Navbatda / Jarayonda" value={overview.queued + overview.inProgress} color="amber" />
-              <MetricCard icon={Users} label="Bemorlar (davr)" value={overview.totalPatients} color="cyan" />
-              <MetricCard icon={Brain} label="AI tahlillar" value={overview.withAiAnalysis} color="violet" />
-              <MetricCard icon={Target} label="Yakuniy tashxis" value={overview.withFinalDiagnosis} color="indigo" />
-              <MetricCard icon={Timer} label="O'rtacha davomiylik" value={overview.avgDurationMinutes ?? '—'} suffix={overview.avgDurationMinutes ? 'min' : ''} color="slate" />
+              <MetricCard icon={Activity} label={t('reports.totalConsultations')} value={overview.totalConsultations} color="brand" />
+              <MetricCard icon={CheckCircle2} label={t('reports.completed')} value={overview.completed} sub={`${overview.completionRate}%`} color="emerald" />
+              <MetricCard icon={Clock} label={t('reports.queuedInProgress')} value={overview.queued + overview.inProgress} color="amber" />
+              <MetricCard icon={Users} label={t('reports.patientsPeriod')} value={overview.totalPatients} color="cyan" />
+              <MetricCard icon={Brain} label={t('reports.aiAnalyses')} value={overview.withAiAnalysis} color="violet" />
+              <MetricCard icon={Target} label={t('reports.finalDiagnosis')} value={overview.withFinalDiagnosis} color="indigo" />
+              <MetricCard icon={Timer} label={t('reports.avgDuration')} value={overview.avgDurationMinutes ?? t('common.emptyDash')} suffix={overview.avgDurationMinutes ? t('common.minutes') : ''} color="slate" />
               {(overview.scope === 'global' || overview.scope === 'facility') && (
-                <MetricCard icon={TrendingUp} label="Shifokorlar (davr)" value={overview.totalDoctors} color="brand" />
+                <MetricCard icon={TrendingUp} label={t('reports.doctorsPeriod')} value={overview.totalDoctors} color="brand" />
               )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-slide-up">
               <div className="panel p-5">
                 <h3 className="panel-title mb-4 flex items-center gap-2">
-                  <TrendingUp size={16} className="text-brand-600" /> Konsultatsiya trendi
+                  <TrendingUp size={16} className="text-brand-600" /> {t('reports.trendTitle')}
                 </h3>
                 <TrendChart data={trends} />
               </div>
 
               <div className="panel p-5">
                 <h3 className="panel-title mb-4 flex items-center gap-2">
-                  <AlertTriangle size={16} className="text-amber-600" /> Xavf darajasi taqsimoti
+                  <AlertTriangle size={16} className="text-amber-600" /> {t('reports.triageDist')}
                 </h3>
                 <DonutChart data={triage} />
               </div>
@@ -186,7 +191,7 @@ export default function ReportsPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-slide-up">
               <div className="panel p-5">
                 <h3 className="panel-title mb-4 flex items-center gap-2">
-                  <Building2 size={16} className="text-brand-600" /> UT bo&apos;yicha statistika
+                  <Building2 size={16} className="text-brand-600" /> {t('reports.facilityStats')}
                 </h3>
                 <BarChart
                   data={facilities.map((f) => ({
@@ -199,7 +204,7 @@ export default function ReportsPage() {
 
               <div className="panel p-5">
                 <h3 className="panel-title mb-4 flex items-center gap-2">
-                  <Brain size={16} className="text-violet-600" /> Top AI tashxislar
+                  <Brain size={16} className="text-violet-600" /> {t('reports.topDiagnoses')}
                 </h3>
                 <BarChart
                   data={diagnoses.map((d) => ({
@@ -214,12 +219,12 @@ export default function ReportsPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 animate-slide-up">
               {aiInsights && (
                 <div className="panel p-5 lg:col-span-1">
-                  <h3 className="panel-title mb-4">AI Insights</h3>
+                  <h3 className="panel-title mb-4">{t('reports.aiInsights')}</h3>
                   <div className="space-y-3 text-sm">
-                    <InsightRow label="Jami tahlillar" value={String(aiInsights.totalAnalyses)} />
-                    <InsightRow label="O'rtacha ishonch" value={`${aiInsights.avgConfidence}%`} />
-                    <InsightRow label="Tashxis mosligi" value={aiInsights.diagnosisMatchRate !== null ? `${aiInsights.diagnosisMatchRate}%` : '—'} />
-                    <InsightRow label="Qizil bayroqlar" value={String(aiInsights.redFlagCases)} highlight />
+                    <InsightRow label={t('reports.totalAnalyses')} value={String(aiInsights.totalAnalyses)} />
+                    <InsightRow label={t('reports.avgConfidence')} value={`${aiInsights.avgConfidence}%`} />
+                    <InsightRow label={t('reports.diagnosisMatch')} value={aiInsights.diagnosisMatchRate !== null ? `${aiInsights.diagnosisMatchRate}%` : t('common.emptyDash')} />
+                    <InsightRow label={t('reports.redFlags')} value={String(aiInsights.redFlagCases)} highlight />
                   </div>
                 </div>
               )}
@@ -227,17 +232,17 @@ export default function ReportsPage() {
               {demographics && (
                 <>
                   <div className="panel p-5">
-                    <h3 className="panel-title mb-4">Jins bo&apos;yicha</h3>
+                    <h3 className="panel-title mb-4">{t('reports.byGender')}</h3>
                     <BarChart
                       data={demographics.gender.map((g) => ({
                         label: g.label,
                         value: g.value,
-                        color: g.label === 'Erkak' ? 'bg-blue-500' : 'bg-pink-500',
+                        color: g.label === 'Erkak' || g.label === 'Male' || g.label === 'Мужской' ? 'bg-blue-500' : 'bg-pink-500',
                       }))}
                     />
                   </div>
                   <div className="panel p-5">
-                    <h3 className="panel-title mb-4">Viloyat bo&apos;yicha</h3>
+                    <h3 className="panel-title mb-4">{t('reports.byRegion')}</h3>
                     <BarChart
                       data={demographics.regions.map((r) => ({
                         label: r.region,
@@ -254,17 +259,17 @@ export default function ReportsPage() {
               <div className="panel overflow-hidden animate-slide-up">
                 <div className="panel-header">
                   <Brain size={16} />
-                  <span className="panel-title">Shifokorlar bo&apos;yicha AI tashxis mosligi</span>
+                  <span className="panel-title">{t('reports.agreementTitle')}</span>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-slate-50 text-left text-xs text-slate-500 uppercase">
-                        <th className="px-4 py-3">Shifokor</th>
-                        <th className="px-4 py-3">Holatlar</th>
-                        <th className="px-4 py-3">Mos keldi</th>
-                        <th className="px-4 py-3">Moslik %</th>
-                        <th className="px-4 py-3">AI ishonch</th>
+                        <th className="px-4 py-3">{t('reports.colDoctor')}</th>
+                        <th className="px-4 py-3">{t('reports.colCases')}</th>
+                        <th className="px-4 py-3">{t('reports.colMatched')}</th>
+                        <th className="px-4 py-3">{t('reports.colMatchPct')}</th>
+                        <th className="px-4 py-3">{t('reports.colAiConfidence')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -296,7 +301,7 @@ export default function ReportsPage() {
   }
 
   return (
-    <DashboardLayout title="Hisobotlar va analitika" subtitle="Smart statistika va tahlil">
+    <DashboardLayout title={t('reports.title')} subtitle={t('reports.subtitle')}>
       {pageBody}
     </DashboardLayout>
   );

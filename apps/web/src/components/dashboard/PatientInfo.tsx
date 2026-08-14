@@ -2,9 +2,12 @@
 
 import { Heart, Activity, Thermometer, Droplets, User, MapPin, Phone, CreditCard, Radio } from 'lucide-react';
 import { Patient, ClinicalRecord } from '@/lib/api';
-import { calculateAge, formatGender, cn } from '@/lib/utils';
+import { calculateAge, cn } from '@/lib/utils';
 import { useVitalsStream } from '@/hooks/use-vitals-stream';
 import { VitalReading } from '@/lib/camera-vitals';
+import { useI18n } from '@/i18n';
+import { LOCALE_BCP47 } from '@/i18n/locales';
+import { genderLabelKey } from '@/i18n/labels';
 
 interface PatientInfoProps {
   patient?: Patient;
@@ -14,10 +17,11 @@ interface PatientInfoProps {
 }
 
 function LiveEkgWaveform({ waveform }: { waveform?: number[] }) {
+  const { t } = useI18n();
   if (!waveform?.length) {
     return (
       <div className="w-full h-14 flex items-center justify-center text-[10px] text-slate-400 bg-slate-50 rounded-lg">
-        EKG ma&apos;lumoti kutilmoqda
+        {t('patientInfo.ekgWaiting')}
       </div>
     );
   }
@@ -48,6 +52,7 @@ function mergeVitals(staticVitals: Record<string, number>, live: VitalReading | 
 }
 
 export function PatientInfo({ patient, clinicalRecord, consultationId, compact }: PatientInfoProps) {
+  const { t, locale } = useI18n();
   const staticVitals = clinicalRecord?.vitalSigns || {};
   const { connected, liveVitals } = useVitalsStream(consultationId, 'receive');
   const vitals = mergeVitals(staticVitals, liveVitals);
@@ -58,7 +63,7 @@ export function PatientInfo({ patient, clinicalRecord, consultationId, compact }
       <div className="glass-panel h-full flex flex-col overflow-hidden min-h-0">
         <div className={cn('glass-header shrink-0', compact && 'py-1.5 px-2')}>
           <User size={compact ? 14 : 16} className="text-brand-600" />
-          <span className={cn('panel-title', compact && 'text-xs')}>Bemor ma&apos;lumotlari</span>
+          <span className={cn('panel-title', compact && 'text-xs')}>{t('patientInfo.title')}</span>
         </div>
         <div className={cn('flex-1 overflow-hidden', compact ? 'p-2 space-y-2' : 'p-3 space-y-3')}>
           <div className="flex items-center gap-2">
@@ -72,21 +77,21 @@ export function PatientInfo({ patient, clinicalRecord, consultationId, compact }
           </div>
           <div className="grid grid-cols-2 gap-1.5">
             {[
-              { icon: Heart, label: 'Yurak', unit: 'bpm', color: 'text-red-400' },
-              { icon: Activity, label: 'Qon bosimi', unit: 'mmHg', color: 'text-blue-400' },
-              { icon: Droplets, label: 'SpO2', unit: '%', color: 'text-cyan-400' },
-              { icon: Thermometer, label: 'Harorat', unit: '°C', color: 'text-orange-400' },
+              { icon: Heart, label: t('patientInfo.heart'), unit: 'bpm', color: 'text-red-400' },
+              { icon: Activity, label: t('patientInfo.bp'), unit: 'mmHg', color: 'text-blue-400' },
+              { icon: Droplets, label: t('patientInfo.spo2'), unit: '%', color: 'text-cyan-400' },
+              { icon: Thermometer, label: t('patientInfo.temperature'), unit: '°C', color: 'text-orange-400' },
             ].map((v) => (
               <div key={v.label} className="glass-vital !p-2 opacity-70">
                 <div className="flex items-center gap-1 mb-1">
                   <v.icon size={10} className={v.color} />
                   <span className="text-[9px] text-slate-400">{v.label}</span>
                 </div>
-                <p className="text-sm font-bold text-slate-300">— <span className="text-[9px] font-normal">{v.unit}</span></p>
+                <p className="text-sm font-bold text-slate-300">{t('common.emptyDash')} <span className="text-[9px] font-normal">{v.unit}</span></p>
               </div>
             ))}
           </div>
-          <p className="text-[10px] text-slate-400 text-center pt-1">Konsultatsiyani boshlang — bemor ma&apos;lumotlari shu yerda ko&apos;rinadi</p>
+          <p className="text-[10px] text-slate-400 text-center pt-1">{t('patientInfo.startHint')}</p>
         </div>
       </div>
     );
@@ -99,11 +104,11 @@ export function PatientInfo({ patient, clinicalRecord, consultationId, compact }
     <div className="panel h-full flex flex-col overflow-hidden min-h-0">
       <div className={cn('panel-header shrink-0', compact && 'py-1.5 px-2')}>
         <User size={compact ? 14 : 16} className="text-brand-600" />
-        <span className={cn('panel-title', compact && 'text-xs')}>Bemor ma&apos;lumotlari</span>
+        <span className={cn('panel-title', compact && 'text-xs')}>{t('patientInfo.title')}</span>
         {isLive && (
           <span className="ml-auto flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
             <Radio size={10} />
-            JONLI
+            {t('patientInfo.live')}
           </span>
         )}
       </div>
@@ -116,7 +121,7 @@ export function PatientInfo({ patient, clinicalRecord, consultationId, compact }
           <div className="min-w-0">
             <h4 className={cn('font-bold text-slate-900 truncate', compact ? 'text-sm' : 'text-[15px]')}>{patient.fullName}</h4>
             <p className="text-[10px] text-slate-500 mt-0.5">
-              {age != null ? `${age} yosh` : 'Yosh ko\'rsatilmagan'} · {formatGender(patient.gender)}
+              {age != null ? t('common.years', { age }) : t('common.ageUnknown')} · {t(genderLabelKey(patient.gender))}
               {compact && patient.phone ? ` · ${patient.phone}` : ''}
             </p>
           </div>
@@ -125,10 +130,10 @@ export function PatientInfo({ patient, clinicalRecord, consultationId, compact }
         {!compact && (
         <div className="space-y-2">
           {patient.passportNumber && (
-            <InfoRow icon={CreditCard} label="Passport" value={patient.passportNumber} />
+            <InfoRow icon={CreditCard} label={t('patientInfo.passport')} value={patient.passportNumber} />
           )}
-          <InfoRow icon={MapPin} label="Manzil" value={`${patient.region}, ${patient.district}`} />
-          <InfoRow icon={Phone} label="Telefon" value={patient.phone} />
+          <InfoRow icon={MapPin} label={t('patientInfo.address')} value={`${patient.region}, ${patient.district}`} />
+          <InfoRow icon={Phone} label={t('patientInfo.phone')} value={patient.phone} />
         </div>
         )}
 
@@ -137,51 +142,53 @@ export function PatientInfo({ patient, clinicalRecord, consultationId, compact }
           <div className="flex items-center justify-between mb-1.5">
             <h3 className="text-xs font-semibold text-slate-800 flex items-center gap-1">
               <Activity size={12} className="text-emerald-500" />
-              Vital
+              {t('patientInfo.vitals')}
             </h3>
             <span className="text-[9px] font-medium text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
               {liveVitals?.timestamp
-                ? new Date(liveVitals.timestamp).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })
-                : new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
+                ? new Date(liveVitals.timestamp).toLocaleTimeString(LOCALE_BCP47[locale], { hour: '2-digit', minute: '2-digit' })
+                : new Date().toLocaleTimeString(LOCALE_BCP47[locale], { hour: '2-digit', minute: '2-digit' })}
             </span>
           </div>
 
           {!compact && (
           <div className="rounded-xl bg-slate-900 p-3 mb-3 overflow-hidden">
             <p className="text-[10px] text-emerald-400/80 mb-1 font-medium uppercase tracking-wider">
-              EKG · {liveVitals?.ekgWaveform?.length ? 'Jonli' : 'Kutilmoqda'}
+              {t('patientInfo.ekgLabel', {
+                state: liveVitals?.ekgWaveform?.length ? t('patientInfo.ekgLive') : t('patientInfo.ekgPending'),
+              })}
             </p>
             <LiveEkgWaveform waveform={liveVitals?.ekgWaveform} />
           </div>
           )}
 
           <div className="grid grid-cols-2 gap-1">
-            <VitalCard icon={Heart} label="Puls" value={vitals.heartRate ? `${vitals.heartRate}` : '—'} unit="bpm" accent="red" live={isLive && liveVitals?.heartRate != null} compact={compact} />
+            <VitalCard icon={Heart} label={t('patientInfo.pulse')} value={vitals.heartRate ? `${vitals.heartRate}` : t('common.emptyDash')} unit="bpm" accent="red" live={isLive && liveVitals?.heartRate != null} compact={compact} />
             <VitalCard
               icon={Activity}
-              label="Qon bosimi"
-              value={vitals.bloodPressureSystolic ? `${vitals.bloodPressureSystolic}/${vitals.bloodPressureDiastolic}` : '—'}
+              label={t('patientInfo.bp')}
+              value={vitals.bloodPressureSystolic ? `${vitals.bloodPressureSystolic}/${vitals.bloodPressureDiastolic}` : t('common.emptyDash')}
               unit="mmHg"
               accent="blue"
               live={isLive && liveVitals?.bloodPressureSystolic != null}
               compact={compact}
             />
-            <VitalCard icon={Droplets} label="SpO2" value={vitals.spo2 ? `${vitals.spo2}` : '—'} unit="%" accent="cyan" live={isLive && liveVitals?.spo2 != null} compact={compact} />
-            <VitalCard icon={Thermometer} label="Harorat" value={vitals.temperature ? `${vitals.temperature}` : '—'} unit="°C" accent="orange" live={isLive && liveVitals?.temperature != null} compact={compact} />
+            <VitalCard icon={Droplets} label={t('patientInfo.spo2')} value={vitals.spo2 ? `${vitals.spo2}` : t('common.emptyDash')} unit="%" accent="cyan" live={isLive && liveVitals?.spo2 != null} compact={compact} />
+            <VitalCard icon={Thermometer} label={t('patientInfo.temperature')} value={vitals.temperature ? `${vitals.temperature}` : t('common.emptyDash')} unit="°C" accent="orange" live={isLive && liveVitals?.temperature != null} compact={compact} />
           </div>
 
           {vitals.respiratoryRate != null && !compact && (
             <p className="text-xs text-slate-500 mt-2 text-center">
-              Nafas olish: <span className="font-semibold text-slate-700">{vitals.respiratoryRate}</span> /min
+              {t('patientInfo.respiratory', { rate: vitals.respiratoryRate })}
               {isLive && liveVitals?.respiratoryRate != null && (
-                <span className="text-emerald-600 ml-1">· jonli</span>
+                <span className="text-emerald-600 ml-1">{t('patientInfo.liveSuffix')}</span>
               )}
             </p>
           )}
 
           {!isLive && consultationId && !compact && (
             <p className="text-[10px] text-amber-600 bg-amber-50 rounded-lg p-2 mt-2 text-center">
-              UT operator kamerani yoqmaguncha statik ma&apos;lumotlar ko&apos;rsatiladi
+              {t('patientInfo.staticHint')}
             </p>
           )}
         </div>

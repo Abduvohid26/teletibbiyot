@@ -6,6 +6,7 @@ import { Consultation } from '@/lib/api';
 import { api } from '@/lib/api';
 import { ClinicalConclusionReport } from '@/components/dashboard/ClinicalConclusionReport';
 import { cn } from '@/lib/utils';
+import { useI18n } from '@/i18n';
 
 interface UtDiagnosisModalProps {
   consultation: Consultation;
@@ -14,6 +15,7 @@ interface UtDiagnosisModalProps {
 }
 
 export function UtDiagnosisModal({ consultation, open, onClose }: UtDiagnosisModalProps) {
+  const { t } = useI18n();
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState('');
 
@@ -32,7 +34,7 @@ export function UtDiagnosisModal({ consultation, open, onClose }: UtDiagnosisMod
         await api.downloadAiAnalysisPdf(consultation.id);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'PDF yuklab olishda xatolik');
+      setError(err instanceof Error ? err.message : t('clinical.pdfError'));
     } finally {
       setDownloading(false);
     }
@@ -45,7 +47,7 @@ export function UtDiagnosisModal({ consultation, open, onClose }: UtDiagnosisMod
           <div className="min-w-0">
             <h2 className="font-bold text-slate-900 text-sm flex items-center gap-2">
               <FileText size={16} className="text-violet-600 shrink-0" />
-              Tashxis — {consultation.patient.fullName}
+              {t('ut.diagnosisTitle', { name: consultation.patient.fullName })}
             </h2>
             {primary && (
               <p className="text-xs text-slate-500 truncate mt-0.5">
@@ -62,7 +64,7 @@ export function UtDiagnosisModal({ consultation, open, onClose }: UtDiagnosisMod
           {consultation.aiAnalysis ? (
             <ClinicalConclusionReport analysis={consultation.aiAnalysis} compact />
           ) : (
-            <p className="text-sm text-slate-500 text-center py-8">Tashxis ma&apos;lumoti hali mavjud emas</p>
+            <p className="text-sm text-slate-500 text-center py-8">{t('ut.diagnosisUnavailable')}</p>
           )}
         </div>
 
@@ -76,10 +78,10 @@ export function UtDiagnosisModal({ consultation, open, onClose }: UtDiagnosisMod
               className={cn('flex-1 gradient-btn inline-flex items-center justify-center gap-2 !text-sm', downloading && 'opacity-70')}
             >
               <Download size={15} />
-              {downloading ? 'Yuklanmoqda...' : 'PDF yuklab olish'}
+              {downloading ? t('common.loading') : t('clinical.downloadPdf')}
             </button>
             <button type="button" onClick={onClose} className="flex-1 btn-secondary">
-              Yopish
+              {t('common.close')}
             </button>
           </div>
         </div>

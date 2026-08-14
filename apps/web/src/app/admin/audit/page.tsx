@@ -9,10 +9,12 @@ import { useRouter } from 'next/navigation';
 import { AuthLoadingScreen } from '@/components/auth/AuthLoadingScreen';
 import { canAccessAudit } from '@ishifo/shared';
 import { toast } from '@/lib/toast';
+import { LOCALE_BCP47, useI18n } from '@/i18n';
 
 export default function AuditPage() {
   const { user, loading, authError, retryAuth } = useAuth();
   const router = useRouter();
+  const { t, locale } = useI18n();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [error, setError] = useState('');
   const [from, setFrom] = useState('');
@@ -27,7 +29,7 @@ export default function AuditPage() {
     setError('');
     api.getAuditLogs()
       .then(setLogs)
-      .catch((err) => setError(err instanceof Error ? err.message : 'Audit yuklashda xatolik'));
+      .catch((err) => setError(err instanceof Error ? err.message : t('admin.auditLoadError')));
   };
 
   useEffect(() => {
@@ -47,16 +49,16 @@ export default function AuditPage() {
       a.download = `audit-${from || 'all'}-${to || 'all'}.csv`;
       a.click();
       URL.revokeObjectURL(url);
-      toast('CSV yuklab olindi', 'success');
+      toast(t('admin.csvDownloaded'), 'success');
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Eksport xatosi', 'error');
+      toast(err instanceof Error ? err.message : t('admin.exportError'), 'error');
     } finally {
       setExporting(false);
     }
   };
 
   if (loading) {
-    return <AuthLoadingScreen message="Yuklanmoqda..." error={authError} onRetry={retryAuth} />;
+    return <AuthLoadingScreen message={t('common.loading')} error={authError} onRetry={retryAuth} />;
   }
 
   if (!user || !canAccessAudit(user.role)) return null;
@@ -73,18 +75,18 @@ export default function AuditPage() {
               <Shield className="w-5 h-5 text-violet-600" />
             </div>
             <div>
-              <h1 className="font-bold text-slate-900 tracking-tight">Audit jurnali</h1>
-              <p className="text-xs text-slate-500">{logs.length} ta yozuv</p>
+              <h1 className="font-bold text-slate-900 tracking-tight">{t('admin.auditTitle')}</h1>
+              <p className="text-xs text-slate-500">{t('admin.auditCount', { count: logs.length })}</p>
             </div>
           </div>
           <div className="ml-auto flex items-center gap-2 flex-wrap">
             <input type="date" className="input !py-1.5 !text-xs !w-auto" value={from} onChange={(e) => setFrom(e.target.value)} />
             <input type="date" className="input !py-1.5 !text-xs !w-auto" value={to} onChange={(e) => setTo(e.target.value)} />
             <button type="button" onClick={exportCsv} disabled={exporting} className="btn-secondary !text-xs inline-flex items-center gap-1.5">
-              <Download size={14} /> {exporting ? 'Eksport...' : 'CSV'}
+              <Download size={14} /> {exporting ? t('admin.exporting') : t('admin.exportCsv')}
             </button>
             <button type="button" onClick={load} className="btn-secondary !text-xs inline-flex items-center gap-1.5">
-              <RefreshCw size={14} /> Yangilash
+              <RefreshCw size={14} /> {t('common.refresh')}
             </button>
           </div>
         </div>
@@ -94,7 +96,7 @@ export default function AuditPage() {
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl p-3.5 mb-4 flex items-center justify-between">
             <span>{error}</span>
-            <button type="button" onClick={load} className="text-xs font-semibold underline">Qayta</button>
+            <button type="button" onClick={load} className="text-xs font-semibold underline">{t('admin.retryShort')}</button>
           </div>
         )}
 
@@ -103,20 +105,20 @@ export default function AuditPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100 text-left text-xs text-slate-500 uppercase tracking-wide">
-                  <th className="px-4 py-3">Vaqt</th>
-                  <th className="px-4 py-3">Foydalanuvchi</th>
-                  <th className="px-4 py-3">Harakat</th>
-                  <th className="px-4 py-3">Ob&apos;ekt</th>
+                  <th className="px-4 py-3">{t('admin.colTime')}</th>
+                  <th className="px-4 py-3">{t('admin.colUser')}</th>
+                  <th className="px-4 py-3">{t('admin.action')}</th>
+                  <th className="px-4 py-3">{t('admin.colEntity')}</th>
                 </tr>
               </thead>
               <tbody>
                 {logs.map((log) => (
                   <tr key={log.id} className="border-b border-slate-50 hover:bg-slate-50/50">
                     <td className="px-4 py-3 text-slate-600 whitespace-nowrap">
-                      {new Date(log.createdAt).toLocaleString('uz-UZ')}
+                      {new Date(log.createdAt).toLocaleString(LOCALE_BCP47[locale])}
                     </td>
                     <td className="px-4 py-3">
-                      <p className="font-medium text-slate-900">{log.user?.fullName || '—'}</p>
+                      <p className="font-medium text-slate-900">{log.user?.fullName || t('common.emptyDash')}</p>
                       <p className="text-xs text-slate-500">{log.user?.email}</p>
                     </td>
                     <td className="px-4 py-3">
@@ -134,7 +136,7 @@ export default function AuditPage() {
                   <tr>
                     <td colSpan={4} className="px-4 py-10 text-center text-slate-400">
                       <FileText className="w-8 h-8 mx-auto mb-2 opacity-40" />
-                      Audit yozuvlari yo&apos;q
+                      {t('admin.auditEmpty')}
                     </td>
                   </tr>
                 )}

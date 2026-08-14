@@ -24,6 +24,7 @@ import { VideoRoomPresence } from '@/components/video/VideoRoomPresence';
 import { applyUtPtzAction, isPtzAction } from '@/lib/ut-ptz-state';
 import { UT_CAMERA_FEEDS } from '@/lib/video-config';
 import { isUtStreamLive } from '@/lib/ut-camera-streams';
+import { useI18n } from '@/i18n';
 
 interface UtVideoPanelViewProps {
   video: ReturnType<typeof useVideoRoom>;
@@ -48,6 +49,7 @@ export function UtVideoPanelView({
   defaultView = 'doctor',
   onLeave,
 }: UtVideoPanelViewProps) {
+  const { t } = useI18n();
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
   const [viewMode, setViewMode] = useState<ViewMode>(defaultView === 'all' ? 'all' : 'doctor');
   const [ptzHint, setPtzHint] = useState('');
@@ -78,6 +80,7 @@ export function UtVideoPanelView({
   const doctorLive = !!mtDoctorStream && isUtStreamLive(mtDoctorStream);
   const utLiveCount = utCameraStreams.filter((c) => c.active && isUtStreamLive(c.stream)).length;
   const isAllView = viewMode === 'all';
+  const doctorLabel = t('common.doctor');
 
   // Kutishda 4 kamerani ko'rish/sozlash uchun "Hammasi" rejimiga o'tamiz
   useEffect(() => {
@@ -98,21 +101,21 @@ export function UtVideoPanelView({
     const onPtz = (event: Event) => {
       const detail = (event as CustomEvent<{ action: string }>).detail;
       const labels: Record<string, string> = {
-        up: 'Yuqoriga',
-        down: 'Pastga',
-        left: 'Chapga',
-        right: "O'ngga",
-        'zoom-in': 'Yaqinlashtirish',
-        'zoom-out': 'Uzoqlashtirish',
+        up: t('video.ptzUp'),
+        down: t('video.ptzDown'),
+        left: t('video.ptzLeft'),
+        right: t('video.ptzRight'),
+        'zoom-in': t('video.ptzZoomIn'),
+        'zoom-out': t('video.ptzZoomOut'),
       };
       if (isPtzAction(detail.action)) {
         applyUtPtzAction(detail.action, 'close');
       }
-      setPtzHint(`Shifokor PTZ: ${labels[detail.action] ?? detail.action}`);
+      setPtzHint(t('video.ptzHint', { action: labels[detail.action] ?? detail.action }));
     };
     window.addEventListener('ut-ptz-control', onPtz);
     return () => window.removeEventListener('ut-ptz-control', onPtz);
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (!ptzHint) return;
@@ -125,7 +128,7 @@ export function UtVideoPanelView({
       <div className="panel-header gap-2 !py-2 shrink-0">
         <Radio size={15} className={connected ? 'text-emerald-500' : 'text-slate-400'} />
         <div className="min-w-0 flex-1">
-          <p className="panel-title !text-sm leading-tight">Video uzatish</p>
+          <p className="panel-title !text-sm leading-tight">{t('video.videoTransmit')}</p>
           {patientName && (
             <p className="text-xs text-slate-500 truncate">
               {patientName}
@@ -136,7 +139,7 @@ export function UtVideoPanelView({
         <div className="flex items-center gap-1.5 shrink-0 ml-auto">
           {videoPaused ? (
             <span className="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-0.5 rounded-full">
-              Uzilgan
+              {t('video.disconnected')}
             </span>
           ) : connected ? (
             <>
@@ -145,13 +148,13 @@ export function UtVideoPanelView({
                 bitrateKbps={connectionStats.bitrateKbps}
                 compact
               />
-              <span className="live-badge !text-xs !py-0.5" title="Uzatilayotgan kameralar">
+              <span className="live-badge !text-xs !py-0.5" title={t('video.camerasTransmitting')}>
                 <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-                {utLiveCount} kamera
+                {t('video.camerasCount', { count: utLiveCount })}
               </span>
             </>
           ) : (
-            <span className="text-xs text-slate-400 font-medium">Ulanmoqda...</span>
+            <span className="text-xs text-slate-400 font-medium">{t('video.connectingShort')}</span>
           )}
         </div>
       </div>
@@ -164,14 +167,14 @@ export function UtVideoPanelView({
         {audioMissing && (
           <div className="text-xs text-amber-800 bg-amber-50 rounded-lg px-2.5 py-2 flex gap-2">
             <AlertTriangle size={13} className="shrink-0 mt-0.5" />
-            Mikrofon yo‘q — shifokor eshita olmasligi mumkin.
+            {t('video.micMissing')}
           </div>
         )}
 
         {networkAudioOnly && (
           <div className="text-xs text-sky-900 bg-sky-50 rounded-lg px-2.5 py-2 flex gap-2">
             <AlertTriangle size={13} className="shrink-0 mt-0.5" />
-            Tarmoq sekin — video vaqtincha pasaytirildi, ovoz ishlayveradi.
+            {t('video.networkAudioOnly')}
           </div>
         )}
 
@@ -189,17 +192,17 @@ export function UtVideoPanelView({
                   stream={mtDoctorStream}
                   muted
                   className="absolute inset-0 w-full h-full [&_video]:object-cover"
-                  placeholder="Shifokor"
+                  placeholder={doctorLabel}
                   live={doctorLive}
                 />
                 <span className="absolute top-2 left-2 bg-violet-600/90 text-white text-xs font-semibold px-2 py-0.5 rounded pointer-events-none inline-flex items-center gap-1">
                   <Stethoscope size={12} />
-                  Shifokor
+                  {doctorLabel}
                 </span>
                 {!doctorLive && (
                   <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-slate-900/50 pointer-events-none">
                     <VideoOff className="w-7 h-7 text-slate-500" />
-                    <span className="text-xs text-slate-400">Shifokor kutilmoqda</span>
+                    <span className="text-xs text-slate-400">{t('video.doctorWaiting')}</span>
                   </span>
                 )}
               </button>
@@ -211,10 +214,10 @@ export function UtVideoPanelView({
                   const stream = utCameraStreams.find((c) => c.id === id)?.stream ?? null;
                   const live = isUtStreamLive(stream);
                   const short =
-                    id === 'main' ? 'Asosiy'
-                    : id === 'close' ? 'Bemor'
-                    : id === 'room' ? 'Xona'
-                    : 'Qurilmalar';
+                    id === 'main' ? t('video.camMain')
+                    : id === 'close' ? t('video.camPatient')
+                    : id === 'room' ? t('video.camRoom')
+                    : t('video.camEquipment');
                   return (
                     <div
                       key={id}
@@ -244,7 +247,7 @@ export function UtVideoPanelView({
               </div>
 
               <span className="absolute top-2 right-2 z-10 bg-brand-600/90 text-white text-xs font-bold px-2 py-0.5 rounded-md pointer-events-none">
-                Hammasi
+                {t('video.allCameras')}
               </span>
             </div>
           ) : (
@@ -253,20 +256,20 @@ export function UtVideoPanelView({
                 stream={mtDoctorStream}
                 muted
                 className="absolute inset-0 w-full h-full [&_video]:object-cover"
-                placeholder="Shifokor kutilmoqda"
+                placeholder={t('video.doctorWaiting')}
                 live={doctorLive}
               />
               {!doctorLive && roomPhase === 'live' && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-slate-900/60 pointer-events-none">
                   <VideoOff size={22} className="text-slate-500" />
                   <span className="text-xs text-slate-400 text-center px-4">
-                    Shifokor videosi yo&apos;q — audio davom etishi mumkin
+                    {t('video.noDoctorVideo')}
                   </span>
                 </div>
               )}
               <span className="absolute top-2 left-2 bg-violet-600/90 text-white text-xs font-bold px-2 py-0.5 rounded-md inline-flex items-center gap-1">
                 <Stethoscope size={12} />
-                Shifokor
+                {doctorLabel}
               </span>
             </>
           )}
@@ -275,7 +278,7 @@ export function UtVideoPanelView({
             <VideoRoomPresence
               phase={roomPhase}
               error={error}
-              peerLabel={peerDisplayName || doctorName || 'Shifokor'}
+              peerLabel={peerDisplayName || doctorName || doctorLabel}
               onRetry={roomPhase === 'error' ? () => reconnectCall() : undefined}
             />
           )}
@@ -283,9 +286,9 @@ export function UtVideoPanelView({
           {videoPaused && roomPhase === 'live' && (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-sm px-4">
               <VideoOff className="w-10 h-10 text-slate-400 mb-2" />
-              <p className="text-sm font-semibold text-white text-center">Video uzildi</p>
+              <p className="text-sm font-semibold text-white text-center">{t('video.pausedTitle')}</p>
               <p className="text-xs text-slate-300 text-center mt-1 max-w-xs">
-                Konsultatsiya davom etadi — qayta ulang
+                {t('video.pausedSub')}
               </p>
               <button
                 type="button"
@@ -293,7 +296,7 @@ export function UtVideoPanelView({
                 className="mt-3 inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold px-4 py-2 rounded-xl"
               >
                 <Phone size={16} />
-                Qayta ulash
+                {t('video.reconnect')}
               </button>
             </div>
           )}
@@ -316,12 +319,12 @@ export function UtVideoPanelView({
             )}
           >
             <Stethoscope size={14} />
-            Shifokor
+            {doctorLabel}
           </button>
           <button
             type="button"
             onClick={() => setViewMode('all')}
-            title="Barcha kameralar"
+            title={t('video.allCamerasTitle')}
             className={cn(
               'inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-colors',
               isAllView
@@ -330,7 +333,7 @@ export function UtVideoPanelView({
             )}
           >
             <LayoutGrid size={14} />
-            Hammasi
+            {t('video.allCameras')}
             {utLiveCount > 0 && (
               <span className="min-w-[16px] h-4 px-1 rounded-full bg-white/20 text-[10px] flex items-center justify-center">
                 {utLiveCount}
@@ -347,14 +350,14 @@ export function UtVideoPanelView({
         )}
 
         <div className="flex items-center justify-center gap-2 flex-wrap border-t border-slate-100 pt-2 shrink-0 mt-auto">
-          <ControlBtn active={micOn} onClick={toggleMic} icon={micOn ? Mic : MicOff} label="Mic" />
+          <ControlBtn active={micOn} onClick={toggleMic} icon={micOn ? Mic : MicOff} label={t('video.mic')} />
           <ControlBtn
             active={speakerOn}
             onClick={toggleSpeaker}
             icon={speakerOn ? Volume2 : VolumeX}
-            label="Ovoz"
+            label={t('video.speaker')}
           />
-          <ControlBtn active={camOn} onClick={toggleCam} icon={camOn ? Video : VideoOff} label="Kamera" />
+          <ControlBtn active={camOn} onClick={toggleCam} icon={camOn ? Video : VideoOff} label={t('video.cam')} />
           <button
             type="button"
             onClick={() => {
@@ -364,7 +367,7 @@ export function UtVideoPanelView({
             className="inline-flex items-center gap-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold px-3 py-2 rounded-xl"
           >
             <PhoneOff size={14} />
-            Uzish
+            {t('video.leave')}
           </button>
           {videoPaused && (
             <button
@@ -373,7 +376,7 @@ export function UtVideoPanelView({
               className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3 py-2 rounded-xl"
             >
               <Phone size={14} />
-              Qayta ulash
+              {t('video.reconnect')}
             </button>
           )}
         </div>

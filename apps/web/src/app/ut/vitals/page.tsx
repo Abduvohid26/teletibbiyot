@@ -14,9 +14,11 @@ import { UtDocumentsModal } from '@/components/ut/UtDocumentsModal';
 import { UtPatientSwitcher } from '@/components/ut/UtPatientSwitcher';
 import { useUtSessions } from '@/hooks/use-ut-sessions';
 import { useCancelConsultation } from '@/hooks/use-cancel-consultation';
+import { useI18n } from '@/i18n';
 
 export default function UtVitalsPage() {
   const { user, loading } = useAuth();
+  const { t } = useI18n();
   const router = useRouter();
   const [showDocuments, setShowDocuments] = useState(false);
   const {
@@ -42,7 +44,7 @@ export default function UtVitalsPage() {
   if (loading || !user) {
     return (
       <div className="min-h-screen bg-surface flex items-center justify-center">
-        <p className="text-sm text-slate-500 animate-pulse">Yuklanmoqda...</p>
+        <p className="text-sm text-slate-500 animate-pulse">{t('common.loading')}</p>
       </div>
     );
   }
@@ -73,7 +75,7 @@ export default function UtVitalsPage() {
               className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg bg-white/90 text-slate-700 ring-1 ring-slate-200 hover:bg-brand-50 hover:text-brand-700 hover:ring-brand-200 transition-colors"
             >
               <FileText size={13} />
-              Hujjatlar
+              {t('dashboard.documents')}
             </button>
           ) : undefined
         }
@@ -90,7 +92,9 @@ export default function UtVitalsPage() {
               <div className="flex items-center gap-2 min-w-0">
                 <Radio size={15} className="text-emerald-600 animate-pulse shrink-0" />
                 <p className="text-sm font-semibold text-emerald-900 truncate">
-                  Shifokor qabul qildi{liveBanner.doctorName ? ` — ${liveBanner.doctorName}` : ''}. Jonli efir boshlandi.
+                  {liveBanner.doctorName
+                    ? t('ut.doctorAcceptedNamed', { name: liveBanner.doctorName })
+                    : t('ut.doctorAccepted')}
                 </p>
               </div>
               <button
@@ -109,13 +113,13 @@ export default function UtVitalsPage() {
                 <Stethoscope className="w-7 h-7 text-slate-300" />
               </div>
               <div>
-                <h2 className="font-bold text-slate-800 text-sm mb-1">Faol bemor tanlanmagan</h2>
+                <h2 className="font-bold text-slate-800 text-sm mb-1">{t('ut.noPatientSelected')}</h2>
                 <p className="text-sm text-slate-500 max-w-xs">
-                  Bemorlar ro&apos;yxatidan tanlang yoki yangi qabul qiling
+                  {t('ut.noPatientHint')}
                 </p>
               </div>
               <UtQuickNav sessionCount={sessions.length} liveCount={inProgressList.length} />
-              <Link href="/ut" className="gradient-btn !text-sm">Bemor qabul qilish</Link>
+              <Link href="/ut" className="gradient-btn !text-sm">{t('ut.admitPatient')}</Link>
             </div>
           ) : (
             <div className="flex-1 min-h-0 overflow-hidden">

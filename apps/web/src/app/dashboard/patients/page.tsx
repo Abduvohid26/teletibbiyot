@@ -11,18 +11,21 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useDebouncedValue } from '@/hooks/use-debounce';
 import { api, Patient } from '@/lib/api';
-import { PatientFilters, GENDER_OPTIONS, FilterOptions } from '@/lib/analytics-types';
+import { PatientFilters, FilterOptions } from '@/lib/analytics-types';
 import { SmartFilterBar, countActiveFilters } from '@/components/analytics/SmartFilterBar';
 import { PatientDetailPanel } from '@/components/analytics/PatientDetailPanel';
 import { Pagination } from '@/components/analytics/Pagination';
-import { calculateAge, formatGender } from '@/lib/utils';
+import { calculateAge } from '@/lib/utils';
 import { useFilterOptions } from '@/hooks/use-filter-options';
 import { User, MapPin, Phone, ChevronRight, Users } from 'lucide-react';
 import { ROLES_MT_DASHBOARD } from '@/lib/roles';
+import { useI18n } from '@/i18n';
+import { genderLabelKey } from '@/i18n/labels';
 
 const defaultFilters: PatientFilters = { page: 1, limit: 24, sortBy: 'createdAt', sortOrder: 'desc' };
 
 function StaffPatientsContent() {
+  const { t } = useI18n();
   const { user, loading: authLoading } = useRequireAuth([...ROLES_MT_DASHBOARD]);
   const searchParams = useSearchParams();
   const [filters, setFilters] = useState<PatientFilters>({
@@ -59,9 +62,9 @@ function StaffPatientsContent() {
         setTotal(res.total);
         setTotalPages(res.totalPages);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : 'Xatolik yuz berdi'))
+      .catch((err) => setError(err instanceof Error ? err.message : t('errors.generic')))
       .finally(() => setLoading(false));
-  }, [debouncedSearch, filters.gender, filters.region, filters.district, filters.page, filters.sortBy, filters.sortOrder, user, authLoading]);
+  }, [debouncedSearch, filters.gender, filters.region, filters.district, filters.page, filters.sortBy, filters.sortOrder, user, authLoading, t]);
 
   const setFilter = (key: string, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value || undefined, page: key === 'page' ? Number(value) || 1 : 1 }));
@@ -72,24 +75,29 @@ function StaffPatientsContent() {
 
   if (authLoading || !user) return null;
 
-  const regionOptions = [{ value: '', label: 'Barcha viloyat' }, ...(options?.regions.map((r) => ({ value: r, label: r })) ?? [])];
-  const districtOptions = [{ value: '', label: 'Barcha tuman' }, ...(options?.districts.map((d) => ({ value: d, label: d })) ?? [])];
+  const regionOptions = [{ value: '', label: t('filters.allRegions') }, ...(options?.regions.map((r) => ({ value: r, label: r })) ?? [])];
+  const districtOptions = [{ value: '', label: t('filters.allDistricts') }, ...(options?.districts.map((d) => ({ value: d, label: d })) ?? [])];
+  const genderOptions = [
+    { value: '', label: t('filters.allGender') },
+    { value: 'MALE', label: t('common.male') },
+    { value: 'FEMALE', label: t('common.female') },
+  ];
 
   return (
     <>
-      <DashboardLayout title="Bemorlar" subtitle={`${total} ta ro'yxatda — smart qidiruv va filter`}>
+      <DashboardLayout title={t('patients.title')} subtitle={t('patients.subtitle', { total })}>
         <div className="space-y-4">
           <SmartFilterBar
             fields={[
-              { key: 'search', label: 'Qidirish', type: 'search', value: filters.search || '', placeholder: 'Ism, telefon, PINFL, passport, tuman...' },
-              { key: 'gender', label: 'Jins', type: 'select', value: filters.gender || '', options: GENDER_OPTIONS },
-              { key: 'region', label: 'Viloyat', type: 'select', value: filters.region || '', options: regionOptions },
-              { key: 'district', label: 'Tuman', type: 'select', value: filters.district || '', options: districtOptions },
+              { key: 'search', label: t('common.search'), type: 'search', value: filters.search || '', placeholder: t('filters.searchPatientFull') },
+              { key: 'gender', label: t('common.gender'), type: 'select', value: filters.gender || '', options: genderOptions },
+              { key: 'region', label: t('common.region'), type: 'select', value: filters.region || '', options: regionOptions },
+              { key: 'district', label: t('common.district'), type: 'select', value: filters.district || '', options: districtOptions },
               {
-                key: 'sortBy', label: 'Saralash', type: 'select', value: filters.sortBy || 'createdAt',
+                key: 'sortBy', label: t('common.sort'), type: 'select', value: filters.sortBy || 'createdAt',
                 options: [
-                  { value: 'createdAt', label: 'Sana bo\'yicha' },
-                  { value: 'fullName', label: 'Ism bo\'yicha' },
+                  { value: 'createdAt', label: t('filters.sortByDate') },
+                  { value: 'fullName', label: t('filters.sortByName') },
                 ],
               },
             ]}
@@ -128,11 +136,14 @@ function StaffPatientsContent() {
                           <ChevronRight size={16} className="text-slate-300 group-hover:text-brand-500 shrink-0" />
                         </div>
                         <p className="text-sm text-slate-500 mt-0.5">
-                          {calculateAge(p.birthDate) ?? '—'} yosh · {formatGender(p.gender)}
+                          {calculateAge(p.birthDate) != null
+                            ? t('common.years', { age: calculateAge(p.birthDate)! })
+                            : t('common.emptyDash')}{' '}
+                          · {t(genderLabelKey(p.gender))}
                         </p>
                         {p._count && (
                           <span className="inline-block mt-1 text-[10px] font-semibold bg-brand-50 text-brand-700 px-2 py-0.5 rounded-full">
-                            {p._count.consultations} konsultatsiya
+                            {t('patients.consultationsCount', { count: p._count.consultations })}
                           </span>
                         )}
                       </div>
@@ -140,7 +151,7 @@ function StaffPatientsContent() {
                     <div className="mt-4 space-y-1.5 text-xs text-slate-600">
                       <p className="flex items-center gap-2"><MapPin size={12} className="text-slate-400" />{p.region}, {p.district}</p>
                       <p className="flex items-center gap-2"><Phone size={12} className="text-slate-400" />{p.phone}</p>
-                      {p.pinfl && <p className="text-slate-400">PINFL: {p.pinfl}</p>}
+                      {p.pinfl && <p className="text-slate-400">{t('patients.pinfl', { pinfl: p.pinfl })}</p>}
                     </div>
                   </button>
                 ))}
@@ -149,7 +160,7 @@ function StaffPatientsContent() {
               {!error && patients.length === 0 && (
                 <div className="empty-state panel min-h-[300px]">
                   <Users size={32} className="mb-3 opacity-40" />
-                  <p>Filter bo&apos;yicha bemor topilmadi</p>
+                  <p>{t('patients.emptyFilter')}</p>
                 </div>
               )}
 
@@ -191,12 +202,13 @@ function DoctorPatientsPage() {
 }
 
 export default function PatientsPage() {
+  const { t } = useI18n();
   const { user, loading } = useRequireAuth([...ROLES_MT_DASHBOARD]);
 
   if (loading) {
     return (
       <div className="page-shell flex items-center justify-center min-h-screen text-slate-400">
-        Yuklanmoqda...
+        {t('common.loading')}
       </div>
     );
   }
@@ -206,7 +218,7 @@ export default function PatientsPage() {
   }
 
   return (
-    <Suspense fallback={<div className="page-shell flex items-center justify-center min-h-screen text-slate-400">Yuklanmoqda...</div>}>
+    <Suspense fallback={<div className="page-shell flex items-center justify-center min-h-screen text-slate-400">{t('common.loading')}</div>}>
       <StaffPatientsContent />
     </Suspense>
   );

@@ -1,5 +1,7 @@
 'use client';
 
+import { useI18n } from '@/i18n';
+
 const IN =
   'input !py-2 !px-3 !text-sm !min-h-[2.5rem] !bg-white/90 placeholder:text-slate-400 placeholder:font-normal';
 
@@ -16,11 +18,13 @@ export function UtIntakeVitalsPanel({
   onWeightChange,
   onHeightChange,
 }: UtIntakeVitalsPanelProps) {
+  const { t } = useI18n();
+
   return (
     <div className="h-full grid grid-cols-2 gap-2 content-start">
       <div>
         <label className="label !text-sm !mb-1" htmlFor="ut-vazn">
-          Vazn (kg) <span className="text-red-500">*</span>
+          {t('vitals.weight')} <span className="text-red-500">*</span>
         </label>
         <input
           id="ut-vazn"
@@ -33,7 +37,7 @@ export function UtIntakeVitalsPanel({
       </div>
       <div>
         <label className="label !text-sm !mb-1" htmlFor="ut-boy">
-          Bo&apos;y (sm) <span className="text-red-500">*</span>
+          {t('vitals.height')} <span className="text-red-500">*</span>
         </label>
         <input
           id="ut-boy"

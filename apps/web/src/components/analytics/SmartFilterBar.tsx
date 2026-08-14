@@ -3,6 +3,7 @@
 import { ReactNode } from 'react';
 import { Filter, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useI18n } from '@/i18n';
 
 export interface FilterField {
   key: string;
@@ -23,12 +24,13 @@ interface SmartFilterBarProps {
 }
 
 export function SmartFilterBar({ fields, onChange, onReset, activeCount = 0, children }: SmartFilterBarProps) {
+  const { t } = useI18n();
   return (
     <div className="panel p-4 animate-slide-up">
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 shrink-0">
           <Filter size={16} className="text-brand-600" />
-          Smart filter
+          {t('filter.smart')}
           {activeCount > 0 && (
             <span className="text-[10px] font-bold bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full">
               {activeCount}
@@ -64,7 +66,7 @@ export function SmartFilterBar({ fields, onChange, onReset, activeCount = 0, chi
 
         {activeCount > 0 && (
           <button type="button" onClick={onReset} className="btn-ghost !text-xs shrink-0">
-            <RotateCcw size={14} /> Tozalash
+            <RotateCcw size={14} /> {t('filter.clear')}
           </button>
         )}
       </div>

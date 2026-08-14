@@ -9,6 +9,7 @@ import { PlatformFooter } from '@/components/layout/PlatformFooter';
 import { BRAND } from '@ishifo/shared';
 import { Alert } from '@/components/ui/Alert';
 import { FormField } from '@/components/ui/FormField';
+import { LanguageSwitcher, useI18n } from '@/i18n';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -17,6 +18,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login, user } = useAuth();
+  const { t } = useI18n();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,13 +29,13 @@ export default function LoginPage() {
       const result = await login(email, password);
       const role = result.user?.role || user?.role;
       if (!role) {
-        setError('Kirish muvaffaqiyatsiz. Qayta urinib ko\'ring.');
+        setError(t('login.fail'));
         return;
       }
 
       window.location.href = getRoleHomePath(role);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Kirishda xatolik');
+      setError(err instanceof Error ? err.message : t('login.error'));
     } finally {
       setLoading(false);
     }
@@ -55,20 +57,21 @@ export default function LoginPage() {
             </div>
             <div>
               <h1 className="text-2xl tracking-tight"><BrandName size="xl" className="text-white" /></h1>
-              <p className="text-brand-200 text-sm font-medium">{BRAND.supporterShort} Platformasi</p>
+              <p className="text-brand-200 text-sm font-medium">
+                {t('brand.platformOf', { name: BRAND.supporterShort })}
+              </p>
             </div>
           </div>
           <h2 className="text-4xl font-extrabold leading-tight mb-5 tracking-tight">
-            Uzoq masofadan tibbiy yordam — AI yordamida
+            {t('login.heroTitle')}
           </h2>
           <p className="text-brand-100 text-lg leading-relaxed max-w-lg">
-            O&apos;zbekiston va dunyo bo&apos;ylab uzoq masofadagi tibbiyot muassasalaridagi bemorlarga
-            markaziy mutaxassis shifokorlar masofadan konsultatsiya va dastlabki tashxis berish tizimi.
+            {t('login.heroBody')}
           </p>
 
           <div className="mt-10 grid grid-cols-2 gap-4 max-w-md">
-            <FeaturePill icon={Activity} text="Real vaqt video" />
-            <FeaturePill icon={Lock} text="Xavfsiz kirish" />
+            <FeaturePill icon={Activity} text={t('login.featureVideo')} />
+            <FeaturePill icon={Lock} text={t('login.featureSecure')} />
           </div>
         </div>
 
@@ -87,13 +90,16 @@ export default function LoginPage() {
           </div>
 
           <div className="panel p-8 shadow-panel">
-            <h2 className="text-2xl font-bold text-slate-900 mb-1">Tizimga kirish</h2>
-            <p className="text-slate-500 mb-7 text-sm">Hisobingizga kiring</p>
+            <div className="flex items-start justify-between gap-3 mb-1">
+              <h2 className="text-2xl font-bold text-slate-900">{t('login.title')}</h2>
+              <LanguageSwitcher compact />
+            </div>
+            <p className="text-slate-500 mb-7 text-sm">{t('login.subtitle')}</p>
 
             <form onSubmit={handleSubmit} className="space-y-5" noValidate>
               {error && <Alert variant="error">{error}</Alert>}
 
-              <FormField id="login-email" label="Email" required>
+              <FormField id="login-email" label={t('login.email')} required>
                 <input
                   id="login-email"
                   type="email"
@@ -106,7 +112,7 @@ export default function LoginPage() {
                 />
               </FormField>
 
-              <FormField id="login-password" label="Parol" required>
+              <FormField id="login-password" label={t('login.password')} required>
                 <div className="relative">
                   <input
                     id="login-password"
@@ -122,7 +128,7 @@ export default function LoginPage() {
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-2 rounded-lg"
-                    aria-label={showPassword ? 'Yashirish' : 'Ko\'rsatish'}
+                    aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
@@ -134,7 +140,7 @@ export default function LoginPage() {
                 disabled={loading}
                 className="w-full gradient-btn py-3 rounded-xl disabled:opacity-50"
               >
-                {loading ? 'Kirish...' : 'Kirish'}
+                {loading ? t('login.submitting') : t('login.submit')}
               </button>
             </form>
           </div>
@@ -152,11 +158,11 @@ export default function LoginPage() {
           )}
 
           <p className="mt-6 text-center text-xs text-slate-400">
-            <a href="/privacy" className="hover:text-brand-600">Maxfiylik</a>
+            <a href="/privacy" className="hover:text-brand-600">{t('footer.privacy')}</a>
             {' · '}
-            <a href="/terms" className="hover:text-brand-600">Shartlar</a>
+            <a href="/terms" className="hover:text-brand-600">{t('footer.terms')}</a>
             {' · '}
-            <a href={BRAND.openDataPath} className="hover:text-brand-600">Ochiq baza</a>
+            <a href={BRAND.openDataPath} className="hover:text-brand-600">{t('footer.openData')}</a>
           </p>
 
           <div className="mt-8 lg:hidden">

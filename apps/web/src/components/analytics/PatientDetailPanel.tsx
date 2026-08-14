@@ -7,6 +7,7 @@ import { calculateAge, formatGender, formatStatus, formatTriage } from '@/lib/ut
 import { cn } from '@/lib/utils';
 import { toast } from '@/lib/toast';
 import { cancelActorLabel } from '@/components/consultations/CancelConsultationModal';
+import { useI18n } from '@/i18n';
 
 interface PatientDetailPanelProps {
   patientId: string | null;
@@ -14,6 +15,7 @@ interface PatientDetailPanelProps {
 }
 
 export function PatientDetailPanel({ patientId, onClose }: PatientDetailPanelProps) {
+  const { t } = useI18n();
   const [patient, setPatient] = useState<PatientDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -96,7 +98,7 @@ export function PatientDetailPanel({ patientId, onClose }: PatientDetailPanelPro
                     <div key={c.id} className="panel p-4 space-y-2">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-xs font-bold text-slate-500">{c.utFacility.code}</span>
-                        <span className={cn('status-badge text-[10px]', status.className)}>{status.label}</span>
+                        <span className={cn('status-badge text-[10px]', status.className)}>{t(status.labelKey)}</span>
                       </div>
                       {triage && <p className={cn('text-xs font-medium', triage.color)}>Xavf: {triage.label}</p>}
                       {c.clinicalRecord?.complaints && (

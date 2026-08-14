@@ -11,6 +11,7 @@ import { api, Consultation } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { useCancelConsultation } from '@/hooks/use-cancel-consultation';
 import { DOCTOR_SELECT_EVENT } from '@/hooks/use-doctor-header-data';
+import { useI18n } from '@/i18n';
 
 interface DoctorDashboardViewProps {
   queue: Consultation[];
@@ -37,6 +38,7 @@ export function DoctorDashboardView({
   onReload,
   onRefresh,
 }: DoctorDashboardViewProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const [reconnectSignal, setReconnectSignal] = useState(0);
   const [completing, setCompleting] = useState(false);
@@ -69,13 +71,13 @@ export function DoctorDashboardView({
   const handleComplete = useCallback(async () => {
     if (!activeConsultation || completing) return;
     if (!activeConsultation.aiAnalysis) {
-      toast('AI klinik xulosa hali tayyor emas. Biroz kuting.', 'error');
+      toast(t('clinical.notReady'), 'error');
       return;
     }
     setCompleting(true);
     try {
       await api.completeConsultation(activeConsultation.id, {});
-      toast('Konsultatsiya yakunlandi — Konsilium PDF UT operatorga yuborildi', 'success');
+      toast(t('dashboard.completeSuccess'), 'success');
       // PDF generatsiya bo'lishi biroz vaqt olishi mumkin — bir marta qayta urinamiz.
       for (let attempt = 0; attempt < 2; attempt++) {
         if (attempt > 0) await new Promise((r) => setTimeout(r, 2000));
@@ -89,11 +91,11 @@ export function DoctorDashboardView({
       }
       onReload();
     } catch (err) {
-      toast(err instanceof Error ? err.message : 'Yakunlashda xatolik', 'error');
+      toast(err instanceof Error ? err.message : t('dashboard.completeError'), 'error');
     } finally {
       setCompleting(false);
     }
-  }, [activeConsultation, completing, onReload]);
+  }, [activeConsultation, completing, onReload, t]);
 
   const { requestCancel, cancelModal } = useCancelConsultation({
     onSuccess: (id) => {
@@ -125,7 +127,7 @@ export function DoctorDashboardView({
           <div className="shrink-0 mb-2 ut-glass-banner border-red-200/70 bg-red-50/75 text-red-700 text-xs px-3 py-1.5 flex items-center justify-between">
             <span className="truncate">{error}</span>
             <button type="button" onClick={onReload} className="text-[10px] font-semibold underline shrink-0 ml-2">
-              Qayta
+              {t('dashboard.retryShort')}
             </button>
           </div>
         )}
@@ -139,7 +141,7 @@ export function DoctorDashboardView({
                 className="inline-flex items-center gap-1 rounded-xl border border-red-200 text-red-600 text-[11px] sm:text-xs font-semibold px-2 py-1.5 hover:bg-red-50 bg-white/70"
               >
                 <XCircle size={12} />
-                <span className="hidden sm:inline">Bekor qilish</span>
+                <span className="hidden sm:inline">{t('common.cancel')}</span>
               </button>
             )}
             {showCompleteBtn && (
@@ -150,8 +152,8 @@ export function DoctorDashboardView({
                 className="gradient-btn !py-1.5 !px-2.5 !text-[11px] sm:!text-xs shrink-0 whitespace-nowrap disabled:opacity-60 inline-flex items-center gap-1"
               >
                 {completing ? <Loader2 size={12} className="animate-spin" /> : null}
-                <span className="hidden sm:inline">{completing ? 'Yakunlanmoqda...' : 'Yakunlash'}</span>
-                <span className="sm:hidden">{completing ? '...' : 'Yakun'}</span>
+                <span className="hidden sm:inline">{completing ? t('dashboard.completing') : t('dashboard.complete')}</span>
+                <span className="sm:hidden">{completing ? t('dashboard.completingShort') : t('dashboard.completeShort')}</span>
               </button>
             )}
           </div>
@@ -170,7 +172,7 @@ export function DoctorDashboardView({
             <div className="doctor-docs-col glass-panel overflow-hidden flex flex-col min-h-0">
               <div className="shrink-0 glass-header py-1 px-2 flex items-center justify-between gap-1">
                 <span className="text-[10px] font-semibold text-slate-700 uppercase tracking-wide truncate">
-                  Hujjatlar
+                  {t('dashboard.documents')}
                 </span>
                 <div className="flex items-center gap-1.5 shrink-0">
                   {documentsConsultationId && (
@@ -178,7 +180,7 @@ export function DoctorDashboardView({
                       href={`/dashboard/dicom?consultationId=${documentsConsultationId}`}
                       className="text-[9px] font-semibold text-teal-700 hover:underline"
                     >
-                      DICOM
+                      {t('dashboard.dicom')}
                     </a>
                   )}
                   {attachmentCount > 0 && (

@@ -8,9 +8,11 @@ import { getRoleHomePath } from '@/lib/auth-utils';
 import { UtShell } from '@/components/ut/UtShell';
 import { UtPatientList } from '@/components/ut/UtPatientList';
 import { useUtSessions } from '@/hooks/use-ut-sessions';
+import { useI18n } from '@/i18n';
 
 export default function UtPatientsPage() {
   const { user, loading } = useAuth();
+  const { t } = useI18n();
   const router = useRouter();
   const {
     consultation,
@@ -30,7 +32,7 @@ export default function UtPatientsPage() {
   if (loading || !user) {
     return (
       <div className="min-h-screen bg-surface flex items-center justify-center">
-        <p className="text-sm text-slate-500 animate-pulse">Yuklanmoqda...</p>
+        <p className="text-sm text-slate-500 animate-pulse">{t('common.loading')}</p>
       </div>
     );
   }
@@ -46,7 +48,7 @@ export default function UtPatientsPage() {
             onClick={() => void refreshAll()}
             className="ut-glass-btn !text-xs !py-1 !px-2 shrink-0"
           >
-            Yangilash
+            {t('common.refresh')}
           </button>
         ) : undefined
       }

@@ -3,6 +3,7 @@
 import { Loader2, Radio, Users, VideoOff, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { VideoRoomPhase } from '@/hooks/use-video-room';
+import { useI18n } from '@/i18n';
 
 interface VideoRoomPresenceProps {
   phase: VideoRoomPhase;
@@ -33,42 +34,44 @@ export function VideoRoomPresence({
   peerLabel,
   onRetry,
 }: VideoRoomPresenceProps) {
+  const { t } = useI18n();
+
   if (phase === 'live') return null;
 
-  const who = peerLabel?.trim() || 'Sherik';
+  const who = peerLabel?.trim() || t('video.peer');
 
   const content: Record<
     Exclude<VideoRoomPhase, 'live'>,
     { title: string; subtitle: string; icon: 'loader' | 'users' | 'radio' | 'off' | 'alert' }
   > = {
     joining: {
-      title: 'Xonaga ulanmoqda…',
-      subtitle: 'Kamera va tarmoq tayyorlanmoqda',
+      title: t('video.joining'),
+      subtitle: t('video.joiningSub'),
       icon: 'loader',
     },
     waiting_peer: {
-      title: 'Siz xonadasiz',
-      subtitle: `${who} kutilmoqda — u qo‘shilganda video avtomatik ulanadi`,
+      title: t('video.youAreInRoom'),
+      subtitle: t('video.waitingFor', { name: who }),
       icon: 'users',
     },
     connecting: {
-      title: `${who} bilan ulanmoqda…`,
-      subtitle: 'Media bog‘lanmoqda',
+      title: t('video.connectingWith', { name: who }),
+      subtitle: t('video.mediaLinking'),
       icon: 'loader',
     },
     reconnecting: {
-      title: `${who} bilan qayta ulanmoqda…`,
-      subtitle: 'Tarmoq tiklanishi bilan video avtomatik davom etadi',
+      title: t('video.reconnectingWith', { name: who }),
+      subtitle: t('video.reconnectSub'),
       icon: 'loader',
     },
     error: {
-      title: 'Ulanishda muammo',
-      subtitle: error || 'Qayta urinib ko‘ring yoki tarmoq sozlamalarini tekshiring',
+      title: t('video.connectionIssue'),
+      subtitle: error || t('video.connectionIssueSub'),
       icon: 'alert',
     },
     room_closed: {
-      title: 'Konsultatsiya yakunlandi',
-      subtitle: 'Video xona yopildi',
+      title: t('video.roomClosed'),
+      subtitle: t('video.roomClosedSub'),
       icon: 'off',
     },
   };
@@ -154,7 +157,7 @@ export function VideoRoomPresence({
             compact ? 'text-xs px-3 py-1.5' : 'text-sm px-5 py-2.5',
           )}
         >
-          Qayta urinish
+          {t('common.retry')}
         </button>
       )}
     </div>

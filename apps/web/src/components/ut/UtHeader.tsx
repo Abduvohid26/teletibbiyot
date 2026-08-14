@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { LogOut, UserPlus, Stethoscope } from 'lucide-react';
 import { UtNavTabs } from '@/components/ut/UtNavTabs';
+import { LanguageSwitcher, useI18n } from '@/i18n';
 
 export interface UtHeaderProps {
   facilityName?: string;
@@ -24,6 +25,8 @@ export function UtHeader({
   pageAction,
   onLogout,
 }: UtHeaderProps) {
+  const { t } = useI18n();
+
   return (
     <header className="ut-shell-header ut-header-flux">
       <div className="ut-header-flux-row">
@@ -33,9 +36,9 @@ export function UtHeader({
           </div>
           <div className="min-w-0 hidden sm:block">
             <p className="text-xs font-bold text-slate-900 truncate max-w-[100px] md:max-w-[160px] lg:max-w-[200px]">
-              {facilityName || 'UT operator'}
+              {facilityName || t('roles.utOperator')}
             </p>
-            <p className="text-xs text-slate-500 truncate hidden md:block">Masofaviy qabul</p>
+            <p className="text-xs text-slate-500 truncate hidden md:block">{t('brand.remoteReception')}</p>
           </div>
         </div>
 
@@ -49,6 +52,7 @@ export function UtHeader({
         </div>
 
         <div className="ut-shell-actions shrink-0 min-w-0 max-w-[55vw] sm:max-w-none">
+          <LanguageSwitcher compact />
           {headerQueue}
           {pageAction}
           {headerExtra}
@@ -57,14 +61,14 @@ export function UtHeader({
             className="gradient-btn !py-1.5 !px-2.5 !text-xs inline-flex items-center gap-1 shadow-sm shrink-0"
           >
             <UserPlus size={13} />
-            <span className="hidden sm:inline">Yangi bemor</span>
-            <span className="sm:hidden">Yangi</span>
+            <span className="hidden sm:inline">{t('nav.newPatient')}</span>
+            <span className="sm:hidden">{t('nav.newShort')}</span>
           </Link>
           <button
             type="button"
             onClick={onLogout}
             className="ut-glass-btn !p-2 text-red-500 hover:!bg-red-50/80 hover:!text-red-600 shrink-0"
-            aria-label="Chiqish"
+            aria-label={t('common.logout')}
           >
             <LogOut size={15} />
           </button>

@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { filterLocationOptions } from '@/lib/uz-locations';
+import { useI18n } from '@/i18n';
 
 type SearchableSelectProps = {
   value: string;
@@ -17,11 +18,13 @@ export function SearchableSelect({
   value,
   onChange,
   options,
-  placeholder = 'Qidirish...',
+  placeholder,
   id,
   className = '',
   disabled = false,
 }: SearchableSelectProps) {
+  const { t } = useI18n();
+  const resolvedPlaceholder = placeholder ?? t('common.search');
   const listId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState(value);
@@ -62,7 +65,7 @@ export function SearchableSelect({
         disabled={disabled}
         className={className}
         value={query}
-        placeholder={placeholder}
+        placeholder={resolvedPlaceholder}
         onFocus={() => setOpen(true)}
         onChange={(e) => {
           setQuery(e.target.value);

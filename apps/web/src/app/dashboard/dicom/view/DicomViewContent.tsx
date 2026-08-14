@@ -8,6 +8,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { api } from '@/lib/api';
 import { ROLES_MT_DASHBOARD, ROLES_UT } from '@/lib/roles';
+import { useI18n } from '@/i18n';
 
 function isImageType(fileType: string, fileName: string) {
   if (fileType.startsWith('image/')) return true;
@@ -32,7 +33,7 @@ async function renderDicomToCanvas(url: string, canvas: HTMLCanvasElement) {
   const bitsAllocated = dataSet.uint16('x00280100') || 8;
   const pixelRepresentation = dataSet.uint16('x00280103') || 0;
   const pixelDataElement = dataSet.elements.x7fe00010;
-  if (!pixelDataElement) throw new Error('DICOM pixel ma\'lumoti topilmadi');
+  if (!pixelDataElement) throw new Error('DICOM_PIXEL_MISSING');
 
   const pixelData = new Uint8Array(
     byteArray.buffer,
@@ -86,6 +87,7 @@ async function renderDicomToCanvas(url: string, canvas: HTMLCanvasElement) {
 }
 
 export default function DicomViewContent() {
+  const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const attachmentId = searchParams.get('attachmentId') || '';
@@ -105,7 +107,7 @@ export default function DicomViewContent() {
 
     api.getDicomViewerUrl(attachmentId)
       .then(async ({ url, fileName: name, fileType }) => {
-        if (!url) throw new Error('Fayl havolasi mavjud emas');
+        if (!url) throw new Error('NO_URL');
         setFileName(name);
 
         if (isImageType(fileType || '', name)) {
@@ -123,24 +125,28 @@ export default function DicomViewContent() {
         setViewerMode('image');
       })
       .catch((err) => {
-        setError(err instanceof Error ? err.message : 'Ko\'rish xatosi');
+        const code = err instanceof Error ? err.message : '';
+        setError(code === 'NO_URL' ? t('dicom.noUrl') : (err instanceof Error ? err.message : t('dicom.viewError')));
         setViewerMode('error');
       });
-  }, [authLoading, user, attachmentId]);
+  }, [authLoading, user, attachmentId, t]);
 
   useEffect(() => {
     if (viewerMode !== 'dicom' || !attachmentId || !canvasRef.current) return;
 
     api.getDicomViewerUrl(attachmentId)
       .then(async ({ url }) => {
-        if (!url || !canvasRef.current) throw new Error('DICOM yuklanmadi');
+        if (!url || !canvasRef.current) throw new Error('LOAD_ERROR');
         await renderDicomToCanvas(url, canvasRef.current);
       })
       .catch((err) => {
-        setError(err instanceof Error ? err.message : 'DICOM render xatosi');
+        const code = err instanceof Error ? err.message : '';
+        if (code === 'DICOM_PIXEL_MISSING') setError(t('dicom.pixelMissing'));
+        else if (code === 'LOAD_ERROR') setError(t('dicom.loadError'));
+        else setError(err instanceof Error ? err.message : t('dicom.renderError'));
         setViewerMode('error');
       });
-  }, [viewerMode, attachmentId]);
+  }, [viewerMode, attachmentId, t]);
 
   return (
     <DashboardLayout>
@@ -150,14 +156,14 @@ export default function DicomViewContent() {
             <ArrowLeft size={16} />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-slate-900">Tibbiy tasvir ko&apos;rish</h1>
+            <h1 className="text-xl font-bold text-slate-900">{t('dicom.viewTitle')}</h1>
             <p className="text-sm text-slate-600 truncate">{fileName || attachmentId}</p>
           </div>
         </div>
 
         {viewerMode === 'loading' && (
           <div className="flex items-center gap-2 text-slate-500">
-            <Loader2 className="animate-spin" size={18} /> Yuklanmoqda...
+            <Loader2 className="animate-spin" size={18} /> {t('common.loading')}
           </div>
         )}
         {error && <p className="text-red-600">{error}</p>}
@@ -173,9 +179,9 @@ export default function DicomViewContent() {
         </div>
 
         <p className="text-xs text-slate-500">
-          DICOM fayllar brauzer ichida render qilinadi.
+          {t('dicom.viewHint')}
           {' '}
-          <Link href="/dashboard/dicom" className="text-brand-600 hover:underline">Ro&apos;yxatga qaytish</Link>
+          <Link href="/dashboard/dicom" className="text-brand-600 hover:underline">{t('dicom.backToList')}</Link>
         </p>
       </div>
     </DashboardLayout>

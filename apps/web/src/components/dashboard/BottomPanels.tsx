@@ -9,6 +9,9 @@ import {
   CheckCircle2, Circle, Loader2, ListOrdered, Brain, Wifi, Zap,
   UserPlus, FileText, Monitor, Video, MessageSquare, Clock, Activity,
 } from 'lucide-react';
+import { useI18n } from '@/i18n';
+import { LOCALE_BCP47 } from '@/i18n/locales';
+import { statusLabelKey, triageLabelKey } from '@/i18n/labels';
 
 interface BottomPanelsProps {
   queue: Consultation[];
@@ -71,19 +74,20 @@ export function ConsultationQueue({
   compact?: boolean;
   className?: string;
 }) {
+  const { t } = useI18n();
   const queued = queue.filter((c) => c.status === 'QUEUED');
 
   return (
     <PanelShell
       icon={ListOrdered}
-      title={`Navbat${queued.length > 0 ? ` (${queued.length})` : ''}`}
+      title={queued.length > 0 ? t('panels.queueTitleCount', { count: queued.length }) : t('panels.queueTitle')}
       iconColor="text-brand-600"
       compact={compact}
       className={cn(queued.length > 0 && 'ring-2 ring-amber-300/80', className)}
       headerExtra={
         queued.length > 0 ? (
           <span className="text-[9px] font-bold bg-amber-500 text-white px-1.5 py-0.5 rounded-full shrink-0">
-            {queued.length} kutilmoqda
+            {t('panels.waitingBadge', { count: queued.length })}
           </span>
         ) : null
       }
@@ -117,10 +121,10 @@ export function ConsultationQueue({
                     onClick={() => onStartConsultation(c.id)}
                     className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm whitespace-nowrap"
                   >
-                    Boshlash
+                    {t('common.start')}
                   </button>
                 )}
-                <span className={cn('status-badge !text-[9px]', status.className)}>{status.label}</span>
+                <span className={cn('status-badge !text-[9px]', status.className)}>{t(statusLabelKey(c.status))}</span>
               </div>
             </div>
           );
@@ -128,8 +132,8 @@ export function ConsultationQueue({
         {queued.length === 0 && (
           <div className="py-3 text-center">
             <Clock size={20} className="mx-auto text-slate-300 mb-1.5" />
-            <p className="text-[10px] text-slate-500 font-medium">Navbat bo&apos;sh</p>
-            <p className="text-[9px] text-slate-400 mt-0.5">Yangi bemor kutilmoqda</p>
+            <p className="text-[10px] text-slate-500 font-medium">{t('panels.queueEmpty')}</p>
+            <p className="text-[9px] text-slate-400 mt-0.5">{t('panels.queueEmptyHint')}</p>
           </div>
         )}
       </div>
@@ -150,10 +154,11 @@ export function AiProcessSteps({
   onConfirmed?: () => void;
   compact?: boolean;
 }) {
+  const { t } = useI18n();
   const displaySteps = steps?.length ? steps : [];
 
   return (
-    <PanelShell icon={Brain} title="AI jarayon" iconColor="text-violet-600" compact={compact}>
+    <PanelShell icon={Brain} title={t('panels.aiProcess')} iconColor="text-violet-600" compact={compact}>
       {steps?.length ? (
         <AiStepConfirm
           consultationId={consultationId}
@@ -176,22 +181,23 @@ export function AiProcessSteps({
               <span className="text-slate-600 truncate">{step.label}</span>
             </div>
           )) : (
-            <p className="text-[10px] text-slate-400 text-center py-2">AI tahlil kutilmoqda...</p>
+            <p className="text-[10px] text-slate-400 text-center py-2">{t('panels.aiWaiting')}</p>
           )}
         </div>
       ) : (
-        <p className="text-[10px] text-slate-400 text-center py-2">Faol konsultatsiya yo&apos;q</p>
+        <p className="text-[10px] text-slate-400 text-center py-2">{t('panels.noConsultation')}</p>
       )}
     </PanelShell>
   );
 }
 
 export function AiReportSummary({ analysis, compact }: { analysis?: BottomPanelsProps['aiAnalysis']; compact?: boolean }) {
+  const { t } = useI18n();
   const triage = formatTriage(analysis?.triageLevel);
   const diagnosis = analysis?.diagnoses?.[0];
 
   return (
-    <PanelShell icon={FileText} title="AI xulosa" iconColor="text-indigo-600" compact={compact}>
+    <PanelShell icon={FileText} title={t('panels.aiSummary')} iconColor="text-indigo-600" compact={compact}>
       {diagnosis ? (
         <div className={cn('rounded-xl glass-preview-card border-indigo-100/50', compact ? '!p-1.5' : '!p-3')}>
           <p className={cn('font-bold text-slate-900 leading-snug', compact ? 'text-[10px] line-clamp-2' : 'text-sm')}>
@@ -199,8 +205,8 @@ export function AiReportSummary({ analysis, compact }: { analysis?: BottomPanels
           </p>
           <p className="text-[11px] text-slate-500 mt-0.5">{diagnosis.icd10Code}</p>
           <div className="mt-2 pt-2 border-t border-white/40">
-            <span className="text-[10px] text-slate-500">Xavf: </span>
-            <span className={cn('text-xs font-bold', triage.color)}>{triage.label}</span>
+            <span className="text-[10px] text-slate-500">{t('panels.riskLabel')}</span>
+            <span className={cn('text-xs font-bold', triage.color)}>{t(triageLabelKey(analysis?.triageLevel))}</span>
           </div>
         </div>
       ) : (
@@ -212,7 +218,7 @@ export function AiReportSummary({ analysis, compact }: { analysis?: BottomPanels
               <div className="h-full w-2/3 rounded-full bg-gradient-to-r from-indigo-400 to-violet-500 animate-pulse-soft" />
             </div>
           </div>
-          <p className="text-[10px] text-slate-400 text-center">Tahlil kutilmoqda...</p>
+          <p className="text-[10px] text-slate-400 text-center">{t('panels.analysisWaiting')}</p>
         </div>
       )}
     </PanelShell>
@@ -220,12 +226,13 @@ export function AiReportSummary({ analysis, compact }: { analysis?: BottomPanels
 }
 
 export function DeviceStatusPanel({ devices, compact }: { devices?: DeviceStatus[]; compact?: boolean }) {
+  const { t } = useI18n();
   const displayDevices = devices ?? [];
 
   return (
-    <PanelShell icon={Wifi} title="Qurilmalar" iconColor="text-emerald-600" compact={compact}>
+    <PanelShell icon={Wifi} title={t('panels.devices')} iconColor="text-emerald-600" compact={compact}>
       {displayDevices.length === 0 ? (
-        <p className="text-[10px] text-slate-400 text-center py-2">Qurilma ma&apos;lumoti yo&apos;q</p>
+        <p className="text-[10px] text-slate-400 text-center py-2">{t('panels.noDeviceInfo')}</p>
       ) : (
       <div className="space-y-1">
         {displayDevices.slice(0, compact ? 5 : undefined).map((d) => (
@@ -239,7 +246,7 @@ export function DeviceStatusPanel({ devices, compact }: { devices?: DeviceStatus
                   : 'bg-red-500/15 text-red-600 ring-1 ring-red-300/40',
               )}
             >
-              {d.connected ? (d.status === 'good' ? 'Ulangan' : 'Ogohl.') : 'Uzilgan'}
+              {d.connected ? (d.status === 'good' ? t('common.connected') : t('common.warningShort')) : t('common.disconnected')}
             </span>
           </div>
         ))}
@@ -258,47 +265,50 @@ function SessionStatusPanel({
   hasConsultation?: boolean;
   startedAt?: string | null;
 }) {
+  const { t, locale } = useI18n();
   return (
-    <PanelShell icon={Clock} title="Sessiya" iconColor="text-sky-600" compact={compact}>
+    <PanelShell icon={Clock} title={t('panels.session')} iconColor="text-sky-600" compact={compact}>
       <div className="space-y-1.5">
         <div className="glass-preview-card !p-2 flex items-center justify-between">
-          <span className="text-[10px] text-slate-500">Boshlangan</span>
+          <span className="text-[10px] text-slate-500">{t('panels.started')}</span>
           {startedAt ? (
             <ClientDateText
               value={startedAt}
+              locale={LOCALE_BCP47[locale]}
               className="text-xs font-bold text-slate-800"
               format={{ hour: '2-digit', minute: '2-digit' }}
             />
           ) : (
-            <span className="text-xs font-bold text-slate-400">—</span>
+            <span className="text-xs font-bold text-slate-400">{t('common.emptyDash')}</span>
           )}
         </div>
         <div className="glass-preview-card !p-2 flex items-center justify-between">
-          <span className="text-[10px] text-slate-500">Holat</span>
+          <span className="text-[10px] text-slate-500">{t('common.status')}</span>
           <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full', hasConsultation ? 'bg-emerald-500/15 text-emerald-700' : 'bg-amber-500/15 text-amber-700')}>
-            {hasConsultation ? 'Faol' : 'Kutilmoqda'}
+            {hasConsultation ? t('common.active') : t('common.pending')}
           </span>
         </div>
         <div className="glass-preview-card !p-2 flex items-center gap-2">
           <Activity size={12} className="text-brand-500 shrink-0" />
-          <span className="text-[10px] text-slate-600">Real vaqt monitoring yoqilgan</span>
+          <span className="text-[10px] text-slate-600">{t('panels.realtimeOn')}</span>
         </div>
       </div>
     </PanelShell>
   );
 }
 
-const QUICK_ACTIONS = [
-  { id: 'new-consultation', label: 'Yangi konsultatsiya', icon: Video, primary: true },
-  { id: 'add-patient', label: 'Bemor qo\'shish', icon: UserPlus },
-  { id: 'device-check', label: 'Qurilma tekshiruvi', icon: Monitor },
-];
-
 export function QuickActions({ onAction, compact }: { onAction?: (action: string) => void; compact?: boolean }) {
+  const { t } = useI18n();
+  const actions = [
+    { id: 'new-consultation', label: t('panels.newConsultation'), icon: Video, primary: true },
+    { id: 'add-patient', label: t('panels.addPatient'), icon: UserPlus },
+    { id: 'device-check', label: t('panels.deviceCheck'), icon: Monitor },
+  ];
+
   return (
-    <PanelShell icon={Zap} title="Amallar" iconColor="text-amber-500" compact={compact}>
+    <PanelShell icon={Zap} title={t('panels.actions')} iconColor="text-amber-500" compact={compact}>
       <div className={cn('grid gap-1', compact ? 'grid-cols-2' : 'grid-cols-2 gap-1.5')}>
-        {QUICK_ACTIONS.map((action) => (
+        {actions.map((action) => (
           <button
             key={action.id}
             type="button"
@@ -335,6 +345,7 @@ export function BottomPanels({
   showPatientDocuments,
   compact,
 }: BottomPanelsProps) {
+  const { t } = useI18n();
   if (showPatientDocuments) {
     return (
       <div className={cn('h-full min-h-0 grid gap-1.5', compact ? 'grid-cols-8' : 'grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3')}>
@@ -356,7 +367,7 @@ export function BottomPanels({
         <DeviceStatusPanel devices={devices} compact={compact} />
         <SessionStatusPanel compact={compact} hasConsultation={!!consultationId} startedAt={consultationStartedAt} />
         <div className="min-h-0 overflow-hidden">
-          <PanelShell icon={MessageSquare} title="Chat arxiv" iconColor="text-violet-500" compact={compact}>
+          <PanelShell icon={MessageSquare} title={t('panels.chatArchive')} iconColor="text-violet-500" compact={compact}>
             <ChatTranscript consultationId={consultationId} compact={compact} />
           </PanelShell>
         </div>

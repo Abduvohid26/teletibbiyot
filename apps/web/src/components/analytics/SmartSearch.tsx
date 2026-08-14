@@ -9,11 +9,13 @@ import { useDebouncedValue } from '@/hooks/use-debounce';
 import { formatStatus } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { UserRole, isMtStaff } from '@ishifo/shared';
+import { useI18n } from '@/i18n';
 
 const SEARCH_ROLES = new Set<string>([UserRole.MT_DOCTOR]);
 
 export function SmartSearch({ className }: { className?: string }) {
   const { user } = useAuth();
+  const { t } = useI18n();
   const router = useRouter();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
@@ -104,7 +106,7 @@ export function SmartSearch({ className }: { className?: string }) {
                   <div className="p-1.5 rounded-lg bg-violet-100"><Stethoscope size={14} className="text-violet-600" /></div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-slate-800 truncate">{c.patient.fullName}</p>
-                    <p className="text-xs text-slate-500">{c.utFacility.code} · {formatStatus(c.status).label}</p>
+                    <p className="text-xs text-slate-500">{c.utFacility.code} · {t(formatStatus(c.status).labelKey)}</p>
                   </div>
                 </button>
               ))}

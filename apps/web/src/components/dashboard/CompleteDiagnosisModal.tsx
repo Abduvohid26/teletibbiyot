@@ -5,6 +5,7 @@ import { X, Stethoscope, AlertTriangle, Download, CheckCircle2 } from 'lucide-re
 import { api, FinalDiagnosisData, PrescriptionTemplate } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { safeAsync } from '@/lib/errors';
+import { useI18n } from '@/i18n';
 
 interface CompleteDiagnosisModalProps {
   consultationId: string;
@@ -23,6 +24,7 @@ export function CompleteDiagnosisModal({
   onComplete,
   onClose,
 }: CompleteDiagnosisModalProps) {
+  const { t } = useI18n();
   const [form, setForm] = useState<FinalDiagnosisData>({
     diagnosis: aiDiagnosis || '',
     icd10Code: aiIcd10 || '',
@@ -41,15 +43,15 @@ export function CompleteDiagnosisModal({
     void safeAsync('prescription-templates', () => api.getPrescriptionTemplates(), []).then(setTemplates);
   }, []);
 
-  const applyTemplate = (t: PrescriptionTemplate) => {
-    const rx = t.medications.map((m) => `${m.name} ${m.dose} | ${m.frequency}, ${m.duration}`).join('\n');
+  const applyTemplate = (tmpl: PrescriptionTemplate) => {
+    const rx = tmpl.medications.map((m) => `${m.name} ${m.dose} | ${m.frequency}, ${m.duration}`).join('\n');
     setForm((prev) => ({
       ...prev,
-      icd10Code: t.icd10Code || prev.icd10Code,
+      icd10Code: tmpl.icd10Code || prev.icd10Code,
       prescription: rx,
-      recommendations: prev.recommendations || t.instructions,
+      recommendations: prev.recommendations || tmpl.instructions,
     }));
-    toast(`"${t.name}" shabloni qo'llanildi`, 'success');
+    toast(t('diagnosis.templateApplied', { name: tmpl.name }), 'success');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -62,24 +64,24 @@ export function CompleteDiagnosisModal({
         try {
           const rx = await api.submitPrescription(consultationId);
           if (rx.status === 'stub') {
-            toast(rx.message || 'Retsept integratsiyasi hali ulanmagan — ma\'lumot saqlandi', 'info');
+            toast(rx.message || t('diagnosis.rxStub'), 'info');
           } else if (rx.status === 'submitted') {
-            toast('Retsept milliy reyestrga yuborildi', 'success');
+            toast(t('diagnosis.rxSubmitted'), 'success');
           } else {
-            toast('Retsept ma\'lumoti saqlandi', 'success');
+            toast(t('diagnosis.rxSaved'), 'success');
           }
         } catch {
-          toast('Retsept yuborishda xatolik — konsultatsiya yakunlandi', 'error');
+          toast(t('diagnosis.rxError'), 'error');
         }
       }
       if (followUpDate) {
         try {
           await api.scheduleFollowUp(consultationId, followUpDate);
         } catch {
-          toast('Qayta ko\'rik rejalashtirishda xatolik', 'error');
+          toast(t('diagnosis.followUpError'), 'error');
         }
       }
-      toast('Konsultatsiya muvaffaqiyatli yakunlandi', 'success');
+      toast(t('diagnosis.completeSuccess'), 'success');
 
       let url: string | null = null;
       try {
@@ -107,7 +109,7 @@ export function CompleteDiagnosisModal({
         onClose();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Xatolik yuz berdi');
+      setError(err instanceof Error ? err.message : t('errors.generic'));
     } finally {
       setLoading(false);
     }
@@ -123,8 +125,8 @@ export function CompleteDiagnosisModal({
       <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
         <div className="panel w-full max-w-lg shadow-2xl animate-slide-up p-6 text-center">
           <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
-          <h2 className="font-bold text-slate-900 mb-2">Konsultatsiya yakunlandi</h2>
-          <p className="text-sm text-slate-600 mb-6">Tashxis PDF tayyor. UT operator Bemorlar bo&apos;limida ko&apos;ra oladi.</p>
+          <h2 className="font-bold text-slate-900 mb-2">{t('diagnosis.completedTitle')}</h2>
+          <p className="text-sm text-slate-600 mb-6">{t('diagnosis.completedBody')}</p>
           <div className="flex gap-3">
             <a
               href={reportUrl}
@@ -132,10 +134,10 @@ export function CompleteDiagnosisModal({
               rel="noopener noreferrer"
               className="flex-1 gradient-btn inline-flex items-center justify-center gap-2"
             >
-              <Download size={16} /> Tashxis PDF yuklab olish
+              <Download size={16} /> {t('diagnosis.downloadPdf')}
             </a>
             <button type="button" onClick={handleFinish} className="flex-1 btn-secondary">
-              Yopish
+              {t('common.close')}
             </button>
           </div>
         </div>
@@ -151,7 +153,7 @@ export function CompleteDiagnosisModal({
             <div className="p-2 rounded-xl bg-white shadow-sm">
               <Stethoscope className="w-5 h-5 text-brand-600" />
             </div>
-            <h2 className="font-bold text-slate-900">Konsultatsiyani yakunlash</h2>
+            <h2 className="font-bold text-slate-900">{t('diagnosis.completeTitle')}</h2>
           </div>
           <button
             type="button"
@@ -165,14 +167,12 @@ export function CompleteDiagnosisModal({
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-80px)]">
           <div className="flex gap-3 bg-amber-50 border border-amber-200/80 rounded-xl p-3.5 text-xs text-amber-800">
             <AlertTriangle size={16} className="shrink-0 mt-0.5 text-amber-600" />
-            <p>
-              Shifokor yakuniy qarorini kiritadi. AI klinik xulosa UT operatorga PDF sifatida yuboriladi.
-            </p>
+            <p>{t('diagnosis.warning')}</p>
           </div>
 
           {unconfirmedAiSteps > 0 && (
             <div className="bg-red-50 border border-red-200/80 text-red-700 text-sm rounded-xl p-3.5">
-              {unconfirmedAiSteps} ta AI bosqichi hali tasdiqlanmagan. Avval ularni tasdiqlang.
+              {t('diagnosis.unconfirmedSteps', { count: unconfirmedAiSteps })}
             </div>
           )}
 
@@ -180,7 +180,7 @@ export function CompleteDiagnosisModal({
             <div className="bg-red-50 border border-red-200/80 text-red-700 text-sm rounded-xl p-3.5">{error}</div>
           )}
 
-          <Field label="Tashxis" required>
+          <Field label={t('diagnosis.fieldDiagnosis')} required>
             <input
               className="input"
               value={form.diagnosis}
@@ -188,7 +188,7 @@ export function CompleteDiagnosisModal({
               required
             />
           </Field>
-          <Field label="ICD-10 kodi" required>
+          <Field label={t('diagnosis.fieldIcd10')} required>
             <input
               className="input font-mono"
               value={form.icd10Code}
@@ -197,7 +197,7 @@ export function CompleteDiagnosisModal({
               required
             />
           </Field>
-          <Field label="Tavsiyalar" required>
+          <Field label={t('diagnosis.fieldRecommendations')} required>
             <textarea
               className="input min-h-[80px] resize-y"
               value={form.recommendations}
@@ -205,25 +205,25 @@ export function CompleteDiagnosisModal({
               required
             />
           </Field>
-          <Field label="Retsept">
+          <Field label={t('diagnosis.fieldPrescription')}>
             {templates.length > 0 && (
               <select
                 className="input mb-2 !text-xs"
                 defaultValue=""
                 onChange={(e) => {
-                  const t = templates.find((x) => x.id === e.target.value);
-                  if (t) applyTemplate(t);
+                  const tmpl = templates.find((x) => x.id === e.target.value);
+                  if (tmpl) applyTemplate(tmpl);
                   e.target.value = '';
                 }}
               >
-                <option value="">Retsept shablonini tanlang...</option>
-                {templates.map((t) => (
-                  <option key={t.id} value={t.id}>{t.name} ({t.icd10Code})</option>
+                <option value="">{t('diagnosis.selectTemplate')}</option>
+                {templates.map((tmpl) => (
+                  <option key={tmpl.id} value={tmpl.id}>{tmpl.name} ({tmpl.icd10Code})</option>
                 ))}
               </select>
             )}
             <p className="text-[10px] text-slate-500 mb-2">
-              Har bir dori alohida qator: Nomi | Doza | Chastota | Davomiylik
+              {t('diagnosis.prescriptionHint')}
             </p>
             <textarea
               className="input resize-y min-h-[100px] font-mono text-xs"
@@ -232,14 +232,14 @@ export function CompleteDiagnosisModal({
               placeholder={"Paracetamol 500mg | 1 tabletka | 3 marta kuniga | 5 kun\nAmoksitsillin 500mg | 1 tabletka | 2 marta kuniga | 7 kun"}
             />
           </Field>
-          <Field label="Izohlar">
+          <Field label={t('diagnosis.fieldNotes')}>
             <textarea
               className="input resize-y"
               value={form.notes}
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
             />
           </Field>
-          <Field label="Qayta ko'rik sanasi (ixtiyoriy)">
+          <Field label={t('diagnosis.fieldFollowUp', { optional: t('common.optional') })}>
             <input
               type="date"
               className="input"
@@ -251,14 +251,14 @@ export function CompleteDiagnosisModal({
 
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="flex-1 btn-secondary">
-              Bekor qilish
+              {t('common.cancel')}
             </button>
             <button
               type="submit"
               disabled={loading || unconfirmedAiSteps > 0}
               className="flex-1 gradient-btn disabled:opacity-50"
             >
-              {loading ? 'Saqlanmoqda...' : 'Yakunlash'}
+              {loading ? t('diagnosis.saving') : t('diagnosis.finish')}
             </button>
           </div>
         </form>

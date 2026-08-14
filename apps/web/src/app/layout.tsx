@@ -3,6 +3,7 @@ import './globals.css';
 import { AuthProvider } from '@/lib/auth-context';
 import { OfflineBootstrap } from '@/components/OfflineBootstrap';
 import { ToastProvider } from '@/components/ui/ToastProvider';
+import { I18nProvider } from '@/i18n';
 import { BRAND } from '@ishifo/shared';
 
 export const metadata: Metadata = {
@@ -12,13 +13,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="uz" data-scroll-behavior="smooth">
+    <html lang="uz" data-scroll-behavior="smooth" suppressHydrationWarning>
       <body>
         <OfflineBootstrap />
         <ToastProvider>
-          <AuthProvider>
-            {children}
-          </AuthProvider>
+          <I18nProvider>
+            <AuthProvider>
+              {children}
+            </AuthProvider>
+          </I18nProvider>
         </ToastProvider>
       </body>
     </html>

@@ -9,8 +9,11 @@ import { api, AppNotification } from '@/lib/api';
 import { getRoleHomePath, isUtRole, canAccessMtDashboard } from '@/lib/auth-utils';
 import { Bell, CheckCheck } from 'lucide-react';
 import { useConsultationRealtime } from '@/hooks/use-consultation-realtime';
+import { useI18n } from '@/i18n';
+import { LOCALE_BCP47 } from '@/i18n/locales';
 
 export default function MessagesPage() {
+  const { t, locale } = useI18n();
   const router = useRouter();
   const { user, loading, authError, retryAuth } = useRequireAuth();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -19,8 +22,8 @@ export default function MessagesPage() {
   const load = useCallback(() => {
     api.getNotifications()
       .then(setNotifications)
-      .catch((err) => setError(err instanceof Error ? err.message : 'Xatolik'));
-  }, []);
+      .catch((err) => setError(err instanceof Error ? err.message : t('errors.generic')));
+  }, [t]);
 
   useConsultationRealtime([], {
     onConsultationStarted: () => load(),
@@ -49,7 +52,7 @@ export default function MessagesPage() {
       await api.markAllNotificationsRead();
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Bildirishnomalarni yangilashda xatolik');
+      setError(err instanceof Error ? err.message : t('messages.updateError'));
     }
   };
 
@@ -58,7 +61,7 @@ export default function MessagesPage() {
       try {
         await api.markNotificationRead(n.id);
       } catch {
-        /* o'qilgan deb belgilash ixtiyoriy */
+        /* mark-read is optional */
       }
     }
     if (n.consultationId && user) {
@@ -76,11 +79,11 @@ export default function MessagesPage() {
 
   return (
     <AuthPageGate loading={loading} user={user} authError={authError} retryAuth={retryAuth}>
-      <DashboardLayout title="Bildirishnomalar">
+      <DashboardLayout title={t('messages.title')}>
         <div className="flex justify-between items-center mb-4">
-          <p className="text-sm text-slate-500">Real vaqtda yangilanadigan xabarlar</p>
+          <p className="text-sm text-slate-500">{t('messages.subtitle')}</p>
           <button type="button" onClick={markAll} className="btn-secondary !text-xs">
-            <CheckCheck size={14} /> Barchasini o&apos;qilgan
+            <CheckCheck size={14} /> {t('messages.markAllRead')}
           </button>
         </div>
         {error && <div className="bg-red-50 text-red-700 text-sm rounded-xl p-3 mb-4">{error}</div>}
@@ -96,17 +99,17 @@ export default function MessagesPage() {
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-slate-900 text-sm">{n.title}</p>
                 <p className="text-sm text-slate-600 mt-0.5">{n.body}</p>
-                <p className="text-[10px] text-slate-400 mt-1">{new Date(n.createdAt).toLocaleString('uz-UZ')}</p>
+                <p className="text-[10px] text-slate-400 mt-1">{new Date(n.createdAt).toLocaleString(LOCALE_BCP47[locale])}</p>
               </div>
               {!n.read && (
                 <span className="text-xs text-brand-600 shrink-0 self-center">
-                  O&apos;qilmagan
+                  {t('messages.unread')}
                 </span>
               )}
             </button>
           ))}
           {notifications.length === 0 && (
-            <div className="panel p-10 text-center text-slate-400 text-sm">Bildirishnomalar yo&apos;q</div>
+            <div className="panel p-10 text-center text-slate-400 text-sm">{t('messages.empty')}</div>
           )}
         </div>
       </DashboardLayout>

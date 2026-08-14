@@ -6,6 +6,7 @@ import { Stethoscope, LogOut } from 'lucide-react';
 import { BrandName } from '@/components/brand/BrandName';
 import { PlatformFooter } from '@/components/layout/PlatformFooter';
 import { useAuth } from '@/lib/auth-context';
+import { useI18n } from '@/i18n';
 
 interface SimplePageLayoutProps {
   title: string;
@@ -33,6 +34,7 @@ export function SimplePageLayout({
   maxWidth = '2xl',
 }: SimplePageLayoutProps) {
   const { user, logout } = useAuth();
+  const { t } = useI18n();
 
   return (
     <div className="min-h-dvh flex flex-col">
@@ -65,7 +67,7 @@ export function SimplePageLayout({
               type="button"
               onClick={logout}
               className="btn-ghost !p-2"
-              aria-label="Chiqish"
+              aria-label={t('common.logout')}
             >
               <LogOut size={16} />
             </button>

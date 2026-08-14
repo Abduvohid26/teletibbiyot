@@ -4,39 +4,40 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Stethoscope, Users, Radio, Settings, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useI18n } from '@/i18n';
 
 export const UT_NAV_TABS = [
   {
     href: '/ut',
-    label: 'Qabul',
-    shortLabel: 'Qabul',
+    labelKey: 'nav.reception',
+    shortKey: 'nav.reception',
     icon: Stethoscope,
     exact: true,
   },
   {
     href: '/ut/patients',
-    label: 'Bemorlar',
-    shortLabel: 'Ro\'yxat',
+    labelKey: 'nav.patients',
+    shortKey: 'nav.list',
     icon: Users,
     badgeKey: 'patients' as const,
   },
   {
     href: '/ut/vitals',
-    label: 'Jonli efir',
-    shortLabel: 'Jonli',
+    labelKey: 'nav.liveBroadcast',
+    shortKey: 'nav.liveShort',
     icon: Radio,
     badgeKey: 'live' as const,
   },
   {
     href: '/ut/settings',
-    label: 'Sozlamalar',
-    shortLabel: 'Sozl.',
+    labelKey: 'nav.settings',
+    shortKey: 'nav.settingsShort',
     icon: Settings,
   },
   {
     href: '/ut/analytics',
-    label: 'Analitika',
-    shortLabel: 'Stat.',
+    labelKey: 'nav.analytics',
+    shortKey: 'nav.statsShort',
     icon: BarChart3,
   },
 ] as const;
@@ -71,6 +72,7 @@ export function UtNavTabs({
   mode = 'pill',
 }: UtNavTabsProps) {
   const pathname = usePathname();
+  const { t } = useI18n();
 
   const navShell = cn(
     mode === 'pill' && 'flex items-stretch gap-0.5 p-0.5 rounded-xl bg-white/40 backdrop-blur-md border border-white/55 shadow-sm',
@@ -80,14 +82,16 @@ export function UtNavTabs({
   );
 
   return (
-    <nav className={navShell} aria-label="UT navigatsiya">
-      {UT_NAV_TABS.map(({ href, label, shortLabel, icon: Icon, ...rest }) => {
+    <nav className={navShell} aria-label={t('nav.utAria')}>
+      {UT_NAV_TABS.map(({ href, labelKey, shortKey, icon: Icon, ...rest }) => {
         const exact = 'exact' in rest && rest.exact;
         const active = exact
           ? pathname === href
           : pathname === href || pathname.startsWith(`${href}/`);
         const badgeKey = 'badgeKey' in rest ? rest.badgeKey : null;
         const badge = getBadge(badgeKey, sessionCount, liveCount);
+        const label = t(labelKey);
+        const shortLabel = t(shortKey);
 
         if (mode === 'icons') {
           return (
@@ -162,11 +166,14 @@ export function UtQuickNav({
   sessionCount?: number;
   liveCount?: number;
 }) {
+  const { t } = useI18n();
+
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 w-full max-w-3xl">
-      {UT_NAV_TABS.map(({ href, label, icon: Icon, ...rest }) => {
+      {UT_NAV_TABS.map(({ href, labelKey, icon: Icon, ...rest }) => {
         const badgeKey = 'badgeKey' in rest ? rest.badgeKey : null;
         const badge = getBadge(badgeKey, sessionCount, liveCount);
+        const label = t(labelKey);
 
         return (
           <Link key={href} href={href} className="ut-quick-nav-btn group">
@@ -198,15 +205,29 @@ export function UtSessionSummary({
   liveCount: number;
   className?: string;
 }) {
+  const { t } = useI18n();
+
   if (sessionCount === 0) return null;
   const queuedCount = sessionCount - liveCount;
 
   return (
     <p className={cn('text-xs font-medium', className)}>
-      {liveCount > 0 && <span className="text-emerald-600 font-semibold">{liveCount} jonli</span>}
+      {liveCount > 0 && (
+        <span className="text-emerald-600 font-semibold">
+          {t('ut.liveCount', { count: liveCount })}
+        </span>
+      )}
       {liveCount > 0 && queuedCount > 0 && ' · '}
-      {queuedCount > 0 && <span className="text-amber-600 font-semibold">{queuedCount} navbat</span>}
-      {liveCount === 0 && <span className="text-amber-600 font-semibold">{sessionCount} navbatda</span>}
+      {queuedCount > 0 && (
+        <span className="text-amber-600 font-semibold">
+          {t('ut.queuedCount', { count: queuedCount })}
+        </span>
+      )}
+      {liveCount === 0 && (
+        <span className="text-amber-600 font-semibold">
+          {t('ut.inQueueCount', { count: sessionCount })}
+        </span>
+      )}
     </p>
   );
 }

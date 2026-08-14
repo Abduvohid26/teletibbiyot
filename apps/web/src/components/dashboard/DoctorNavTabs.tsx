@@ -4,27 +4,28 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LayoutDashboard, Users, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useI18n } from '@/i18n';
 
-export const DOCTOR_NAV_TABS = [
+const DOCTOR_NAV_TABS = [
   {
     href: '/dashboard',
-    label: 'Asosiy',
-    shortLabel: 'Asosiy',
+    labelKey: 'nav.home',
+    shortKey: 'nav.home',
     icon: LayoutDashboard,
     exact: true,
     badgeKey: 'live' as const,
   },
   {
     href: '/dashboard/patients',
-    label: 'Bemorlar',
-    shortLabel: 'Bemor',
+    labelKey: 'nav.patients',
+    shortKey: 'nav.patientShort',
     icon: Users,
     badgeKey: 'queue' as const,
   },
   {
     href: '/dashboard/settings',
-    label: 'Sozlamalar',
-    shortLabel: 'Sozl.',
+    labelKey: 'nav.settings',
+    shortKey: 'nav.settingsShort',
     icon: Settings,
   },
 ] as const;
@@ -47,16 +48,18 @@ function getBadge(
 
 export function DoctorNavTabs({ liveCount = 0, queueCount = 0, className }: DoctorNavTabsProps) {
   const pathname = usePathname();
+  const { t } = useI18n();
 
   return (
-    <nav className={cn('flex items-center justify-center gap-1', className)} aria-label="Shifokor navigatsiya">
-      {DOCTOR_NAV_TABS.map(({ href, label, shortLabel, icon: Icon, ...rest }) => {
+    <nav className={cn('flex items-center justify-center gap-1', className)} aria-label={t('nav.doctorAria')}>
+      {DOCTOR_NAV_TABS.map(({ href, labelKey, icon: Icon, ...rest }) => {
         const exact = 'exact' in rest && rest.exact;
         const active = exact
           ? pathname === href
           : pathname === href || pathname.startsWith(`${href}/`);
         const badgeKey = 'badgeKey' in rest ? rest.badgeKey : null;
         const badge = getBadge(badgeKey, liveCount, queueCount);
+        const label = t(labelKey);
 
         return (
           <Link

@@ -9,8 +9,11 @@ import { toast } from '@/lib/toast';
 import { safeAsync } from '@/lib/errors';
 import { ROLES_MT_DASHBOARD, ROLES_UT } from '@/lib/roles';
 import { isUtRole, isMtStaff } from '@ishifo/shared';
+import { useI18n } from '@/i18n';
+import { LOCALE_BCP47 } from '@/i18n/locales';
 
 export default function AppointmentsPage() {
+  const { t, locale } = useI18n();
   const { user, loading: authLoading } = useRequireAuth([...ROLES_MT_DASHBOARD, ...ROLES_UT]);
   const [items, setItems] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,7 +37,7 @@ export default function AppointmentsPage() {
     setLoading(true);
     api.getUpcomingAppointments(14)
       .then(setItems)
-      .catch((e) => toast(e instanceof Error ? e.message : 'Xatolik', 'error'))
+      .catch((e) => toast(e instanceof Error ? e.message : t('errors.generic'), 'error'))
       .finally(() => setLoading(false));
   };
 
@@ -53,28 +56,28 @@ export default function AppointmentsPage() {
       setPatients([]);
       return;
     }
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       api.getPatients({ search: patientSearch, limit: 8 })
         .then((r) => setPatients(r.items))
         .catch(() => setPatients([]));
     }, 300);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [patientSearch]);
 
   const updateStatus = async (id: string, status: string) => {
     try {
       await api.updateAppointmentStatus(id, status);
-      toast('Holat yangilandi', 'success');
+      toast(t('appointments.statusUpdated'), 'success');
       load();
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Xatolik', 'error');
+      toast(e instanceof Error ? e.message : t('errors.generic'), 'error');
     }
   };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.patientId || !form.facilityId || !form.scheduledAt) {
-      toast('Bemor, muassasa va sana majburiy', 'error');
+      toast(t('appointments.requiredFields'), 'error');
       return;
     }
     setCreating(true);
@@ -86,13 +89,13 @@ export default function AppointmentsPage() {
         scheduledAt: new Date(form.scheduledAt).toISOString(),
         notes: form.notes || undefined,
       });
-      toast('Uchrashuv rejalashtirildi', 'success');
+      toast(t('appointments.created'), 'success');
       setShowCreate(false);
       setForm({ patientId: '', facilityId: '', doctorId: '', scheduledAt: '', notes: '' });
       setPatientSearch('');
       load();
     } catch (e) {
-      toast(e instanceof Error ? e.message : 'Xatolik', 'error');
+      toast(e instanceof Error ? e.message : t('errors.generic'), 'error');
     } finally {
       setCreating(false);
     }
@@ -102,22 +105,22 @@ export default function AppointmentsPage() {
 
   return (
     <DashboardLayout
-      title="Uchrashuvlar"
-      subtitle="Rejalashtirilgan qayta ko'riklar"
+      title={t('appointments.title')}
+      subtitle={t('appointments.subtitle')}
       actions={
         canCreate ? (
           <button type="button" onClick={() => setShowCreate(true)} className="btn-primary !text-xs">
-            <Plus size={14} /> Yangi uchrashuv
+            <Plus size={14} /> {t('appointments.newAppointment')}
           </button>
         ) : undefined
       }
     >
       <div className="space-y-4">
-        {loading && <p className="text-sm text-slate-500">Yuklanmoqda...</p>}
+        {loading && <p className="text-sm text-slate-500">{t('common.loading')}</p>}
         {!loading && items.length === 0 && (
           <div className="panel p-10 text-center text-slate-500">
             <Calendar className="mx-auto mb-3 opacity-40" size={32} />
-            <p>14 kun ichida uchrashuv yo&apos;q</p>
+            <p>{t('appointments.empty')}</p>
           </div>
         )}
         <div className="grid gap-3">
@@ -130,7 +133,7 @@ export default function AppointmentsPage() {
                 </p>
                 <p className="text-sm text-slate-600 flex items-center gap-2">
                   <Clock size={14} />
-                  {new Date(a.scheduledAt).toLocaleString('uz-UZ')}
+                  {new Date(a.scheduledAt).toLocaleString(LOCALE_BCP47[locale])}
                 </p>
                 <p className="text-xs text-slate-500 flex items-center gap-2">
                   <MapPin size={14} />
@@ -145,14 +148,14 @@ export default function AppointmentsPage() {
                   onClick={() => updateStatus(a.id, 'COMPLETED')}
                   className="btn-secondary !py-1.5 !text-xs inline-flex items-center gap-1"
                 >
-                  <CheckCircle2 size={14} /> Bajarildi
+                  <CheckCircle2 size={14} /> {t('appointments.done')}
                 </button>
                 <button
                   type="button"
                   onClick={() => updateStatus(a.id, 'CANCELLED')}
                   className="text-xs text-red-600 hover:bg-red-50 px-2 py-1.5 rounded-lg inline-flex items-center gap-1"
                 >
-                  <XCircle size={14} /> Bekor
+                  <XCircle size={14} /> {t('common.cancelShort')}
                 </button>
               </div>
             </div>
@@ -164,19 +167,19 @@ export default function AppointmentsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className="panel p-6 w-full max-w-md animate-slide-up">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-bold text-slate-900">Yangi uchrashuv</h2>
+              <h2 className="font-bold text-slate-900">{t('appointments.newAppointment')}</h2>
               <button type="button" onClick={() => setShowCreate(false)} className="text-slate-400 hover:text-slate-600">
                 <X size={20} />
               </button>
             </div>
             <form onSubmit={handleCreate} className="space-y-3">
               <div>
-                <label className="label">Bemor qidirish</label>
+                <label className="label">{t('appointments.searchPatient')}</label>
                 <input
                   className="form-input"
                   value={patientSearch}
                   onChange={(e) => setPatientSearch(e.target.value)}
-                  placeholder="Ism, telefon, PINFL..."
+                  placeholder={t('filters.searchPinPhone')}
                 />
                 {patients.length > 0 && (
                   <div className="mt-1 border border-slate-200 rounded-lg max-h-32 overflow-y-auto">
@@ -194,35 +197,35 @@ export default function AppointmentsPage() {
                 )}
               </div>
               <div>
-                <label className="label">Muassasa</label>
+                <label className="label">{t('common.facility')}</label>
                 <select className="form-input" required value={form.facilityId} onChange={(e) => setForm({ ...form, facilityId: e.target.value })}>
-                  <option value="">Tanlang</option>
+                  <option value="">{t('common.select')}</option>
                   {facilities.map((f) => (
                     <option key={f.id} value={f.id}>{f.code} — {f.name}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="label">Shifokor (ixtiyoriy)</label>
+                <label className="label">{t('common.doctorOptional')}</label>
                 <select className="form-input" value={form.doctorId} onChange={(e) => setForm({ ...form, doctorId: e.target.value })}>
-                  <option value="">Tanlanmagan</option>
+                  <option value="">{t('common.notSelected')}</option>
                   {doctors.map((d) => (
                     <option key={d.id} value={d.id}>{d.fullName}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="label">Sana va vaqt</label>
+                <label className="label">{t('appointments.dateTime')}</label>
                 <input type="datetime-local" className="form-input" required value={form.scheduledAt} onChange={(e) => setForm({ ...form, scheduledAt: e.target.value })} />
               </div>
               <div>
-                <label className="label">Izoh</label>
+                <label className="label">{t('common.notes')}</label>
                 <textarea className="form-input min-h-[60px]" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
               </div>
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowCreate(false)} className="btn-secondary flex-1">Bekor</button>
+                <button type="button" onClick={() => setShowCreate(false)} className="btn-secondary flex-1">{t('common.cancelShort')}</button>
                 <button type="submit" disabled={creating} className="gradient-btn flex-1 disabled:opacity-50">
-                  {creating ? 'Saqlanmoqda...' : 'Rejalashtirish'}
+                  {creating ? t('common.saving') : t('appointments.schedule')}
                 </button>
               </div>
             </form>

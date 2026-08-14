@@ -1,11 +1,15 @@
+'use client';
+
 import Link from 'next/link';
 import { BRAND, brandCopyright } from '@ishifo/shared';
 import { BrandName } from '@/components/brand/BrandName';
 import { cn } from '@/lib/utils';
+import { useI18n } from '@/i18n';
 
 type PlatformFooterVariant = 'light' | 'dark' | 'compact';
 
 export function PlatformFooter({ variant = 'light' }: { variant?: PlatformFooterVariant }) {
+  const { t } = useI18n();
   const isDark = variant === 'dark';
   const isCompact = variant === 'compact';
 
@@ -23,25 +27,25 @@ export function PlatformFooter({ variant = 'light' }: { variant?: PlatformFooter
         <>
           <p className="mt-2">
             <Link href={BRAND.openDataPath} className={link}>
-              Ochiq bazani ko&apos;rish
+              {t('footer.viewOpenData')}
             </Link>
           </p>
 
           <div className={cn('mt-3 space-y-1', muted)}>
             <p>
-              <span className="font-medium">Ishlab chiqaruvchi:</span> {BRAND.developer}
+              <span className="font-medium">{t('footer.developer')}:</span> {BRAND.developer}
             </p>
             <p>
-              <span className="font-medium">Qo&apos;llab-quvvatlovchi:</span> {BRAND.supporter}
+              <span className="font-medium">{t('footer.supporter')}:</span> {BRAND.supporter}
             </p>
             <p>
-              <span className="font-medium">Patent raqami:</span> {BRAND.patent}
+              <span className="font-medium">{t('footer.patent')}:</span> {BRAND.patent}
             </p>
             <p>
-              <span className="font-medium">Litsenziyalangan:</span> {BRAND.license}
+              <span className="font-medium">{t('footer.licensed')}:</span> {BRAND.license}
             </p>
             <p>
-              <span className="font-medium">Sertifikatlangan:</span> {BRAND.certification}
+              <span className="font-medium">{t('footer.certified')}:</span> {BRAND.certification}
             </p>
           </div>
         </>
