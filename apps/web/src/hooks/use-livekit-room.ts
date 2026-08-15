@@ -98,6 +98,7 @@ export function useLivekitRoom({
   const preflightConfirmedRef = useRef(false);
   const hadMediaSessionRef = useRef(false);
   const connectingRef = useRef(false);
+  const isReconnectingRef = useRef(false);
   const lastPeerNameRef = useRef('');
   const qualityPresetRef = useRef<VideoQualityPreset>(loadMediaPreferences().qualityPreset);
   const micOnRef = useRef(true);
