@@ -149,20 +149,65 @@ export async function acquireUserMedia(
   }
 }
 
+type EncodingParams = RTCRtpEncodingParameters & {
+  priority?: string;
+  networkPriority?: string;
+  active?: boolean;
+};
+
+/** Google Meet uslubi: asosiy kamera hech qachon to'liq o'chmaydi — faqat kichik qatlam. */
+export const MIN_VIDEO_LAYER = {
+  maxBitrate: 80_000,
+  maxFramerate: 5,
+  scaleResolutionDownBy: 4,
+} as const;
+
+export const DEGRADED_VIDEO_LAYER = {
+  maxBitrate: 150_000,
+  maxFramerate: 8,
+  scaleResolutionDownBy: 3,
+} as const;
+
+export const SECONDARY_CAMERA_LAYER = {
+  maxBitrate: 220_000,
+  maxFramerate: 12,
+  scaleResolutionDownBy: 2,
+} as const;
+
+export type NetworkAdaptMode = 'normal' | 'degraded' | 'min_layer';
+
+async function setVideoEncoding(
+  sender: RTCRtpSender,
+  patch: Partial<EncodingParams> & { degradationPreference?: RTCRtpSendParameters['degradationPreference'] },
+) {
+  const params = sender.getParameters();
+  if (!params.encodings?.length) params.encodings = [{}];
+  const enc = params.encodings[0] as EncodingParams;
+  const { degradationPreference, ...encodingPatch } = patch;
+  Object.assign(enc, encodingPatch);
+  if (degradationPreference) {
+    params.degradationPreference = degradationPreference;
+  }
+  await sender.setParameters(params);
+}
+
 export async function applySenderBitrate(pc: RTCPeerConnection, maxBitrate: number, maxFramerate: number) {
   const senders = pc.getSenders();
+  let videoIndex = 0;
   for (const sender of senders) {
     if (sender.track?.kind !== 'video') continue;
+    const isPrimary = videoIndex === 0;
+    videoIndex += 1;
     try {
-      const params = sender.getParameters();
-      if (!params.encodings?.length) {
-        params.encodings = [{}];
-      }
-      params.encodings[0].maxBitrate = maxBitrate;
-      params.encodings[0].maxFramerate = maxFramerate;
-      // Past tarmoqda video sifati pasayadi, audio ustun qoladi (Meet uslubi)
-      params.degradationPreference = 'maintain-framerate';
-      await sender.setParameters(params);
+      await setVideoEncoding(sender, {
+        maxBitrate: isPrimary ? maxBitrate : Math.min(maxBitrate, SECONDARY_CAMERA_LAYER.maxBitrate),
+        maxFramerate: isPrimary ? maxFramerate : Math.min(maxFramerate, SECONDARY_CAMERA_LAYER.maxFramerate),
+        scaleResolutionDownBy: isPrimary ? 1 : SECONDARY_CAMERA_LAYER.scaleResolutionDownBy,
+        active: true,
+        priority: 'low',
+        networkPriority: 'low',
+        degradationPreference: 'maintain-framerate',
+      });
     } catch {
       /* brauzer qo'llab-quvvatlamasligi mumkin */
     }
@@ -171,26 +216,29 @@ export async function applySenderBitrate(pc: RTCPeerConnection, maxBitrate: numb
 
 /** Audio senderga yuqori ustuvorlik — video past tarmoqda qurbon bo'ladi */
 export async function preferAudioOverVideo(pc: RTCPeerConnection, aggressive = false) {
+  let videoIndex = 0;
   for (const sender of pc.getSenders()) {
     const kind = sender.track?.kind;
     if (!kind) continue;
     try {
       const params = sender.getParameters();
       if (!params.encodings?.length) params.encodings = [{}];
-      const enc = params.encodings[0] as RTCRtpEncodingParameters & {
-        priority?: string;
-        networkPriority?: string;
-      };
+      const enc = params.encodings[0] as EncodingParams;
       if (kind === 'audio') {
         enc.priority = 'high';
         enc.networkPriority = 'high';
+        enc.active = true;
       } else if (kind === 'video') {
+        const isPrimary = videoIndex === 0;
+        videoIndex += 1;
         enc.priority = 'low';
         enc.networkPriority = 'low';
+        enc.active = true;
         if (aggressive) {
-          enc.maxBitrate = 120_000;
-          enc.maxFramerate = 8;
-          enc.scaleResolutionDownBy = Math.max(enc.scaleResolutionDownBy ?? 1, 3);
+          const layer = isPrimary ? DEGRADED_VIDEO_LAYER : SECONDARY_CAMERA_LAYER;
+          enc.maxBitrate = layer.maxBitrate;
+          enc.maxFramerate = layer.maxFramerate;
+          enc.scaleResolutionDownBy = layer.scaleResolutionDownBy;
         }
         params.degradationPreference = 'maintain-framerate';
       }
@@ -209,42 +257,51 @@ export async function applyAllSendersBitrate(pcs: Map<string, RTCPeerConnection>
   }
 }
 
-/** Juda past tarmoq: video deyarli to'xtatiladi, audio davom etadi */
+/**
+ * Tarmoqqa moslashish (Google Meet uslubi):
+ * - audio har doim yuqori prioritet
+ * - asosiy kamera hech qachon o'chmaydi (min ~80 kbps / 5 fps qatlam)
+ * - qo'shimcha kameralar past tarmoqda pauza (Meet "unused tile" drop)
+ */
 export async function applyAudioPriorityMode(
   pcs: Map<string, RTCPeerConnection>,
-  mode: 'normal' | 'degraded' | 'audio_only',
+  mode: NetworkAdaptMode | 'audio_only',
 ) {
+  const resolved: NetworkAdaptMode = mode === 'audio_only' ? 'min_layer' : mode;
   for (const pc of pcs.values()) {
+    let videoIndex = 0;
     for (const sender of pc.getSenders()) {
       const kind = sender.track?.kind;
       if (!kind) continue;
       try {
         const params = sender.getParameters();
         if (!params.encodings?.length) params.encodings = [{}];
-        const enc = params.encodings[0] as RTCRtpEncodingParameters & {
-          priority?: string;
-          networkPriority?: string;
-          active?: boolean;
-        };
+        const enc = params.encodings[0] as EncodingParams;
 
         if (kind === 'audio') {
           enc.priority = 'high';
           enc.networkPriority = 'high';
           enc.active = true;
         } else if (kind === 'video') {
+          const isPrimary = videoIndex === 0;
+          videoIndex += 1;
           enc.priority = 'low';
           enc.networkPriority = 'low';
           params.degradationPreference = 'maintain-framerate';
-          if (mode === 'audio_only') {
-            // Lokal preview o'chmaydi — faqat yuborish to'xtaydi
+
+          const dropSecondary = resolved !== 'normal' && !isPrimary;
+          if (dropSecondary) {
             enc.active = false;
-            enc.maxBitrate = 64_000;
-            enc.maxFramerate = 1;
-          } else if (mode === 'degraded') {
+          } else if (resolved === 'min_layer') {
             enc.active = true;
-            enc.maxBitrate = 120_000;
-            enc.maxFramerate = 8;
-            enc.scaleResolutionDownBy = Math.max(enc.scaleResolutionDownBy ?? 1, 3);
+            enc.maxBitrate = MIN_VIDEO_LAYER.maxBitrate;
+            enc.maxFramerate = MIN_VIDEO_LAYER.maxFramerate;
+            enc.scaleResolutionDownBy = MIN_VIDEO_LAYER.scaleResolutionDownBy;
+          } else if (resolved === 'degraded') {
+            enc.active = true;
+            enc.maxBitrate = DEGRADED_VIDEO_LAYER.maxBitrate;
+            enc.maxFramerate = DEGRADED_VIDEO_LAYER.maxFramerate;
+            enc.scaleResolutionDownBy = DEGRADED_VIDEO_LAYER.scaleResolutionDownBy;
           } else {
             enc.active = true;
           }
@@ -264,8 +321,13 @@ export function scoreConnectionQuality(
   rttMs: number,
   bitrateKbps: number,
 ): ConnectionQuality {
-  if (packetLossPct > 8 || rttMs > 400 || bitrateKbps < 150) return 'poor';
-  if (packetLossPct > 4 || rttMs > 250 || bitrateKbps < 400) return 'fair';
+  // Chaqiriq boshlanishida yoki GCC ramp-up'da bitrate 0/"past" — bu "poor" emas.
+  // Aks holda ~4s ichida video o'chib, qora ekran chiqardi.
+  if (bitrateKbps <= 0 && packetLossPct === 0 && rttMs < 250) return 'unknown';
+  if (packetLossPct > 8 || rttMs > 400) return 'poor';
+  if (bitrateKbps > 0 && bitrateKbps < 80 && packetLossPct > 2) return 'poor';
+  if (packetLossPct > 4 || rttMs > 250) return 'fair';
+  if (bitrateKbps > 0 && bitrateKbps < 200) return 'fair';
   if (packetLossPct > 1.5 || rttMs > 150) return 'good';
   if (bitrateKbps > 0) return 'excellent';
   return 'unknown';

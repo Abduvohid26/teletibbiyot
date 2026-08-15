@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { VideoOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/i18n';
@@ -29,6 +29,7 @@ export function VideoTile({
   const { t } = useI18n();
   const resolvedPlaceholder = placeholder ?? t('video.cameraWaiting');
   const ref = useRef<HTMLVideoElement>(null);
+  const [frozen, setFrozen] = useState(false);
 
   useEffect(() => {
     const video = ref.current;
@@ -39,6 +40,35 @@ export function VideoTile({
     } else {
       video.srcObject = null;
     }
+    setFrozen(false);
+  }, [stream]);
+
+  useEffect(() => {
+    const video = ref.current;
+    if (!video || !stream) {
+      setFrozen(false);
+      return;
+    }
+
+    let lastMediaTime = -1;
+    let stallTicks = 0;
+    const timer = window.setInterval(() => {
+      if (video.paused || video.ended || video.readyState < 2) {
+        stallTicks = 0;
+        setFrozen(false);
+        return;
+      }
+      const mediaTime = video.currentTime;
+      if (mediaTime === lastMediaTime) {
+        stallTicks += 1;
+      } else {
+        stallTicks = 0;
+      }
+      lastMediaTime = mediaTime;
+      setFrozen(stallTicks >= 3);
+    }, 500);
+
+    return () => window.clearInterval(timer);
   }, [stream]);
 
   return (
@@ -56,12 +86,19 @@ export function VideoTile({
           <p className="text-[10px] px-2 text-center">{resolvedPlaceholder}</p>
         </div>
       )}
+      {stream && frozen && (
+        <div className="absolute inset-0 flex items-end justify-center pb-8 pointer-events-none">
+          <span className="bg-black/70 text-white text-[11px] px-3 py-1.5 rounded-full">
+            {t('video.frozenOverlay')}
+          </span>
+        </div>
+      )}
       {label && (
         <span className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] px-2 py-1 truncate">
           {label}
         </span>
       )}
-      {live && stream && (
+      {live && stream && !frozen && (
         <span
           className="absolute top-2 right-2 live-badge !p-1 !min-w-0"
           title={t('video.live')}

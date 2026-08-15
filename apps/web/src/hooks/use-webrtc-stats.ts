@@ -122,7 +122,9 @@ export function useWebRtcStats(
 
       const total = totalLost + totalReceived;
       const packetLossPct = total > 0 ? (totalLost / total) * 100 : 0;
-      const quality = scoreConnectionQuality(packetLossPct, rttMs, bitrateKbps);
+      const quality = prev
+        ? scoreConnectionQuality(packetLossPct, rttMs, bitrateKbps)
+        : 'unknown';
 
       if (!cancelled) {
         setStats({

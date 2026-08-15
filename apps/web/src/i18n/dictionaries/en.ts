@@ -244,6 +244,7 @@ const en: MessageTree = {
     lobbyMtSub: 'Join to start a live video link with the patient',
     videoSettings: 'Video settings',
     cameraWaiting: 'Waiting for camera...',
+    frozenOverlay: 'Restoring picture…',
     connectionUnstable:
       'Unstable connection — retrying. Video may lag on slow internet.',
     turnNotConfigured:

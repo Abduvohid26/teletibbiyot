@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { VideoGateway } from './video.gateway';
 import { VideoController } from './video.controller';
 import { DoctorPresenceService } from './doctor-presence.service';
+import { LivekitService } from './livekit.service';
 import { getJwtSecret } from '../common/jwt-config';
 
 @Module({
@@ -16,7 +17,7 @@ import { getJwtSecret } from '../common/jwt-config';
     }),
   ],
   controllers: [VideoController],
-  providers: [VideoGateway, DoctorPresenceService],
-  exports: [VideoGateway, DoctorPresenceService],
+  providers: [VideoGateway, DoctorPresenceService, LivekitService],
+  exports: [VideoGateway, DoctorPresenceService, LivekitService],
 })
 export class VideoModule {}

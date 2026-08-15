@@ -244,6 +244,7 @@ const uz: MessageTree = {
     lobbyMtSub: "Bemor bilan jonli video aloqani boshlash uchun qo'shiling",
     videoSettings: 'Video sozlamalari',
     cameraWaiting: 'Kamera kutmoqda...',
+    frozenOverlay: 'Tasvir tiklanmoqda…',
     connectionUnstable:
       'Ulanish beqaror — qayta urinilmoqda. Internet sekin bo‘lsa video kechikishi mumkin.',
     turnNotConfigured:

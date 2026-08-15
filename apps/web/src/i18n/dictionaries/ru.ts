@@ -244,6 +244,7 @@ const ru: MessageTree = {
     lobbyMtSub: 'Присоединитесь, чтобы начать живую видеосвязь с пациентом',
     videoSettings: 'Настройки видео',
     cameraWaiting: 'Ожидание камеры...',
+    frozenOverlay: 'Изображение восстанавливается…',
     connectionUnstable:
       'Нестабильное соединение — повторная попытка. На медленном интернете возможна задержка видео.',
     turnNotConfigured:

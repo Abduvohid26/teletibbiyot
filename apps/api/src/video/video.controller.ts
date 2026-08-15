@@ -1,12 +1,15 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards, Request, NotFoundException } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { ICE_SERVERS } from '../common/video-ice.config';
-import { ROLES_CLINICAL } from '../common/roles.constants';
+import { ROLES_CLINICAL, ROLES_ADMIN, isMtDoctor, isUtRole } from '../common/roles.constants';
 import { diagnoseTurnConfig, resolvePublicTurnUrl } from '../common/turn-url.util';
+import { PrismaService } from '../prisma/prisma.service';
+import { AccessControlService, AuthUser } from '../common/access-control.service';
+import { LivekitService, type SfuVideoRole } from './livekit.service';
 
 @ApiTags('Video')
 @Controller('video')
@@ -14,7 +17,55 @@ import { diagnoseTurnConfig, resolvePublicTurnUrl } from '../common/turn-url.uti
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class VideoController {
-  constructor(private config: ConfigService) {}
+  constructor(
+    private config: ConfigService,
+    private livekit: LivekitService,
+    private prisma: PrismaService,
+    private access: AccessControlService,
+  ) {}
+
+  @Get('sfu-token/:consultationId')
+  @Roles(...ROLES_CLINICAL, ...ROLES_ADMIN)
+  @ApiOperation({ summary: 'LiveKit SFU token (Google Meet uslubidagi media server)' })
+  async getSfuToken(
+    @Param('consultationId') consultationId: string,
+    @Request() req: { user: AuthUser },
+    @Query('role') roleQuery?: string,
+  ) {
+    if (!this.livekit.isEnabled()) {
+      return { enabled: false as const };
+    }
+
+    const consultation = await this.prisma.consultation.findUnique({
+      where: { id: consultationId },
+      select: { id: true, utId: true, mtDoctorId: true, status: true },
+    });
+    if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
+    this.access.assertConsultationAccess(req.user, consultation);
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { fullName: true },
+    });
+
+    let role: SfuVideoRole = 'observe';
+    if (roleQuery === 'observe' || roleQuery === 'mt' || roleQuery === 'ut') {
+      role = roleQuery;
+    } else if (isUtRole(req.user.role)) {
+      role = 'ut';
+    } else if (isMtDoctor(req.user.role)) {
+      role = 'mt';
+    }
+
+    const minted = await this.livekit.mintToken({
+      identity: req.user.id,
+      name: user?.fullName || req.user.id,
+      roomName: consultationId,
+      role,
+    });
+
+    return { enabled: true as const, ...minted, role };
+  }
 
   @Get('ice-config')
   @Roles(...ROLES_CLINICAL)

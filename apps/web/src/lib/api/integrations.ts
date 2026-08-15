@@ -74,6 +74,19 @@ export function defineIntegrationsApi(client: HttpClient) {
       return fileName;
     },
 
+    getSfuToken(consultationId: string, role?: 'mt' | 'ut' | 'observe') {
+      const qs = role ? `?role=${encodeURIComponent(role)}` : '';
+      return client.request<{
+        enabled: false;
+      } | {
+        enabled: true;
+        url: string;
+        token: string;
+        room: string;
+        role: 'mt' | 'ut' | 'observe';
+      }>(`/video/sfu-token/${consultationId}${qs}`);
+    },
+
     getIntegrationsStatus() {
       return client.request<{
         oneId: { enabled: boolean; mock: boolean };
