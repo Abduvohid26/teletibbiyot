@@ -7,6 +7,7 @@ import { GlobalExceptionFilter } from './common/http-exception.filter';
 import { getJwtSecret } from './common/jwt-config';
 import { RedisIoAdapter } from './video/redis-io.adapter';
 import { diagnoseTurnConfig } from './common/turn-url.util';
+import { LivekitService } from './video/livekit.service';
 import { BRAND } from '@ishifo/shared';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
@@ -51,6 +52,24 @@ async function bootstrap() {
     logger.error('TURN SOZLAMASI YAROQSIZ — turli tarmoqdagi (masalan mobil internet ↔ Wi-Fi) shifokor va UT operator BIR-BIRINI KO\'RMAYDI:');
     turnDiagnosis.problems.forEach((p) => logger.error(`  • ${p}`));
     logger.error('  → .env da TURN_PUBLIC_URL / NEXT_PUBLIC_TURN_URL ni serverning OMMAVIY IP yoki domeniga o\'zgartiring va TURN_EXTERNAL_IP ni o\'rnating.');
+  }
+
+  // LiveKit SFU holati — TURN bilan bir xil sabab: noto'g'ri URL bilan
+  // "yoqilgan" bo'lib ko'rinsa, klient ulanolmay P2P ga qaytadi va buni hech
+  // kim sezmaydi. Shuning uchun ishga tushirishda aniq aytamiz.
+  try {
+    const livekit = app.get(LivekitService);
+    const lk = livekit.diagnose();
+    if (lk.enabled) {
+      logger.log(`LiveKit SFU: FAOL → ${lk.url}`);
+    } else if (configService.get('LIVEKIT_ENABLED') === 'true') {
+      logger.error(`LiveKit SFU yoqilgan, LEKIN ishlatilmaydi: ${lk.problem ?? 'API kalit/secret yetishmayapti'}`);
+      logger.error('  → Video P2P (brauzer↔brauzer) rejimida ishlaydi.');
+    } else {
+      logger.log('LiveKit SFU: o\'chirilgan — video P2P rejimida');
+    }
+  } catch {
+    /* LivekitService mavjud emas — e'tibor bermaymiz */
   }
 
   if (configService.get('TRUST_PROXY') === 'true') {

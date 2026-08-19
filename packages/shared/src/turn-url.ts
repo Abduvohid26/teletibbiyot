@@ -94,3 +94,44 @@ export function describeTurnUrlProblem(url: string): string | null {
   }
   return null;
 }
+
+/**
+ * SFU/signaling URL (ws:// yoki wss://) brauzer uchun yaroqlimi?
+ *
+ * TURN bilan bir xil muammo: `ws://localhost:7880` server uchun to'g'ri
+ * ko'rinadi, lekin BOSHQA qurilmadagi brauzer uchun bu o'sha qurilmaning o'zi.
+ * Bunday URL'ni klientga berish — uni ataylab ishlamaydigan ulanishga yuborish.
+ */
+export function isBrowserReachableSignalUrl(url: string): boolean {
+  const raw = url?.trim();
+  if (!raw) return false;
+  try {
+    const parsed = new URL(raw);
+    if (!['ws:', 'wss:', 'http:', 'https:'].includes(parsed.protocol)) return false;
+    const host = parsed.hostname.toLowerCase();
+    if (INTERNAL_HOSTNAMES.has(host)) return false;
+    if (host.startsWith('127.')) return false;
+    if (isIpv4(host) || isIpv6(host)) return true;
+    return host.includes('.');
+  } catch {
+    return false;
+  }
+}
+
+export function describeSignalUrlProblem(url: string): string | null {
+  const raw = url?.trim();
+  if (!raw) return 'URL bo\'sh';
+  let host: string;
+  try {
+    host = new URL(raw).hostname.toLowerCase();
+  } catch {
+    return `"${raw}" — URL formati noto'g'ri (ws:// yoki wss:// bo'lishi kerak)`;
+  }
+  if (host.startsWith('127.') || INTERNAL_HOSTNAMES.has(host)) {
+    return `"${host}" — loopback yoki Docker ichki nomi. Boshqa qurilmaning brauzeri unga yeta olmaydi. Ommaviy domen (wss://ishifo.uz/livekit) yoki IP yozing.`;
+  }
+  if (!isIpv4(host) && !isIpv6(host) && !host.includes('.')) {
+    return `"${host}" — nuqtasiz ichki nom. Ommaviy IP yoki to'liq domen kerak.`;
+  }
+  return null;
+}

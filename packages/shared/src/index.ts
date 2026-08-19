@@ -194,6 +194,8 @@ export {
   extractTurnHostname,
   isBrowserReachableTurnUrl,
   describeTurnUrlProblem,
+  isBrowserReachableSignalUrl,
+  describeSignalUrlProblem,
 } from './turn-url';
 export { BRAND, brandCopyright } from './brand';
 export { DEFAULT_PRESCRIPTION_TEMPLATES } from './prescription-templates';

@@ -1,22 +1,50 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AccessToken } from 'livekit-server-sdk';
+import { describeSignalUrlProblem, isBrowserReachableSignalUrl } from '@ishifo/shared';
 
 export type SfuVideoRole = 'mt' | 'ut' | 'observe';
 
 @Injectable()
 export class LivekitService {
   private readonly logger = new Logger(LivekitService.name);
+  private warnedUnreachable = false;
 
   constructor(private config: ConfigService) {}
 
-    isEnabled(): boolean {
+  isEnabled(): boolean {
     if (this.config.get('E2E') === 'true') return false;
     if (this.config.get('LIVEKIT_ENABLED') !== 'true') return false;
     const key = this.config.get<string>('LIVEKIT_API_KEY');
     const secret = this.config.get<string>('LIVEKIT_API_SECRET');
     const url = this.publicUrl();
-    return Boolean(key && secret && url);
+    if (!key || !secret || !url) return false;
+
+    // MUHIM: brauzer yeta olmaydigan URL (ws://localhost:7880) bilan SFU'ni
+    // "yoqilgan" deb e'lon qilish — klientni ataylab yiqiladigan ulanishga
+    // yuborish demak. U ulanolmay, timeout kutib, keyin P2P ga qaytadi:
+    // foydalanuvchi bir necha soniya qora ekran ko'radi. Bunday holatda
+    // DARHOL P2P ni tanlagan ma'qul.
+    if (!isBrowserReachableSignalUrl(url)) {
+      if (!this.warnedUnreachable) {
+        this.warnedUnreachable = true;
+        this.logger.error(
+          `LIVEKIT o'CHIRILDI — ${describeSignalUrlProblem(url)} (LIVEKIT_PUBLIC_URL=${url}). P2P rejimga qaytildi.`,
+        );
+      }
+      return false;
+    }
+    return true;
+  }
+
+  /** Ishga tushirishda holatni bir marta aytish uchun */
+  diagnose(): { enabled: boolean; url: string; problem: string | null } {
+    const url = this.publicUrl();
+    return {
+      enabled: this.isEnabled(),
+      url,
+      problem: url ? describeSignalUrlProblem(url) : 'LIVEKIT_PUBLIC_URL o\'rnatilmagan',
+    };
   }
 
   publicUrl(): string {
