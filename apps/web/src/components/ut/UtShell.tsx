@@ -1,26 +1,23 @@
 'use client';
 
+import { ReactNode } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { UtHeader } from '@/components/ut/UtHeader';
+import { UtPatientSwitcher } from '@/components/ut/UtPatientSwitcher';
+import { useUtHeaderData } from '@/hooks/use-ut-header-data';
 
 interface UtShellProps {
-  children: React.ReactNode;
-  sessionCount?: number;
-  liveCount?: number;
-  headerExtra?: React.ReactNode;
-  headerQueue?: React.ReactNode;
-  pageAction?: React.ReactNode;
+  children: ReactNode;
+  scrollable?: boolean;
 }
 
-export function UtShell({
-  children,
-  sessionCount = 0,
-  liveCount = 0,
-  headerExtra,
-  headerQueue,
-  pageAction,
-}: UtShellProps) {
+/**
+ * UT operator uchun yagona shell.
+ * Header layout orqali saqlanadi: brend | nav | til + bemor + yangi bemor | chiqish.
+ */
+export function UtShell({ children, scrollable = false }: UtShellProps) {
   const { user, logout } = useAuth();
+  const header = useUtHeaderData();
 
   return (
     <div className="ut-shell">
@@ -31,15 +28,26 @@ export function UtShell({
 
       <UtHeader
         facilityName={user?.facility?.name}
-        sessionCount={sessionCount}
-        liveCount={liveCount}
-        headerExtra={headerExtra}
-        headerQueue={headerQueue}
-        pageAction={pageAction}
+        sessionCount={header.sessionCount}
+        liveCount={header.liveCount}
+        headerQueue={
+          header.hasQueue ? (
+            <UtPatientSwitcher
+              activeId={header.activeId}
+              sessions={header.sessions}
+              onSelect={header.onSelect}
+              onCancel={header.onCancel}
+            />
+          ) : undefined
+        }
         onLogout={logout}
       />
 
-      <main className="ut-shell-main">{children}</main>
+      <main className={scrollable ? 'ut-subpage relative z-10' : 'ut-shell-main relative z-10'}>
+        {children}
+      </main>
+
+      {header.cancelModal}
     </div>
   );
 }

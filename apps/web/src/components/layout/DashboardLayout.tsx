@@ -19,7 +19,7 @@ interface DashboardLayoutProps {
 function DashboardLayoutInner({ children, title, subtitle, actions }: DashboardLayoutProps) {
   const { user } = useAuth();
 
-  if (user && isMtDoctor(user.role)) {
+  if (user && (isMtDoctor(user.role) || isUtRole(user.role))) {
     return (
       <div className="space-y-4 pb-6">
         {(title || subtitle || actions) && (

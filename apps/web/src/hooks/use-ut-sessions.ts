@@ -6,6 +6,7 @@ import { UT_ACTIVE_CONSULTATION_KEY } from '@/lib/api/constants';
 import { fetchUtSessionConsultations } from '@/lib/ut-sessions-fetch';
 import { useConsultationRealtime } from '@/hooks/use-consultation-realtime';
 import { toast } from '@/lib/toast';
+import { UT_SELECT_EVENT } from '@/hooks/use-ut-header-data';
 
 export function useUtSessions(enabled = true) {
   const [consultation, setConsultation] = useState<Consultation | null>(null);
@@ -163,6 +164,16 @@ export function useUtSessions(enabled = true) {
     window.addEventListener('consultation-started', onStarted);
     return () => window.removeEventListener('consultation-started', onStarted);
   }, [enabled, load, switchToConsultation]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const onSelect = (event: Event) => {
+      const id = (event as CustomEvent<{ id?: string }>).detail?.id;
+      if (id) void switchToConsultation(id);
+    };
+    window.addEventListener(UT_SELECT_EVENT, onSelect);
+    return () => window.removeEventListener(UT_SELECT_EVENT, onSelect);
+  }, [enabled, switchToConsultation]);
 
   const applyAfterCancel = useCallback(async (consultationId: string) => {
     if (typeof window !== 'undefined') {

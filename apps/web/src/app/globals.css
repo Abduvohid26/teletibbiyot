@@ -320,6 +320,10 @@ body {
     @apply flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden p-4 lg:p-6 pb-8 animate-fade-in;
   }
 
+  .ut-subpage {
+    @apply flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden p-4 lg:p-6 pb-8 animate-fade-in;
+  }
+
   .doctor-subpage-inner {
     @apply max-w-5xl mx-auto w-full;
   }
@@ -363,6 +367,7 @@ body {
     @apply flex items-center gap-2 px-3 lg:px-4 py-2 min-h-[3.25rem];
   }
 
+  .app-header-row,
   .doctor-header-row {
     @apply grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-3 lg:px-4 py-2 min-h-[3.25rem];
   }

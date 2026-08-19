@@ -22,7 +22,7 @@ export function DoctorHeader({
 
   return (
     <header className="ut-shell-header ut-header-flux">
-      <div className="doctor-header-row">
+      <div className="app-header-row">
         <div className="ut-shell-brand shrink-0 min-w-0 justify-self-start">
           <div className="w-8 h-8 rounded-lg gradient-btn flex items-center justify-center shadow-sm shrink-0">
             <Stethoscope className="w-3.5 h-3.5 text-white" />

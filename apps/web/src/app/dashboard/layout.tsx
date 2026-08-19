@@ -2,8 +2,9 @@
 
 import { ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import { isMtDoctor } from '@ishifo/shared';
+import { isMtDoctor, isUtRole } from '@ishifo/shared';
 import { DoctorShell } from '@/components/layout/DoctorShell';
+import { UtShell } from '@/components/ut/UtShell';
 import { useAuth } from '@/lib/auth-context';
 
 /** Video workspace — scroll yo'q, qolgan sahifalar scrollable */
@@ -19,6 +20,10 @@ export default function DashboardRootLayout({ children }: { children: ReactNode 
         {children}
       </DoctorShell>
     );
+  }
+
+  if (user && isUtRole(user.role)) {
+    return <UtShell scrollable>{children}</UtShell>;
   }
 
   return children;

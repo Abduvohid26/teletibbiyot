@@ -5,16 +5,13 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { isUtRole } from '@ishifo/shared';
 import { getRoleHomePath } from '@/lib/auth-utils';
-import { UtShell } from '@/components/ut/UtShell';
 import { SettingsContent } from '@/components/settings/SettingsContent';
-import { useUtSessions } from '@/hooks/use-ut-sessions';
 import { useI18n } from '@/i18n';
 
 export default function UtSettingsPage() {
   const { user, loading } = useAuth();
   const { t } = useI18n();
   const router = useRouter();
-  const { sessions, inProgressList } = useUtSessions(!!user && isUtRole(user?.role || ''));
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
@@ -30,13 +27,8 @@ export default function UtSettingsPage() {
   }
 
   return (
-    <UtShell
-      sessionCount={sessions.length}
-      liveCount={inProgressList.length}
-    >
-      <div className="ut-page">
-        <SettingsContent user={user} videoRole="ut" compact />
-      </div>
-    </UtShell>
+    <div className="ut-page">
+      <SettingsContent user={user} videoRole="ut" compact />
+    </div>
   );
 }

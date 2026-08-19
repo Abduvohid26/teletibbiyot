@@ -5,16 +5,13 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { isUtRole } from '@ishifo/shared';
 import { getRoleHomePath } from '@/lib/auth-utils';
-import { UtShell } from '@/components/ut/UtShell';
 import { UtAnalyticsContent } from '@/components/ut/UtAnalyticsContent';
-import { useUtSessions } from '@/hooks/use-ut-sessions';
 import { useI18n } from '@/i18n';
 
 export default function UtAnalyticsPage() {
   const { user, loading } = useAuth();
   const { t } = useI18n();
   const router = useRouter();
-  const { sessions, inProgressList } = useUtSessions(!!user && isUtRole(user?.role || ''));
 
   useEffect(() => {
     if (!loading && !user) router.replace('/login');
@@ -30,13 +27,8 @@ export default function UtAnalyticsPage() {
   }
 
   return (
-    <UtShell
-      sessionCount={sessions.length}
-      liveCount={inProgressList.length}
-    >
-      <div className="ut-page overflow-y-auto pb-4">
-        <UtAnalyticsContent />
-      </div>
-    </UtShell>
+    <div className="ut-page overflow-y-auto pb-4">
+      <UtAnalyticsContent />
+    </div>
   );
 }

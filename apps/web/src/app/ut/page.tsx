@@ -20,7 +20,6 @@ import {
 import { AuthLoadingScreen } from '@/components/auth/AuthLoadingScreen';
 import { UtIntakeSection, UtIntakeSubCard } from '@/components/ut/UtIntakeSection';
 import { UtIntakeVitalsPanel } from '@/components/ut/UtIntakeVitalsPanel';
-import { UtShell } from '@/components/ut/UtShell';
 import { useUtSessions } from '@/hooks/use-ut-sessions';
 import { useConsultationRealtime } from '@/hooks/use-consultation-realtime';
 import { toast } from '@/lib/toast';
@@ -129,15 +128,7 @@ export default function UTClientPage() {
   const [doctors, setDoctors] = useState<DoctorOption[]>([]);
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
 
-  const {
-    sessions,
-    inProgressList,
-    refreshSessions,
-  } = useUtSessions(!!user && isUtRole(user?.role || ''));
-
-  useEffect(() => {
-    if (success) void refreshSessions();
-  }, [success, refreshSessions]);
+  useUtSessions(!!user && isUtRole(user?.role || ''));
 
   useEffect(() => {
     if (!user || !isUtRole(user.role)) return;
@@ -362,10 +353,6 @@ export default function UTClientPage() {
   }
 
   return (
-    <UtShell
-      sessionCount={sessions.length}
-      liveCount={inProgressList.length}
-    >
       <div className="ut-page">
         {offlineNotice && (
           <div className="shrink-0 ut-glass-banner ut-glass-banner-warn !py-1.5 !px-3 !text-xs mb-2 truncate">{offlineNotice}</div>
@@ -546,7 +533,6 @@ export default function UTClientPage() {
           </div>
         </div>
       </div>
-    </UtShell>
   );
 }
 
