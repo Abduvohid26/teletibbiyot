@@ -51,8 +51,14 @@ export function DoctorNavTabs({ liveCount = 0, queueCount = 0, className }: Doct
   const { t } = useI18n();
 
   return (
-    <nav className={cn('flex items-center justify-center gap-1', className)} aria-label={t('nav.doctorAria')}>
-      {DOCTOR_NAV_TABS.map(({ href, labelKey, icon: Icon, ...rest }) => {
+    <nav
+      className={cn(
+        'flex items-stretch gap-0.5 p-0.5 rounded-xl bg-white/40 backdrop-blur-md border border-white/55 shadow-sm flex-nowrap shrink-0',
+        className,
+      )}
+      aria-label={t('nav.doctorAria')}
+    >
+      {DOCTOR_NAV_TABS.map(({ href, labelKey, shortKey, icon: Icon, ...rest }) => {
         const exact = 'exact' in rest && rest.exact;
         const active = exact
           ? pathname === href
@@ -60,6 +66,7 @@ export function DoctorNavTabs({ liveCount = 0, queueCount = 0, className }: Doct
         const badgeKey = 'badgeKey' in rest ? rest.badgeKey : null;
         const badge = getBadge(badgeKey, liveCount, queueCount);
         const label = t(labelKey);
+        const shortLabel = t(shortKey);
 
         return (
           <Link
@@ -67,19 +74,22 @@ export function DoctorNavTabs({ liveCount = 0, queueCount = 0, className }: Doct
             href={href}
             title={label}
             className={cn(
-              'relative flex items-center justify-center rounded-xl transition-all duration-200 shrink-0',
-              'w-9 h-9 xl:w-auto xl:h-auto xl:px-3 xl:py-2 xl:gap-1.5',
+              'relative flex items-center justify-center gap-1.5 rounded-lg font-semibold transition-all duration-200 shrink-0',
+              'px-2 py-1.5 sm:px-3 sm:py-2',
               active
                 ? 'bg-white/90 text-brand-700 shadow-sm ring-1 ring-brand-200/70'
                 : 'text-slate-500 hover:text-slate-800 hover:bg-white/50',
             )}
           >
-            <Icon size={17} className={cn('shrink-0', active && 'text-brand-600')} />
-            <span className="hidden xl:inline text-xs font-semibold truncate max-w-[5.5rem]">{label}</span>
+            <Icon size={16} className={cn('shrink-0', active && 'text-brand-600')} />
+            <span className="hidden sm:inline text-xs truncate max-w-[6rem]">
+              <span className="lg:hidden">{shortLabel}</span>
+              <span className="hidden lg:inline">{label}</span>
+            </span>
             {badge != null && (
               <span
                 className={cn(
-                  'absolute -top-0.5 -right-0.5 xl:static xl:ml-0.5 min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold inline-flex items-center justify-center text-white',
+                  'min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold inline-flex items-center justify-center text-white',
                   badgeKey === 'live' ? 'bg-emerald-500' : 'bg-amber-500',
                 )}
               >

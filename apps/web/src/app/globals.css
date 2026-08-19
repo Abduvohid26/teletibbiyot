@@ -363,6 +363,10 @@ body {
     @apply flex items-center gap-2 px-3 lg:px-4 py-2 min-h-[3.25rem];
   }
 
+  .doctor-header-row {
+    @apply grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 px-3 lg:px-4 py-2 min-h-[3.25rem];
+  }
+
   .ut-nav-scroll {
     scrollbar-width: none;
     -ms-overflow-style: none;
@@ -435,9 +439,16 @@ body {
   }
 
   .ut-glass-empty {
-    @apply w-14 h-14 rounded-2xl flex items-center justify-center;
+    @apply w-14 h-14 rounded-2xl flex items-center justify-center shrink-0;
     @apply bg-white/50 backdrop-blur-md border border-white/60;
     box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.6);
+  }
+
+  .ut-empty-panel {
+    @apply w-full flex flex-col items-center justify-center gap-3 text-center;
+    @apply py-16 px-6 min-h-[min(52vh,28rem)];
+    @apply rounded-2xl border border-white/60 bg-white/45 backdrop-blur-md;
+    box-shadow: 0 1px 3px rgb(15 23 42 / 0.04), inset 0 1px 0 rgb(255 255 255 / 0.55);
   }
 
   .ut-glass-banner {
@@ -698,7 +709,7 @@ body {
   }
 
   .empty-state {
-    @apply flex flex-col items-center justify-center py-12 text-center text-slate-400;
+    @apply w-full flex flex-col items-center justify-center gap-2 py-16 px-6 text-center text-slate-500 min-h-[240px];
   }
 
   .live-badge {

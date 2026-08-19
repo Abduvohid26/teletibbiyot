@@ -2,10 +2,9 @@
 
 import { Suspense, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { DoctorShell } from '@/components/layout/DoctorShell';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { SettingsContent } from '@/components/settings/SettingsContent';
-import { UserRole, isUtRole, isMtStaff } from '@ishifo/shared';
+import { isUtRole } from '@ishifo/shared';
 import { useI18n } from '@/i18n';
 
 function SettingsLoadingFallback() {
@@ -37,15 +36,5 @@ function SettingsPageContent() {
   if (authLoading || !user) return null;
   if (isUt) return null;
 
-  const pageBody = <SettingsContent user={user} videoRole={videoRole} />;
-
-  if (isMtStaff(user.role)) {
-    return (
-      <DoctorShell scrollable>
-        {pageBody}
-      </DoctorShell>
-    );
-  }
-
-  return pageBody;
+  return <SettingsContent user={user} videoRole={videoRole} />;
 }

@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { DoctorShell } from '@/components/layout/DoctorShell';
 import { useRequireAuth } from '@/hooks/use-require-auth';
 import { api } from '@/lib/api';
 import {
@@ -26,7 +25,7 @@ import {
   TrendingUp, Building2, Timer, Target,
 } from 'lucide-react';
 import { ROLES_MT_DASHBOARD } from '@/lib/roles';
-import { isMtStaff, isUtRole, UserRole } from '@ishifo/shared';
+import { isUtRole, UserRole } from '@ishifo/shared';
 import { useFilterOptions } from '@/hooks/use-filter-options';
 import { safeAsync } from '@/lib/errors';
 import { useI18n } from '@/i18n';
@@ -291,14 +290,6 @@ export default function ReportsPage() {
         )}
       </div>
   );
-
-  if (isMtStaff(user.role)) {
-    return (
-      <DoctorShell scrollable>
-        {pageBody}
-      </DoctorShell>
-    );
-  }
 
   return (
     <DashboardLayout title={t('reports.title')} subtitle={t('reports.subtitle')}>

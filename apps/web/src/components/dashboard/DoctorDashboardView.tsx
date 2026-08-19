@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, XCircle } from 'lucide-react';
-import { DoctorShell } from '@/components/layout/DoctorShell';
 import { VideoConsultation } from '@/components/dashboard/VideoConsultation';
 import { AiAnalysisPanel } from '@/components/dashboard/AiAnalysisPanel';
 import { PatientDocumentsPanel } from '@/components/dashboard/PatientDocumentsPanel';
@@ -121,7 +120,6 @@ export function DoctorDashboardView({
 
   return (
     <>
-    <DoctorShell>
       <div className="ut-page">
         {error && (
           <div className="shrink-0 mb-2 ut-glass-banner border-red-200/70 bg-red-50/75 text-red-700 text-xs px-3 py-1.5 flex items-center justify-between">
@@ -208,7 +206,6 @@ export function DoctorDashboardView({
             </div>
         </div>
       </div>
-    </DoctorShell>
     {cancelModal}
     </>
   );

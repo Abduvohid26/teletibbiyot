@@ -11,8 +11,8 @@ interface DoctorShellProps {
 }
 
 /**
- * Shifokor 3 ta bo'lim (Asosiy / Bemorlar / Sozlamalar) uchun yagona shell.
- * Header har doim bir xil: brand | nav + badge | ConsultationSwitcher | chiqish.
+ * Shifokor dashboard uchun yagona shell.
+ * Header layout orqali saqlanadi: brand | nav | til + bemor | chiqish.
  */
 export function DoctorShell({ children, scrollable = false }: DoctorShellProps) {
   const header = useDoctorHeaderData();

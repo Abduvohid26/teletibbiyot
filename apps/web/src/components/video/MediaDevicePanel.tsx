@@ -90,13 +90,19 @@ export function MediaCameraPreview({
     <div className={cn('rounded-xl border border-slate-200 overflow-hidden bg-slate-950', className)}>
       <div
         className={cn(
-          'relative w-full',
-          isCard ? 'aspect-video max-h-40' : compact ? 'aspect-video max-h-36' : 'aspect-video max-h-48',
+          'relative w-full aspect-video bg-slate-950',
+          !isCard && !compact && 'min-h-[min(50vh,22rem)]',
         )}
       >
-        <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover mirror" />
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className="absolute inset-0 w-full h-full object-contain mirror"
+        />
         {!testStream && (
-          <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-xs text-center px-3">
+          <div className="absolute inset-0 flex items-center justify-center text-slate-500 text-sm text-center px-3">
             {t('media.previewHint')}
           </div>
         )}

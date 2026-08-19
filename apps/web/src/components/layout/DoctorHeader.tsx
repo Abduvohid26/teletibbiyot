@@ -22,8 +22,8 @@ export function DoctorHeader({
 
   return (
     <header className="ut-shell-header ut-header-flux">
-      <div className="ut-header-flux-row">
-        <div className="ut-shell-brand shrink-0 min-w-0">
+      <div className="doctor-header-row">
+        <div className="ut-shell-brand shrink-0 min-w-0 justify-self-start">
           <div className="w-8 h-8 rounded-lg gradient-btn flex items-center justify-center shadow-sm shrink-0">
             <Stethoscope className="w-3.5 h-3.5 text-white" />
           </div>
@@ -37,11 +37,11 @@ export function DoctorHeader({
           </div>
         </div>
 
-        <div className="flex-1 flex justify-center min-w-0 px-1 overflow-x-auto ut-nav-scroll">
-          <DoctorNavTabs liveCount={liveCount} queueCount={queueCount} className="flex-nowrap shrink-0" />
+        <div className="min-w-0 justify-self-center overflow-x-auto ut-nav-scroll">
+          <DoctorNavTabs liveCount={liveCount} queueCount={queueCount} />
         </div>
 
-        <div className="ut-shell-actions shrink-0 min-w-0 max-w-[55vw] sm:max-w-none">
+        <div className="ut-shell-actions shrink-0 min-w-0 max-w-[55vw] sm:max-w-none justify-self-end">
           <LanguageSwitcher compact />
           {headerQueue}
           <button

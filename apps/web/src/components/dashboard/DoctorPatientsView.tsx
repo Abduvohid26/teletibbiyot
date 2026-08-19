@@ -12,7 +12,6 @@ import {
   CheckCircle2,
   XCircle,
 } from 'lucide-react';
-import { DoctorShell } from '@/components/layout/DoctorShell';
 import { api, Consultation, DashboardStats } from '@/lib/api';
 import { ConsultationFilters, FilterOptions, TRIAGE_OPTIONS } from '@/lib/analytics-types';
 import { SmartFilterBar, countActiveFilters } from '@/components/analytics/SmartFilterBar';
@@ -55,6 +54,20 @@ function matchesSearch(c: Consultation, q: string) {
     c.patient.fullName.toLowerCase().includes(needle)
     || c.patient.phone?.includes(needle)
     || c.utFacility?.code?.toLowerCase().includes(needle)
+  );
+}
+
+function DoctorEmptyState({ title, hint }: { title: string; hint: string }) {
+  return (
+    <div className="ut-empty-panel">
+      <div className="ut-glass-empty">
+        <Stethoscope className="w-7 h-7 text-slate-300" />
+      </div>
+      <div className="max-w-md mx-auto">
+        <h2 className="font-bold text-slate-800 text-base mb-1">{title}</h2>
+        <p className="text-sm text-slate-500 leading-relaxed">{hint}</p>
+      </div>
+    </div>
   );
 }
 
@@ -257,7 +270,6 @@ export function DoctorPatientsView({
 
   return (
     <>
-      <DoctorShell scrollable>
         <div className="doctor-subpage-inner space-y-4 pb-8">
           {error && (
             <div className="ut-glass-banner border-red-200/70 bg-red-50/75 text-red-700 text-xs px-3 py-2 flex items-center justify-between">
@@ -363,13 +375,10 @@ export function DoctorPatientsView({
               )}
 
               {showActiveEmpty && (
-                <div className="ut-glass-empty flex flex-col items-center py-14 px-4 text-center">
-                  <Stethoscope className="w-8 h-8 text-slate-300 mb-3" />
-                  <h2 className="font-bold text-slate-800 text-sm mb-1">{t('patients.queueEmpty')}</h2>
-                  <p className="text-sm text-slate-500 max-w-sm">
-                    {t('patients.queueEmptyHint')}
-                  </p>
-                </div>
+                <DoctorEmptyState
+                  title={t('patients.queueEmpty')}
+                  hint={t('patients.queueEmptyHint')}
+                />
               )}
             </div>
           ) : historyLoading ? (
@@ -378,11 +387,10 @@ export function DoctorPatientsView({
               <span className="text-sm">{t('common.loading')}</span>
             </div>
           ) : historyList.length === 0 ? (
-            <div className="ut-glass-empty flex flex-col items-center py-14 px-4 text-center">
-              <Stethoscope className="w-8 h-8 text-slate-300 mb-3" />
-              <h2 className="font-bold text-slate-800 text-sm mb-1">{t('patients.notFound')}</h2>
-              <p className="text-sm text-slate-500 max-w-sm">{t('patients.notFoundHint')}</p>
-            </div>
+            <DoctorEmptyState
+              title={t('patients.notFound')}
+              hint={t('patients.notFoundHint')}
+            />
           ) : (
             <div className="space-y-2">
               {historyList.map((c) => (
@@ -391,7 +399,6 @@ export function DoctorPatientsView({
             </div>
           )}
         </div>
-      </DoctorShell>
       {cancelModal}
     </>
   );
