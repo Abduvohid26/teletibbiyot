@@ -13,7 +13,13 @@ export class LivekitService {
   constructor(private config: ConfigService) {}
 
   isEnabled(): boolean {
-    if (this.config.get('E2E') === 'true') return false;
+    // E2E'da LiveKit sukut bo'yicha o'chiriladi (testlar P2P yo'lini sinaydi).
+    // AMMO production endi SFU'da ishlaydi — o'sha yo'lni ham sinash imkoni
+    // bo'lishi SHART, aks holda ishlatilayotgan kod umuman qoplanmaydi.
+    // E2E_LIVEKIT=true bilan aynan shu suite SFU rejimida qayta yuritiladi.
+    if (this.config.get('E2E') === 'true' && this.config.get('E2E_LIVEKIT') !== 'true') {
+      return false;
+    }
     if (this.config.get('LIVEKIT_ENABLED') !== 'true') return false;
     const key = this.config.get<string>('LIVEKIT_API_KEY');
     const secret = this.config.get<string>('LIVEKIT_API_SECRET');

@@ -98,6 +98,30 @@ export function useLivekitRoom({
   const preflightConfirmedRef = useRef(false);
   const hadMediaSessionRef = useRef(false);
   const connectingRef = useRef(false);
+  /**
+   * Har bir ulanish urinishiga raqam beriladi.
+   *
+   * Muammo shu edi: media effekti qayta ishga tushganda cleanup `teardownRoom()`
+   * ni chaqiradi va `room.disconnect()` bajariladi — bu paytda `room.connect()`
+   * hali tugamagan bo'lishi mumkin. LiveKit ulanishni uzadi va ikkita xato
+   * chiqadi: "could not establish signal connection: Abort handler called" va
+   * keyin "this.engine.pcManager is undefined" (o'lik xonaga trek publish
+   * qilinganda). Generatsiya raqami eskirgan urinishni aniqlab, uni jimgina
+   * to'xtatadi — foydalanuvchiga xato ko'rsatilmaydi va P2P ga tushib
+   * ketilmaydi.
+   */
+  const connectGenRef = useRef(0);
+  const publishedRoomRef = useRef<Room | null>(null);
+  /** Avtomatik qayta ulanish holati */
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttemptRef = useRef(0);
+  const scheduleReconnectRef = useRef<() => void>(() => undefined);
+  // Hodisa handlerlari yaratilgan paytdagi state'ni "muzlatib" qo'yadi,
+  // shuning uchun joriy qiymatlarni ref orqali o'qiymiz.
+  const enabledRef = useRef(false);
+  const roomClosedRef = useRef(false);
+  const videoPausedRef = useRef(false);
+  const sessionKickedRef = useRef(false);
   const isReconnectingRef = useRef(false);
   const lastPeerNameRef = useRef('');
   const qualityPresetRef = useRef<VideoQualityPreset>(loadMediaPreferences().qualityPreset);
@@ -185,8 +209,15 @@ export function useLivekitRoom({
     setPeerDisplayName(name || lastPeerNameRef.current);
   }, [role]);
 
-  const publishLocalTracks = useCallback(async (room: Room) => {
+  const publishLocalTracks = useCallback(async (room: Room, gen: number) => {
     if (!isPublisher) return;
+    // Har publish oldidan tekshiramiz: xona hali tirikmi va bu urinish eskirmaganmi.
+    // `publishTrack` uzilgan xonada `pcManager is undefined` bilan yiqiladi.
+    const stillValid = () =>
+      gen === connectGenRef.current
+      && roomRef.current === room
+      && room.state === 'connected';
+    if (!stillValid()) return;
     const preset = qualityPresetRef.current;
     const layers =
       preset === 'low'
@@ -197,7 +228,7 @@ export function useLivekitRoom({
       const stream = localStreamsRef.current.get(MT_DOCTOR_STREAM_ID);
       const video = stream?.getVideoTracks().find((t) => t.readyState === 'live');
       const audio = stream?.getAudioTracks().find((t) => t.readyState === 'live');
-      if (video) {
+      if (video && stillValid()) {
         const local = new LocalVideoTrack(video);
         await room.localParticipant.publishTrack(local, {
           name: 'cam-doctor',
@@ -208,7 +239,7 @@ export function useLivekitRoom({
         });
         local.mediaStreamTrack.enabled = camOnRef.current;
       }
-      if (audio) {
+      if (audio && stillValid()) {
         const local = new LocalAudioTrack(audio);
         await room.localParticipant.publishTrack(local, {
           name: 'mic',
@@ -224,7 +255,7 @@ export function useLivekitRoom({
     for (const feedId of UT_CAMERA_ORDER) {
       const stream = localStreamsRef.current.get(feedId);
       const video = stream?.getVideoTracks().find((t) => t.readyState === 'live');
-      if (!video) continue;
+      if (!video || !stillValid()) continue;
       const local = new LocalVideoTrack(video);
       await room.localParticipant.publishTrack(local, {
         name: `cam-${feedId}`,
@@ -237,7 +268,7 @@ export function useLivekitRoom({
     }
     const audioStream = localStreamsRef.current.get('ut-audio');
     const audio = audioStream?.getAudioTracks().find((t) => t.readyState === 'live');
-    if (audio) {
+    if (audio && stillValid()) {
       const local = new LocalAudioTrack(audio);
       await room.localParticipant.publishTrack(local, {
         name: 'mic',
@@ -250,6 +281,10 @@ export function useLivekitRoom({
   }, [isPublisher, role]);
 
   const teardownRoom = useCallback(async () => {
+    // Generatsiyani oshiramiz — jarayondagi connect/publish endi "eskirgan"
+    // hisoblanadi va o'zini jimgina to'xtatadi.
+    connectGenRef.current += 1;
+    publishedRoomRef.current = null;
     const room = roomRef.current;
     roomRef.current = null;
     setSfuConnected(false);
@@ -333,9 +368,15 @@ export function useLivekitRoom({
     }
   }, [isPublisher, role, t]);
 
-  const connectSfu = useCallback(async () => {
-    if (!consultationId || !sfuUrl || !sfuToken) return;
+  const connectSfu = useCallback(async (override?: { url: string; token: string }) => {
+    // override — yangi mint qilingan token. Ilgari `reconnectCall` tokenni
+    // yangilardi-yu, connectSfu baribir ESKI (prop'dagi) tokenni ishlatardi:
+    // token eskirgan bo'lsa qayta ulanish abadiy muvaffaqiyatsiz bo'lardi.
+    const url = override?.url ?? sfuUrl;
+    const token = override?.token ?? sfuToken;
+    if (!consultationId || !url || !token) return;
     await teardownRoom();
+    const gen = connectGenRef.current;
 
     const room = new Room({
       adaptiveStream: true,
@@ -363,6 +404,7 @@ export function useLivekitRoom({
     room.on(RoomEvent.ParticipantDisconnected, () => refreshPeers(room));
     room.on(RoomEvent.Reconnecting, () => setReconnecting(true));
     room.on(RoomEvent.Reconnected, () => {
+      reconnectAttemptRef.current = 0;
       setReconnecting(false);
       setError('');
     });
@@ -370,7 +412,15 @@ export function useLivekitRoom({
       setSfuConnected(false);
       if (reason === DisconnectReason.DUPLICATE_IDENTITY) {
         setSessionKicked(true);
+        return;
       }
+      // Foydalanuvchi o'zi chiqdi yoki xona yopildi — qayta ulanmaymiz.
+      if (reason === DisconnectReason.CLIENT_INITIATED) return;
+      if (roomClosedRef.current || videoPausedRef.current || !enabledRef.current) return;
+      // MUHIM: LiveKit o'zining ichki qayta-urinishlarini tugatgach shu hodisani
+      // beradi va KEYIN hech narsa qilmaydi. Ilgari bu yerda tiklash yo'q edi —
+      // ulanish uzilsa, foydalanuvchi abadiy o'lik xonada qolardi.
+      scheduleReconnectRef.current();
     });
     room.on(RoomEvent.ConnectionQualityChanged, (quality, participant) => {
       if (participant.isLocal) return;
@@ -383,21 +433,134 @@ export function useLivekitRoom({
       setNetworkAudioOnly(mapped === 'poor');
     });
 
-    await room.connect(sfuUrl, sfuToken);
+    // prepareConnection — DNS/TLS/signaling'ni oldindan isitadi. Busiz har bir
+    // qo'shilish to'liq handshake'ni noldan boshlaydi va 1-2 soniya sekinroq.
+    try {
+      await room.prepareConnection(url, token);
+    } catch {
+      /* isitish ixtiyoriy — muvaffaqiyatsiz bo'lsa oddiy yo'ldan ketamiz */
+    }
+    if (gen !== connectGenRef.current) return;
+
+    try {
+      await room.connect(url, token);
+    } catch (err) {
+      // Ulanish O'ZIMIZ uzganimiz uchun to'xtagan bo'lsa (yangi urinish
+      // boshlandi yoki komponent tozalandi) — bu xato emas. Ilgari aynan shu
+      // holat "Abort handler called" xatosini ko'rsatib, ilovani keraksiz
+      // ravishda P2P ga qaytarardi.
+      if (gen !== connectGenRef.current) return;
+      throw err;
+    }
+
+    // Ulanish davomida yangi urinish boshlangan bo'lsa — bu ulanish eskirgan.
+    // Jimgina yopamiz, aks holda ikki xona bir vaqtda ochiq qoladi.
+    if (gen !== connectGenRef.current || roomRef.current !== room) {
+      try {
+        await room.disconnect();
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
+
     setSfuConnected(true);
     setReconnecting(false);
     refreshPeers(room);
-    await publishLocalTracks(room);
+    // Treklar bu yerda EMAS, alohida effektda publish qilinadi — media hali
+    // tayyor bo'lmasligi mumkin va uni kutib o'tirish qo'shilishni sekinlashtiradi.
   }, [
     attachRemoteTrack,
     consultationId,
     detachRemoteTrack,
-    publishLocalTracks,
     refreshPeers,
     sfuToken,
     sfuUrl,
     teardownRoom,
   ]);
+
+  // State'ni ref'ga ko'chiramiz — LiveKit hodisa handlerlari va timerlar
+  // yaratilgan paytdagi qiymatga yopishib qolmasligi uchun.
+  useEffect(() => {
+    enabledRef.current = enabled;
+    roomClosedRef.current = roomClosed;
+    videoPausedRef.current = videoPaused;
+    sessionKickedRef.current = sessionKicked;
+  }, [enabled, roomClosed, sessionKicked, videoPaused]);
+
+  const clearReconnectTimer = useCallback(() => {
+    if (reconnectTimerRef.current) {
+      clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+    }
+  }, []);
+
+  /** Yangi token olib qaytadan ulanish (token eskirgan bo'lishi ham mumkin) */
+  const reconnectSfu = useCallback(async () => {
+    if (!consultationId || !enabledRef.current) return;
+    if (roomClosedRef.current || videoPausedRef.current || sessionKickedRef.current) return;
+    if (connectingRef.current) return;
+    if (roomRef.current?.state === 'connected') return;
+
+    connectingRef.current = true;
+    setReconnecting(true);
+    try {
+      const minted = await api.getSfuToken(consultationId, role);
+      if (!minted.enabled || !minted.url || !minted.token) {
+        onSfuUnavailable?.();
+        return;
+      }
+      await connectSfu({ url: minted.url, token: minted.token });
+      reconnectAttemptRef.current = 0;
+      setError('');
+    } catch {
+      scheduleReconnectRef.current();
+    } finally {
+      connectingRef.current = false;
+    }
+  }, [connectSfu, consultationId, onSfuUnavailable, role]);
+
+  /** Eksponensial backoff: 0.5s → 1s → 2s → 4s → 8s (maksimum) */
+  const scheduleSfuReconnect = useCallback(() => {
+    if (reconnectTimerRef.current) return;
+    if (roomClosedRef.current || sessionKickedRef.current || !enabledRef.current) return;
+    const attempt = reconnectAttemptRef.current;
+    reconnectAttemptRef.current = Math.min(attempt + 1, 5);
+    setReconnecting(true);
+    reconnectTimerRef.current = setTimeout(() => {
+      reconnectTimerRef.current = null;
+      void reconnectSfu();
+    }, Math.min(500 * 2 ** attempt, 8000));
+  }, [reconnectSfu]);
+
+  scheduleReconnectRef.current = scheduleSfuReconnect;
+
+  // Tarmoq qaytdi yoki ilova fokusga keldi — backoff'ni KUTMASDAN darhol
+  // urinamiz. Wi-Fi ↔ mobil internet almashuvida eng katta farqni shu beradi.
+  useEffect(() => {
+    if (!enabled || !consultationId || typeof window === 'undefined') return;
+
+    const kick = () => {
+      if (roomRef.current?.state === 'connected') return;
+      reconnectAttemptRef.current = 0;
+      clearReconnectTimer();
+      void reconnectSfu();
+    };
+    const onOnline = () => kick();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') kick();
+    };
+
+    window.addEventListener('online', onOnline);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [clearReconnectTimer, consultationId, enabled, reconnectSfu]);
+
+  // Komponent yopilganda kutilayotgan urinishni bekor qilamiz.
+  useEffect(() => clearReconnectTimer, [clearReconnectTimer]);
 
   useEffect(() => {
     if (!socketError) return;
@@ -461,8 +624,12 @@ export function useLivekitRoom({
     videoPaused,
   ]);
 
+  // SFU ga ulanish kameraga ruxsat/getUserMedia ni KUTMAYDI. Ilgari `mediaReady`
+  // shart edi va zanjir ketma-ket bo'lardi: token → 4 ta kamera ochish →
+  // signaling → publish. Endi signaling media bilan parallel ketadi va
+  // qo'shilish sezilarli tez bo'ladi (UT tomonda ayniqsa — u 4 ta kamera ochadi).
   useEffect(() => {
-    if (!enabled || !mediaReady || !sfuUrl || !sfuToken || videoPaused || roomClosed) return;
+    if (!enabled || !sfuUrl || !sfuToken || videoPaused || roomClosed) return;
     if (connectingRef.current) return;
     if (roomRef.current?.state === 'connected') return;
     connectingRef.current = true;
@@ -474,13 +641,29 @@ export function useLivekitRoom({
       .finally(() => {
         connectingRef.current = false;
       });
-  }, [connectSfu, enabled, mediaReady, onSfuUnavailable, roomClosed, sfuToken, sfuUrl, t, videoPaused]);
+  }, [connectSfu, enabled, onSfuUnavailable, roomClosed, sfuToken, sfuUrl, t, videoPaused]);
+
+  // Media tayyor bo'lgach treklarni publish qilamiz — ulanish allaqachon tayyor
+  // bo'lsa bu bir zumda bo'ladi.
+  useEffect(() => {
+    if (!enabled || !mediaReady || !sfuConnected) return;
+    const room = roomRef.current;
+    if (!room || room.state !== 'connected') return;
+    if (publishedRoomRef.current === room) return;
+    publishedRoomRef.current = room;
+    void publishLocalTracks(room, connectGenRef.current).catch(() => {
+      // Keyingi urinishda qayta publish qilinsin
+      if (publishedRoomRef.current === room) publishedRoomRef.current = null;
+    });
+  }, [enabled, mediaReady, publishLocalTracks, sfuConnected]);
 
   useEffect(() => {
     const socket = socketRef.current;
     if (!enabled || !consultationId || !socket) return;
     const onClosed = () => {
       setRoomClosed(true);
+      roomClosedRef.current = true;
+      clearReconnectTimer();
       void teardownRoom();
       onCallEnded?.();
     };
@@ -492,7 +675,7 @@ export function useLivekitRoom({
       socket.off('consultation-completed', onClosed);
       socket.off('consultation-cancelled', onClosed);
     };
-  }, [consultationId, enabled, onCallEnded, socketRef, teardownRoom]);
+  }, [clearReconnectTimer, consultationId, enabled, onCallEnded, socketRef, teardownRoom]);
 
   const confirmPreflight = useCallback(() => {
     preflightConfirmedRef.current = true;
@@ -553,6 +736,10 @@ export function useLivekitRoom({
   );
 
   const leaveCall = useCallback(() => {
+    // Ataylab chiqish — kutilayotgan qayta-ulanish urinishini bekor qilamiz,
+    // aks holda chiqqandan keyin xona qaytadan ochilib ketadi.
+    clearReconnectTimer();
+    reconnectAttemptRef.current = 0;
     if (consultationId) leaveConsultationRoom(consultationId);
     window.dispatchEvent(new CustomEvent('call-ended-recording'));
     setupStartedRef.current = false;
@@ -560,7 +747,7 @@ export function useLivekitRoom({
     setReconnecting(false);
     setPeerCount(0);
     cleanupMedia();
-  }, [cleanupMedia, consultationId]);
+  }, [cleanupMedia, clearReconnectTimer, consultationId]);
 
   const reconnectCall = useCallback(async () => {
     if (isReconnectingRef.current || !consultationId) return;
@@ -572,7 +759,8 @@ export function useLivekitRoom({
         onSfuUnavailable?.();
         return;
       }
-      await connectSfu();
+      await connectSfu({ url: minted.url, token: minted.token });
+      reconnectAttemptRef.current = 0;
     } catch {
       setError(t('video.reconnectPermission'));
     } finally {

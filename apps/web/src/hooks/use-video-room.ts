@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import { useP2PVideoRoom } from '@/hooks/use-p2p-video-room';
 import { useLivekitRoom } from '@/hooks/use-livekit-room';
@@ -53,12 +53,18 @@ export function useVideoRoom(opts: VideoRoomOptions) {
 
   const resolvedMode: SfuMode = forceP2p ? 'p2p' : mode;
 
+  // Barqaror bo'lishi SHART: ilgari bu inline arrow edi va har renderda yangi
+  // funksiya yaratilardi. U LiveKit hookining ulanish effektiga bog'liqlik
+  // sifatida kiradi — natijada effekt har renderda qayta ishga tushib,
+  // jarayondagi ulanishni uzardi ("Abort handler called").
+  const handleSfuUnavailable = useCallback(() => setForceP2p(true), []);
+
   const livekit = useLivekitRoom({
     ...opts,
     enabled: Boolean(opts.enabled) && resolvedMode === 'livekit',
     sfuUrl: sfu?.url,
     sfuToken: sfu?.token,
-    onSfuUnavailable: () => setForceP2p(true),
+    onSfuUnavailable: handleSfuUnavailable,
   });
   const p2p = useP2PVideoRoom({
     ...opts,
