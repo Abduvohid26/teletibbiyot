@@ -418,7 +418,23 @@ export function useLivekitRoom({
     const gen = connectGenRef.current;
 
     const room = new Room({
-      adaptiveStream: true,
+      /**
+       * adaptiveStream ATAYLAB O'CHIRILGAN.
+       *
+       * U obuna bo'lingan trekni "ko'rinmayapti" deb pauza qiladi va buni
+       * `track.attach(element)` chaqiruvlari orqali aniqlaydi. Bizning UI esa
+       * trekni qo'lda `new MediaStream([mediaStreamTrack])` ga o'rab,
+       * `VideoTile` da `video.srcObject` qilib beradi (4 ta UT kamerasini
+       * o'z panellariga taqsimlash uchun shunday qilingan). Natijada LiveKit
+       * hech qanday biriktirilgan element ko'rmaydi va trekni PAUZA QILADI:
+       * ulanish tirik qoladi, kadrlar esa umuman kelmay qo'yadi —
+       * foydalanuvchi "Tasvir tiklanmoqda…" qoplamasini ko'radi.
+       *
+       * Buni e2e testi o'lchab tasdiqladi: 38 soniyada 0 FPS, 0 kbps.
+       * Qayta yoqishdan oldin UI'ni `track.attach()` ga o'tkazish kerak
+       * (video-runtime-quality.spec.ts buni ushlab turadi).
+       */
+      adaptiveStream: false,
       dynacast: true,
       disconnectOnPageLeave: false,
       publishDefaults: {
