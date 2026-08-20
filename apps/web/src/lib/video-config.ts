@@ -8,6 +8,16 @@ let cachedIceServers: RTCIceServer[] | null = null;
 let iceTurnConfigured: boolean | null = null;
 let fetchPromise: Promise<RTCIceServer[]> | null = null;
 let iceConfigError: string | null = null;
+/**
+ * Vaqtinchalik TURN paroli qachon eskiradi (ms, epoch). 0 — doimiy parol.
+ *
+ * Server `credentialTtl` qaytarsa, parol cheklangan muddatga amal qiladi.
+ * Keshni abadiy saqlasak, uzoq konsultatsiyada yoki keyingi qo'ng'iroqda
+ * eskirgan parol bilan TURN ga murojaat qilinadi va relay ishlamaydi.
+ * Shuning uchun muddat tugashidan 5 daqiqa oldin keshni bekor qilamiz.
+ */
+let iceServersExpireAt = 0;
+const CREDENTIAL_REFRESH_MARGIN_MS = 5 * 60 * 1000;
 
 /**
  * ICE konfiguratsiyasini olishda muammo bo'lganmi.
@@ -62,10 +72,21 @@ function buildEnvIceServers(): RTCIceServer[] {
 
 /** ICE serverlar — avval API dan, keyin env fallback */
 export async function fetchIceServers(): Promise<RTCIceServer[]> {
-  if (cachedIceServers) return cachedIceServers;
+  if (cachedIceServers && (!iceServersExpireAt || Date.now() < iceServersExpireAt)) {
+    return cachedIceServers;
+  }
+  if (cachedIceServers) {
+    // Parol eskirgan — keshni tashlab, yangisini olamiz.
+    cachedIceServers = null;
+    iceServersExpireAt = 0;
+  }
   if (fetchPromise) return fetchPromise;
 
   fetchPromise = (async () => {
+    // MUHIM: oxirida `fetchPromise` ni tozalash SHART. Aks holda parol
+    // eskirganda yuqoridagi `if (fetchPromise) return fetchPromise` ESKI,
+    // allaqachon bajarilgan promise'ni qaytaradi va yangilash hech qachon
+    // sodir bo'lmaydi.
     try {
       // Bearer token ham yuboramiz. Ilgari faqat cookie'ga tayanardi — cookie
       // yo'q yoki SameSite tufayli yuborilmagan holatda endpoint 401 qaytarardi
@@ -80,9 +101,16 @@ export async function fetchIceServers(): Promise<RTCIceServer[]> {
         iceConfigError = `ICE konfiguratsiyasini olishda xatolik (HTTP ${res.status})`;
       }
       if (res.ok) {
-        const data = (await res.json()) as { iceServers?: RTCIceServer[]; turnConfigured?: boolean };
+        const data = (await res.json()) as {
+          iceServers?: RTCIceServer[];
+          turnConfigured?: boolean;
+          credentialTtl?: number | null;
+        };
         if (data.iceServers?.length) {
           cachedIceServers = data.iceServers;
+          iceServersExpireAt = data.credentialTtl
+            ? Date.now() + Math.max(0, data.credentialTtl * 1000 - CREDENTIAL_REFRESH_MARGIN_MS)
+            : 0;
           iceTurnConfigured = data.turnConfigured ?? data.iceServers.some((s) => {
             const urls = Array.isArray(s.urls) ? s.urls : [s.urls];
             return urls.some((u) => String(u).startsWith('turn:'));
@@ -104,7 +132,9 @@ export async function fetchIceServers(): Promise<RTCIceServer[]> {
         ' — zaxira sozlamada ham TURN yo\'q. Web image NEXT_PUBLIC_TURN_URL bilan qayta qurilishi kerak.';
     }
     return cachedIceServers;
-  })();
+  })().finally(() => {
+    fetchPromise = null;
+  });
 
   return fetchPromise;
 }
@@ -116,6 +146,7 @@ export function getIceServers(): RTCIceServer[] {
 
 export function clearIceCache() {
   cachedIceServers = null;
+  iceServersExpireAt = 0;
   iceTurnConfigured = null;
   fetchPromise = null;
   iceConfigError = null;

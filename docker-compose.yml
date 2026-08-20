@@ -132,6 +132,7 @@ services:
         --fingerprint --no-cli
         --min-port=49152 --max-port=49200
         $${TURN_EXTERNAL_IP:+--external-ip=$$TURN_EXTERNAL_IP}
+        $${TURN_STATIC_SECRET:+--use-auth-secret --static-auth-secret=$$TURN_STATIC_SECRET}
     ports:
       - '${TURN_PUBLISH:-3499}:${TURN_PORT:-3499}/tcp'
       - '${TURN_PUBLISH:-3499}:${TURN_PORT:-3499}/udp'
@@ -158,6 +159,7 @@ services:
         --user=${TURN_USERNAME}:${TURN_PASSWORD} --realm=${TURN_REALM}
         --no-cli --min-port=49152 --max-port=49200
         $${TURN_EXTERNAL_IP:+--external-ip=$$TURN_EXTERNAL_IP}
+        $${TURN_STATIC_SECRET:+--use-auth-secret --static-auth-secret=$$TURN_STATIC_SECRET}
     ports:
       - '${TURN_PUBLISH:-3499}:${TURN_PORT:-3499}/udp'
       - '${TURN_PUBLISH:-3499}:${TURN_PORT:-3499}/tcp'

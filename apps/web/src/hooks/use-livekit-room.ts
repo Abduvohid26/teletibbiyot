@@ -116,6 +116,10 @@ export function useLivekitRoom({
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptRef = useRef(0);
   const scheduleReconnectRef = useRef<() => void>(() => undefined);
+  const connectSfuRef = useRef<(o?: { url: string; token: string }) => Promise<void>>(
+    async () => undefined,
+  );
+  const onSfuUnavailableRef = useRef<(() => void) | undefined>(undefined);
   // Hodisa handlerlari yaratilgan paytdagi state'ni "muzlatib" qo'yadi,
   // shuning uchun joriy qiymatlarni ref orqali o'qiymiz.
   const enabledRef = useRef(false);
@@ -219,10 +223,19 @@ export function useLivekitRoom({
       && room.state === 'connected';
     if (!stillValid()) return;
     const preset = qualityPresetRef.current;
-    const layers =
-      preset === 'low'
-        ? [VideoPresets.h90, VideoPresets.h180, VideoPresets.h360]
-        : [VideoPresets.h180, VideoPresets.h360, VideoPresets.h720];
+    // VP9/SVC da alohida simulcast qatlamlari kerak emas — qatlamlar bitta
+    // oqim ichida (L3T3_KEY). Sifat presetiga qarab faqat yuqori chegara
+    // o'zgaradi.
+    const videoOpts = {
+      videoCodec: 'vp9' as const,
+      scalabilityMode: 'L3T3_KEY' as const,
+      simulcast: false,
+      videoEncoding: preset === 'low' ? VideoPresets.h360.encoding : VideoPresets.h720.encoding,
+      backupCodec: {
+        codec: 'vp8' as const,
+        encoding: preset === 'low' ? VideoPresets.h360.encoding : VideoPresets.h720.encoding,
+      },
+    };
 
     if (role === 'mt') {
       const stream = localStreamsRef.current.get(MT_DOCTOR_STREAM_ID);
@@ -233,9 +246,7 @@ export function useLivekitRoom({
         await room.localParticipant.publishTrack(local, {
           name: 'cam-doctor',
           source: Track.Source.Camera,
-          simulcast: true,
-          videoEncoding: VideoPresets.h720.encoding,
-          videoSimulcastLayers: layers,
+          ...videoOpts,
         });
         local.mediaStreamTrack.enabled = camOnRef.current;
       }
@@ -260,9 +271,7 @@ export function useLivekitRoom({
       await room.localParticipant.publishTrack(local, {
         name: `cam-${feedId}`,
         source: Track.Source.Camera,
-        simulcast: true,
-        videoEncoding: preset === 'low' ? VideoPresets.h360.encoding : VideoPresets.h720.encoding,
-        videoSimulcastLayers: layers,
+        ...videoOpts,
       });
       local.mediaStreamTrack.enabled = camOnRef.current;
     }
@@ -298,7 +307,16 @@ export function useLivekitRoom({
   }, []);
 
   const cleanupMedia = useCallback(() => {
-    void teardownRoom();
+    // DIQQAT: bu yerda `teardownRoom()` chaqirilmaydi.
+    //
+    // Ilgari chaqirilardi va media effekti har safar qayta ishga tushganda
+    // (bog'liqliklari o'zgarganda) SFU xonasi uzilib, darhol qaytadan
+    // qurilardi. LiveKit log'ida bu shunday ko'rinadi:
+    //   participant closing ... reason: "CLIENT_REQUEST_LEAVE"
+    //   starting RTC session ... Reconnect: false     (200ms keyin)
+    // Har tsiklda kamera qayta ochilib, treklar qayta publish qilinardi —
+    // video aynan shundan "qotardi". Xona hayoti endi render tsikliga emas,
+    // faqat `enabled`/`consultationId` ga bog'liq (pastdagi alohida effekt).
     stopAllStreams(localStreamsRef.current);
     localStreamsRef.current.clear();
     setLocalCameraFeeds({});
@@ -307,8 +325,7 @@ export function useLivekitRoom({
     setRemoteCameras({});
     setRemoteAudio(null);
     setMediaReady(false);
-    setSfuConnected(false);
-  }, [teardownRoom]);
+  }, []);
 
   const setupLocalMedia = useCallback(async () => {
     if (!isPublisher) {
@@ -383,10 +400,19 @@ export function useLivekitRoom({
       dynacast: true,
       disconnectOnPageLeave: false,
       publishDefaults: {
-        simulcast: true,
+        // VP9 + SVC. Bir xil sifatda VP8 dan ~30-50% kam trafik — uzoq
+        // hududlardagi zaif kanallar uchun eng katta amaliy foyda.
+        //
+        // MUHIM: VP9 da `simulcast` ISHLATILMAYDI. Uch xil oqim yuborish
+        // o'rniga bitta oqim ichida uch qatlam bo'ladi (L3T3_KEY) — bu
+        // yuklamani yana kamaytiradi. `backupCodec` esa VP9 ni tushunmaydigan
+        // obunachiga avtomatik VP8 beradi, ya'ni eski brauzer uzilib qolmaydi.
+        videoCodec: 'vp9',
+        scalabilityMode: 'L3T3_KEY' as const,
+        backupCodec: { codec: 'vp8', encoding: VideoPresets.h720.encoding },
+        simulcast: false,
         dtx: true,
         red: true,
-        videoSimulcastLayers: [VideoPresets.h180, VideoPresets.h360, VideoPresets.h720],
         videoEncoding: VideoPresets.h720.encoding,
         stopMicTrackOnMute: false,
       },
@@ -534,6 +560,8 @@ export function useLivekitRoom({
   }, [reconnectSfu]);
 
   scheduleReconnectRef.current = scheduleSfuReconnect;
+  connectSfuRef.current = connectSfu;
+  onSfuUnavailableRef.current = onSfuUnavailable;
 
   // Tarmoq qaytdi yoki ilova fokusga keldi — backoff'ni KUTMASDAN darhol
   // urinamiz. Wi-Fi ↔ mobil internet almashuvida eng katta farqni shu beradi.
@@ -561,6 +589,26 @@ export function useLivekitRoom({
 
   // Komponent yopilganda kutilayotgan urinishni bekor qilamiz.
   useEffect(() => clearReconnectTimer, [clearReconnectTimer]);
+
+  /**
+   * Xonaning HAYOT SIKLI — faqat shu ikki qiymatga bog'liq.
+   *
+   * Ilgari xona media effektining cleanup'ida yopilardi va u effekt
+   * bog'liqliklari o'zgarganda (ya'ni deyarli har renderda) qayta ishga
+   * tushardi. LiveKit log'ida bu 15 soniyalik aniq siklga aylanib qolgan edi:
+   *   participant closing ... "CLIENT_REQUEST_LEAVE"
+   *   starting RTC session ... Reconnect: false
+   * Har tsiklda treklar qayta publish qilinib, video qotardi.
+   */
+  useEffect(() => {
+    if (!enabled || !consultationId) {
+      void teardownRoom();
+      return;
+    }
+    return () => {
+      void teardownRoom();
+    };
+  }, [enabled, consultationId, teardownRoom]);
 
   useEffect(() => {
     if (!socketError) return;
@@ -631,17 +679,24 @@ export function useLivekitRoom({
   useEffect(() => {
     if (!enabled || !sfuUrl || !sfuToken || videoPaused || roomClosed) return;
     if (connectingRef.current) return;
-    if (roomRef.current?.state === 'connected') return;
+    const state = roomRef.current?.state;
+    // 'connecting' va 'reconnecting' ham BAND holat. Ilgari faqat 'connected'
+    // tekshirilardi — LiveKit o'zi qayta ulanayotgan paytda biz xonani buzib,
+    // hammasini noldan boshlar edik.
+    if (state === 'connected' || state === 'connecting' || state === 'reconnecting') return;
     connectingRef.current = true;
-    void connectSfu()
+    void connectSfuRef.current()
       .catch((err) => {
         setError(err instanceof Error ? err.message : t('video.connectError'));
-        onSfuUnavailable?.();
+        onSfuUnavailableRef.current?.();
       })
       .finally(() => {
         connectingRef.current = false;
       });
-  }, [connectSfu, enabled, onSfuUnavailable, roomClosed, sfuToken, sfuUrl, t, videoPaused]);
+    // DIQQAT: bog'liqliklar ro'yxatida faqat HAQIQIY qiymatlar bor.
+    // `connectSfu` va `onSfuUnavailable` ref orqali chaqiriladi — ularning
+    // identifikatori o'zgarishi (har render) ulanishni qayta qurmasligi kerak.
+  }, [enabled, roomClosed, sfuToken, sfuUrl, t, videoPaused]);
 
   // Media tayyor bo'lgach treklarni publish qilamiz — ulanish allaqachon tayyor
   // bo'lsa bu bir zumda bo'ladi.

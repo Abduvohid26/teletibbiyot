@@ -7,6 +7,7 @@ import { Roles } from '../auth/roles.decorator';
 import { ICE_SERVERS } from '../common/video-ice.config';
 import { ROLES_CLINICAL, ROLES_ADMIN, isMtDoctor, isUtRole } from '../common/roles.constants';
 import { diagnoseTurnConfig, resolvePublicTurnUrl } from '../common/turn-url.util';
+import { createEphemeralTurnCredentials } from '../common/turn-credentials';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccessControlService, AuthUser } from '../common/access-control.service';
 import { LivekitService, type SfuVideoRole } from './livekit.service';
@@ -70,7 +71,7 @@ export class VideoController {
   @Get('ice-config')
   @Roles(...ROLES_CLINICAL)
   @ApiOperation({ summary: 'WebRTC ICE serverlar (STUN/TURN)' })
-  getIceConfig() {
+  getIceConfig(@Request() req: { user: AuthUser }) {
     const turnUrl = resolvePublicTurnUrl(this.config);
     const turnUser =
       this.config.get('TURN_PUBLIC_USERNAME') ||
@@ -83,8 +84,18 @@ export class VideoController {
 
     const iceServers: Array<{ urls: string | string[]; username?: string; credential?: string }> = [...ICE_SERVERS];
 
+    // Sirli kalit bo'lsa — har so'rovga qisqa muddatli parol. Bo'lmasa eski
+    // doimiy parolga qaytamiz (regressiya yo'q, lekin log'da ogohlantiramiz).
+    const authSecret = this.config.get<string>('TURN_STATIC_SECRET')?.trim();
+    const ephemeral = authSecret
+      ? createEphemeralTurnCredentials(authSecret, req.user.id)
+      : null;
+    const credentialTtl = ephemeral ? ephemeral.ttl : null;
+
     if (turnUrl) {
-      const creds = { username: turnUser || undefined, credential: turnPass || undefined };
+      const creds = ephemeral
+        ? { username: ephemeral.username, credential: ephemeral.credential }
+        : { username: turnUser || undefined, credential: turnPass || undefined };
       const hostPart = turnUrl.replace(/^turns?:/i, '').split('@').pop()?.replace(/^\//, '') ?? turnUrl;
       iceServers.push({
         urls: [
@@ -106,11 +117,18 @@ export class VideoController {
     return {
       iceServers,
       turnConfigured: !!turnUrl,
+      // Klient shu muddat tugashidan oldin konfiguratsiyani yangilashi kerak.
+      // null bo'lsa — doimiy parol, yangilash shart emas.
+      credentialTtl,
+      ephemeralCredentials: !!ephemeral,
       // Sozlash xatosining ANIQ sababi — "TURN yo'q" degan umumiy xabar
       // o'rniga qaysi o'zgaruvchi va nega noto'g'ri ekanini qaytaramiz.
       turnProblems: diagnosis.problems,
       recommendations: [
         !turnUrl ? 'TURN server sozlang — uzoq hudud NAT tarmoqlari uchun majburiy' : null,
+        turnUrl && !authSecret
+          ? 'TURN doimiy parol bilan ishlayapti — TURN_STATIC_SECRET o\'rnatib vaqtinchalik parolga o\'ting'
+          : null,
         ...diagnosis.problems,
       ].filter(Boolean),
     };
