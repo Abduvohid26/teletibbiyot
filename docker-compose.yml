@@ -46,7 +46,13 @@ services:
         exec redis-server --appendonly yes;
       fi'
     ports:
-      - '${REDIS_PUBLISH}:6300'
+      # Redis konteyner ICHIDA 6379 da tinglaydi. Ilgari bu yerda `:6300`
+      # yozilgan edi — ya'ni host porti konteynerning HECH KIM tinglamaydigan
+      # portiga bog'langan va publish qilingan port o'lik edi.
+      # Docker ichidagi API buni sezmaydi (u `redis:6379` orqali ichki tarmoqdan
+      # boradi), lekin hostdan ulanish — ops, debug, host'da ishlaydigan API —
+      # ishlamaydi.
+      - '${REDIS_PUBLISH}:6379'
     volumes:
       - redis_data:/data
     healthcheck:
@@ -87,7 +93,7 @@ services:
 
   livekit:
     <<: *env
-    image: livekit/livekit-server:v1.8.4
+    image: livekit/livekit-server:v1.9.1
     container_name: ishifo-livekit
     # Profil yo'q — `docker compose up -d` bilan postgres/redis/minio qatori ko'tariladi.
     # Brauzer signaling: ws://localhost:7880  |  media UDP: 50000-50050

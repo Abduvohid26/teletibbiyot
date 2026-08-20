@@ -223,19 +223,41 @@ export function useLivekitRoom({
       && room.state === 'connected';
     if (!stillValid()) return;
     const preset = qualityPresetRef.current;
-    // VP9/SVC da alohida simulcast qatlamlari kerak emas — qatlamlar bitta
-    // oqim ichida (L3T3_KEY). Sifat presetiga qarab faqat yuqori chegara
-    // o'zgaradi.
-    const videoOpts = {
-      videoCodec: 'vp9' as const,
-      scalabilityMode: 'L3T3_KEY' as const,
-      simulcast: false,
-      videoEncoding: preset === 'low' ? VideoPresets.h360.encoding : VideoPresets.h720.encoding,
-      backupCodec: {
-        codec: 'vp8' as const,
-        encoding: preset === 'low' ? VideoPresets.h360.encoding : VideoPresets.h720.encoding,
-      },
-    };
+    const encoding = preset === 'low' ? VideoPresets.h360.encoding : VideoPresets.h720.encoding;
+    const layers =
+      preset === 'low'
+        ? [VideoPresets.h90, VideoPresets.h180, VideoPresets.h360]
+        : [VideoPresets.h180, VideoPresets.h360, VideoPresets.h720];
+
+    /**
+     * Kodek tanlovi — trafik EMAS, CPU bo'yicha.
+     *
+     * VP9 kanalni ~30-50% tejaydi, LEKIN dasturiy kodlashda VP8 dan 2-3 barobar
+     * og'ir. UT operator BIR VAQTDA 4 TA kamerani uzatadi — u yerda VP9
+     * protsessorni to'ldirib, videoni qotirib qo'yadi. Shuning uchun:
+     *   • MT shifokor (1 kamera)  → VP9 + SVC (kanal tejaladi, CPU yetadi)
+     *   • UT operator (4 kamera)  → VP8 + simulcast (CPU muhimroq)
+     * Firefox ham chetlab o'tiladi: uning VP9 `scalabilityMode` qo'llab-
+     * quvvatlashi to'liq emas va publish yiqilishi mumkin.
+     */
+    const isFirefox =
+      typeof navigator !== 'undefined' && /firefox/i.test(navigator.userAgent);
+    const useVp9 = role === 'mt' && !isFirefox;
+
+    const videoOpts = useVp9
+      ? {
+          videoCodec: 'vp9' as const,
+          scalabilityMode: 'L3T3_KEY' as const,
+          simulcast: false,
+          videoEncoding: encoding,
+          backupCodec: { codec: 'vp8' as const, encoding },
+        }
+      : {
+          videoCodec: 'vp8' as const,
+          simulcast: true,
+          videoEncoding: encoding,
+          videoSimulcastLayers: layers,
+        };
 
     if (role === 'mt') {
       const stream = localStreamsRef.current.get(MT_DOCTOR_STREAM_ID);
@@ -435,6 +457,9 @@ export function useLivekitRoom({
       setError('');
     });
     room.on(RoomEvent.Disconnected, (reason) => {
+      // Sababni ochiq yozamiz — tashxis uchun eng qimmatli ma'lumot.
+      // eslint-disable-next-line no-console
+      console.warn('[SFU] xonadan uzildi, sabab:', reason);
       setSfuConnected(false);
       if (reason === DisconnectReason.DUPLICATE_IDENTITY) {
         setSessionKicked(true);
@@ -469,7 +494,24 @@ export function useLivekitRoom({
     if (gen !== connectGenRef.current) return;
 
     try {
-      await room.connect(url, token);
+      await room.connect(url, token, {
+        autoSubscribe: true,
+        /**
+         * LiveKit sukut bo'yicha PeerConnection uchun 15 SONIYA beradi.
+         *
+         * Log'da uzilishlar aynan 15.15 soniyada takrorlanardi — bu o'sha
+         * timeout. UT operator mashinasida 19 ta docker interfeysi bor va
+         * brauzer 40 dan ortiq ICE candidate e'lon qiladi; Firefox'ning mDNS
+         * host candidate'lari esa serverda rad etiladi. ICE bu juftliklarni
+         * 15 soniyada tekshirib ulgurmaydi -> LiveKit taslim bo'ladi -> biz
+         * qayta ulaymiz -> cheksiz sikl.
+         *
+         * 45 soniya sekin/murakkab tarmoqlar uchun zaxira beradi va sog'lom
+         * ulanishga ta'sir qilmaydi (u 1-2 soniyada ulanadi).
+         */
+        peerConnectionTimeout: 45_000,
+        websocketTimeout: 30_000,
+      });
     } catch (err) {
       // Ulanish O'ZIMIZ uzganimiz uchun to'xtagan bo'lsa (yangi urinish
       // boshlandi yoki komponent tozalandi) — bu xato emas. Ilgari aynan shu

@@ -98,10 +98,15 @@ test.describe('Meet video room TZ', () => {
         await clickLobbyJoin(tab2, 'M4 yangi sessiya');
 
         // Eski tab tezda chiqishi kerak
+        // `.first()` SHART: "boshqa oynada ochildi" xabari ikki joyda ko'rsatiladi
+        // (qizil banner + lobby ostidagi izoh), va `.or()` ikkalasini ham topib
+        // Playwright'ning strict rejimini yiqitadi. Bu test nuqsoni edi —
+        // funksiyaning o'zi to'g'ri ishlaydi.
         await expect(
           room.utPage
             .getByRole('button', { name: /Jonli efirga qo'shilish/i })
-            .or(room.utPage.getByText(/boshqa oyna|qurilmada ochildi|to'xtatildi/i)),
+            .or(room.utPage.getByText(/boshqa oyna|qurilmada ochildi|to'xtatildi/i))
+            .first(),
         ).toBeVisible({ timeout: 20_000 });
 
         await waitForRemoteVideo(tab2, RECONNECT_BUDGET_MS, 'M4 yangi sessiya video');

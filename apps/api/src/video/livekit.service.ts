@@ -31,7 +31,10 @@ export class LivekitService {
     // yuborish demak. U ulanolmay, timeout kutib, keyin P2P ga qaytadi:
     // foydalanuvchi bir necha soniya qora ekran ko'radi. Bunday holatda
     // DARHOL P2P ni tanlagan ma'qul.
-    if (!isBrowserReachableSignalUrl(url)) {
+    // E2E'da hamma narsa BITTA mashinada ishlaydi — u yerda `localhost`
+    // haqiqatan to'g'ri manzil. Tekshiruv faqat real deploy uchun.
+    const isLocalE2E = this.config.get('E2E_LIVEKIT') === 'true';
+    if (!isLocalE2E && !isBrowserReachableSignalUrl(url)) {
       if (!this.warnedUnreachable) {
         this.warnedUnreachable = true;
         this.logger.error(
