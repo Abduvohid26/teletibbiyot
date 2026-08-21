@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Mic,
   MicOff,
@@ -15,6 +15,7 @@ import {
   Phone,
   PhoneOff,
   Stethoscope,
+  Loader2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useVideoRoom } from '@/hooks/use-video-room';
@@ -34,8 +35,8 @@ interface UtVideoPanelViewProps {
   /** Default: shifokor (asosiy). 'all' — barcha kameralar. */
   defaultView?: 'doctor' | 'all';
   onLeave?: () => void;
-  /** Kamera tanlovi o'zgargach oqimlarni qayta olish uchun — leave + join */
-  onReconnect?: () => void;
+  /** Kamera tanlovi o'zgargach oqimlarni darhol qayta olish */
+  onApplyCameraMapping?: () => Promise<void> | void;
 }
 
 type ViewMode = 'doctor' | 'all';
@@ -51,14 +52,32 @@ export function UtVideoPanelView({
   patientName,
   defaultView = 'doctor',
   onLeave,
-  onReconnect,
+  onApplyCameraMapping,
 }: UtVideoPanelViewProps) {
   const { t } = useI18n();
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
   const [viewMode, setViewMode] = useState<ViewMode>(defaultView === 'all' ? 'all' : 'doctor');
   const [ptzHint, setPtzHint] = useState('');
-  // Kamera biriktiruvi o'zgardi, lekin oqimlar hali eski — qayta ulash kerak
-  const [cameraRemapPending, setCameraRemapPending] = useState(false);
+  // Kamera tanlangach oqimlar qayta olinadi — shu davrda qisqa ko'rsatkich
+  const [applyingCameras, setApplyingCameras] = useState(false);
+  const applyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /**
+   * Tanlov darhol qo'llanadi. Bir necha katak ketma-ket o'zgartirilsa,
+   * qayta olish bir marta bajarilishi uchun kechiktiramiz.
+   */
+  const scheduleCameraApply = useCallback(() => {
+    if (!onApplyCameraMapping) return;
+    setApplyingCameras(true);
+    if (applyTimerRef.current) clearTimeout(applyTimerRef.current);
+    applyTimerRef.current = setTimeout(() => {
+      void Promise.resolve(onApplyCameraMapping()).finally(() => setApplyingCameras(false));
+    }, 400);
+  }, [onApplyCameraMapping]);
+
+  useEffect(() => () => {
+    if (applyTimerRef.current) clearTimeout(applyTimerRef.current);
+  }, []);
 
   const {
     connected,
@@ -242,10 +261,7 @@ export function UtVideoPanelView({
                       <span className="absolute top-1 left-1 bg-black/65 text-white text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.5 rounded pointer-events-none">
                         {short}
                       </span>
-                      <UtCameraSlotPicker
-                        slotId={id}
-                        onChanged={() => setCameraRemapPending(true)}
-                      />
+                      <UtCameraSlotPicker slotId={id} onChanged={scheduleCameraApply} />
                       {!live && (
                         <span className="absolute inset-0 flex items-center justify-center bg-slate-900/40 pointer-events-none">
                           <VideoOff className="w-3.5 h-3.5 text-slate-500" />
@@ -260,21 +276,10 @@ export function UtVideoPanelView({
                 {t('video.allCameras')}
               </span>
 
-              {cameraRemapPending && (
-                <div className="absolute bottom-2 left-1/2 z-30 -translate-x-1/2 flex items-center gap-2 rounded-lg bg-amber-500/95 px-2.5 py-1.5 text-[11px] font-medium text-amber-950 shadow-lg">
-                  <span>{t('media.remapPending')}</span>
-                  {onReconnect && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCameraRemapPending(false);
-                        onReconnect();
-                      }}
-                      className="rounded bg-amber-950/85 px-2 py-0.5 font-semibold text-amber-50 hover:bg-amber-950"
-                    >
-                      {t('media.reconnectNow')}
-                    </button>
-                  )}
+              {applyingCameras && (
+                <div className="absolute bottom-2 left-1/2 z-30 -translate-x-1/2 flex items-center gap-1.5 rounded-lg bg-slate-900/90 px-2.5 py-1.5 text-[11px] font-medium text-slate-100 shadow-lg ring-1 ring-white/15">
+                  <Loader2 size={12} className="animate-spin" />
+                  {t('media.applyingCamera')}
                 </div>
               )}
             </div>

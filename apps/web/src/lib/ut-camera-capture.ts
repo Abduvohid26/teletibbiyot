@@ -12,15 +12,19 @@ export interface CaptureResult {
   audioMissing: boolean;
 }
 
+/**
+ * Aniq bitta kamerani ochadi.
+ *
+ * Fallback ATAYLAB yo'q: umumiy `facingMode` bilan qayta urinish so'ralgan kamera
+ * o'rniga standart kamerani qaytaradi va u barcha katakchalarda takrorlanib ketadi.
+ * Ochilmasa — katak bo'sh qolgani rost ma'lumot beradi.
+ */
 async function openCamera(
   prefs: MediaPreferences,
   deviceId: string,
 ): Promise<MediaStream | null> {
   try {
-    return await acquireUserMedia(
-      { video: getUtVideoConstraints(prefs, deviceId), audio: false },
-      { video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false },
-    );
+    return await acquireUserMedia({ video: getUtVideoConstraints(prefs, deviceId), audio: false });
   } catch {
     return null;
   }

@@ -70,14 +70,12 @@ export function UtConsultationSession({ consultation, patientName }: UtConsultat
     setJoined(true);
   };
 
-  /** Kamera biriktiruvi o'zgargach oqimlarni qayta olish — chiqib, darhol qayta kiramiz */
-  const handleReconnect = () => {
-    video.leaveCall();
-    setJoined(false);
-    setAutoRejoin(true);
-    // Xona tozalanishi uchun bir kadr kutamiz, so'ng qayta ulanadi
-    setTimeout(() => setJoined(true), 0);
-  };
+  /**
+   * Kamera biriktiruvi o'zgargach oqimlarni darhol qayta oladi.
+   * Xonadan chiqmaymiz — reloadMedia mahalliy media'ni qayta oladi va
+   * ulanishni qayta kelishuvga oladi, shifokor bilan aloqa uzilmaydi.
+   */
+  const handleReconnect = () => video.reloadMedia();
 
   const handleLeave = () => {
     video.leaveCall();
@@ -120,7 +118,7 @@ export function UtConsultationSession({ consultation, patientName }: UtConsultat
           patientName={patientName ?? consultation.patient.fullName}
           defaultView="doctor"
           onLeave={handleLeave}
-          onReconnect={handleReconnect}
+          onApplyCameraMapping={handleReconnect}
         />
       </div>
     </>

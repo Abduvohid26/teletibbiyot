@@ -58,7 +58,9 @@ export function getVideoConstraints(
 export function getUtVideoConstraints(prefs: MediaPreferences, deviceId?: string): MediaTrackConstraints {
   const profile = QUALITY_PROFILES[prefs.qualityPreset];
   if (deviceId) {
-    return { ...profile.video, deviceId: { ideal: deviceId } };
+    // `exact` MAJBURIY: `ideal` bilan brauzer so'ralgan kamera o'rniga standart
+    // kamerani qaytarishi mumkin — natijada bitta tasvir barcha katakchalarda paydo bo'ladi.
+    return { ...profile.video, deviceId: { exact: deviceId } };
   }
   return { ...profile.video, facingMode: 'environment' as const };
 }
