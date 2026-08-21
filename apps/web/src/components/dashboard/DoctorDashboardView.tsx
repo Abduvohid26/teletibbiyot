@@ -77,17 +77,8 @@ export function DoctorDashboardView({
     try {
       const { next } = await api.completeConsultation(activeConsultation.id, {});
       toast(t('dashboard.completeSuccess'), 'success');
-      // PDF generatsiya bo'lishi biroz vaqt olishi mumkin — bir marta qayta urinamiz.
-      for (let attempt = 0; attempt < 2; attempt++) {
-        if (attempt > 0) await new Promise((r) => setTimeout(r, 2000));
-        try {
-          const link = await api.getReportLink(activeConsultation.id);
-          if (link.url) window.open(link.url, '_blank', 'noopener,noreferrer');
-          break;
-        } catch {
-          /* keyingi urinishda qayta so'raymiz */
-        }
-      }
+      // PDF ATAYLAB avtomatik ochilmaydi — u fonda tayyorlanadi va
+      // "AI klinik xulosa" panelidagi PDF tugmasi orqali istalgan tilda olinadi.
       onReload();
 
       // Uzluksiz oqim: navbatdagi keyingi bemorga avtomatik o'tamiz

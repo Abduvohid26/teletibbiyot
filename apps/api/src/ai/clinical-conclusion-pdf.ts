@@ -1,3 +1,4 @@
+import { join } from 'path';
 import PDFDocument from 'pdfkit';
 import { BRAND } from '@ishifo/shared';
 import { formatPdfDate, getPdfLabels, normalizePdfLocale, type PdfLocale } from './pdf-labels';
@@ -8,6 +9,24 @@ type DiagnosisRow = {
   confidence: number;
   reasoning: string;
 };
+
+/**
+ * PDFKit ning ichki `Helvetica` shrifti WinAnsi kodlashda — kirill harflari yo'q,
+ * shuning uchun ruscha hisobot buzilib chiqardi. DejaVuSans rus va o'zbek
+ * kirillini, `ʻ` (U+02BB) va tipografik belgilarni qamrab oladi.
+ *
+ * Yo'l ham `dist/ai` (ishlab chiqarish), ham `src/ai` (ts-node) uchun to'g'ri:
+ * shriftlar nest-cli assets orqali `dist/assets/fonts` ga ko'chiriladi.
+ */
+const FONT_DIR = join(__dirname, '..', 'assets', 'fonts');
+const FONT_REGULAR = 'Body';
+const FONT_BOLD = 'BodyBold';
+
+function registerFonts(doc: PDFKit.PDFDocument) {
+  doc.registerFont(FONT_REGULAR, join(FONT_DIR, 'DejaVuSans.ttf'));
+  doc.registerFont(FONT_BOLD, join(FONT_DIR, 'DejaVuSans-Bold.ttf'));
+  doc.font(FONT_REGULAR);
+}
 
 function asRecord(v: unknown): Record<string, unknown> | null {
   return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
@@ -73,13 +92,13 @@ function sectionTitle(doc: InstanceType<typeof PDFDocument>, title: string) {
   doc.moveDown(0.5);
   resetCursorX(doc);
   const left = doc.page.margins.left;
-  doc.fontSize(11).fillColor(VIOLET).font('Helvetica-Bold').text(title.toUpperCase(), left, doc.y, { width: CONTENT_WIDTH });
+  doc.fontSize(11).fillColor(VIOLET).font(FONT_BOLD).text(title.toUpperCase(), left, doc.y, { width: CONTENT_WIDTH });
   const lineY = doc.y + 2;
   doc.moveTo(left, lineY).lineTo(left + CONTENT_WIDTH, lineY).lineWidth(0.75).strokeColor(VIOLET).stroke();
   doc.y = lineY;
   doc.moveDown(0.4);
   resetCursorX(doc);
-  doc.font('Helvetica').fontSize(10).fillColor(SLATE_900);
+  doc.font(FONT_REGULAR).fontSize(10).fillColor(SLATE_900);
 }
 
 /** "Label:: Value" jadval qatorlari — referens hujjatdagi kabi ikki ustunli, chiziqcha bilan. */
@@ -89,12 +108,12 @@ function labelValueTable(doc: InstanceType<typeof PDFDocument>, rows: Array<[str
   const valueWidth = CONTENT_WIDTH - labelWidth;
   for (const [label, value] of rows) {
     if (!value) continue;
-    const valueHeight = doc.font('Helvetica').fontSize(9.5).heightOfString(value, { width: valueWidth });
+    const valueHeight = doc.font(FONT_REGULAR).fontSize(9.5).heightOfString(value, { width: valueWidth });
     const rowHeight = Math.max(valueHeight, 14) + 8;
     ensureSpace(doc, rowHeight + 4);
     const y = doc.y;
-    doc.font('Helvetica-Bold').fontSize(9.5).fillColor(SLATE_500).text(label, left, y, { width: labelWidth });
-    doc.font('Helvetica').fontSize(9.5).fillColor(SLATE_900).text(value, left + labelWidth, y, { width: valueWidth });
+    doc.font(FONT_BOLD).fontSize(9.5).fillColor(SLATE_500).text(label, left, y, { width: labelWidth });
+    doc.font(FONT_REGULAR).fontSize(9.5).fillColor(SLATE_900).text(value, left + labelWidth, y, { width: valueWidth });
     const bottomY = Math.max(doc.y, y + 14) + 4;
     doc.moveTo(left, bottomY).lineTo(left + CONTENT_WIDTH, bottomY).lineWidth(0.5).strokeColor(SLATE_200).stroke();
     doc.y = bottomY + 6;
@@ -105,7 +124,7 @@ function labelValueTable(doc: InstanceType<typeof PDFDocument>, rows: Array<[str
 /** O'ng tomonga tekislangan foiz-badge (tashxis ishonch darajasi uchun). */
 function confidenceBadge(doc: InstanceType<typeof PDFDocument>, confidence: number, y: number) {
   const label = `${confidence}%`;
-  const w = doc.font('Helvetica-Bold').fontSize(9).widthOfString(label) + 14;
+  const w = doc.font(FONT_BOLD).fontSize(9).widthOfString(label) + 14;
   const x = doc.page.margins.left + CONTENT_WIDTH - w;
   const color = confidence >= 70 ? '#16a34a' : confidence >= 40 ? '#d97706' : '#64748b';
   const cursorY = doc.y;
@@ -113,7 +132,7 @@ function confidenceBadge(doc: InstanceType<typeof PDFDocument>, confidence: numb
   doc.fillColor('#ffffff').fontSize(9).text(label, x, y + 1, { width: w, align: 'center', lineBreak: false });
   doc.y = cursorY;
   resetCursorX(doc);
-  doc.fillColor(SLATE_900).fontSize(10).font('Helvetica');
+  doc.fillColor(SLATE_900).fontSize(10).font(FONT_REGULAR);
 }
 
 function bodyText(doc: InstanceType<typeof PDFDocument>, text: string) {
@@ -173,6 +192,7 @@ export function buildAiAnalysisPdfBuffer(data: AiAnalysisPdfInput, localeRaw?: P
   const locale = normalizePdfLocale(localeRaw);
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ margin: 50, size: 'A4', bufferPages: true });
+    registerFonts(doc);
     const chunks: Buffer[] = [];
     doc.on('data', (chunk: Buffer) => chunks.push(chunk));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
@@ -185,14 +205,14 @@ export function buildAiAnalysisPdfBuffer(data: AiAnalysisPdfInput, localeRaw?: P
     const generatedAt = formatPdfDate(locale);
 
     const headerTop = doc.y;
-    doc.font('Helvetica-Bold').fontSize(16).fillColor(VIOLET).text(L.title, doc.page.margins.left, headerTop, { width: 360 });
-    doc.font('Helvetica').fontSize(8.5).fillColor(SLATE_500).text(
+    doc.font(FONT_BOLD).fontSize(16).fillColor(VIOLET).text(L.title, doc.page.margins.left, headerTop, { width: 360 });
+    doc.font(FONT_REGULAR).fontSize(8.5).fillColor(SLATE_500).text(
       L.subtitle,
       doc.page.margins.left,
       doc.y + 2,
       { width: 360 },
     );
-    doc.font('Helvetica').fontSize(9).fillColor(SLATE_500).text(`${L.datePrefix} ${generatedAt}`, doc.page.margins.left + 370, headerTop, { width: 125, align: 'right' });
+    doc.font(FONT_REGULAR).fontSize(9).fillColor(SLATE_500).text(`${L.datePrefix} ${generatedAt}`, doc.page.margins.left + 370, headerTop, { width: 125, align: 'right' });
     doc.y = Math.max(doc.y, headerTop + 40);
     doc.moveDown(0.3);
     doc.moveTo(doc.page.margins.left, doc.y).lineTo(doc.page.margins.left + CONTENT_WIDTH, doc.y).lineWidth(1.5).strokeColor(VIOLET).stroke();
@@ -229,8 +249,8 @@ export function buildAiAnalysisPdfBuffer(data: AiAnalysisPdfInput, localeRaw?: P
 
     ensureSpace(doc, 30);
     doc.moveDown(0.4);
-    doc.font('Helvetica-Bold').fontSize(13).fillColor(SLATE_900).text(L.consensusTitle);
-    doc.font('Helvetica').fontSize(10);
+    doc.font(FONT_BOLD).fontSize(13).fillColor(SLATE_900).text(L.consensusTitle);
+    doc.font(FONT_REGULAR).fontSize(10);
     if (consensus.length > 0) {
       sectionTitle(doc, L.sectionDiagnoses);
       consensus.forEach((item, i) => {

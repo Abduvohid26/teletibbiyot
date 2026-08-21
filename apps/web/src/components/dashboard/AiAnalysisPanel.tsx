@@ -1,10 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import {
-  Brain, Send, RefreshCw, ThumbsUp, ThumbsDown, Sparkles, Download,
-  MessageCircle, ChevronDown, Check,
-} from 'lucide-react';
+import { Brain, Send, RefreshCw, ThumbsUp, ThumbsDown, Sparkles, MessageCircle } from 'lucide-react';
 import { AiAnalysis } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
@@ -12,7 +9,8 @@ import { getAiAnalysisMeta } from '@/lib/ai-analysis-meta';
 import { toast } from '@/lib/toast';
 import { ClinicalConclusionReport } from '@/components/dashboard/ClinicalConclusionReport';
 import { AiChatMessage } from '@/components/dashboard/AiChatMessage';
-import { useI18n, LOCALES, LOCALE_LABELS, type Locale } from '@/i18n';
+import { PdfDownloadButton } from '@/components/dashboard/PdfDownloadButton';
+import { useI18n } from '@/i18n';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -40,8 +38,6 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
-  const [downloading, setDownloading] = useState(false);
-  const [pdfMenuOpen, setPdfMenuOpen] = useState(false);
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [feedbackError, setFeedbackError] = useState('');
   const [chatOpen, setChatOpen] = useState(true);
@@ -98,21 +94,6 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
       setFeedbackError(t('clinical.reanalyzeError'));
     } finally {
       setAnalyzing(false);
-    }
-  };
-
-  /** PDF ni tanlangan tilda yuklaydi (standart — interfeys tili) */
-  const handleDownloadPdf = async (pdfLocale: Locale = locale) => {
-    if (!consultationId) return;
-    setPdfMenuOpen(false);
-    setDownloading(true);
-    setFeedbackError('');
-    try {
-      await api.downloadAiAnalysisPdf(consultationId, pdfLocale);
-    } catch (err) {
-      setFeedbackError(err instanceof Error ? err.message : t('clinical.pdfError'));
-    } finally {
-      setDownloading(false);
     }
   };
 
@@ -174,59 +155,7 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
         <span className="panel-title text-sm flex-1 min-w-0 truncate">{t('clinical.title')}</span>
         <div className="flex items-center gap-1 shrink-0">
           {consultationId && (
-            <div className="relative">
-              <div className="flex items-stretch rounded-lg overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => void handleDownloadPdf()}
-                  disabled={downloading}
-                  title={t('clinical.downloadPdf')}
-                  className="inline-flex items-center gap-1 px-2 py-1 bg-violet-600 hover:bg-violet-700 text-white text-[10px] font-semibold disabled:opacity-60"
-                >
-                  <Download size={12} className={downloading ? 'animate-pulse' : ''} />
-                  PDF
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPdfMenuOpen((v) => !v)}
-                  disabled={downloading}
-                  aria-haspopup="menu"
-                  aria-expanded={pdfMenuOpen}
-                  title={t('clinical.pdfLanguage')}
-                  className="px-1 bg-violet-700 hover:bg-violet-800 text-white disabled:opacity-60 border-l border-violet-500/50"
-                >
-                  <ChevronDown size={11} />
-                </button>
-              </div>
-
-              {pdfMenuOpen && (
-                <>
-                  <div className="fixed inset-0 z-20" onClick={() => setPdfMenuOpen(false)} />
-                  <div className="absolute right-0 top-full mt-1 z-30 w-32 rounded-lg bg-white ring-1 ring-slate-200 shadow-lg py-1">
-                    <p className="px-2 pb-1 text-[9px] font-semibold uppercase tracking-wide text-slate-400">
-                      {t('clinical.pdfLanguage')}
-                    </p>
-                    {LOCALES.map((code) => (
-                      <button
-                        key={code}
-                        type="button"
-                        onClick={() => void handleDownloadPdf(code)}
-                        className={cn(
-                          'w-full flex items-center gap-1.5 px-2 py-1.5 text-left text-[11px] hover:bg-violet-50',
-                          code === locale ? 'text-violet-700 font-semibold' : 'text-slate-600',
-                        )}
-                      >
-                        <Check
-                          size={11}
-                          className={cn('shrink-0', code === locale ? 'opacity-100' : 'opacity-0')}
-                        />
-                        {LOCALE_LABELS[code]}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
+            <PdfDownloadButton consultationId={consultationId} onError={setFeedbackError} />
           )}
           {consultationId && (
             <button

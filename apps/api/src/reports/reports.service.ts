@@ -6,7 +6,11 @@ import { AccessControlService, AuthUser } from '../common/access-control.service
 import { UserRole } from '@prisma/client';
 import { BRAND } from '@ishifo/shared';
 import { FieldCryptoService } from '../common/field-crypto.service';
-import PDFDocument from 'pdfkit';
+import { join } from 'path';
+import PDFDocument from 'pdfkit';
+
+/** PDF shriftlari — nest-cli assets orqali dist ga ko'chiriladi */
+const PDF_FONT_DIR = join(__dirname, '..', 'assets', 'fonts');
 import { normalizePdfLocale, type PdfLocale } from '../ai/pdf-labels';
 
 @Injectable()
@@ -163,6 +167,10 @@ export class ReportsService {
   }): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       const doc = new PDFDocument({ margin: 50, size: 'A4' });
+      // Ichki Helvetica kirillni qo'llab-quvvatlamaydi — bemor ismi kirill
+      // bo'lsa hisobot buzilib chiqardi
+      doc.registerFont('Body', join(PDF_FONT_DIR, 'DejaVuSans.ttf'));
+      doc.font('Body');
       const chunks: Buffer[] = [];
       doc.on('data', (chunk: Buffer) => chunks.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(chunks)));

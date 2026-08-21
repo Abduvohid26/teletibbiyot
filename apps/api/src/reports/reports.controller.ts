@@ -27,9 +27,14 @@ export class ReportsController {
   async getLink(
     @Param('consultationId') consultationId: string,
     @Request() req: { user: AuthUser },
-    @Headers('x-locale') locale?: string,
+    @Query('locale') localeQuery?: string,
+    @Headers('x-locale') localeHeader?: string,
   ) {
-    const url = await this.reports.getDownloadUrl(consultationId, req.user, locale);
+    const url = await this.reports.getDownloadUrl(
+      consultationId,
+      req.user,
+      localeQuery ?? localeHeader,
+    );
     return { url };
   }
 

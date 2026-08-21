@@ -3,12 +3,13 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Search, Radio, Clock, ChevronRight, Stethoscope, UserPlus, FileText, Eye, Download } from 'lucide-react';
-import { Consultation, api } from '@/lib/api';
+import { Search, Radio, Clock, ChevronRight, Stethoscope, UserPlus, FileText, Eye } from 'lucide-react';
+import { Consultation } from '@/lib/api';
 import { formatStatus } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { UtQuickNav } from '@/components/ut/UtNavTabs';
 import { UtDiagnosisModal } from '@/components/ut/UtDiagnosisModal';
+import { PdfDownloadButton } from '@/components/dashboard/PdfDownloadButton';
 import { useI18n } from '@/i18n';
 
 type Filter = 'all' | 'live' | 'queued' | 'tashxis';
@@ -34,12 +35,11 @@ export function UtPatientList({
   sessionCount = 0,
   liveCount = 0,
 }: UtPatientListProps) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
   const [diagnosisView, setDiagnosisView] = useState<Consultation | null>(null);
-  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     let list = sessions;
@@ -71,23 +71,6 @@ export function UtPatientList({
   const handleSelect = (id: string) => {
     onSelect(id);
     if (showGoLive) router.push('/ut/vitals');
-  };
-
-  const handleDownload = async (c: Consultation, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setDownloadingId(c.id);
-    try {
-      if (c.consultationReport) {
-        const link = await api.getReportLink(c.id);
-        window.open(link.url, '_blank', 'noopener,noreferrer');
-      } else {
-        await api.downloadAiAnalysisPdf(c.id, locale);
-      }
-    } catch {
-      /* toast handled by caller if needed */
-    } finally {
-      setDownloadingId(null);
-    }
   };
 
   const tabs: { id: Filter; label: string; icon: React.ElementType; count: number; tone: string }[] = [
@@ -191,15 +174,11 @@ export function UtPatientList({
                       >
                         <Eye size={12} /> {t('ut.read')}
                       </button>
-                      <button
-                        type="button"
-                        disabled={downloadingId === c.id}
-                        onClick={(e) => void handleDownload(c, e)}
-                        className="gradient-btn !text-[10px] !py-1 !px-2 inline-flex items-center gap-1 disabled:opacity-60"
-                      >
-                        <Download size={12} />
-                        {downloadingId === c.id ? '...' : 'PDF'}
-                      </button>
+                      <PdfDownloadButton
+                        consultationId={c.id}
+                        hasReport={!!c.consultationReport}
+                        compact
+                      />
                     </div>
                   </div>
                 );

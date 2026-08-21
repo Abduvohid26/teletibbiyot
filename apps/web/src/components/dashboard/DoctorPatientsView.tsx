@@ -12,8 +12,12 @@ import {
   CheckCircle2,
   XCircle,
   CalendarClock,
+  UserRound,
+  ChevronRight,
+  MapPin,
 } from 'lucide-react';
-import { api, Consultation, DashboardStats } from '@/lib/api';
+import { api, Consultation, DashboardStats, Patient } from '@/lib/api';
+import { PatientDetailPanel } from '@/components/analytics/PatientDetailPanel';
 import { ConsultationFilters, FilterOptions, TRIAGE_OPTIONS } from '@/lib/analytics-types';
 import { SmartFilterBar, countActiveFilters } from '@/components/analytics/SmartFilterBar';
 import { useDebouncedValue } from '@/hooks/use-debounce';
@@ -25,7 +29,7 @@ import { dispatchDoctorSelect } from '@/hooks/use-doctor-header-data';
 import { useI18n } from '@/i18n';
 import { triageLabelKey } from '@/i18n/labels';
 
-type QueueFilter = 'all' | 'queued' | 'live' | 'completed' | 'cancelled' | 'followup';
+type QueueFilter = 'all' | 'queued' | 'live' | 'completed' | 'cancelled' | 'followup' | 'mypatients';
 
 interface DoctorPatientsViewProps {
   queue: Consultation[];
@@ -114,6 +118,11 @@ export function DoctorPatientsView({
   const [history, setHistory] = useState<Consultation[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [followUpCount, setFollowUpCount] = useState(0);
+  // "Bemorlarim" — shu shifokor qabul qilgan bemorlar (server access filtri bo'yicha)
+  const [myPatients, setMyPatients] = useState<Array<Patient & { _count?: { consultations: number } }>>([]);
+  const [myPatientsTotal, setMyPatientsTotal] = useState(0);
+  const [myPatientsLoading, setMyPatientsLoading] = useState(false);
+  const [openPatientId, setOpenPatientId] = useState<string | null>(null);
   const [options, setOptions] = useState<FilterOptions | null>(null);
   const [listFilters, setListFilters] = useState<ConsultationFilters>({ page: 1, limit: 30 });
   const debouncedSearch = useDebouncedValue(search, 300);
@@ -124,6 +133,7 @@ export function DoctorPatientsView({
   // Bu filtrlar serverdan ro'yxat sifatida olinadi (navbat prop'idan emas)
   const isHistoryFilter =
     filter === 'completed' || filter === 'cancelled' || filter === 'followup';
+  const isPatientsFilter = filter === 'mypatients';
 
   /** Tanlangan server-filtri uchun so'rov parametrlari */
   const serverListParams = useCallback(
@@ -169,9 +179,13 @@ export function DoctorPatientsView({
       completed: stats?.completed ?? 0,
       cancelled: stats?.cancelled ?? 0,
       followup: followUpCount,
+      mypatients: myPatientsTotal,
       all: queuedPatients.length + liveList.length,
     }),
-    [queuedPatients.length, liveList.length, stats?.completed, stats?.cancelled, followUpCount],
+    [
+      queuedPatients.length, liveList.length, stats?.completed, stats?.cancelled,
+      followUpCount, myPatientsTotal,
+    ],
   );
 
   const reloadAll = useCallback(() => {
@@ -216,6 +230,27 @@ export function DoctorPatientsView({
       .then((res) => setFollowUpCount(res.total ?? res.items.length))
       .catch(() => setFollowUpCount(0));
   }, [queue, myInProgress]);
+
+  // "Bemorlarim" soni — server MT_DOCTOR uchun faqat o'z bemorlarini qaytaradi
+  useEffect(() => {
+    api
+      .getPatients({ page: 1, limit: 1 })
+      .then((res) => setMyPatientsTotal(res.total))
+      .catch(() => setMyPatientsTotal(0));
+  }, [queue, myInProgress]);
+
+  useEffect(() => {
+    if (!isPatientsFilter) return;
+    setMyPatientsLoading(true);
+    api
+      .getPatients({ page: 1, limit: 60, search: debouncedSearch.trim() || undefined })
+      .then((res) => {
+        setMyPatients(res.items);
+        setMyPatientsTotal(res.total);
+      })
+      .catch(() => setMyPatients([]))
+      .finally(() => setMyPatientsLoading(false));
+  }, [isPatientsFilter, debouncedSearch]);
 
   const { requestCancel, cancelModal } = useCancelConsultation({
     onSuccess: () => reloadAll(),
@@ -288,6 +323,14 @@ export function DoctorPatientsView({
       icon: CheckCircle2,
       tone: 'from-violet-400/15 to-indigo-300/10 text-violet-900 ring-violet-200/50',
       iconTone: 'text-violet-600 bg-violet-100/80',
+    },
+    {
+      id: 'mypatients' as const,
+      label: t('patients.myPatients'),
+      value: counts.mypatients,
+      icon: UserRound,
+      tone: 'from-indigo-400/15 to-blue-300/10 text-indigo-900 ring-indigo-200/50',
+      iconTone: 'text-indigo-600 bg-indigo-100/80',
     },
     {
       id: 'followup' as const,
@@ -382,7 +425,25 @@ export function DoctorPatientsView({
             />
           )}
 
-          {!isHistoryFilter ? (
+          {isPatientsFilter ? (
+            myPatientsLoading ? (
+              <div className="flex items-center justify-center py-12 text-slate-400 gap-2">
+                <Loader2 size={18} className="animate-spin" />
+                <span className="text-sm">{t('common.loading')}</span>
+              </div>
+            ) : myPatients.length === 0 ? (
+              <DoctorEmptyState
+                title={t('patients.myPatientsEmpty')}
+                hint={t('patients.myPatientsEmptyHint')}
+              />
+            ) : (
+              <div className="space-y-2">
+                {myPatients.map((p) => (
+                  <MyPatientCard key={p.id} patient={p} onOpen={() => setOpenPatientId(p.id)} />
+                ))}
+              </div>
+            )
+          ) : !isHistoryFilter ? (
             <div className="space-y-4">
               {currentList.length > 0 && (
                 <section className="space-y-2">
@@ -448,7 +509,53 @@ export function DoctorPatientsView({
           )}
         </div>
       {cancelModal}
+      <PatientDetailPanel patientId={openPatientId} onClose={() => setOpenPatientId(null)} />
     </>
+  );
+}
+
+/** "Bemorlarim" ro'yxatidagi kartochka — bosilganda to'liq karta ochiladi */
+function MyPatientCard({
+  patient,
+  onOpen,
+}: {
+  patient: Patient & { _count?: { consultations: number } };
+  onOpen: () => void;
+}) {
+  const { t } = useI18n();
+  const age = calculateAge(patient.birthDate);
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="ut-glass-card-interactive w-full px-3 py-3 sm:px-4 flex items-center gap-3 text-left"
+    >
+      <div className="w-11 h-11 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 ring-1 ring-white/50 bg-indigo-100/90 text-indigo-700">
+        {patientInitial(patient.fullName)}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-semibold text-slate-900 truncate">{patient.fullName}</p>
+        <p className="text-xs text-slate-500 mt-0.5 truncate flex items-center gap-1">
+          {age != null ? t('common.years', { age }) : t('common.emptyDash')}
+          <span className="text-slate-300">·</span>
+          {patient.phone}
+          {patient.district && (
+            <>
+              <span className="text-slate-300">·</span>
+              <MapPin size={10} className="shrink-0" />
+              {patient.district}
+            </>
+          )}
+        </p>
+      </div>
+      {!!patient._count?.consultations && (
+        <span className="shrink-0 text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-lg">
+          {t('analyticsDetail.consultationsCount', { count: patient._count.consultations })}
+        </span>
+      )}
+      <ChevronRight size={16} className="text-slate-300 shrink-0" />
+    </button>
   );
 }
 

@@ -1,11 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Download, FileText } from 'lucide-react';
+import { X, FileText } from 'lucide-react';
 import { Consultation } from '@/lib/api';
-import { api } from '@/lib/api';
 import { ClinicalConclusionReport } from '@/components/dashboard/ClinicalConclusionReport';
-import { cn } from '@/lib/utils';
+import { PdfDownloadButton } from '@/components/dashboard/PdfDownloadButton';
 import { useI18n } from '@/i18n';
 
 interface UtDiagnosisModalProps {
@@ -15,30 +14,12 @@ interface UtDiagnosisModalProps {
 }
 
 export function UtDiagnosisModal({ consultation, open, onClose }: UtDiagnosisModalProps) {
-  const { t, locale } = useI18n();
-  const [downloading, setDownloading] = useState(false);
+  const { t } = useI18n();
   const [error, setError] = useState('');
 
   if (!open) return null;
 
   const primary = consultation.aiAnalysis?.diagnoses?.[0];
-
-  const handleDownload = async () => {
-    setDownloading(true);
-    setError('');
-    try {
-      if (consultation.consultationReport) {
-        const link = await api.getReportLink(consultation.id);
-        window.open(link.url, '_blank', 'noopener,noreferrer');
-      } else {
-        await api.downloadAiAnalysisPdf(consultation.id, locale);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('clinical.pdfError'));
-    } finally {
-      setDownloading(false);
-    }
-  };
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 animate-fade-in">
@@ -71,15 +52,14 @@ export function UtDiagnosisModal({ consultation, open, onClose }: UtDiagnosisMod
         <div className="shrink-0 border-t border-slate-100 p-4 flex flex-col gap-2">
           {error && <p className="text-xs text-red-600">{error}</p>}
           <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => void handleDownload()}
-              disabled={downloading || !consultation.aiAnalysis}
-              className={cn('flex-1 gradient-btn inline-flex items-center justify-center gap-2 !text-sm', downloading && 'opacity-70')}
-            >
-              <Download size={15} />
-              {downloading ? t('common.loading') : t('clinical.downloadPdf')}
-            </button>
+            {consultation.aiAnalysis && (
+              <PdfDownloadButton
+                consultationId={consultation.id}
+                hasReport={!!consultation.consultationReport}
+                onError={setError}
+                className="flex-1 [&>div]:w-full [&>div>button:first-child]:flex-1 [&>div>button:first-child]:justify-center"
+              />
+            )}
             <button type="button" onClick={onClose} className="flex-1 btn-secondary">
               {t('common.close')}
             </button>

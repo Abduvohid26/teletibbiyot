@@ -89,8 +89,10 @@ export function defineMediaApi(client: HttpClient) {
       });
     },
 
-    getReportLink(consultationId: string) {
-      return client.request<{ url: string }>(`/reports/${consultationId}/link`);
+    /** `locale` berilmasa server X-Locale sarlavhasidagi tilni ishlatadi */
+    getReportLink(consultationId: string, locale?: string) {
+      const query = locale ? `?locale=${encodeURIComponent(locale)}` : '';
+      return client.request<{ url: string }>(`/reports/${consultationId}/link${query}`);
     },
   };
 }
