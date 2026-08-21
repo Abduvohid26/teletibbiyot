@@ -119,6 +119,10 @@ export default function AdminPage() {
   const isMtRole = (role: string) => role === UserRole.MT_DOCTOR;
 
   const filteredUsers = roleFilter === 'all' ? users : users.filter((u) => u.role === roleFilter);
+  // UT operator / shifokor uchun mos turdagi muassasa bo'lmasa, forma yuborilmaydi —
+  // sababini ko'rsatib, muassasalar bo'limiga yo'naltiramiz
+  const needsFacility = form.role !== UserRole.ADMIN;
+  const noFacilityForRole = needsFacility && facilitiesForRole(form.role).length === 0;
 
   const handleToggle = async (id: string) => {
     if (id === user?.id) return;
@@ -502,6 +506,23 @@ export default function AdminPage() {
                     <option key={f.id} value={f.id}>{f.name} ({f.code})</option>
                   ))}
                 </select>
+                {needsFacility && noFacilityForRole && (
+                  <p className="mt-1.5 text-xs text-amber-700">
+                    {form.role === UserRole.UT_OPERATOR
+                      ? t('admin.noUtFacilityHint')
+                      : t('admin.noMtFacilityHint')}{' '}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCreate(false);
+                        setActiveTab('facilities');
+                      }}
+                      className="font-semibold underline"
+                    >
+                      {t('admin.goToFacilities')}
+                    </button>
+                  </p>
+                )}
               </div>
               <div>
                 <label className="label">{t('admin.phone')}</label>
@@ -509,7 +530,11 @@ export default function AdminPage() {
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowCreate(false)} className="btn-secondary flex-1">{t('common.cancelShort')}</button>
-                <button type="submit" disabled={creating} className="gradient-btn flex-1 disabled:opacity-50">
+                <button
+                  type="submit"
+                  disabled={creating || (needsFacility && noFacilityForRole)}
+                  className="gradient-btn flex-1 disabled:opacity-50"
+                >
                   {creating ? t('admin.creating') : t('admin.create')}
                 </button>
               </div>
