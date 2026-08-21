@@ -88,6 +88,14 @@ export function useLivekitRoom({
   onSfuUnavailable,
 }: UseLivekitRoomOptions) {
   const { t } = useI18n();
+  // `t` til almashganda QAYTA yaratiladi. Agar u callback/effekt bog'liqligiga
+  // kirsa, tilni almashtirish jonli video sessiyani uzib, kameralarni qayta
+  // ochishga majbur qiladi. Shuning uchun xabar matnlari ref orqali o'qiladi.
+  const tRef = useRef(t);
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
+
   const { socketRef, connected: socketConnected, joined: roomJoined, error: socketError } = useSharedVideoSocket(
     enabled ? consultationId : undefined,
   );
@@ -146,6 +154,8 @@ export function useLivekitRoom({
   const [localCameraFeeds, setLocalCameraFeeds] = useState<Record<string, MediaStream>>({});
   const [audioMissing, setAudioMissing] = useState(false);
   const [virtualCameraWarning, setVirtualCameraWarning] = useState<string[]>([]);
+  /** Biriktirilgan, lekin ochib bo'lmagan kameralar — UI da "band" deb ko'rsatiladi */
+  const [busyCameraIds, setBusyCameraIds] = useState<string[]>([]);
   const [error, setError] = useState('');
   const [reconnecting, setReconnecting] = useState(false);
   const [cameraPermissionNeeded, setCameraPermissionNeeded] = useState(false);
@@ -374,11 +384,14 @@ export function useLivekitRoom({
             setError('');
           } else {
             if (prefs.videoDeviceId) saveMediaPreferences({ videoDeviceId: '' });
-            setError(t('video.doctorCameraFallback', { msg: normalizeMediaError(err) }));
+            setError(tRef.current('video.doctorCameraFallback', { msg: normalizeMediaError(err) }));
           }
         }
       } else {
-        const { streams, audioStream, usedVirtual, audioMissing: micMissing } = await captureUtCameraStreams(prefs);
+        const {
+          streams, audioStream, usedVirtual,
+          audioMissing: micMissing, busyDeviceIds,
+        } = await captureUtCameraStreams(prefs);
         localStreamsRef.current = streams;
         if (audioStream) localStreamsRef.current.set('ut-audio', audioStream);
         const feeds: Record<string, MediaStream> = {};
@@ -387,6 +400,7 @@ export function useLivekitRoom({
         });
         setLocalCameraFeeds(feeds);
         setAudioMissing(micMissing);
+        setBusyCameraIds(busyDeviceIds);
         const main = streams.get('main') ?? streams.values().next().value ?? null;
         const close = streams.get('close') ?? main;
         const monitor = streams.get('equipment') ?? streams.get('room') ?? close;
@@ -405,7 +419,7 @@ export function useLivekitRoom({
       }
       setError(normalizeMediaError(err));
     }
-  }, [isPublisher, role, t]);
+  }, [isPublisher, role]);
 
   const connectSfu = useCallback(async (override?: { url: string; token: string }) => {
     // override — yangi mint qilingan token. Ilgari `reconnectCall` tokenni
@@ -745,7 +759,7 @@ export function useLivekitRoom({
     connectingRef.current = true;
     void connectSfuRef.current()
       .catch((err) => {
-        setError(err instanceof Error ? err.message : t('video.connectError'));
+        setError(err instanceof Error ? err.message : tRef.current('video.connectError'));
         onSfuUnavailableRef.current?.();
       })
       .finally(() => {
@@ -754,7 +768,8 @@ export function useLivekitRoom({
     // DIQQAT: bog'liqliklar ro'yxatida faqat HAQIQIY qiymatlar bor.
     // `connectSfu` va `onSfuUnavailable` ref orqali chaqiriladi — ularning
     // identifikatori o'zgarishi (har render) ulanishni qayta qurmasligi kerak.
-  }, [enabled, roomClosed, sfuToken, sfuUrl, t, videoPaused]);
+    // `t` ham shu sababdan yo'q: til almashishi xonani qayta qurmasligi shart.
+  }, [enabled, roomClosed, sfuToken, sfuUrl, videoPaused]);
 
   // Media tayyor bo'lgach treklarni publish qilamiz — ulanish allaqachon tayyor
   // bo'lsa bu bir zumda bo'ladi.
@@ -875,11 +890,11 @@ export function useLivekitRoom({
       await connectSfu({ url: minted.url, token: minted.token });
       reconnectAttemptRef.current = 0;
     } catch {
-      setError(t('video.reconnectPermission'));
+      setError(tRef.current('video.reconnectPermission'));
     } finally {
       isReconnectingRef.current = false;
     }
-  }, [connectSfu, consultationId, onSfuUnavailable, role, t]);
+  }, [connectSfu, consultationId, onSfuUnavailable, role]);
 
   const reloadMedia = useCallback(async () => {
     await teardownRoom();
@@ -958,6 +973,7 @@ export function useLivekitRoom({
     networkAudioOnly,
     sessionKicked,
     virtualCameraWarning,
+    busyCameraIds,
     audioMissing,
     preflightPending,
     confirmPreflight,

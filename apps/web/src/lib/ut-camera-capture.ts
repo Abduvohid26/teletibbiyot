@@ -10,6 +10,8 @@ export interface CaptureResult {
   audioStream: MediaStream | null;
   usedVirtual: string[];
   audioMissing: boolean;
+  /** Biriktirilgan, lekin ochib bo'lmagan kameralar (band yoki uzilgan) */
+  busyDeviceIds: string[];
 }
 
 /**
@@ -30,10 +32,41 @@ async function openCamera(
   }
 }
 
-/** UT tomonda faqat biriktirilgan/jismoniy kameralardan oqim — bemor barcha 4 ta oynada takrorlanmaydi */
+/**
+ * Biriktiruvni haqiqiy qurilmaga bog'laydi.
+ *
+ * Saqlangan `deviceId` eskirgan yoki Chrome taxallusi (`default`) bo'lishi mumkin —
+ * bunday holda o'sha jismoniy qurilmani `groupId` orqali topamiz.
+ */
+function resolveMappedDevice(
+  mappedId: string,
+  videoInputs: MediaDeviceInfo[],
+  allInputs: MediaDeviceInfo[],
+): MediaDeviceInfo | null {
+  const direct = videoInputs.find((d) => d.deviceId === mappedId);
+  if (direct) return direct;
+
+  const raw = allInputs.find((d) => d.deviceId === mappedId);
+  if (raw?.groupId) {
+    const byGroup = videoInputs.find((d) => d.groupId === raw.groupId);
+    if (byGroup) return byGroup;
+  }
+  return null;
+}
+
+/**
+ * UT tomonda 4 katakcha uchun oqim oladi.
+ *
+ * Har katakchaga ALOHIDA jismoniy kamera biriktiriladi — bitta kamerani
+ * ikkiga bo'lish (klonlash) o'rniga eksklyuziv taqsimot ishlatiladi, chunki
+ * bir xil tasvirni ikki katakda ko'rsatishning klinik foydasi yo'q.
+ *
+ * Ochib bo'lmagan kameralar `busyDeviceIds` da qaytariladi — UI ularni
+ * "band" deb belgilaydi.
+ */
 export async function captureUtCameraStreams(prefs: MediaPreferences): Promise<CaptureResult> {
   const streams: CaptureMap = new Map();
-  const usedDeviceIds = new Set<string>();
+  const busyDeviceIds: string[] = [];
 
   const devices = await navigator.mediaDevices.enumerateDevices();
   const hasLabels = devices.some((d) => d.label && d.label.length > 0);
@@ -43,12 +76,14 @@ export async function captureUtCameraStreams(prefs: MediaPreferences): Promise<C
     }).catch(() => undefined);
   }
 
-  // Bitta jismoniy kamera bir necha deviceId bilan kelishi mumkin — faqat bittasini qoldiramiz
-  const videoInputs = dedupeVideoInputs(
-    (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'videoinput'),
+  const allInputs = (await navigator.mediaDevices.enumerateDevices()).filter(
+    (d) => d.kind === 'videoinput',
   );
+  // Bitta jismoniy kamera bir necha deviceId bilan kelishi mumkin — bittasini qoldiramiz
+  const videoInputs = dedupeVideoInputs(allInputs);
 
   // Bir xil kamera ikki katakka tushmasligi uchun groupId ni ham kuzatamiz
+  const usedDeviceIds = new Set<string>();
   const usedGroupIds = new Set<string>();
   const markUsed = (device: MediaDeviceInfo) => {
     usedDeviceIds.add(device.deviceId);
@@ -57,38 +92,42 @@ export async function captureUtCameraStreams(prefs: MediaPreferences): Promise<C
   const isFree = (device: MediaDeviceInfo) =>
     !usedDeviceIds.has(device.deviceId) && !(device.groupId && usedGroupIds.has(device.groupId));
 
+  let hasExplicitMapping = false;
+
   for (const feed of UT_CAMERA_FEEDS) {
     const mappedId = prefs.utCameraMapping[feed.id]?.trim();
     if (!mappedId) continue;
-    const device = videoInputs.find((d) => d.deviceId === mappedId);
+    hasExplicitMapping = true;
+
+    const device = resolveMappedDevice(mappedId, videoInputs, allInputs);
     if (!device || !isFree(device)) continue;
 
     const stream = await openCamera(prefs, device.deviceId);
     if (stream) {
       streams.set(feed.id, stream);
       markUsed(device);
+    } else {
+      busyDeviceIds.push(device.deviceId);
     }
   }
 
   // Operator biror katakni ATAYLAB biriktirgan bo'lsa, qolganini o'zboshimchalik
-  // bilan to'ldirmaymiz — aks holda bitta kamera hamma katakda ko'rinib qoladi.
-  const hasExplicitMapping = UT_CAMERA_FEEDS.some((f) => !!prefs.utCameraMapping[f.id]?.trim());
-
+  // bilan to'ldirmaymiz. Aks holda (birinchi ishga tushirish) har katakka
+  // navbatdagi bo'sh kamera beriladi — tartib UT_CAMERA_ORDER bo'yicha.
   if (!hasExplicitMapping) {
-    const availableDevices = videoInputs.filter(isFree);
     let nextDevice = 0;
-
     for (const feedId of UT_CAMERA_ORDER) {
-      if (streams.has(feedId)) continue;
-      const device = availableDevices[nextDevice];
+      const device = videoInputs[nextDevice];
       if (!device?.deviceId) break;
+      nextDevice += 1;
 
       const stream = await openCamera(prefs, device.deviceId);
       if (stream) {
         streams.set(feedId, stream);
         markUsed(device);
+      } else {
+        busyDeviceIds.push(device.deviceId);
       }
-      nextDevice += 1;
     }
   }
 
@@ -108,7 +147,7 @@ export async function captureUtCameraStreams(prefs: MediaPreferences): Promise<C
     audioMissing = true;
   }
 
-  return { streams, audioStream, usedVirtual: [], audioMissing };
+  return { streams, audioStream, usedVirtual: [], audioMissing, busyDeviceIds };
 }
 
 export function stopAllStreams(streams: CaptureMap) {

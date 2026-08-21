@@ -10,25 +10,41 @@ import { useI18n } from '@/i18n';
 interface UtCameraSlotPickerProps {
   /** Katakcha identifikatori: main | close | room | equipment */
   slotId: string;
-  /** Tanlov o'zgargani haqida ota-komponentga xabar (qayta ulash bannerini ko'rsatish uchun) */
+  /** Ochib bo'lmagan kameralar — ro'yxatda "band" deb belgilanadi */
+  busyDeviceIds?: string[];
+  /** Tanlov o'zgargani haqida ota-komponentga xabar — u oqimlarni qayta oladi */
   onChanged?: () => void;
 }
 
 /**
- * Katakchaning o'zida kamera tanlash. Tanlov `utCameraMapping` ga yoziladi;
- * oqimlar xonaga ulanishda olinadi, shuning uchun o'zgarish qayta ulangandan
- * keyin kuchga kiradi (buni ota-komponent banner orqali bildiradi).
+ * Katakchaning o'zida kamera tanlash. Tanlov `utCameraMapping` ga yoziladi va
+ * ota-komponent uni darhol qo'llaydi. Taqsimot eksklyuziv: allaqachon boshqa
+ * katakchada turgan kamera tanlansa, u o'sha yerdan ko'chib keladi.
  */
-export function UtCameraSlotPicker({ slotId, onChanged }: UtCameraSlotPickerProps) {
+export function UtCameraSlotPicker({
+  slotId,
+  busyDeviceIds = [],
+  onChanged,
+}: UtCameraSlotPickerProps) {
   const { t } = useI18n();
   const { devices, refresh } = useMediaDevices();
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState('');
 
+  const [usedElsewhere, setUsedElsewhere] = useState<Set<string>>(new Set());
+
   const videoInputs = devices.filter((d) => d.kind === 'videoinput');
 
   useEffect(() => {
-    setSelected(loadMediaPreferences().utCameraMapping[slotId] || '');
+    const mapping = loadMediaPreferences().utCameraMapping;
+    setSelected(mapping[slotId] || '');
+    setUsedElsewhere(
+      new Set(
+        Object.entries(mapping)
+          .filter(([key, value]) => key !== slotId && !!value)
+          .map(([, value]) => value),
+      ),
+    );
   }, [slotId, open]);
 
   // Ro'yxat ochilganda yorliqlar bo'sh bo'lsa — ruxsat so'rab yangilaymiz
@@ -40,7 +56,7 @@ export function UtCameraSlotPicker({ slotId, onChanged }: UtCameraSlotPickerProp
     const prefs = loadMediaPreferences();
     const mapping = { ...prefs.utCameraMapping };
 
-    // Bitta kamera ikki katakchada bo'lmasin — avvalgi egasidan olib tashlaymiz
+    // Har katakchaga alohida kamera: tanlangan kamera avvalgi katakchadan ko'chiriladi
     if (deviceId) {
       for (const key of Object.keys(mapping)) {
         if (key !== slotId && mapping[key] === deviceId) mapping[key] = '';
@@ -83,6 +99,14 @@ export function UtCameraSlotPicker({ slotId, onChanged }: UtCameraSlotPickerProp
                 key={d.deviceId}
                 label={d.label || t('media.unnamedCamera')}
                 active={selected === d.deviceId}
+                hint={
+                  busyDeviceIds.includes(d.deviceId)
+                    ? t('media.cameraBusyShort')
+                    : usedElsewhere.has(d.deviceId)
+                      ? t('media.movesFromOtherSlot')
+                      : undefined
+                }
+                busy={busyDeviceIds.includes(d.deviceId)}
                 onClick={() => choose(d.deviceId)}
               />
             ))}
@@ -99,10 +123,15 @@ export function UtCameraSlotPicker({ slotId, onChanged }: UtCameraSlotPickerProp
 function SlotOption({
   label,
   active,
+  hint,
+  busy,
   onClick,
 }: {
   label: string;
   active: boolean;
+  hint?: string;
+  /** Kamera ochilmadi — tanlash mumkin, lekin ogohlantiramiz */
+  busy?: boolean;
   onClick: () => void;
 }) {
   return (
@@ -118,7 +147,12 @@ function SlotOption({
       )}
     >
       <Check size={11} className={cn('shrink-0', active ? 'opacity-100' : 'opacity-0')} />
-      <span className="truncate">{label}</span>
+      <span className={cn('truncate', busy && 'text-slate-400')}>{label}</span>
+      {hint && (
+        <span className={cn('ml-auto shrink-0 text-[9px]', busy ? 'text-amber-400' : 'text-slate-400')}>
+          {hint}
+        </span>
+      )}
     </button>
   );
 }

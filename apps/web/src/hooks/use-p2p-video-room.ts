@@ -73,6 +73,14 @@ export function useP2PVideoRoom({
   autoRejoin = false,
 }: UseVideoRoomOptions) {
   const { t } = useI18n();
+  // `t` til almashganda QAYTA yaratiladi. Agar u callback/effekt bog'liqligiga
+  // kirsa, tilni almashtirish jonli video sessiyani uzib, kameralarni qayta
+  // ochishga majbur qiladi. Shuning uchun xabar matnlari ref orqali o'qiladi.
+  const tRef = useRef(t);
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
+
   const { socketRef, connected: socketConnected, joined: roomJoined, error: socketError } = useSharedVideoSocket(
     enabled ? consultationId : undefined,
   );
@@ -147,6 +155,8 @@ export function useP2PVideoRoom({
   const [localCameraFeeds, setLocalCameraFeeds] = useState<Record<string, MediaStream>>({});
   const [audioMissing, setAudioMissing] = useState(false);
   const [virtualCameraWarning, setVirtualCameraWarning] = useState<string[]>([]);
+  /** Biriktirilgan, lekin ochib bo'lmagan kameralar — UI da "band" deb ko'rsatiladi */
+  const [busyCameraIds, setBusyCameraIds] = useState<string[]>([]);
   const [error, setError] = useState('');
   // Ulanish uzilib, tiklashga urinilyapti — UI "Qayta ulanmoqda…" ko'rsatadi.
   // FAQAT peer hali xonada bo'lganda (tarmoq beqaror). Chiqib ketganda waiting_peer.
@@ -637,16 +647,16 @@ export function useP2PVideoRoom({
           if (fails >= 3) {
             setError(
               isTurnConfigured()
-                ? t('video.connectionUnstable')
-                : t('video.turnNotConfigured'),
+                ? tRef.current('video.connectionUnstable')
+                : tRef.current('video.turnNotConfigured'),
             );
           }
           // Haqiqiy taslim — faqat uzoq muddatli muvaffaqiyatsizlikdan keyin.
           if (fails >= 6) {
             setError(
               isTurnConfigured()
-                ? t('video.connectionRestoreFailed')
-                : t('video.turnNotConfigured'),
+                ? tRef.current('video.connectionRestoreFailed')
+                : tRef.current('video.turnNotConfigured'),
             );
           }
         }
@@ -744,7 +754,7 @@ export function useP2PVideoRoom({
           offer,
         });
       } catch {
-        setError(t('video.connectError'));
+        setError(tRef.current('video.connectError'));
       } finally {
         makingOfferRef.current.set(remoteSocketId, false);
       }
@@ -861,7 +871,7 @@ export function useP2PVideoRoom({
         const pc = createPeerConnection(fromSocketId, false);
         await negotiate(pc, true);
       } catch {
-        setError(t('video.answerError'));
+        setError(tRef.current('video.answerError'));
       }
     },
     [addLocalTracks, consultationId, createPeerConnection, flushIceCandidates, socketRef, teardownPeerConnection],
@@ -1081,11 +1091,14 @@ export function useP2PVideoRoom({
             if (prefs.videoDeviceId) {
               saveMediaPreferences({ videoDeviceId: '' });
             }
-            setError(t('video.doctorCameraFallback', { msg }));
+            setError(tRef.current('video.doctorCameraFallback', { msg }));
           }
         }
       } else {
-        const { streams, audioStream, usedVirtual, audioMissing: micMissing } = await captureUtCameraStreams(prefs);
+        const {
+          streams, audioStream, usedVirtual,
+          audioMissing: micMissing, busyDeviceIds,
+        } = await captureUtCameraStreams(prefs);
         localStreamsRef.current = streams;
         if (audioStream) localStreamsRef.current.set('ut-audio', audioStream);
         const feeds: Record<string, MediaStream> = {};
@@ -1094,6 +1107,7 @@ export function useP2PVideoRoom({
         });
         setLocalCameraFeeds(feeds);
         setAudioMissing(micMissing);
+        setBusyCameraIds(busyDeviceIds);
         const main = streams.get('main') ?? streams.values().next().value ?? null;
         const close = streams.get('close') ?? main;
         const monitor = streams.get('equipment') ?? streams.get('room') ?? close;
@@ -1670,7 +1684,7 @@ export function useP2PVideoRoom({
         return;
       }
 
-      setError(data.message || t('video.signalError'));
+      setError(data.message || tRef.current('video.signalError'));
     };
 
     const onRoomJoined = (data?: { others?: RoomParticipant[] }) => {
@@ -1933,7 +1947,7 @@ export function useP2PVideoRoom({
       setTimeout(() => requestRoomSyncRef.current(), 100);
     } catch {
       setupStartedRef.current = false;
-      setError(t('video.reconnectPermission'));
+      setError(tRef.current('video.reconnectPermission'));
     } finally {
       isReconnectingRef.current = false;
     }
@@ -2025,6 +2039,7 @@ export function useP2PVideoRoom({
     networkAudioOnly,
     sessionKicked,
     virtualCameraWarning,
+    busyCameraIds,
     audioMissing,
     preflightPending,
     confirmPreflight,

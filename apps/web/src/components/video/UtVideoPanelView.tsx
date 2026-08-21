@@ -97,6 +97,7 @@ export function UtVideoPanelView({
     roomPhase,
     peerDisplayName,
     audioMissing,
+    busyCameraIds,
     utCameraStreams,
     qualityLabel,
     networkAudioOnly,
@@ -261,7 +262,11 @@ export function UtVideoPanelView({
                       <span className="absolute top-1 left-1 bg-black/65 text-white text-[9px] sm:text-[10px] font-semibold px-1.5 py-0.5 rounded pointer-events-none">
                         {short}
                       </span>
-                      <UtCameraSlotPicker slotId={id} onChanged={scheduleCameraApply} />
+                      <UtCameraSlotPicker
+                        slotId={id}
+                        busyDeviceIds={busyCameraIds}
+                        onChanged={scheduleCameraApply}
+                      />
                       {!live && (
                         <span className="absolute inset-0 flex items-center justify-center bg-slate-900/40 pointer-events-none">
                           <VideoOff className="w-3.5 h-3.5 text-slate-500" />
