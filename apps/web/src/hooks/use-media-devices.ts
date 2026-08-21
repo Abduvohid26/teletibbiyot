@@ -1,12 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { loadMediaPreferences, saveMediaPreferences } from '@/lib/media-preferences';
+import { loadMediaPreferences, saveMediaPreferences } from '@/lib/media-preferences';
+import { dedupeVideoInputs } from '@/lib/video-input-devices';
 
 export interface MediaDeviceInfo {
   deviceId: string;
   label: string;
   kind: MediaDeviceKind;
+  /** Bir xil jismoniy qurilmani aniqlash uchun (Chrome bitta kamerani bir necha marta beradi) */
+  groupId?: string;
 }
 
 export function useMediaDevices() {
@@ -23,15 +26,20 @@ export function useMediaDevices() {
         setPermissionGranted(true);
       }
       const list = await navigator.mediaDevices.enumerateDevices();
-      setDevices(
-        list
-          .filter((d) => d.kind === 'videoinput' || d.kind === 'audioinput')
-          .map((d) => ({
-            deviceId: d.deviceId,
-            label: d.label || `${d.kind === 'videoinput' ? 'Kamera' : 'Mikrofon'} ${d.deviceId.slice(0, 6)}`,
-            kind: d.kind,
-          })),
-      );
+      const mapped = list
+        .filter((d) => d.kind === 'videoinput' || d.kind === 'audioinput')
+        .map((d) => ({
+          deviceId: d.deviceId,
+          label: d.label || `${d.kind === 'videoinput' ? 'Kamera' : 'Mikrofon'} ${d.deviceId.slice(0, 6)}`,
+          kind: d.kind,
+          groupId: d.groupId,
+        }));
+
+      // Kameralar: bitta jismoniy qurilma ro'yxatda bir marta ko'rinsin
+      setDevices([
+        ...dedupeVideoInputs(mapped.filter((d) => d.kind === 'videoinput')),
+        ...mapped.filter((d) => d.kind !== 'videoinput'),
+      ]);
       if (!requestPermission) {
         setPermissionGranted(list.some((d) => d.label && d.label.length > 0));
       }

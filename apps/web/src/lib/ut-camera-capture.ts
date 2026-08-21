@@ -1,6 +1,7 @@
 import { UT_CAMERA_FEEDS, UT_CAMERA_ORDER } from './video-config';
 import type { MediaPreferences } from './media-preferences';
-import { getAudioConstraints, getUtVideoConstraints, acquireUserMedia } from './webrtc-quality';
+import { getAudioConstraints, getUtVideoConstraints, acquireUserMedia } from './webrtc-quality';
+import { dedupeVideoInputs } from './video-input-devices';
 
 type CaptureMap = Map<string, MediaStream>;
 
@@ -38,37 +39,53 @@ export async function captureUtCameraStreams(prefs: MediaPreferences): Promise<C
     }).catch(() => undefined);
   }
 
-  const videoInputs = (await navigator.mediaDevices.enumerateDevices()).filter(
-    (d) => d.kind === 'videoinput',
+  // Bitta jismoniy kamera bir necha deviceId bilan kelishi mumkin — faqat bittasini qoldiramiz
+  const videoInputs = dedupeVideoInputs(
+    (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'videoinput'),
   );
+
+  // Bir xil kamera ikki katakka tushmasligi uchun groupId ni ham kuzatamiz
+  const usedGroupIds = new Set<string>();
+  const markUsed = (device: MediaDeviceInfo) => {
+    usedDeviceIds.add(device.deviceId);
+    if (device.groupId) usedGroupIds.add(device.groupId);
+  };
+  const isFree = (device: MediaDeviceInfo) =>
+    !usedDeviceIds.has(device.deviceId) && !(device.groupId && usedGroupIds.has(device.groupId));
 
   for (const feed of UT_CAMERA_FEEDS) {
     const mappedId = prefs.utCameraMapping[feed.id]?.trim();
-    if (!mappedId || usedDeviceIds.has(mappedId)) continue;
+    if (!mappedId) continue;
     const device = videoInputs.find((d) => d.deviceId === mappedId);
-    if (!device) continue;
+    if (!device || !isFree(device)) continue;
 
     const stream = await openCamera(prefs, device.deviceId);
     if (stream) {
       streams.set(feed.id, stream);
-      usedDeviceIds.add(device.deviceId);
+      markUsed(device);
     }
   }
 
-  const availableDevices = videoInputs.filter((d) => d.deviceId && !usedDeviceIds.has(d.deviceId));
-  let nextDevice = 0;
+  // Operator biror katakni ATAYLAB biriktirgan bo'lsa, qolganini o'zboshimchalik
+  // bilan to'ldirmaymiz — aks holda bitta kamera hamma katakda ko'rinib qoladi.
+  const hasExplicitMapping = UT_CAMERA_FEEDS.some((f) => !!prefs.utCameraMapping[f.id]?.trim());
 
-  for (const feedId of UT_CAMERA_ORDER) {
-    if (streams.has(feedId)) continue;
-    const device = availableDevices[nextDevice];
-    if (!device?.deviceId) break;
+  if (!hasExplicitMapping) {
+    const availableDevices = videoInputs.filter(isFree);
+    let nextDevice = 0;
 
-    const stream = await openCamera(prefs, device.deviceId);
-    if (stream) {
-      streams.set(feedId, stream);
-      usedDeviceIds.add(device.deviceId);
+    for (const feedId of UT_CAMERA_ORDER) {
+      if (streams.has(feedId)) continue;
+      const device = availableDevices[nextDevice];
+      if (!device?.deviceId) break;
+
+      const stream = await openCamera(prefs, device.deviceId);
+      if (stream) {
+        streams.set(feedId, stream);
+        markUsed(device);
+      }
+      nextDevice += 1;
     }
-    nextDevice += 1;
   }
 
   if (streams.size === 0) {
