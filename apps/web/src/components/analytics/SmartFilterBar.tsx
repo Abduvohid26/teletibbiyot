@@ -8,7 +8,7 @@ import { useI18n } from '@/i18n';
 export interface FilterField {
   key: string;
   label: string;
-  type: 'select' | 'search';
+  type: 'select' | 'search' | 'date';
   options?: Array<{ value: string; label: string }>;
   placeholder?: string;
   value: string;
@@ -40,12 +40,14 @@ export function SmartFilterBar({ fields, onChange, onReset, activeCount = 0, chi
 
         {fields.map((field) => (
           <div key={field.key} className={cn('min-w-[140px] flex-1', field.className)}>
-            {field.type === 'search' ? (
+            {field.type === 'search' || field.type === 'date' ? (
               <input
-                type="text"
+                type={field.type === 'date' ? 'date' : 'text'}
                 value={field.value}
                 onChange={(e) => onChange(field.key, e.target.value)}
                 placeholder={field.placeholder || field.label}
+                aria-label={field.label}
+                title={field.label}
                 className="input !py-2 !text-sm w-full"
               />
             ) : (

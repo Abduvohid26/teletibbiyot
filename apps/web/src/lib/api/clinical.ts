@@ -30,8 +30,9 @@ export function defineConsultationsApi(client: HttpClient) {
       return client.request<Consultation>(`/consultations/${id}/start`, { method: 'POST' });
     },
 
+    /** Javobdagi `next` — shu shifokorga biriktirilgan navbatdagi keyingi bemor */
     completeConsultation(id: string, data: Partial<FinalDiagnosisData> = {}) {
-      return client.request<Consultation>(`/consultations/${id}/complete`, {
+      return client.request<Consultation & { next: Consultation | null }>(`/consultations/${id}/complete`, {
         method: 'POST',
         body: JSON.stringify(data),
       });

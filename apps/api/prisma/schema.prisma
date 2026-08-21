@@ -235,6 +235,9 @@ model User {
 
   isActive     Boolean   @default(true)
 
+  /** Shifokor tanaffusda: navbatga yangi bemor biriktirilmasin */
+  onBreak      Boolean   @default(false)
+
   tokenVersion Int       @default(0)
 
   specialty    String?

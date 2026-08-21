@@ -25,6 +25,10 @@ export interface ConsultationFilters {
   from?: string;
   to?: string;
   hasAiAnalysis?: string;
+  /** Bemorning tug'ilgan sanasi (YYYY-MM-DD) */
+  birthDate?: string;
+  /** 'due' — nazorat sanasi belgilanganlar, sanasi yaqinlari tepada */
+  followUp?: string;
   page?: number;
   limit?: number;
 }

@@ -9,7 +9,7 @@ import { PatientDocumentsPanel } from '@/components/dashboard/PatientDocumentsPa
 import { api, Consultation } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { useCancelConsultation } from '@/hooks/use-cancel-consultation';
-import { DOCTOR_SELECT_EVENT } from '@/hooks/use-doctor-header-data';
+import { DOCTOR_SELECT_EVENT, dispatchDoctorSelect } from '@/hooks/use-doctor-header-data';
 import { useI18n } from '@/i18n';
 
 interface DoctorDashboardViewProps {
@@ -75,7 +75,7 @@ export function DoctorDashboardView({
     }
     setCompleting(true);
     try {
-      await api.completeConsultation(activeConsultation.id, {});
+      const { next } = await api.completeConsultation(activeConsultation.id, {});
       toast(t('dashboard.completeSuccess'), 'success');
       // PDF generatsiya bo'lishi biroz vaqt olishi mumkin — bir marta qayta urinamiz.
       for (let attempt = 0; attempt < 2; attempt++) {
@@ -89,6 +89,14 @@ export function DoctorDashboardView({
         }
       }
       onReload();
+
+      // Uzluksiz oqim: navbatdagi keyingi bemorga avtomatik o'tamiz
+      if (next) {
+        dispatchDoctorSelect(next.id);
+        toast(t('dashboard.nextPatient', { name: next.patient?.fullName ?? '' }), 'info');
+      } else {
+        toast(t('dashboard.queueEmpty'), 'info');
+      }
     } catch (err) {
       toast(err instanceof Error ? err.message : t('dashboard.completeError'), 'error');
     } finally {
@@ -116,6 +124,9 @@ export function DoctorDashboardView({
   }, [consultation, myInProgress, queuedPatients, requestCancel]);
 
   const showCompleteBtn = activeConsultation?.status === 'IN_PROGRESS';
+  // Yakunlagandan keyin navbatda bemor qoladimi — tugma matnini shunga qarab ko'rsatamiz
+  const myQueueRemaining = queuedPatients.filter((c) => c.id !== activeConsultationId).length;
+  const hasNextInQueue = myQueueRemaining > 0;
   const showCancelBtn = activeConsultation?.status === 'IN_PROGRESS';
 
   return (
@@ -132,6 +143,11 @@ export function DoctorDashboardView({
 
         {(showCompleteBtn || showCancelBtn) && (
           <div className="shrink-0 mb-2 flex items-center justify-end gap-1.5">
+            {hasNextInQueue && (
+              <span className="text-[10px] sm:text-[11px] text-slate-500 mr-auto truncate">
+                {t('dashboard.queueRemaining', { count: myQueueRemaining })}
+              </span>
+            )}
             {showCancelBtn && (
               <button
                 type="button"
@@ -150,8 +166,20 @@ export function DoctorDashboardView({
                 className="gradient-btn !py-1.5 !px-2.5 !text-[11px] sm:!text-xs shrink-0 whitespace-nowrap disabled:opacity-60 inline-flex items-center gap-1"
               >
                 {completing ? <Loader2 size={12} className="animate-spin" /> : null}
-                <span className="hidden sm:inline">{completing ? t('dashboard.completing') : t('dashboard.complete')}</span>
-                <span className="sm:hidden">{completing ? t('dashboard.completingShort') : t('dashboard.completeShort')}</span>
+                <span className="hidden sm:inline">
+                  {completing
+                    ? t('dashboard.completing')
+                    : hasNextInQueue
+                      ? t('dashboard.completeAndNext')
+                      : t('dashboard.complete')}
+                </span>
+                <span className="sm:hidden">
+                  {completing
+                    ? t('dashboard.completingShort')
+                    : hasNextInQueue
+                      ? t('dashboard.completeAndNextShort')
+                      : t('dashboard.completeShort')}
+                </span>
               </button>
             )}
           </div>

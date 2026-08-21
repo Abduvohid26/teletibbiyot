@@ -34,6 +34,18 @@ export class ConsultationQueryDto {
   @IsDateString()
   to?: string;
 
+  @ApiPropertyOptional({ description: "Bemorning tug'ilgan sanasi (YYYY-MM-DD)" })
+  @IsOptional()
+  @IsDateString()
+  birthDate?: string;
+
+  @ApiPropertyOptional({
+    description: "'due' — nazorat sanasi belgilangan konsultatsiyalar, sanasi yaqinlari tepada",
+  })
+  @IsOptional()
+  @IsString()
+  followUp?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

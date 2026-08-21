@@ -24,8 +24,10 @@ export interface DoctorOption {
   specialty?: string | null;
   specialtyRef?: { id: string; name: string } | null;
   facility?: { id: string; name: string; code: string };
-  /** online = dashboard ochiq, in_meet = video xonada, offline = ulanmagan */
-  presence?: 'online' | 'in_meet' | 'offline';
+  /** online = dashboard ochiq, in_meet = video xonada, break = tanaffus, offline = ulanmagan */
+  presence?: 'online' | 'in_meet' | 'break' | 'offline';
+  /** Yakunlanmagan (navbat + jarayondagi) konsultatsiyalar soni */
+  activeCount?: number;
 }
 
 export interface AdminOverview {
@@ -209,6 +211,9 @@ export interface Consultation {
   aiAnalysisSteps?: AiAnalysisStep[];
   finalDiagnosis?: { diagnosis: string; icd10Code: string; recommendations: string };
   consultationReport?: { fileName: string; generatedAt: string };
+  _count?: { attachments: number };
+  /** Shifokor belgilagan nazorat sanasi */
+  followUpDate?: string | null;
   secondOpinions?: SecondOpinion[];
 }
 

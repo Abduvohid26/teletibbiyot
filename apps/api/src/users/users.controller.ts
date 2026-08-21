@@ -3,10 +3,11 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { SetBreakDto } from './dto/set-break.dto';
 import { ResetPasswordDto } from '../common/dto/common.dto';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guard';
 import { Roles } from '../auth/roles.decorator';
-import { ROLES_ADMIN, ROLES_CLINICAL } from '../common/roles.constants';
+import { ROLES_ADMIN, ROLES_CLINICAL, ROLES_MT_DOCTOR } from '../common/roles.constants';
 
 @ApiTags('Users')
 @Controller('users')
@@ -26,6 +27,16 @@ export class UsersController {
   @ApiOperation({ summary: 'Faol shifokorlar ro\'yxati' })
   findDoctors() {
     return this.usersService.findDoctors();
+  }
+
+  @Patch('me/break')
+  @Roles(...ROLES_MT_DOCTOR)
+  @ApiOperation({ summary: "Shifokor tanaffus holatini yoqadi/o'chiradi" })
+  setBreak(
+    @Body() body: SetBreakDto,
+    @Request() req: { user: { id: string } },
+  ) {
+    return this.usersService.setBreak(req.user.id, body.onBreak);
   }
 
   @Post()

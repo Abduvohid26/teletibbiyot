@@ -38,7 +38,8 @@ export interface ConsultationRealtimeHandlers {
   onDeviceStatusUpdated?: (facilityId: string) => void;
   onDoctorPresenceUpdated?: (payload: {
     doctorId: string;
-    status: 'online' | 'in_meet' | 'offline';
+    status: 'online' | 'in_meet' | 'break' | 'offline';
+    activeCount?: number;
   }) => void;
 }
 
@@ -190,13 +191,15 @@ export function useConsultationRealtime(
 
     const onDoctorPresence = (payload: {
       doctorId?: string;
-      status?: 'online' | 'in_meet' | 'offline';
+      status?: 'online' | 'in_meet' | 'break' | 'offline';
+      activeCount?: number;
     }) => {
       if (!staffFeed) return;
       if (!payload?.doctorId || !payload?.status) return;
       handlersRef.current.onDoctorPresenceUpdated?.({
         doctorId: payload.doctorId,
         status: payload.status,
+        activeCount: payload.activeCount,
       });
     };
 

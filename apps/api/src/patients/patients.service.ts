@@ -166,6 +166,7 @@ export class PatientsService {
             cancelledBy: { select: { id: true, fullName: true, role: true } },
             clinicalRecord: { select: { complaints: true, vitalSigns: true } },
             consultationReport: { select: { id: true, fileName: true, generatedAt: true } },
+            _count: { select: { attachments: true } },
           },
           orderBy: { createdAt: 'desc' },
         },

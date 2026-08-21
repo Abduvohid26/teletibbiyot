@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN "onBreak" BOOLEAN NOT NULL DEFAULT false;

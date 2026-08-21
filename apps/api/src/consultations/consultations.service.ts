@@ -25,6 +25,7 @@ import {
 } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
 import { VideoGateway } from '../video/video.gateway';
+import { DoctorPresenceService } from '../video/doctor-presence.service';
 import { ReportsService } from '../reports/reports.service';
 import { BRAND, CLINICAL_CHECKLIST_ITEMS } from '@ishifo/shared';
 import {
@@ -57,6 +58,7 @@ export class ConsultationsService {
     private access: AccessControlService,
     private notifications: NotificationsService,
     private videoGateway: VideoGateway,
+    private presence: DoctorPresenceService,
     private reportsService: ReportsService,
     private crypto: FieldCryptoService,
   ) {}
@@ -215,6 +217,9 @@ export class ConsultationsService {
       mtDoctorName: doctor.fullName,
     });
 
+    // UT operator ro'yxatidagi yuklama ko'rsatkichi darhol yangilansin
+    void this.presence.broadcast(assignedDoctorId);
+
     const doctors = await this.prisma.user.findMany({
       where: { id: assignedDoctorId, isActive: true },
       select: { id: true, email: true },
@@ -284,6 +289,23 @@ export class ConsultationsService {
       });
     }
 
+    if (query.birthDate) {
+      // Sana kunlik oraliq sifatida qidiriladi (DateTime ustunida vaqt qismi bor)
+      const dayStart = new Date(query.birthDate);
+      if (!Number.isNaN(dayStart.getTime())) {
+        dayStart.setUTCHours(0, 0, 0, 0);
+        const dayEnd = new Date(dayStart);
+        dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
+        conditions.push({ patient: { birthDate: { gte: dayStart, lt: dayEnd } } });
+      }
+    }
+
+    // E2 — nazorat (follow-up) sanasi belgilangan bemorlar
+    const followUpDue = query.followUp === 'due';
+    if (followUpDue) {
+      conditions.push({ followUpDate: { not: null } });
+    }
+
     if (query.hasAiAnalysis === 'true') {
       conditions.push({ aiAnalysis: { isNot: null } });
     }
@@ -302,7 +324,10 @@ export class ConsultationsService {
           finalDiagnosis: true,
           clinicalRecord: { select: { complaints: true } },
         },
-        orderBy: [{ createdAt: 'desc' }],
+        orderBy: followUpDue
+          // Sanasi yaqinlashganlar tepada
+          ? [{ followUpDate: 'asc' }]
+          : [{ createdAt: 'desc' }],
         skip,
         take: limit,
       }),
@@ -526,8 +551,30 @@ export class ConsultationsService {
       utId: consultation.utId,
     });
     void this.videoGateway.closeVideoRoom(id, 'completed');
+    void this.presence.broadcast(doctorId);
 
-    return result;
+    // Shifokor uzluksiz ishlashi uchun keyingi bemorni darhol qaytaramiz
+    return { ...result, next: await this.findNextForDoctor(doctorId, id) };
+  }
+
+  /**
+   * Shifokorga biriktirilgan navbatdagi keyingi bemor (findQueue bilan bir xil tartib).
+   * `excludeId` — hozirgina yakunlangan konsultatsiya.
+   */
+  async findNextForDoctor(doctorId: string, excludeId?: string) {
+    const next = await this.prisma.consultation.findFirst({
+      where: {
+        mtDoctorId: doctorId,
+        status: ConsultationStatus.QUEUED,
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
+      include: { patient: true, utFacility: true },
+      orderBy: [{ priority: 'desc' }, { triageLevel: 'desc' }, { createdAt: 'asc' }],
+    });
+    if (!next) return null;
+
+    const [unprotected] = await this.crypto.unprotectConsultations([next]);
+    return unprotected ?? next;
   }
 
   async escalate(id: string, user: AuthUser, level: 'SENIOR_REVIEW' | 'EMERGENCY', reason?: string) {
@@ -758,6 +805,7 @@ export class ConsultationsService {
       cancelledByRole: user.role,
     });
     void this.videoGateway.closeVideoRoom(id, 'cancelled');
+    if (consultation.mtDoctorId) void this.presence.broadcast(consultation.mtDoctorId);
 
     return updated;
   }

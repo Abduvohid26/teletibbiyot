@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, User, Phone, MapPin, Calendar, Stethoscope, Brain, FileText, XCircle } from 'lucide-react';
+import { X, User, Phone, MapPin, Calendar, Stethoscope, Brain, FileText, XCircle, Paperclip } from 'lucide-react';
 import { api, PatientDetail } from '@/lib/api';
 import { calculateAge, formatGender, formatStatus, formatTriage } from '@/lib/utils';
 import { cn } from '@/lib/utils';
@@ -101,6 +101,12 @@ export function PatientDetailPanel({ patientId, onClose }: PatientDetailPanelPro
                         <span className="text-xs font-bold text-slate-500">{c.utFacility.code}</span>
                         <span className={cn('status-badge text-[10px]', status.className)}>{t(status.labelKey)}</span>
                       </div>
+                      {c.mtDoctor && (
+                        <p className="text-[11px] text-slate-500 flex items-center gap-1">
+                          <Stethoscope size={10} className="shrink-0 text-slate-400" />
+                          <span className="truncate">{c.mtDoctor.fullName}</span>
+                        </p>
+                      )}
                       {triage && <p className={cn('text-xs font-medium', triage.color)}>{t('analyticsDetail.riskLabel', { level: t(triageLabelKey(c.triageLevel)) })}</p>}
                       {c.clinicalRecord?.complaints && (
                         <p className="text-xs text-slate-600 line-clamp-2">{c.clinicalRecord.complaints}</p>
@@ -144,9 +150,17 @@ export function PatientDetailPanel({ patientId, onClose }: PatientDetailPanelPro
                           {t('analyticsDetail.consiliumPdf')}
                         </button>
                       )}
-                      <p className="text-[10px] text-slate-400 flex items-center gap-1">
-                        <Calendar size={10} />
-                        {new Date(c.createdAt || '').toLocaleDateString(LOCALE_BCP47[locale])}
+                      <p className="text-[10px] text-slate-400 flex items-center gap-2">
+                        <span className="flex items-center gap-1">
+                          <Calendar size={10} />
+                          {new Date(c.createdAt || '').toLocaleDateString(LOCALE_BCP47[locale])}
+                        </span>
+                        {!!c._count?.attachments && (
+                          <span className="flex items-center gap-1">
+                            <Paperclip size={10} />
+                            {c._count.attachments}
+                          </span>
+                        )}
                       </p>
                     </div>
                   );

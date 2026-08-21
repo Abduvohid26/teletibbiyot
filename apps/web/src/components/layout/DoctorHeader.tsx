@@ -4,6 +4,7 @@ import { LogOut, Stethoscope } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { BrandName } from '@/components/brand/BrandName';
 import { DoctorNavTabs } from '@/components/dashboard/DoctorNavTabs';
+import { DoctorBreakToggle } from '@/components/dashboard/DoctorBreakToggle';
 import { LanguageSwitcher, useI18n } from '@/i18n';
 
 export interface DoctorHeaderProps {
@@ -43,6 +44,7 @@ export function DoctorHeader({
 
         <div className="ut-shell-actions shrink-0 min-w-0 max-w-[55vw] sm:max-w-none justify-self-end">
           <LanguageSwitcher compact />
+          <DoctorBreakToggle />
           {headerQueue}
           <button
             type="button"

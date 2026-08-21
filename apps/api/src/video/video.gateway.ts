@@ -57,7 +57,6 @@ export class VideoGateway
   server: Server;
 
   static readonly STAFF_FEED_ROOM = 'staff-feed';
-  static readonly STAFF_FEED_MT_GLOBAL = 'staff-feed:mt:global';
   static readonly STAFF_FEED_MT_QUEUE = 'staff-feed:mt:queue';
 
   static staffFeedUtRoom(utId: string) {
@@ -841,7 +840,6 @@ export class VideoGateway
     if (typeof mtDoctorId === 'string') {
       this.server.to(VideoGateway.staffFeedMtDoctorRoom(mtDoctorId)).emit(event, data);
     }
-    this.server.to(VideoGateway.STAFF_FEED_MT_GLOBAL).emit(event, data);
 
     this.logger.debug(`WS event ${event} → ${roomId} (status=${status ?? '?'})`);
   }
@@ -850,7 +848,6 @@ export class VideoGateway
   emitFacilityEvent(facilityId: string, event: string, payload: Record<string, unknown>) {
     const data = { facilityId, ...payload };
     this.server.to(VideoGateway.staffFeedUtRoom(facilityId)).emit(event, data);
-    this.server.to(VideoGateway.STAFF_FEED_MT_GLOBAL).emit(event, data);
     this.logger.debug(`WS facility event ${event} → ${facilityId}`);
   }
 

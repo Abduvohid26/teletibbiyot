@@ -11,6 +11,7 @@ import {
   Stethoscope,
   CheckCircle2,
   XCircle,
+  CalendarClock,
 } from 'lucide-react';
 import { api, Consultation, DashboardStats } from '@/lib/api';
 import { ConsultationFilters, FilterOptions, TRIAGE_OPTIONS } from '@/lib/analytics-types';
@@ -24,7 +25,7 @@ import { dispatchDoctorSelect } from '@/hooks/use-doctor-header-data';
 import { useI18n } from '@/i18n';
 import { triageLabelKey } from '@/i18n/labels';
 
-type QueueFilter = 'all' | 'queued' | 'live' | 'completed' | 'cancelled';
+type QueueFilter = 'all' | 'queued' | 'live' | 'completed' | 'cancelled' | 'followup';
 
 interface DoctorPatientsViewProps {
   queue: Consultation[];
@@ -37,6 +38,13 @@ interface DoctorPatientsViewProps {
   error?: string;
 }
 
+/** Nazorat sanasi o'tib ketganmi */
+function isOverdue(date: string) {
+  const due = new Date(date);
+  if (Number.isNaN(due.getTime())) return false;
+  return due.getTime() < Date.now();
+}
+
 function patientInitial(name: string) {
   return name.trim().charAt(0).toUpperCase() || '?';
 }
@@ -47,13 +55,30 @@ function sortByRecent(a: Consultation, b: Consultation) {
   return new Date(bTime).getTime() - new Date(aTime).getTime();
 }
 
+/**
+ * Jonli navbat/qabul ro'yxati uchun qidiruv: FIO, telefon, tug'ilgan sana
+ * (YYYY-MM-DD yoki mahalliy format), yosh va UT muassasa (kod yoki nom).
+ */
 function matchesSearch(c: Consultation, q: string) {
   if (!q) return true;
   const needle = q.toLowerCase();
+  const birthDate = c.patient.birthDate ? new Date(c.patient.birthDate) : null;
+  const birthIso = birthDate && !Number.isNaN(birthDate.getTime())
+    ? birthDate.toISOString().slice(0, 10)
+    : '';
+  const birthLocal = birthDate && !Number.isNaN(birthDate.getTime())
+    ? birthDate.toLocaleDateString()
+    : '';
+  const age = calculateAge(c.patient.birthDate);
+
   return (
     c.patient.fullName.toLowerCase().includes(needle)
     || c.patient.phone?.includes(needle)
     || c.utFacility?.code?.toLowerCase().includes(needle)
+    || c.utFacility?.name?.toLowerCase().includes(needle)
+    || birthIso.includes(needle)
+    || birthLocal.includes(needle)
+    || (age != null && String(age) === needle)
   );
 }
 
@@ -88,6 +113,7 @@ export function DoctorPatientsView({
   const [continuingId, setContinuingId] = useState<string | null>(null);
   const [history, setHistory] = useState<Consultation[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [followUpCount, setFollowUpCount] = useState(0);
   const [options, setOptions] = useState<FilterOptions | null>(null);
   const [listFilters, setListFilters] = useState<ConsultationFilters>({ page: 1, limit: 30 });
   const debouncedSearch = useDebouncedValue(search, 300);
@@ -95,7 +121,18 @@ export function DoctorPatientsView({
 
   const queuedPatients = useMemo(() => queue.filter((c) => c.status === 'QUEUED'), [queue]);
   const liveList = myInProgress;
-  const isHistoryFilter = filter === 'completed' || filter === 'cancelled';
+  // Bu filtrlar serverdan ro'yxat sifatida olinadi (navbat prop'idan emas)
+  const isHistoryFilter =
+    filter === 'completed' || filter === 'cancelled' || filter === 'followup';
+
+  /** Tanlangan server-filtri uchun so'rov parametrlari */
+  const serverListParams = useCallback(
+    (): ConsultationFilters =>
+      filter === 'followup'
+        ? { followUp: 'due' }
+        : { status: filter === 'cancelled' ? 'CANCELLED' : 'COMPLETED' },
+    [filter],
+  );
 
   const activeId = selectedConsultationId ?? undefined;
 
@@ -121,6 +158,7 @@ export function DoctorPatientsView({
     let list = history;
     if (filter === 'completed') list = list.filter((c) => c.status === 'COMPLETED');
     if (filter === 'cancelled') list = list.filter((c) => c.status === 'CANCELLED');
+    // 'followup' — server allaqachon filtrlab, sanasi yaqinlarini tepaga qo'ygan
     return list.filter((c) => matchesSearch(c, debouncedSearch.trim()));
   }, [history, filter, debouncedSearch]);
 
@@ -130,9 +168,10 @@ export function DoctorPatientsView({
       live: liveList.length,
       completed: stats?.completed ?? 0,
       cancelled: stats?.cancelled ?? 0,
+      followup: followUpCount,
       all: queuedPatients.length + liveList.length,
     }),
-    [queuedPatients.length, liveList.length, stats?.completed, stats?.cancelled],
+    [queuedPatients.length, liveList.length, stats?.completed, stats?.cancelled, followUpCount],
   );
 
   const reloadAll = useCallback(() => {
@@ -140,16 +179,12 @@ export function DoctorPatientsView({
     if (isHistoryFilter) {
       setHistoryLoading(true);
       api
-        .getConsultationsList({
-          ...listFilters,
-          search: debouncedListSearch,
-          status: filter === 'cancelled' ? 'CANCELLED' : 'COMPLETED',
-        })
+        .getConsultationsList({ ...listFilters, search: debouncedListSearch, ...serverListParams() })
         .then((res) => setHistory(res.items))
         .catch(() => setHistory([]))
         .finally(() => setHistoryLoading(false));
     }
-  }, [debouncedListSearch, filter, isHistoryFilter, listFilters, onReload]);
+  }, [debouncedListSearch, isHistoryFilter, listFilters, onReload, serverListParams]);
 
   useConsultationRealtime([], {
     onConsultationQueued: reloadAll,
@@ -168,15 +203,19 @@ export function DoctorPatientsView({
     if (!isHistoryFilter) return;
     setHistoryLoading(true);
     api
-      .getConsultationsList({
-        ...listFilters,
-        search: debouncedListSearch,
-        status: filter === 'cancelled' ? 'CANCELLED' : 'COMPLETED',
-      })
+      .getConsultationsList({ ...listFilters, search: debouncedListSearch, ...serverListParams() })
       .then((res) => setHistory(res.items))
       .catch(() => setHistory([]))
       .finally(() => setHistoryLoading(false));
-  }, [filter, debouncedListSearch, listFilters.triageLevel, listFilters.utId, isHistoryFilter]);
+  }, [filter, debouncedListSearch, listFilters.triageLevel, listFilters.utId, listFilters.birthDate, isHistoryFilter]);
+
+  // "Nazoratda" kartochkasidagi son — filtr tanlanmagan bo'lsa ham ko'rinsin
+  useEffect(() => {
+    api
+      .getConsultationsList({ followUp: 'due', page: 1, limit: 1 })
+      .then((res) => setFollowUpCount(res.total ?? res.items.length))
+      .catch(() => setFollowUpCount(0));
+  }, [queue, myInProgress]);
 
   const { requestCancel, cancelModal } = useCancelConsultation({
     onSuccess: () => reloadAll(),
@@ -251,6 +290,14 @@ export function DoctorPatientsView({
       iconTone: 'text-violet-600 bg-violet-100/80',
     },
     {
+      id: 'followup' as const,
+      label: t('patients.followUp'),
+      value: counts.followup,
+      icon: CalendarClock,
+      tone: 'from-sky-400/15 to-cyan-300/10 text-sky-900 ring-sky-200/50',
+      iconTone: 'text-sky-600 bg-sky-100/80',
+    },
+    {
       id: 'cancelled' as const,
       label: t('status.cancelled'),
       value: counts.cancelled,
@@ -287,7 +334,7 @@ export function DoctorPatientsView({
             </p>
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-6 gap-2 sm:gap-3">
             {statCards.map(({ id, label, value, icon: Icon, tone, iconTone }) => (
               <button
                 key={id}
@@ -327,6 +374,7 @@ export function DoctorPatientsView({
                 { key: 'search', label: t('common.search'), type: 'search', value: listFilters.search || '', placeholder: t('filters.searchPatientShort') },
                 { key: 'triageLevel', label: t('filter.risk'), type: 'select', value: listFilters.triageLevel || '', options: TRIAGE_OPTIONS.map((o) => ({ value: o.value, label: t(o.labelKey) })) },
                 { key: 'utId', label: 'UT', type: 'select', value: listFilters.utId || '', options: facilityOptions },
+                { key: 'birthDate', label: t('patients.birthDate'), type: 'date', value: listFilters.birthDate || '' },
               ]}
               onChange={setListFilter}
               onReset={() => setListFilters({ page: 1, limit: 30 })}
@@ -388,8 +436,8 @@ export function DoctorPatientsView({
             </div>
           ) : historyList.length === 0 ? (
             <DoctorEmptyState
-              title={t('patients.notFound')}
-              hint={t('patients.notFoundHint')}
+              title={filter === 'followup' ? t('patients.followUpEmpty') : t('patients.notFound')}
+              hint={filter === 'followup' ? t('patients.followUpEmptyHint') : t('patients.notFoundHint')}
             />
           ) : (
             <div className="space-y-2">
@@ -544,6 +592,18 @@ function HistoryCard({ c }: { c: Consultation }) {
             {c.triageLevel && (
               <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-md', triage.color)}>
                 {t(triageLabelKey(c.triageLevel))}
+              </span>
+            )}
+            {c.followUpDate && (
+              <span
+                className={cn(
+                  'inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md',
+                  isOverdue(c.followUpDate) ? 'bg-red-50 text-red-700' : 'bg-sky-50 text-sky-700',
+                )}
+              >
+                <CalendarClock size={10} />
+                {t('patients.followUpOn', { date: new Date(c.followUpDate).toLocaleDateString() })}
+                {isOverdue(c.followUpDate) ? ` · ${t('patients.followUpOverdue')}` : ''}
               </span>
             )}
           </div>

@@ -41,7 +41,8 @@ type DoctorPresence = NonNullable<DoctorOption['presence']>;
 const PRESENCE_RANK: Record<DoctorPresence, number> = {
   online: 0,
   in_meet: 1,
-  offline: 2,
+  break: 2,
+  offline: 3,
 };
 
 function presenceLabel(
@@ -50,13 +51,28 @@ function presenceLabel(
 ) {
   if (status === 'online') return t('presence.online');
   if (status === 'in_meet') return t('presence.inMeet');
+  if (status === 'break') return t('presence.break');
   return t('presence.offline');
 }
 
 function presenceDotClass(status: DoctorPresence | undefined) {
   if (status === 'online') return 'bg-emerald-500';
   if (status === 'in_meet') return 'bg-amber-500';
+  if (status === 'break') return 'bg-orange-400';
   return 'bg-slate-400';
+}
+
+function presenceHint(status: DoctorPresence | undefined, t: (key: string) => string) {
+  if (status === 'in_meet') return t('presence.doctorInMeet');
+  if (status === 'break') return t('presence.doctorBreak');
+  if (status === 'online') return t('presence.doctorOnline');
+  return t('presence.doctorOffline');
+}
+
+/** Bir xil holatdagilar ichida yuklamasi kamrog'i tepada — operator bo'shini tanlasin */
+function loadLabel(doctor: DoctorOption, t: (key: string, vars?: Record<string, string | number>) => string) {
+  const count = doctor.activeCount ?? 0;
+  return count === 0 ? t('presence.free') : t('presence.loadCount', { count });
 }
 
 function sortDoctorsByPresence(list: DoctorOption[], localeTag = 'uz-UZ') {
@@ -64,6 +80,9 @@ function sortDoctorsByPresence(list: DoctorOption[], localeTag = 'uz-UZ') {
     const ra = PRESENCE_RANK[a.presence || 'offline'];
     const rb = PRESENCE_RANK[b.presence || 'offline'];
     if (ra !== rb) return ra - rb;
+    const la = a.activeCount ?? 0;
+    const lb = b.activeCount ?? 0;
+    if (la !== lb) return la - lb;
     return a.fullName.localeCompare(b.fullName, localeTag);
   });
 }
@@ -182,10 +201,14 @@ export default function UTClientPage() {
       onConsultationStarted: (payload) => {
         toast(t('ut.doctorStartedConsult', { name: payload.doctorName || t('common.doctor') }), 'success');
       },
-      onDoctorPresenceUpdated: ({ doctorId, status }) => {
+      onDoctorPresenceUpdated: ({ doctorId, status, activeCount }) => {
         setDoctors((prev) =>
           sortDoctorsByPresence(
-            prev.map((d) => (d.id === doctorId ? { ...d, presence: status } : d)),
+            prev.map((d) =>
+              d.id === doctorId
+                ? { ...d, presence: status, activeCount: activeCount ?? d.activeCount }
+                : d,
+            ),
             localeTag,
           ),
         );
@@ -499,7 +522,7 @@ export default function UTClientPage() {
                 <option value="">{t('ut.selectDoctor')}</option>
                 {sortedDoctors.map((d) => (
                   <option key={d.id} value={d.id}>
-                    {presenceLabel(d.presence, t)} · {d.fullName}
+                    {presenceLabel(d.presence, t)} · {loadLabel(d, t)} · {d.fullName}
                     {d.specialtyRef?.name || d.specialty ? ` — ${d.specialtyRef?.name || d.specialty}` : ''}
                   </option>
                 ))}
@@ -507,16 +530,10 @@ export default function UTClientPage() {
               {selectedDoctor && (
                 <span
                   className="inline-flex items-center gap-1 text-xs text-slate-600 whitespace-nowrap"
-                  title={
-                    selectedDoctor.presence === 'in_meet'
-                      ? t('presence.doctorInMeet')
-                      : selectedDoctor.presence === 'online'
-                        ? t('presence.doctorOnline')
-                        : t('presence.doctorOffline')
-                  }
+                  title={presenceHint(selectedDoctor.presence, t)}
                 >
                   <span className={`inline-block h-2 w-2 rounded-full ${presenceDotClass(selectedDoctor.presence)}`} />
-                  {presenceLabel(selectedDoctor.presence, t)}
+                  {presenceLabel(selectedDoctor.presence, t)} · {loadLabel(selectedDoctor, t)}
                 </span>
               )}
             </label>

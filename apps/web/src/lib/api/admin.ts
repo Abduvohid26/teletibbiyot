@@ -39,6 +39,14 @@ export function defineAdminApi(client: HttpClient) {
       return client.request<DoctorOption[]>('/users/doctors');
     },
 
+    /** Shifokor o'zini tanaffusga qo'yadi — UT operator ro'yxatida darhol ko'rinadi */
+    setMyBreak(onBreak: boolean) {
+      return client.request<{ onBreak: boolean }>('/users/me/break', {
+        method: 'PATCH',
+        body: JSON.stringify({ onBreak }),
+      });
+    },
+
     getSpecialties(all = false) {
       return client.request<Specialty[]>(`/specialties${all ? '?all=1' : ''}`);
     },

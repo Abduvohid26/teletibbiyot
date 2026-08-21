@@ -104,12 +104,33 @@ export class UsersService {
 
     });
 
-    const statuses = await this.presence.getStatuses(doctors.map((d) => d.id));
+    const ids = doctors.map((d) => d.id);
+    const [statuses, activeCounts] = await Promise.all([
+      this.presence.getStatuses(ids),
+      this.presence.getActiveCounts(ids),
+    ]);
     return doctors.map((d) => ({
       ...d,
       presence: statuses[d.id] ?? 'offline',
+      activeCount: activeCounts[d.id] ?? 0,
     }));
 
+  }
+
+  /** Shifokor o'zini tanaffusga qo'yadi/qaytaradi. UT operator ro'yxatida darhol ko'rinadi. */
+  async setBreak(doctorId: string, onBreak: boolean) {
+    const doctor = await this.prisma.user.findUnique({
+      where: { id: doctorId },
+      select: { id: true, role: true },
+    });
+    if (!doctor || !MT_DOCTOR_ROLES.includes(doctor.role)) {
+      throw new ForbiddenException("Faqat shifokor tanaffus holatini o'zgartira oladi");
+    }
+
+    await this.prisma.user.update({ where: { id: doctorId }, data: { onBreak } });
+    await this.presence.broadcast(doctorId);
+
+    return { onBreak };
   }
 
 
