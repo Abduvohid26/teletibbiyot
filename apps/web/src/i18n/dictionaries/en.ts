@@ -1130,6 +1130,12 @@ const en: MessageTree = {
     utCameraMapping: 'Map UT cameras',
     utCameraMappingHint:
       '"Patient close-up" — patient view. "Equipment" — camera for patient monitor screen.',
+    pickCameraForSlot: 'Pick a camera for this tile',
+    slotNotUsed: 'Not used',
+    unnamedCamera: 'Unnamed camera',
+    noCameras: 'No cameras found',
+    remapPending: 'Camera changed — applies after reconnecting',
+    reconnectNow: 'Reconnect',
     previewHint: 'Camera preview — click "Test"',
     test: 'Test',
     ready: 'Ready',

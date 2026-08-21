@@ -1131,6 +1131,12 @@ const uz: MessageTree = {
     utCameraMapping: 'UT kameralar biriktirish',
     utCameraMappingHint:
       '"Bemor yaqindan" — bemor ko\'rinishi. "Qurilmalar" — patient monitor ekrani uchun kamera.',
+    pickCameraForSlot: 'Bu katak uchun kamera tanlash',
+    slotNotUsed: 'Ishlatilmasin',
+    unnamedCamera: 'Nomsiz kamera',
+    noCameras: 'Kamera topilmadi',
+    remapPending: "Kamera o'zgardi — qayta ulanganda qo'llanadi",
+    reconnectNow: 'Qayta ulash',
     previewHint: 'Kamera ko\'rinishi — "Tekshirish" ni bosing',
     test: 'Tekshirish',
     ready: 'Tayyor',

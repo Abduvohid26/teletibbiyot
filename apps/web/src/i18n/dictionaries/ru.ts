@@ -1130,6 +1130,12 @@ const ru: MessageTree = {
     utCameraMapping: 'Привязка камер UT',
     utCameraMappingHint:
       '«Крупный план пациента» — вид пациента. «Оборудование» — камера экрана монитора.',
+    pickCameraForSlot: 'Выбрать камеру для этой плитки',
+    slotNotUsed: 'Не используется',
+    unnamedCamera: 'Безымянная камера',
+    noCameras: 'Камеры не найдены',
+    remapPending: 'Камера изменена — применится после переподключения',
+    reconnectNow: 'Переподключить',
     previewHint: 'Предпросмотр камеры — нажмите «Проверить»',
     test: 'Проверить',
     ready: 'Готово',
