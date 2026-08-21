@@ -1,10 +1,14 @@
 import { AiAnalysis } from '@/lib/api';
 
+/** confirmed = obyektiv tasdiq bor, probable = qisman, possible = faqat anamnez asosida */
+export type EvidenceLevel = 'confirmed' | 'probable' | 'possible';
+
 export interface ConsensusDiagnosis {
   name: string;
   icd10Code: string;
   confidence: number;
   protocolReference?: string;
+  evidenceLevel?: EvidenceLevel;
   justification?: string;
   logicChain?: string[];
 }
@@ -16,9 +20,12 @@ export interface AlternativeDiagnosis {
   justification?: string;
 }
 
+export type SourceType = 'protocol' | 'guideline' | 'article' | 'general';
+
 export interface ScientificArticle {
   title: string;
   url?: string;
+  sourceType?: SourceType;
   description?: string;
 }
 
@@ -48,6 +55,8 @@ export interface ClinicalConclusion {
   consensusDiagnoses?: ConsensusDiagnosis[];
   alternativeDiagnoses?: AlternativeDiagnosis[];
   scientificArticles?: ScientificArticle[];
+  /** Xulosani o'zgartirishi mumkin bo'lgan yetishmayotgan ma'lumotlar */
+  dataGaps?: string[];
   treatmentSteps?: string[];
   medicationWarnings?: string[];
   medications?: MedicationRecommendation[];
@@ -94,6 +103,7 @@ function parseConsensusDiagnoses(v: unknown): ConsensusDiagnosis[] {
         icd10Code: String(o.icd10Code ?? ''),
         confidence: Number(o.confidence ?? 0),
         protocolReference: typeof o.protocolReference === 'string' ? o.protocolReference : undefined,
+        evidenceLevel: parseEvidenceLevel(o.evidenceLevel),
         justification: typeof o.justification === 'string' ? o.justification : undefined,
         logicChain: asStringArray(o.logicChain),
       } satisfies ConsensusDiagnosis;
@@ -117,6 +127,14 @@ function parseAlternatives(v: unknown): AlternativeDiagnosis[] {
     .filter(Boolean) as AlternativeDiagnosis[];
 }
 
+function parseEvidenceLevel(v: unknown): EvidenceLevel | undefined {
+  return v === 'confirmed' || v === 'probable' || v === 'possible' ? v : undefined;
+}
+
+function parseSourceType(v: unknown): SourceType | undefined {
+  return v === 'protocol' || v === 'guideline' || v === 'article' || v === 'general' ? v : undefined;
+}
+
 function parseArticles(v: unknown): ScientificArticle[] {
   if (!Array.isArray(v)) return [];
   return v
@@ -126,6 +144,7 @@ function parseArticles(v: unknown): ScientificArticle[] {
       return {
         title: o.title,
         url: typeof o.url === 'string' ? o.url : undefined,
+        sourceType: parseSourceType(o.sourceType),
         description: typeof o.description === 'string' ? o.description : undefined,
       } satisfies ScientificArticle;
     })
@@ -194,6 +213,7 @@ function parseClinicalConclusionRaw(raw: unknown): ClinicalConclusion | null {
     consensusDiagnoses: parseConsensusDiagnoses(o.consensusDiagnoses),
     alternativeDiagnoses: parseAlternatives(o.alternativeDiagnoses),
     scientificArticles: parseArticles(o.scientificArticles),
+    dataGaps: asStringArray(o.dataGaps),
     treatmentSteps: asStringArray(o.treatmentSteps),
     medicationWarnings: asStringArray(o.medicationWarnings),
     medications: parseMedications(o.medications),

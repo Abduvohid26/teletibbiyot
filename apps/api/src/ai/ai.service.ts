@@ -33,8 +33,63 @@ HAJM TALABI (majburiy) — hozirgi qisqa xulosadan 2–3 baravar batafsil:
 - dietGeneral / preventionTips: har biri kamida 4–6 amaliy band.
 - prognosisShort va prognosisLong: har biri kamida 3–5 jumla.
 - riskFactors: kamida 3–6 ta; recordedFindings: kartadagi barcha muhim faktlar (5+ bo'lishi mumkin).
-- scientificArticles: 1–3 ta FAQQAT haqiqiy manba (ssv.uz, lex.uz, PubMed, WHO, Cochrane) — URL o'ylab topmang.
+- scientificArticles: 1–3 ta haqiqiy manba. Havola qoidalari pastda — soxta URL qat'iy taqiqlanadi.
 - qualityScore.notes: 2–4 jumla — qaysi ma'lumot yetarli/yetishmayotganini yozing.
+- dataGaps: kamida 2–5 ta — xulosaga ta'sir qiluvchi yetishmayotgan ma'lumotlar.
+
+════════════════════════════════════════════════════════
+ISHONCH DARAJASINI KALIBRLASH (majburiy)
+════════════════════════════════════════════════════════
+confidence — bu "qanchalik ishonaman", va u MAVJUD DALILGA bog'liq bo'lishi shart.
+Faqat shikoyat va anamnez asosida yuqori foiz qo'yish — QO'POL XATO.
+
+- 80–95%: obyektiv tasdiq bor (laborator/instrumental natija, ko'rik topilmasi yoki
+  biriktirilgan hujjat tahlili tashxisni bevosita tasdiqlaydi).
+- 60–79%: xarakterli klinik manzara + qisman obyektiv ma'lumot (vitals yoki ko'rik), lekin
+  tasdiqlovchi tekshiruv yo'q.
+- 40–59%: faqat shikoyat + anamnez mos keladi, obyektiv tasdiq umuman yo'q. TIPIK HOLAT —
+  telemeditsina murojaatlarining ko'pchiligi shu darajaga tushadi.
+- 20–39%: ma'lumot juda kam yoki bir nechta tashxis bir xil darajada mumkin.
+
+Agar tasdiqlovchi tekshiruv yo'q bo'lsa, 60% dan yuqori qo'ymang.
+Agar 60% dan yuqori qo'ysangiz — justification ichida QAYSI obyektiv dalil buni oqlashini
+aniq nomlang. Nomlay olmasangiz — foizni pasaytiring.
+Bitta tashxis 60% dan past bo'lsa — alternativeDiagnoses majburiy va jiddiy bo'lishi kerak.
+
+qualityScore.overall ham shu mantiqqa bo'ysunadi: ko'rik va tekshiruv natijalari yo'q bo'lsa,
+u 60 dan oshmasligi kerak.
+
+════════════════════════════════════════════════════════
+MANBALAR — SOXTA HAVOLA QAT'IY TAQIQLANADI
+════════════════════════════════════════════════════════
+URL ni HECH QACHON o'ylab topmang, taxmin qilmang yoki "shunday bo'lishi kerak" deb yozmang.
+Mavjud bo'lmagan havola shifokorni chalg'itadi — bu havolasiz manbadan ANCHA yomon.
+
+url maydonini FAQAT quyidagi barqaror manbalar uchun to'ldiring va faqat aniq bilsangiz:
+  - PubMed: https://pubmed.ncbi.nlm.nih.gov/<PMID>/   (PMID ni aniq bilsangiz)
+  - DOI:    https://doi.org/<doi>                      (DOI ni aniq bilsangiz)
+  - WHO, Cochrane Library, NICE, UpToDate — barqaror sahifalar
+
+ssv.uz, lex.uz va shunga o'xshash milliy manbalar uchun CHUQUR HAVOLA YOZMANG —
+faqat hujjat NOMINI va yilini yozing, url ni bermang.
+Aniq manbani nomlay olmasangiz — sourceType: "general" qo'ying va url bermang.
+
+Har bir manba uchun sourceType majburiy:
+  "protocol"  — milliy/vazirlik klinik protokoli (aniq nomi bilan)
+  "guideline" — xalqaro klinik ko'rsatma (WHO, NICE, GINA, ...)
+  "article"   — ilmiy maqola (PubMed/DOI bilan)
+  "general"   — umumiy tibbiy amaliyot, aniq hujjat ko'rsatilmagan
+
+protocolReference uchun ham xuddi shu qoida: aniq hujjat nomi va yilini yozing.
+Aniq hujjat bo'lmasa — "Umumiy klinik amaliyot (aniq protokol havolasi yo'q)" deb yozing.
+
+════════════════════════════════════════════════════════
+YETISHMAYOTGAN MA'LUMOT
+════════════════════════════════════════════════════════
+dataGaps — xulosani o'zgartirishi mumkin bo'lgan yetishmayotgan ma'lumotlarni sanang
+(ko'rik topilmalari, tahlil natijalari, shikoyat davomiyligi, oldingi davolash va h.k.).
+Har biri "nima yetishmayapti — nega muhim" formatida. Kamida 2–5 ta.
+mainConclusion ning oxirida ham shu cheklovni ochiq aytib o'ting.
 
 SOXTA MA'LUMOT TAQIQLANADI:
 Faqat bemorning haqiqiy shikoyatlari, anamnezi, vital belgilari va biriktirilgan hujjat tahlillari asosida yozing.
@@ -57,12 +112,14 @@ Javobni faqat quyidagi JSON formatida bering:
       "name": "asosiy tashxis",
       "icd10Code": "E66.9",
       "confidence": 94,
-      "protocolReference": "O'zbekiston SSV ... bo'yicha protokoli",
+      "protocolReference": "aniq hujjat nomi + yil, yoki 'Umumiy klinik amaliyot (aniq protokol havolasi yo'q)'",
+      "evidenceLevel": "confirmed|probable|possible",
       "justification": "4-7 jumlalik asoslash",
       "logicChain": ["1-qadam...", "2-qadam...", "3-qadam...", "4-qadam...", "5-qadam..."]
     }],
     "alternativeDiagnoses": [{"name": "...", "icd10Code": "...", "confidence": 20, "justification": "2-3 jumla"}],
-    "scientificArticles": [{"title": "...", "url": "https://...", "description": "2-3 jumla nima uchun tegishli"}],
+    "scientificArticles": [{"title": "manba/hujjat aniq nomi", "sourceType": "protocol|guideline|article|general", "url": "faqat PubMed/DOI/WHO — aniq bilsangiz, aks holda bu maydonni umuman bermang", "description": "2-3 jumla nima uchun tegishli"}],
+    "dataGaps": ["Nima yetishmayapti — nega muhim"],
     "treatmentSteps": ["qadam: ..."],
     "medicationWarnings": ["DDI / kontrendikatsiya..."],
     "medications": [{"name": "...", "dose": "...", "tradeNames": "O'zbekistonda mavjud", "instructions": "batafsil", "diagnosis": "..."}],
@@ -94,7 +151,66 @@ Javob: aniq, BATAFSIL (kamida 2–3 paragraf yoki 8–15 jumla), professional ti
 Struktura: 1) qisqa javob, 2) klinik asoslash, 3) differensial / xavf, 4) amaliy tavsiyalar, 5) qo'shimcha tekshiruvlar.
 MUHIM: Yakuniy rasmiy tashxis qo'ymang — faqat AI maslahati.
 Klinik xulosa kontekstidan foydalaning. Ma'lumot yetarli bo'lmasa — qaysi tekshiruv kerakligini aniq yozing.
+
+DALIL VA MANBA:
+Ehtimollik yoki foiz aytsangiz — u qaysi dalilga tayanishini aynan ko'rsating.
+Obyektiv tasdiq (tahlil, ko'rik, hujjat) bo'lmasa, buni ochiq ayting va yuqori ishonch bildirmang.
+Manba keltirsangiz — hujjat/ko'rsatma nomini va yilini yozing.
+URL ni HECH QACHON o'ylab topmang: PMID/DOI ni aniq bilmasangiz, havolasiz faqat nomini yozing.
+
 Markdown ishlatmang — oddiy matn.`;
+
+/**
+ * Havolasi tekshirib bo'lmaydigan manbalardan URL ni olib tashlaydi.
+ *
+ * Modellar ssv.uz / lex.uz kabi milliy saytlarga mavjud bo'lmagan chuqur havolalarni
+ * o'ylab topishga moyil. Ishlamaydigan havola shifokorni chalg'itadi, shuning uchun
+ * faqat barqaror va identifikator asosidagi manbalar (PubMed PMID, DOI, WHO, Cochrane,
+ * NICE) saqlanadi — qolganlarida manba nomi qoladi, URL tushiriladi.
+ */
+const TRUSTED_SOURCE_HOSTS = [
+  'pubmed.ncbi.nlm.nih.gov',
+  'ncbi.nlm.nih.gov',
+  'doi.org',
+  'dx.doi.org',
+  'who.int',
+  'icd.who.int',
+  'cochranelibrary.com',
+  'nice.org.uk',
+  'uptodate.com',
+];
+
+function isTrustedSourceUrl(url: string): boolean {
+  try {
+    const { protocol, hostname } = new URL(url);
+    if (protocol !== 'https:' && protocol !== 'http:') return false;
+    const host = hostname.replace(/^www\./, '').toLowerCase();
+    return TRUSTED_SOURCE_HOSTS.some((h) => host === h || host.endsWith(`.${h}`));
+  } catch {
+    return false;
+  }
+}
+
+export function sanitizeSourceUrls<T extends OpenAiAnalysisResult>(result: T): T {
+  const cc = (result as Record<string, unknown>).clinicalConclusion;
+  if (!cc || typeof cc !== 'object') return result;
+
+  const articles = (cc as Record<string, unknown>).scientificArticles;
+  if (!Array.isArray(articles)) return result;
+
+  const cleaned = articles.map((item) => {
+    if (!item || typeof item !== 'object') return item;
+    const article = item as Record<string, unknown>;
+    if (typeof article.url !== 'string' || isTrustedSourceUrl(article.url)) return article;
+    const { url: _dropped, ...rest } = article;
+    return rest;
+  });
+
+  return {
+    ...result,
+    clinicalConclusion: { ...(cc as Record<string, unknown>), scientificArticles: cleaned },
+  } as T;
+}
 
 type AiLocale = 'uz' | 'ru' | 'en';
 
@@ -230,6 +346,9 @@ export class AiService {
       await this.saveUnavailableAnalysis(consultationId);
       return { aiUnavailable: true };
     }
+
+    // Model o'ylab topgan havolalarni olib tashlaymiz — nomi qoladi, soxta URL emas
+    result = sanitizeSourceUrls(result);
 
     const triageLevel = result.triageLevel as TriageLevel;
     const rawResponse = {

@@ -38,7 +38,7 @@ export class UpdateFollowUpDto {
 export class SendMessageDto {
   @ApiProperty()
   @IsString()
-  @Min(1)
+  @MinLength(1)
   @MaxLength(2000)
   message: string;
 }
@@ -46,7 +46,7 @@ export class SendMessageDto {
 export class AiChatDto {
   @ApiProperty()
   @IsString()
-  @Min(1)
+  @MinLength(1)
   @MaxLength(2000)
   question: string;
 }
@@ -66,7 +66,7 @@ export class ReadMonitorVitalsDto {
 export class ResetPasswordDto {
   @ApiProperty()
   @IsString()
-  @Min(8)
+  @MinLength(8)
   @MaxLength(128)
   password: string;
 }

@@ -418,6 +418,12 @@ export function buildAiAnalysisPdfBuffer(data: AiAnalysisPdfInput, localeRaw?: P
       if (typeof quality.notes === 'string') bodyText(doc, quality.notes);
     }
 
+    const dataGaps = asStrings(cc?.dataGaps);
+    if (dataGaps.length) {
+      sectionTitle(doc, L.sectionDataGaps);
+      bulletList(doc, dataGaps);
+    }
+
     const recorded = asStrings(cc?.recordedFindings);
     if (recorded.length) {
       sectionTitle(doc, L.sectionRecorded);

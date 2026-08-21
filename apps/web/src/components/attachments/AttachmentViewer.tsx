@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Download, Loader2, ZoomIn } from 'lucide-react';
+import { X, Download, Loader2, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
 import { api, Attachment } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { downloadBlob, triggerDownload } from '@/lib/download';
@@ -20,6 +20,8 @@ export function AttachmentViewer({ attachment, previewUrl, onClose }: Attachment
   const [loading, setLoading] = useState(!previewUrl && !!attachment);
   const [error, setError] = useState('');
   const [mounted, setMounted] = useState(false);
+  /** 1 = oynaga moslashtirilgan, >1 = kattalashtirilgan */
+  const [zoom, setZoom] = useState(1);
 
   useEffect(() => {
     setMounted(true);
@@ -61,9 +63,17 @@ export function AttachmentViewer({ attachment, previewUrl, onClose }: Attachment
     };
   }, [attachment, previewUrl]);
 
+  // Boshqa faylga o'tilganda masshtab qayta tiklansin
+  useEffect(() => {
+    setZoom(1);
+  }, [attachment?.id, previewUrl]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
+      if (e.key === '+' || e.key === '=') setZoom((z) => Math.min(4, z + 0.25));
+      if (e.key === '-') setZoom((z) => Math.max(1, z - 0.25));
+      if (e.key === '0') setZoom(1);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -97,17 +107,51 @@ export function AttachmentViewer({ attachment, previewUrl, onClose }: Attachment
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-5xl max-h-[92vh] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+        className="relative w-full max-w-6xl h-[92vh] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 shrink-0">
+        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-200 shrink-0">
           <div className="min-w-0">
             <p className="text-sm font-semibold text-slate-900 truncate">{fileName}</p>
             {attachment?.aiSummary && (
-              <p className="text-xs text-violet-600 truncate mt-0.5">AI: {attachment.aiSummary}</p>
+              <p className="text-xs text-violet-600 mt-0.5 line-clamp-2">AI: {attachment.aiSummary}</p>
             )}
           </div>
           <div className="flex items-center gap-1 shrink-0">
+            {isImage && url && (
+              <div className="flex items-center gap-0.5 mr-1 rounded-lg bg-slate-100 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setZoom((z) => Math.max(1, z - 0.25))}
+                  disabled={zoom <= 1}
+                  className="p-1.5 rounded-md text-slate-600 hover:bg-white disabled:opacity-40"
+                  title={t('attachments.zoomOut')}
+                >
+                  <ZoomOut size={16} />
+                </button>
+                <span className="w-11 text-center text-[11px] font-semibold text-slate-600 tabular-nums">
+                  {Math.round(zoom * 100)}%
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setZoom((z) => Math.min(4, z + 0.25))}
+                  disabled={zoom >= 4}
+                  className="p-1.5 rounded-md text-slate-600 hover:bg-white disabled:opacity-40"
+                  title={t('attachments.zoomIn')}
+                >
+                  <ZoomIn size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setZoom(1)}
+                  disabled={zoom === 1}
+                  className="p-1.5 rounded-md text-slate-600 hover:bg-white disabled:opacity-40"
+                  title={t('attachments.zoomFit')}
+                >
+                  <Maximize2 size={15} />
+                </button>
+              </div>
+            )}
             {(url || attachment) && (
               <button
                 type="button"
@@ -124,7 +168,14 @@ export function AttachmentViewer({ attachment, previewUrl, onClose }: Attachment
           </div>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-auto bg-slate-50 flex items-center justify-center p-4">
+        <div
+          className={cn(
+            'flex-1 min-h-0 flex items-center justify-center',
+            // Tibbiy tasvirlar to'q fonda aniqroq ko'rinadi
+            isImage ? 'bg-slate-900' : 'bg-slate-50',
+            zoom > 1 ? 'overflow-auto' : 'overflow-hidden p-4',
+          )}
+        >
           {loading ? (
             <Loader2 className="animate-spin text-brand-500" size={32} />
           ) : !url ? (
@@ -133,10 +184,18 @@ export function AttachmentViewer({ attachment, previewUrl, onClose }: Attachment
             <img
               src={url}
               alt={fileName}
-              className="max-w-full max-h-[75vh] object-contain rounded-lg shadow-md"
+              onDoubleClick={() => setZoom((z) => (z > 1 ? 1 : 2))}
+              style={zoom > 1 ? { width: `${zoom * 100}%`, maxWidth: 'none' } : undefined}
+              className={cn(
+                'select-none',
+                zoom > 1
+                  ? 'cursor-zoom-out'
+                  : // Kichik rasm ham maydonni to'ldirsin, nisbat saqlanadi
+                    'max-h-full max-w-full h-full w-full object-contain cursor-zoom-in',
+              )}
             />
           ) : isPdf ? (
-            <iframe src={url} title={fileName} className="w-full h-[75vh] rounded-lg border border-slate-200 bg-white" />
+            <iframe src={url} title={fileName} className="w-full h-full border-0 bg-white" />
           ) : (
             <div className="text-center py-12">
               <ZoomIn className="w-12 h-12 text-slate-300 mx-auto mb-3" />
@@ -165,13 +224,39 @@ function AiFindingsBar({ findings }: { findings: Record<string, unknown> }) {
   if (!abnormalities.length && !recs.length) return null;
 
   return (
-    <div className="shrink-0 border-t border-slate-100 px-4 py-3 bg-violet-50/50 text-xs space-y-1 max-h-28 overflow-y-auto">
-      {abnormalities.length > 0 && (
-        <p><span className="font-semibold text-red-700">{t('attachments.abnormalities')}</span> {abnormalities.join('; ')}</p>
-      )}
-      {recs.length > 0 && (
-        <p><span className="font-semibold text-brand-700">{t('attachments.recommendations')}</span> {recs.join('; ')}</p>
-      )}
+    <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-3 max-h-[28vh] overflow-y-auto">
+      <div className="grid gap-3 sm:grid-cols-2">
+        {abnormalities.length > 0 && (
+          <section className="rounded-xl border border-red-100 bg-red-50/70 p-3">
+            <h4 className="text-[11px] font-bold uppercase tracking-wide text-red-700 mb-1.5">
+              {t('attachments.abnormalities')}
+            </h4>
+            <ul className="space-y-1 text-xs text-red-900">
+              {abnormalities.map((a, i) => (
+                <li key={i} className="flex gap-1.5">
+                  <span className="text-red-400 shrink-0">•</span>
+                  <span>{a}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+        {recs.length > 0 && (
+          <section className="rounded-xl border border-brand-100 bg-brand-50/70 p-3">
+            <h4 className="text-[11px] font-bold uppercase tracking-wide text-brand-700 mb-1.5">
+              {t('attachments.recommendations')}
+            </h4>
+            <ul className="space-y-1 text-xs text-brand-900">
+              {recs.map((r, i) => (
+                <li key={i} className="flex gap-1.5">
+                  <span className="text-brand-400 shrink-0">•</span>
+                  <span>{r}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+      </div>
     </div>
   );
 }

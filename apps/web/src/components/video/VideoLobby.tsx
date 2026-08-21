@@ -1,6 +1,6 @@
 'use client';
 
-import { Radio, Video } from 'lucide-react';
+import { Clock, Radio, Video } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MediaSettingsLink } from './MediaDevicePanel';
 import { useI18n } from '@/i18n';
@@ -10,12 +10,41 @@ interface VideoLobbyProps {
   role: 'mt' | 'ut' | 'observe';
   peerName?: string;
   compact?: boolean;
+  /** Konsultatsiya holati — QUEUED / IN_PROGRESS */
+  consultationStatus?: string;
+  /** Qarshi tomon (shifokor) jonli holati */
+  peerPresence?: 'online' | 'in_meet' | 'break' | 'offline';
+  /** Shifokorning yakunlanmagan konsultatsiyalari soni */
+  peerActiveCount?: number;
+}
+
+const PRESENCE_DOT: Record<string, string> = {
+  online: 'bg-emerald-400',
+  in_meet: 'bg-amber-400',
+  break: 'bg-orange-400',
+  offline: 'bg-slate-500',
+};
+
+function presenceText(status: string, t: (key: string) => string) {
+  if (status === 'online') return t('presence.doctorOnline');
+  if (status === 'in_meet') return t('presence.doctorInMeet');
+  if (status === 'break') return t('presence.doctorBreak');
+  return t('presence.doctorOffline');
 }
 
 /**
  * Google Meet–style lobby. Join on first entry; refresh may auto-rejoin via parent sessionStorage.
+ * UT tomonda konsultatsiya holati va shifokor presence'i ham ko'rsatiladi.
  */
-export function VideoLobby({ onJoin, role, peerName, compact = false }: VideoLobbyProps) {
+export function VideoLobby({
+  onJoin,
+  role,
+  peerName,
+  compact = false,
+  consultationStatus,
+  peerPresence,
+  peerActiveCount,
+}: VideoLobbyProps) {
   const { t } = useI18n();
   const title = role === 'observe' ? t('video.joinObserve') : t('video.joinLive');
   const subtitle =
@@ -47,6 +76,48 @@ export function VideoLobby({ onJoin, role, peerName, compact = false }: VideoLob
           </p>
         )}
       </div>
+
+      {(consultationStatus || peerPresence) && (
+        <div className="flex flex-wrap items-center justify-center gap-1.5">
+          {consultationStatus && (
+            <span
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1',
+                consultationStatus === 'IN_PROGRESS'
+                  ? 'bg-emerald-500/15 text-emerald-300 ring-emerald-400/30'
+                  : 'bg-amber-500/15 text-amber-300 ring-amber-400/30',
+              )}
+            >
+              {consultationStatus === 'IN_PROGRESS' ? (
+                <Radio size={11} className="animate-pulse" />
+              ) : (
+                <Clock size={11} />
+              )}
+              {consultationStatus === 'IN_PROGRESS'
+                ? t('video.lobbyStatusInProgress')
+                : t('video.lobbyStatusQueued')}
+            </span>
+          )}
+
+          {peerPresence && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-medium text-slate-200 ring-1 ring-white/15">
+              <span className={cn('h-1.5 w-1.5 rounded-full', PRESENCE_DOT[peerPresence])} />
+              {presenceText(peerPresence, t)}
+              {typeof peerActiveCount === 'number' && peerActiveCount > 0 && (
+                <span className="text-slate-400">
+                  · {t('presence.loadCount', { count: peerActiveCount })}
+                </span>
+              )}
+            </span>
+          )}
+        </div>
+      )}
+
+      {peerPresence === 'offline' && (
+        <p className="max-w-xs text-[11px] leading-relaxed text-amber-300/90">
+          {t('video.lobbyDoctorOfflineHint')}
+        </p>
+      )}
 
       <button
         type="button"

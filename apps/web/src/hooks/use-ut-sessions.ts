@@ -145,7 +145,9 @@ export function useUtSessions(enabled = true) {
       onAttachmentAnalyzed: () => void load(),
       onAiUpdated: () => void load(),
     },
-    { staffFeed: true, notifyToasts: true },
+    // UT operator uchun toastlar o'chirilgan: bu hook /ut sahifasida ikkinchi realtime
+    // obunachi bo'lib, har bir event ikki marta xabar berardi
+    { staffFeed: true, notifyToasts: false },
   );
 
   useEffect(() => {

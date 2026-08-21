@@ -1,11 +1,14 @@
 import type { HttpClient } from './http-client';
 import type { AiAnalysisStep, DeviceStatus, Appointment, PrescriptionTemplate } from './types';
-import { VISION_TIMEOUT_MS } from './constants';
+import { AI_TIMEOUT_MS, VISION_TIMEOUT_MS } from './constants';
 
 export function defineIntegrationsApi(client: HttpClient) {
   return {
     analyzeConsultation(id: string) {
-      return client.request(`/ai/consultations/${id}/analyze`, { method: 'POST' });
+      return client.request(`/ai/consultations/${id}/analyze`, {
+        method: 'POST',
+        timeoutMs: AI_TIMEOUT_MS,
+      });
     },
 
     submitAiFeedback(analysisId: string, rating: 'HELPFUL' | 'NEUTRAL' | 'HARMFUL', comment?: string) {
@@ -19,6 +22,7 @@ export function defineIntegrationsApi(client: HttpClient) {
       return client.request<{ answer: string; disclaimer: string }>(`/ai/consultations/${consultationId}/chat`, {
         method: 'POST',
         body: JSON.stringify({ question }),
+        timeoutMs: AI_TIMEOUT_MS,
       });
     },
 

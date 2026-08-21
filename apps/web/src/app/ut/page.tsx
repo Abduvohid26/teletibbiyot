@@ -87,6 +87,10 @@ function sortDoctorsByPresence(list: DoctorOption[], localeTag = 'uz-UZ') {
   });
 }
 
+function doctorById(list: DoctorOption[], id: string) {
+  return list.find((d) => d.id === id);
+}
+
 function emptyPatientData() {
   return {
     fullName: '',
@@ -214,7 +218,9 @@ export default function UTClientPage() {
         );
       },
     },
-    { notifyToasts: true, staffFeed: true },
+    // notifyToasts: false — operator o'zi yuborgan event uchun qayta toast ko'rmasin,
+    // yuborish natijasi handleSubmit dagi bitta toast bilan bildiriladi
+    { notifyToasts: false, staffFeed: true },
   );
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -330,7 +336,12 @@ export default function UTClientPage() {
         sessionStorage.setItem(UT_ACTIVE_CONSULTATION_KEY, consultation.id);
       }
       setFiles([]);
-      toast(t('ut.queuedSuccess'), 'success');
+      toast(
+        t('ut.queuedSuccessDoctor', {
+          name: doctorById(doctors, selectedDoctorId)?.fullName ?? t('common.doctor'),
+        }),
+        'success',
+      );
       router.push('/ut/vitals');
     } catch (err) {
       const message = err instanceof Error ? err.message : t('errors.generic');

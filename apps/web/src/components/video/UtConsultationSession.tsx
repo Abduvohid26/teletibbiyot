@@ -14,6 +14,7 @@ import {
   clearOtherJoined,
 } from '@/lib/video-room-session';
 import { fetchIceServers } from '@/lib/video-config';
+import { useDoctorPresence } from '@/hooks/use-doctor-presence';
 
 interface UtConsultationSessionProps {
   consultation: Consultation;
@@ -22,6 +23,8 @@ interface UtConsultationSessionProps {
 
 /** UT: Meet-uslubidagi video xona — refreshda auto-rejoin */
 export function UtConsultationSession({ consultation, patientName }: UtConsultationSessionProps) {
+  // Lobbyda shifokor holatini ko'rsatish uchun — operator kutish kerakmi yoki yo'qmi bilsin
+  const doctorPresence = useDoctorPresence(consultation.mtDoctor?.id);
   const [joined, setJoined] = useState(() => wasJoined(consultation.id));
   const [autoRejoin, setAutoRejoin] = useState(() => wasJoined(consultation.id));
 
@@ -87,6 +90,9 @@ export function UtConsultationSession({ consultation, patientName }: UtConsultat
         <VideoLobby
           role="ut"
           peerName={consultation.mtDoctor?.fullName}
+          consultationStatus={consultation.status}
+          peerPresence={consultation.mtDoctor?.id ? doctorPresence.status : undefined}
+          peerActiveCount={doctorPresence.activeCount}
           onJoin={handleJoin}
         />
       </div>

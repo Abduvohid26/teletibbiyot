@@ -60,6 +60,7 @@ export type PdfLabels = {
   preparation: string;
   caution: string;
   sectionQuality: string;
+  sectionDataGaps: string;
   overallScore: string;
   sectionRecorded: string;
   sectionRejected: string;
@@ -136,6 +137,7 @@ const UZ: PdfLabels = {
   preparation: 'Tayyorlash:',
   caution: 'Ehtiyot:',
   sectionQuality: 'Tibbiy yordam sifati (protokol asosida)',
+  sectionDataGaps: "Yetishmayotgan ma'lumot (xulosaga ta'sir qiluvchi)",
   overallScore: 'Umumiy ball:',
   sectionRecorded: "Kartada qayd etilgan ma'lumotlar",
   sectionRejected: 'Rad Etilgan Gipotezalar',
@@ -212,6 +214,7 @@ const RU: PdfLabels = {
   preparation: 'Приготовление:',
   caution: 'Осторожно:',
   sectionQuality: 'Качество медицинской помощи (по протоколу)',
+  sectionDataGaps: 'Недостающие данные (влияют на заключение)',
   overallScore: 'Общий балл:',
   sectionRecorded: 'Записанные в карте данные',
   sectionRejected: 'Отклонённые гипотезы',
@@ -288,6 +291,7 @@ const EN: PdfLabels = {
   preparation: 'Preparation:',
   caution: 'Caution:',
   sectionQuality: 'Quality of care (protocol-based)',
+  sectionDataGaps: 'Missing information (affects the conclusion)',
   overallScore: 'Overall score:',
   sectionRecorded: 'Recorded chart findings',
   sectionRejected: 'Rejected hypotheses',

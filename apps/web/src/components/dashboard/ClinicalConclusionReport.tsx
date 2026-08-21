@@ -14,11 +14,39 @@ import {
   Shield,
   Stethoscope,
   Utensils,
+  HelpCircle,
 } from 'lucide-react';
 import { AiAnalysis } from '@/lib/api';
-import { getClinicalConclusion } from '@/lib/clinical-conclusion';
+import { getClinicalConclusion, type EvidenceLevel, type SourceType } from '@/lib/clinical-conclusion';
 import { formatTriage, cn } from '@/lib/utils';
 import { useI18n, LOCALE_LABELS, isLocale, type Locale } from '@/i18n';
+
+/** Tashxis qanchalik obyektiv dalilga tayanishini ko'rsatuvchi belgi */
+const EVIDENCE_STYLES: Record<EvidenceLevel, string> = {
+  confirmed: 'bg-emerald-50 text-emerald-700',
+  probable: 'bg-amber-50 text-amber-700',
+  possible: 'bg-slate-100 text-slate-600',
+};
+
+const EVIDENCE_LABEL_KEYS: Record<EvidenceLevel, string> = {
+  confirmed: 'clinical.evidenceConfirmed',
+  probable: 'clinical.evidenceProbable',
+  possible: 'clinical.evidencePossible',
+};
+
+const SOURCE_STYLES: Record<SourceType, string> = {
+  protocol: 'bg-teal-50 text-teal-700',
+  guideline: 'bg-indigo-50 text-indigo-700',
+  article: 'bg-violet-50 text-violet-700',
+  general: 'bg-slate-100 text-slate-600',
+};
+
+const SOURCE_LABEL_KEYS: Record<SourceType, string> = {
+  protocol: 'clinical.sourceProtocol',
+  guideline: 'clinical.sourceGuideline',
+  article: 'clinical.sourceArticle',
+  general: 'clinical.sourceGeneral',
+};
 
 interface ClinicalConclusionReportProps {
   analysis: AiAnalysis;
@@ -106,6 +134,16 @@ export function ClinicalConclusionReport({ analysis, compact, expanded }: Clinic
                   </p>
                   <span className="text-[10px] font-bold text-brand-600 shrink-0">{d.confidence}%</span>
                 </div>
+                {d.evidenceLevel && (
+                  <span
+                    className={cn(
+                      'inline-block mt-1 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded',
+                      EVIDENCE_STYLES[d.evidenceLevel],
+                    )}
+                  >
+                    {t(EVIDENCE_LABEL_KEYS[d.evidenceLevel])}
+                  </span>
+                )}
                 {d.icd10Code && (
                   <p className="text-[10px] text-slate-500 mt-0.5">
                     {t('clinical.icd10')}: <span className="font-mono font-semibold text-slate-700">{d.icd10Code}</span>
@@ -175,6 +213,16 @@ export function ClinicalConclusionReport({ analysis, compact, expanded }: Clinic
                   </a>
                 ) : (
                   <p className={cn('font-semibold text-slate-800', dense ? 'text-[10px]' : 'text-xs')}>{a.title}</p>
+                )}
+                {a.sourceType && (
+                  <span
+                    className={cn(
+                      'inline-block ml-1.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded align-middle',
+                      SOURCE_STYLES[a.sourceType],
+                    )}
+                  >
+                    {t(SOURCE_LABEL_KEYS[a.sourceType])}
+                  </span>
                 )}
                 {a.description && (
                   <p className={cn('text-slate-500 mt-0.5', dense ? 'text-[9px]' : 'text-[10px]')}>{a.description}</p>
@@ -382,6 +430,22 @@ export function ClinicalConclusionReport({ analysis, compact, expanded }: Clinic
               <p className={cn('text-slate-600 flex-1', dense ? 'text-xs' : 'text-sm')}>{cc.qualityScore.notes}</p>
             )}
           </div>
+        </Section>
+      )}
+
+      {(cc.dataGaps?.length ?? 0) > 0 && (
+        <Section title={t('clinical.dataGaps')} subtitle={t('clinical.dataGapsSubtitle')} icon={HelpCircle} compact={dense}>
+          <ul className="space-y-1">
+            {cc.dataGaps!.map((gap, i) => (
+              <li
+                key={i}
+                className={cn('flex gap-1.5 text-amber-900', dense ? 'text-[11px]' : 'text-xs')}
+              >
+                <span className="text-amber-500 shrink-0">•</span>
+                <span>{gap}</span>
+              </li>
+            ))}
+          </ul>
         </Section>
       )}
 
