@@ -13,8 +13,7 @@ import {
   XCircle,
   CalendarClock,
   UserRound,
-  ChevronRight,
-  MapPin,
+  Eye,
 } from 'lucide-react';
 import { api, Consultation, DashboardStats, Patient } from '@/lib/api';
 import { PatientDetailPanel } from '@/components/analytics/PatientDetailPanel';
@@ -377,25 +376,27 @@ export function DoctorPatientsView({
             </p>
           </div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-6 gap-2 sm:gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5 sm:gap-2">
             {statCards.map(({ id, label, value, icon: Icon, tone, iconTone }) => (
               <button
                 key={id}
                 type="button"
                 onClick={() => setFilter(id)}
+                title={label}
                 className={cn(
-                  'ut-glass-card text-left p-3 sm:p-4 transition-all duration-200 ring-1 bg-gradient-to-br',
+                  // 7 ta kartochka bitta qatorga sig'ishi uchun ixcham o'lchov
+                  'ut-glass-card text-left p-2 sm:p-2.5 transition-all duration-200 ring-1 bg-gradient-to-br min-w-0',
                   tone,
                   filter === id && 'ut-glass-card-active scale-[1.02]',
                 )}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center ring-1 ring-white/40', iconTone)}>
-                    <Icon size={18} />
+                <div className="flex items-center justify-between gap-1.5">
+                  <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center ring-1 ring-white/40 shrink-0', iconTone)}>
+                    <Icon size={15} />
                   </div>
-                  <span className="text-2xl font-bold leading-none">{value}</span>
+                  <span className="text-xl font-bold leading-none tabular-nums">{value}</span>
                 </div>
-                <p className="text-xs font-semibold mt-2 opacity-80">{label}</p>
+                <p className="text-[11px] font-semibold mt-1.5 opacity-80 truncate">{label}</p>
               </button>
             ))}
           </div>
@@ -514,7 +515,10 @@ export function DoctorPatientsView({
   );
 }
 
-/** "Bemorlarim" ro'yxatidagi kartochka — bosilganda to'liq karta ochiladi */
+/**
+ * "Bemorlarim" qatori — UT operatordagi tashxis ro'yxati bilan bir xil ko'rinish:
+ * belgi + ism + tavsif, o'ngda "O'qish" tugmasi.
+ */
 function MyPatientCard({
   patient,
   onOpen,
@@ -526,36 +530,31 @@ function MyPatientCard({
   const age = calculateAge(patient.birthDate);
 
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="ut-glass-card-interactive w-full px-3 py-3 sm:px-4 flex items-center gap-3 text-left"
-    >
-      <div className="w-11 h-11 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 ring-1 ring-white/50 bg-indigo-100/90 text-indigo-700">
-        {patientInitial(patient.fullName)}
+    <div className="w-full px-3 py-2.5 flex items-center gap-2.5 text-left transition-all ut-glass-card-interactive">
+      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold bg-indigo-100/80 text-indigo-700 ring-1 ring-indigo-200/60">
+        <UserRound size={14} />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="font-semibold text-slate-900 truncate">{patient.fullName}</p>
-        <p className="text-xs text-slate-500 mt-0.5 truncate flex items-center gap-1">
+        <p className="font-semibold text-slate-900 truncate text-sm">{patient.fullName}</p>
+        <p className="text-xs text-slate-500 truncate">
           {age != null ? t('common.years', { age }) : t('common.emptyDash')}
-          <span className="text-slate-300">·</span>
-          {patient.phone}
-          {patient.district && (
-            <>
-              <span className="text-slate-300">·</span>
-              <MapPin size={10} className="shrink-0" />
-              {patient.district}
-            </>
-          )}
+          {patient.phone ? ` · ${patient.phone}` : ''}
+          {patient.district ? ` · ${patient.district}` : ''}
+          {patient._count?.consultations
+            ? ` · ${t('analyticsDetail.consultationsCount', { count: patient._count.consultations })}`
+            : ''}
         </p>
       </div>
-      {!!patient._count?.consultations && (
-        <span className="shrink-0 text-[10px] font-semibold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-lg">
-          {t('analyticsDetail.consultationsCount', { count: patient._count.consultations })}
-        </span>
-      )}
-      <ChevronRight size={16} className="text-slate-300 shrink-0" />
-    </button>
+      <div className="flex items-center gap-1 shrink-0">
+        <button
+          type="button"
+          onClick={onOpen}
+          className="ut-glass-btn !text-[10px] !py-1 !px-2 inline-flex items-center gap-1"
+        >
+          <Eye size={12} /> {t('ut.read')}
+        </button>
+      </div>
+    </div>
   );
 }
 
