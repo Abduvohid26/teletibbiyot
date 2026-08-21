@@ -486,7 +486,7 @@ export class ConsultationsService {
     return this.findOne(id, { id: doctorId, role: UserRole.MT_DOCTOR, facilityId: null });
   }
 
-  async complete(id: string, doctorId: string, dto: FinalDiagnosisDto) {
+  async complete(id: string, doctorId: string, dto: FinalDiagnosisDto, locale?: string) {
     const consultation = await this.prisma.consultation.findUnique({
       where: { id },
       include: { finalDiagnosis: true, aiAnalysis: true },
@@ -540,7 +540,7 @@ export class ConsultationsService {
     });
 
     try {
-      await this.aiService.persistAnalysisReport(id, doctorId);
+      await this.aiService.persistAnalysisReport(id, doctorId, locale);
     } catch (err) {
       this.logger.warn(`Tashxis PDF saqlash xatosi (${id}): ${err}`);
     }

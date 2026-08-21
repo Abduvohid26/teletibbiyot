@@ -10,6 +10,7 @@ import {
   ForbiddenException,
   Query,
   Res,
+  Headers,
 } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
@@ -120,8 +121,9 @@ export class ConsultationsController {
     @Param('id') id: string,
     @Body() dto: FinalDiagnosisDto,
     @Request() req: { user: { id: string } },
+    @Headers('x-locale') locale?: string,
   ) {
-    return this.consultationsService.complete(id, req.user.id, dto);
+    return this.consultationsService.complete(id, req.user.id, dto, locale);
   }
 
   @Post(':id/cancel')

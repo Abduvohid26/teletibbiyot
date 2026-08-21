@@ -580,7 +580,18 @@ export class AiService {
   }
 
   /** Yakunlashda UT operator uchun tashxis PDF saqlash (3 til) */
-  async persistAnalysisReport(consultationId: string, generatedById?: string): Promise<void> {
+  /**
+   * Konsilium PDF sini uch tilda tayyorlaydi.
+   *
+   * `primaryLocale` — shifokorning interfeys tili: u SINXRON generatsiya qilinadi va
+   * hisobot yozuvi shu tilga bog'lanadi. Qolgan ikki til fonda tayyorlanadi, chunki
+   * har biri LLM tarjimasini talab qiladi va yakunlashni bir necha o'n soniyaga cho'zadi.
+   */
+  async persistAnalysisReport(
+    consultationId: string,
+    generatedById?: string,
+    primaryLocaleRaw?: string,
+  ): Promise<void> {
     const consultation = await this.prisma.consultation.findUnique({
       where: { id: consultationId },
       include: {
@@ -596,16 +607,23 @@ export class AiService {
       return;
     }
 
-    const locales: PdfLocale[] = ['uz', 'ru', 'en'];
-    for (const locale of locales) {
-      await this.ensureAnalysisLocaleSnapshot(consultationId, locale);
-      const buffer = await this.buildAnalysisPdfBufferForConsultation(consultation, locale);
-      const fileKey = this.pdfFileKey(consultationId, locale);
-      await this.storage.uploadBuffer(fileKey, buffer, 'application/pdf');
-    }
+    const primaryLocale = normalizePdfLocale(primaryLocaleRaw);
+    await this.buildAndStoreLocalePdf(consultation, primaryLocale);
 
-    const fileName = this.pdfFileName(consultationId, 'uz');
-    const fileKey = this.pdfFileKey(consultationId, 'uz');
+    // Qolgan tillar fonda — shifokor kutib turmasin
+    const rest = (['uz', 'ru', 'en'] as PdfLocale[]).filter((l) => l !== primaryLocale);
+    void (async () => {
+      for (const locale of rest) {
+        try {
+          await this.buildAndStoreLocalePdf(consultation, locale);
+        } catch (err) {
+          this.logger.warn(`Tashxis PDF (${locale}) tayyorlanmadi (${consultationId}): ${err}`);
+        }
+      }
+    })();
+
+    const fileName = this.pdfFileName(consultationId, primaryLocale);
+    const fileKey = this.pdfFileKey(consultationId, primaryLocale);
 
     await this.prisma.consultationReport.upsert({
       where: { consultationId },
@@ -635,6 +653,31 @@ export class AiService {
         consultationId,
       );
     }
+  }
+
+  /** Bitta til uchun tarjima snapshotini tayyorlab, PDF ni saqlaydi */
+  private async buildAndStoreLocalePdf(
+    consultation: Parameters<AiService['buildAnalysisPdfBufferForConsultation']>[0] & { id: string },
+    locale: PdfLocale,
+  ): Promise<void> {
+    // Tarjima snapshotini buildAnalysisPdfBufferForConsultation ning o'zi ta'minlaydi
+    const buffer = await this.buildAnalysisPdfBufferForConsultation(consultation, locale);
+    await this.storage.uploadBuffer(this.pdfFileKey(consultation.id, locale), buffer, 'application/pdf');
+  }
+
+  /**
+   * Tahlilni so'ralgan tilga o'giradi (kerak bo'lsa tarjima qilib, snapshotni saqlaydi)
+   * va shu tildagi variantni qaytaradi. Interfeys tili almashganda ishlatiladi.
+   */
+  async localizeAnalysis(consultationId: string, localeRaw?: string) {
+    const locale = normalizePdfLocale(localeRaw);
+    await this.ensureAnalysisLocaleSnapshot(consultationId, locale);
+
+    const analysis = await this.prisma.aiAnalysis.findUnique({ where: { consultationId } });
+    if (!analysis) throw new NotFoundException('AI tahlil topilmadi');
+
+    const resolved = this.resolveAnalysisForLocale(analysis, locale);
+    return { ...resolved, id: analysis.id, contentLocale: locale };
   }
 
   private pdfFileName(consultationId: string, locale: PdfLocale): string {

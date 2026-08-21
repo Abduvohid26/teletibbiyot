@@ -6,7 +6,8 @@ import { AccessControlService, AuthUser } from '../common/access-control.service
 import { UserRole } from '@prisma/client';
 import { BRAND } from '@ishifo/shared';
 import { FieldCryptoService } from '../common/field-crypto.service';
-import PDFDocument from 'pdfkit';
+import PDFDocument from 'pdfkit';
+import { normalizePdfLocale, type PdfLocale } from '../ai/pdf-labels';
 
 @Injectable()
 export class ReportsService {
@@ -93,21 +94,41 @@ export class ReportsService {
    * yo'lini qaytaradi — presigned URL ichki docker hostname (masalan "minio:9000") bilan
    * imzolanib, brauzerdan ochib bo'lmas edi.
    */
-  async getDownloadUrl(consultationId: string, user: AuthUser): Promise<string> {
+  async getDownloadUrl(consultationId: string, user: AuthUser, locale?: string): Promise<string> {
     await this.assertAccess(consultationId, user);
     const report = await this.prisma.consultationReport.findUnique({ where: { consultationId } });
     if (!report) throw new NotFoundException('Hisobot topilmadi');
-    return `/api/reports/${consultationId}/download`;
+    return `/api/reports/${consultationId}/download?locale=${normalizePdfLocale(locale)}`;
+  }
+
+  /**
+   * Interfeys tilidagi PDF kaliti. Konsilium PDF si uch tilda saqlanadi
+   * (reports/<id>/tashxis-<short>-<locale>.pdf); so'ralgan til hali tayyor
+   * bo'lmasa, hisobotdagi asosiy fayl qaytariladi.
+   */
+  private async resolveLocalizedFile(
+    consultationId: string,
+    report: { fileKey: string; fileName: string },
+    locale: PdfLocale,
+  ): Promise<{ fileKey: string; fileName: string }> {
+    const fileName = `tashxis-${consultationId.slice(0, 8)}-${locale}.pdf`;
+    const fileKey = `reports/${consultationId}/${fileName}`;
+    if (fileKey === report.fileKey) return report;
+
+    return (await this.storage.objectExists(fileKey)) ? { fileKey, fileName } : report;
   }
 
   async streamReport(
     consultationId: string,
     user: AuthUser,
     ip?: string,
+    locale?: string,
   ): Promise<{ stream: NodeJS.ReadableStream; contentType: string; fileName: string }> {
     await this.assertAccess(consultationId, user);
     const report = await this.prisma.consultationReport.findUnique({ where: { consultationId } });
     if (!report) throw new NotFoundException('Hisobot topilmadi');
+
+    const file = await this.resolveLocalizedFile(consultationId, report, normalizePdfLocale(locale));
 
     await this.prisma.auditLog.create({
       data: {
@@ -116,12 +137,12 @@ export class ReportsService {
         entity: 'ConsultationReport',
         entityId: report.id,
         ipAddress: ip,
-        details: { consultationId, fileName: report.fileName },
+        details: { consultationId, fileName: file.fileName },
       },
     });
 
-    const { stream, contentType } = await this.storage.getObjectStream(report.fileKey);
-    return { stream, contentType: contentType || 'application/pdf', fileName: report.fileName };
+    const { stream, contentType } = await this.storage.getObjectStream(file.fileKey);
+    return { stream, contentType: contentType || 'application/pdf', fileName: file.fileName };
   }
 
   private buildPdfBuffer(data: {

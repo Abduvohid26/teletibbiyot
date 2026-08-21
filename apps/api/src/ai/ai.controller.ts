@@ -102,6 +102,19 @@ export class AiController {
     return this.aiService.chatWithAi(id, dto.question, locale);
   }
 
+  @Post('consultations/:id/localize')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  @Roles(...ROLES_CLINICAL, ...ROLES_ADMIN)
+  @ApiOperation({ summary: 'AI xulosani interfeys tiliga o\'girish' })
+  async localize(
+    @Param('id') id: string,
+    @Request() req: { user: AuthUser },
+    @Headers('x-locale') locale?: string,
+  ) {
+    await this.assertConsultationAccess(req.user, id);
+    return this.aiService.localizeAnalysis(id, locale);
+  }
+
   @Post('consultations/:consultationId/steps/:stepId/confirm')
   @Roles(...ROLES_MT_DOCTOR, ...ROLES_ADMIN)
   @ApiOperation({ summary: 'AI bosqichini shifokor tasdiqlashi' })

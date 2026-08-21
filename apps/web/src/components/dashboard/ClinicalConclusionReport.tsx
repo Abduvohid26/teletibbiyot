@@ -17,7 +17,12 @@ import {
   HelpCircle,
 } from 'lucide-react';
 import { AiAnalysis } from '@/lib/api';
-import { getClinicalConclusion, type EvidenceLevel, type SourceType } from '@/lib/clinical-conclusion';
+import {
+  getClinicalConclusion,
+  localizeAnalysis,
+  type EvidenceLevel,
+  type SourceType,
+} from '@/lib/clinical-conclusion';
 import { formatTriage, cn } from '@/lib/utils';
 import { useI18n, LOCALE_LABELS, isLocale, type Locale } from '@/i18n';
 
@@ -52,6 +57,9 @@ interface ClinicalConclusionReportProps {
   analysis: AiAnalysis;
   compact?: boolean;
   expanded?: boolean;
+  /** Interfeys tilida tarjima yo'q bo'lsa — uni so'rash tugmasi */
+  onRequestTranslation?: () => void;
+  translating?: boolean;
 }
 
 function readContentLocale(analysis: AiAnalysis): Locale | null {
@@ -78,8 +86,17 @@ function triageLevelKey(level?: string): string {
   }
 }
 
-export function ClinicalConclusionReport({ analysis, compact, expanded }: ClinicalConclusionReportProps) {
-  const { t } = useI18n();
+export function ClinicalConclusionReport({
+  analysis: rawAnalysis,
+  compact,
+  expanded,
+  onRequestTranslation,
+  translating,
+}: ClinicalConclusionReportProps) {
+  const { t, locale } = useI18n();
+  // Interfeys tili almashganda mos tarjima snapshotiga o'tamiz
+  const localized = useMemo(() => localizeAnalysis(rawAnalysis, locale), [rawAnalysis, locale]);
+  const analysis = localized.analysis;
   const cc = useMemo(() => getClinicalConclusion(analysis), [analysis]);
   const triage = formatTriage(analysis.triageLevel);
   const triageLabel = t(triageLevelKey(analysis.triageLevel));
@@ -91,7 +108,8 @@ export function ClinicalConclusionReport({ analysis, compact, expanded }: Clinic
     || (diet.restricted?.length ?? 0) > 0
     || !!diet.notes
   );
-  const contentLocale = readContentLocale(analysis);
+  // Badge tahlil ASLIDA qaysi tilda yaratilganini ko'rsatadi
+  const contentLocale = readContentLocale(rawAnalysis);
 
   return (
     <div className={cn('space-y-3', dense && 'space-y-2')}>
@@ -102,6 +120,21 @@ export function ClinicalConclusionReport({ analysis, compact, expanded }: Clinic
           <p className="text-[10px] text-slate-400 mt-1">
             {t('clinical.generatedIn', { lang: LOCALE_LABELS[contentLocale] })}
           </p>
+        )}
+        {!localized.available && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            <span className="text-[10px] text-amber-700">{t('clinical.notTranslated')}</span>
+            {onRequestTranslation && (
+              <button
+                type="button"
+                onClick={onRequestTranslation}
+                disabled={translating}
+                className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-60"
+              >
+                {translating ? t('clinical.translating') : t('clinical.translateNow')}
+              </button>
+            )}
+          </div>
         )}
         <div className="flex items-center gap-2 mt-2 flex-wrap">
           <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-full bg-white/80', triage.color)}>

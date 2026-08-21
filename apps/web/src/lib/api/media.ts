@@ -1,6 +1,6 @@
 import type { HttpClient } from './http-client';
 import type { Attachment, SessionRecording } from './types';
-import { UPLOAD_TIMEOUT_MS } from './constants';
+import { UPLOAD_TIMEOUT_MS, AI_TIMEOUT_MS } from './constants';
 
 export function defineMediaApi(client: HttpClient) {
   return {
@@ -82,7 +82,11 @@ export function defineMediaApi(client: HttpClient) {
     },
 
     generateReport(consultationId: string) {
-      return client.request<{ downloadUrl: string }>(`/reports/${consultationId}/generate`, { method: 'POST' });
+      // PDF generatsiyasi sekin — standart 10s timeout yetmaydi
+      return client.request<{ downloadUrl: string }>(`/reports/${consultationId}/generate`, {
+        method: 'POST',
+        timeoutMs: AI_TIMEOUT_MS,
+      });
     },
 
     getReportLink(consultationId: string) {

@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Brain, Send, RefreshCw, ThumbsUp, ThumbsDown, Sparkles, Download, MessageCircle } from 'lucide-react';
 import { AiAnalysis } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { getAiAnalysisMeta } from '@/lib/ai-analysis-meta';
+import { toast } from '@/lib/toast';
 import { ClinicalConclusionReport } from '@/components/dashboard/ClinicalConclusionReport';
+import { AiChatMessage } from '@/components/dashboard/AiChatMessage';
 import { useI18n } from '@/i18n';
 
 interface ChatMessage {
@@ -39,6 +41,7 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [feedbackError, setFeedbackError] = useState('');
   const [chatOpen, setChatOpen] = useState(true);
+  const [translating, setTranslating] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -65,6 +68,20 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
       setLoading(false);
     }
   };
+
+  // Interfeys tilida tarjima yo'q bo'lsa — serverdan so'raymiz, keyin qayta yuklaymiz
+  const handleTranslate = useCallback(async () => {
+    if (!consultationId || translating) return;
+    setTranslating(true);
+    try {
+      await api.localizeAnalysis(consultationId);
+      onRefresh?.();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : t('errors.generic'), 'error');
+    } finally {
+      setTranslating(false);
+    }
+  }, [consultationId, translating, onRefresh, t]);
 
   const handleReanalyze = async () => {
     if (!consultationId) return;
@@ -196,7 +213,13 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
           </div>
         )}
 
-        <ClinicalConclusionReport analysis={analysis} compact={compact} expanded />
+        <ClinicalConclusionReport
+          analysis={analysis}
+          compact={compact}
+          expanded
+          onRequestTranslation={consultationId ? handleTranslate : undefined}
+          translating={translating}
+        />
 
         {!feedbackSent && (
           <div className="flex items-center gap-2 pt-3 mt-3 border-t border-slate-100">
@@ -214,7 +237,7 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
       </div>
 
       {chatOpen && (
-        <div className="border-t border-slate-200 bg-slate-50/80 shrink-0 flex flex-col max-h-[45%] min-h-[140px]">
+        <div className="border-t border-slate-200 bg-slate-50/80 shrink-0 flex flex-col max-h-[60%] min-h-[180px]">
           <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-2">
             {chatMessages.length === 0 && (
               <div className="space-y-2">
@@ -240,13 +263,13 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
               <div
                 key={i}
                 className={cn(
-                  'rounded-xl px-2.5 py-2 text-xs leading-relaxed max-w-[95%]',
+                  'rounded-xl px-3 py-2 text-xs leading-relaxed',
                   msg.role === 'user'
-                    ? 'ml-auto bg-brand-600 text-white'
-                    : 'mr-auto bg-white border border-slate-200 text-slate-700',
+                    ? 'ml-auto max-w-[85%] bg-brand-600 text-white'
+                    : 'mr-auto w-full bg-white border border-slate-200 text-slate-700 shadow-sm',
                 )}
               >
-                {msg.text}
+                <AiChatMessage text={msg.text} role={msg.role} />
               </div>
             ))}
             {loading && (

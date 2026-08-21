@@ -268,6 +268,68 @@ function parseClinicalConclusionRaw(raw: unknown): ClinicalConclusion | null {
 }
 
 /** Mavjud tahlildan to'liq klinik xulosa — clinicalConclusion yoki fallback */
+/** Serverda saqlangan tarjima snapshotining shakli */
+interface LocaleSnapshot {
+  summary?: unknown;
+  diagnoses?: unknown;
+  recommendations?: unknown;
+  redFlags?: unknown;
+  clinicalConclusion?: unknown;
+}
+
+export interface LocalizedAnalysis {
+  analysis: AiAnalysis;
+  /** Tahlil so'ralgan tilda mavjudmi (asl til yoki tayyor tarjima) */
+  available: boolean;
+  /** Tahlil aslida qaysi tilda yaratilgan */
+  contentLocale: string | null;
+}
+
+/**
+ * Tahlilni interfeys tiliga moslaydi.
+ *
+ * Server `rawResponse.localeSnapshots` ichida uch tildagi variantni saqlaydi;
+ * mos snapshot bo'lsa — u qaytariladi, bo'lmasa asl til qoladi va `available: false`
+ * bo'ladi (UI tarjima so'rashi mumkin).
+ */
+export function localizeAnalysis(analysis: AiAnalysis, locale: string): LocalizedAnalysis {
+  const raw = analysis.rawResponse ?? {};
+  const contentLocale = typeof raw.contentLocale === 'string' ? raw.contentLocale : null;
+
+  if (!contentLocale || contentLocale === locale) {
+    return { analysis, available: true, contentLocale };
+  }
+
+  const snapshots = raw.localeSnapshots;
+  const snap =
+    snapshots && typeof snapshots === 'object'
+      ? ((snapshots as Record<string, unknown>)[locale] as LocaleSnapshot | undefined)
+      : undefined;
+
+  if (!snap) return { analysis, available: false, contentLocale };
+
+  return {
+    analysis: {
+      ...analysis,
+      summary: typeof snap.summary === 'string' ? snap.summary : analysis.summary,
+      diagnoses: (snap.diagnoses as AiAnalysis['diagnoses']) ?? analysis.diagnoses,
+      recommendations: asStringArray(snap.recommendations).length
+        ? asStringArray(snap.recommendations)
+        : analysis.recommendations,
+      redFlags: asStringArray(snap.redFlags).length
+        ? asStringArray(snap.redFlags)
+        : analysis.redFlags,
+      rawResponse: {
+        ...raw,
+        contentLocale: locale,
+        clinicalConclusion: snap.clinicalConclusion ?? raw.clinicalConclusion,
+      },
+    },
+    available: true,
+    contentLocale,
+  };
+}
+
 export function getClinicalConclusion(analysis: AiAnalysis): ClinicalConclusion {
   const fromRaw = parseClinicalConclusionRaw(analysis.rawResponse?.clinicalConclusion);
   if (fromRaw) return enrichFromLegacy(fromRaw, analysis);

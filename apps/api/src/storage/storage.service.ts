@@ -115,6 +115,17 @@ export class StorageService implements OnModuleInit {
     return this.client.presignedGetObject(this.bucket, this.resolveKey(key), expirySeconds);
   }
 
+  /** Fayl saqlashda mavjudligini tekshiradi (yo'q bo'lsa false, xatolik otmaydi) */
+  async objectExists(key: string): Promise<boolean> {
+    if (!this.client || !key) return false;
+    try {
+      await this.client.statObject(this.bucket, this.resolveKey(key));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async deleteObject(key: string) {
     if (!this.client || !key) return false;
     try {

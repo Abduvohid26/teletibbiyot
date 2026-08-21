@@ -4,6 +4,7 @@ import {
   ConsultationFilters,
   buildQuery,
 } from '../analytics-types';
+import { AI_TIMEOUT_MS } from './constants';
 import type { HttpClient } from './http-client';
 import type {
   Consultation,
@@ -32,9 +33,11 @@ export function defineConsultationsApi(client: HttpClient) {
 
     /** Javobdagi `next` — shu shifokorga biriktirilgan navbatdagi keyingi bemor */
     completeConsultation(id: string, data: Partial<FinalDiagnosisData> = {}) {
+      // Yakunlash Konsilium PDF sini generatsiya qiladi — 10s standart timeout yetmaydi
       return client.request<Consultation & { next: Consultation | null }>(`/consultations/${id}/complete`, {
         method: 'POST',
         body: JSON.stringify(data),
+        timeoutMs: AI_TIMEOUT_MS,
       });
     },
 

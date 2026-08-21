@@ -1,5 +1,5 @@
 import type { HttpClient } from './http-client';
-import type { AiAnalysisStep, DeviceStatus, Appointment, PrescriptionTemplate } from './types';
+import type { AiAnalysis, AiAnalysisStep, DeviceStatus, Appointment, PrescriptionTemplate } from './types';
 import { AI_TIMEOUT_MS, VISION_TIMEOUT_MS } from './constants';
 
 export function defineIntegrationsApi(client: HttpClient) {
@@ -22,6 +22,14 @@ export function defineIntegrationsApi(client: HttpClient) {
       return client.request<{ answer: string; disclaimer: string }>(`/ai/consultations/${consultationId}/chat`, {
         method: 'POST',
         body: JSON.stringify({ question }),
+        timeoutMs: AI_TIMEOUT_MS,
+      });
+    },
+
+    /** AI xulosani interfeys tiliga o'giradi (X-Locale sarlavhasi orqali) */
+    localizeAnalysis(consultationId: string) {
+      return client.request<AiAnalysis>(`/ai/consultations/${consultationId}/localize`, {
+        method: 'POST',
         timeoutMs: AI_TIMEOUT_MS,
       });
     },

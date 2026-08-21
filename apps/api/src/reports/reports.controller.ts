@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, UseGuards, Request, Res, Req } from '@nestjs/common';
+import { Controller, Get, Post, Param, UseGuards, Request, Res, Req, Query, Headers } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { Response } from 'express';
 import { ReportsService } from './reports.service';
@@ -24,8 +24,12 @@ export class ReportsController {
   @Get(':consultationId/link')
   @Roles(...ROLES_CLINICAL)
   @ApiOperation({ summary: 'Hisobot havolasini olish' })
-  async getLink(@Param('consultationId') consultationId: string, @Request() req: { user: AuthUser }) {
-    const url = await this.reports.getDownloadUrl(consultationId, req.user);
+  async getLink(
+    @Param('consultationId') consultationId: string,
+    @Request() req: { user: AuthUser },
+    @Headers('x-locale') locale?: string,
+  ) {
+    const url = await this.reports.getDownloadUrl(consultationId, req.user, locale);
     return { url };
   }
 
@@ -37,11 +41,14 @@ export class ReportsController {
     @Request() req: { user: AuthUser },
     @Res() res: Response,
     @Req() expressReq: { ip?: string },
+    @Query('locale') localeQuery?: string,
+    @Headers('x-locale') localeHeader?: string,
   ) {
     const { stream, contentType, fileName } = await this.reports.streamReport(
       consultationId,
       req.user,
       expressReq.ip,
+      localeQuery ?? localeHeader,
     );
     res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`);
