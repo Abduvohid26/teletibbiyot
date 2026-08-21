@@ -9,13 +9,25 @@ DECLARE
   old_enum_exists BOOLEAN;
   new_enum_exists BOOLEAN;
   old_enum_count INT;
+  has_legacy_users BOOLEAN;
 BEGIN
-  SELECT id INTO doctor_id FROM "User" WHERE email = 'doctor@ishifo.uz' LIMIT 1;
-  IF doctor_id IS NULL THEN
-    SELECT id INTO doctor_id FROM "User" WHERE role::text = 'MT_DOCTOR' LIMIT 1;
-  END IF;
-  IF doctor_id IS NULL THEN
-    RAISE EXCEPTION 'MT shifokor topilmadi — migratsiyani davom ettirish mumkin emas';
+  -- Olib tashlanadigan rollardagi foydalanuvchilar bormi?
+  -- Toza bazada (yangi o'rnatish) ular umuman yo'q — bunda faqat enum konvertatsiyasi kerak,
+  -- ma'lumotlarni qayta biriktirish emas. Shuning uchun shifokor talabi shu holatga bog'lanadi.
+  SELECT EXISTS (
+    SELECT 1 FROM "User"
+    WHERE role::text IN ('MT_MANAGER', 'AUDITOR')
+       OR email IN ('manager@ishifo.uz', 'auditor@ishifo.uz')
+  ) INTO has_legacy_users;
+
+  IF has_legacy_users THEN
+    SELECT id INTO doctor_id FROM "User" WHERE email = 'doctor@ishifo.uz' LIMIT 1;
+    IF doctor_id IS NULL THEN
+      SELECT id INTO doctor_id FROM "User" WHERE role::text = 'MT_DOCTOR' LIMIT 1;
+    END IF;
+    IF doctor_id IS NULL THEN
+      RAISE EXCEPTION 'MT shifokor topilmadi — migratsiyani davom ettirish mumkin emas';
+    END IF;
   END IF;
 
   SELECT udt_name INTO user_role_udt
@@ -42,79 +54,82 @@ BEGIN
     RETURN;
   END IF;
 
-  UPDATE "Consultation"
-    SET "mtDoctorId" = doctor_id
-    WHERE "mtDoctorId" IN (
-      SELECT id FROM "User"
-      WHERE role::text IN ('MT_MANAGER', 'AUDITOR')
-         OR email IN ('manager@ishifo.uz', 'auditor@ishifo.uz')
-    );
+  -- Eski rollardagi yozuvlarni shifokorga ko'chirish — faqat ular mavjud bo'lganda
+  IF has_legacy_users THEN
+    UPDATE "Consultation"
+      SET "mtDoctorId" = doctor_id
+      WHERE "mtDoctorId" IN (
+        SELECT id FROM "User"
+        WHERE role::text IN ('MT_MANAGER', 'AUDITOR')
+           OR email IN ('manager@ishifo.uz', 'auditor@ishifo.uz')
+      );
 
-  UPDATE "FinalDiagnosis"
-    SET "mtDoctorId" = doctor_id
-    WHERE "mtDoctorId" IN (
-      SELECT id FROM "User"
-      WHERE role::text IN ('MT_MANAGER', 'AUDITOR')
-         OR email IN ('manager@ishifo.uz', 'auditor@ishifo.uz')
-    );
+    UPDATE "FinalDiagnosis"
+      SET "mtDoctorId" = doctor_id
+      WHERE "mtDoctorId" IN (
+        SELECT id FROM "User"
+        WHERE role::text IN ('MT_MANAGER', 'AUDITOR')
+           OR email IN ('manager@ishifo.uz', 'auditor@ishifo.uz')
+      );
 
-  UPDATE "SecondOpinion"
-    SET "requestedById" = doctor_id
-    WHERE "requestedById" IN (
-      SELECT id FROM "User"
-      WHERE role::text IN ('MT_MANAGER', 'AUDITOR')
-         OR email IN ('manager@ishifo.uz', 'auditor@ishifo.uz')
-    );
+    UPDATE "SecondOpinion"
+      SET "requestedById" = doctor_id
+      WHERE "requestedById" IN (
+        SELECT id FROM "User"
+        WHERE role::text IN ('MT_MANAGER', 'AUDITOR')
+           OR email IN ('manager@ishifo.uz', 'auditor@ishifo.uz')
+      );
 
-  UPDATE "SecondOpinion"
-    SET "assignedDoctorId" = doctor_id
-    WHERE "assignedDoctorId" IN (
-      SELECT id FROM "User"
-      WHERE role::text IN ('MT_MANAGER', 'AUDITOR')
-         OR email IN ('manager@ishifo.uz', 'auditor@ishifo.uz')
-    );
+    UPDATE "SecondOpinion"
+      SET "assignedDoctorId" = doctor_id
+      WHERE "assignedDoctorId" IN (
+        SELECT id FROM "User"
+        WHERE role::text IN ('MT_MANAGER', 'AUDITOR')
+           OR email IN ('manager@ishifo.uz', 'auditor@ishifo.uz')
+      );
 
-  UPDATE "Appointment"
-    SET "createdById" = doctor_id
-    WHERE "createdById" IN (
-      SELECT id FROM "User"
-      WHERE role::text IN ('MT_MANAGER', 'AUDITOR')
-         OR email IN ('manager@ishifo.uz', 'auditor@ishifo.uz')
-    );
+    UPDATE "Appointment"
+      SET "createdById" = doctor_id
+      WHERE "createdById" IN (
+        SELECT id FROM "User"
+        WHERE role::text IN ('MT_MANAGER', 'AUDITOR')
+           OR email IN ('manager@ishifo.uz', 'auditor@ishifo.uz')
+      );
 
-  UPDATE "Appointment"
-    SET "doctorId" = doctor_id
-    WHERE "doctorId" IN (
-      SELECT id FROM "User"
-      WHERE role::text IN ('MT_MANAGER', 'AUDITOR')
-         OR email IN ('manager@ishifo.uz', 'auditor@ishifo.uz')
-    );
+    UPDATE "Appointment"
+      SET "doctorId" = doctor_id
+      WHERE "doctorId" IN (
+        SELECT id FROM "User"
+        WHERE role::text IN ('MT_MANAGER', 'AUDITOR')
+           OR email IN ('manager@ishifo.uz', 'auditor@ishifo.uz')
+      );
 
-  UPDATE "AiAnalysisStep"
-    SET "confirmedById" = NULL
-    WHERE "confirmedById" IN (
-      SELECT id FROM "User"
-      WHERE role::text IN ('MT_MANAGER', 'AUDITOR')
-         OR email IN ('manager@ishifo.uz', 'auditor@ishifo.uz')
-    );
+    UPDATE "AiAnalysisStep"
+      SET "confirmedById" = NULL
+      WHERE "confirmedById" IN (
+        SELECT id FROM "User"
+        WHERE role::text IN ('MT_MANAGER', 'AUDITOR')
+           OR email IN ('manager@ishifo.uz', 'auditor@ishifo.uz')
+      );
 
-  DELETE FROM "ConsultationMessage"
-    WHERE "senderId" IN (
-      SELECT id FROM "User"
-      WHERE role::text IN ('MT_MANAGER', 'AUDITOR')
-         OR email IN ('manager@ishifo.uz', 'auditor@ishifo.uz')
-    );
+    DELETE FROM "ConsultationMessage"
+      WHERE "senderId" IN (
+        SELECT id FROM "User"
+        WHERE role::text IN ('MT_MANAGER', 'AUDITOR')
+           OR email IN ('manager@ishifo.uz', 'auditor@ishifo.uz')
+      );
 
-  DELETE FROM "AiFeedback"
-    WHERE "userId" IN (
-      SELECT id FROM "User"
-      WHERE role::text IN ('MT_MANAGER', 'AUDITOR')
-         OR email IN ('manager@ishifo.uz', 'auditor@ishifo.uz')
-    );
+    DELETE FROM "AiFeedback"
+      WHERE "userId" IN (
+        SELECT id FROM "User"
+        WHERE role::text IN ('MT_MANAGER', 'AUDITOR')
+           OR email IN ('manager@ishifo.uz', 'auditor@ishifo.uz')
+      );
 
-  DELETE FROM "User"
-  WHERE role::text IN ('MT_MANAGER', 'AUDITOR')
-     OR email IN ('manager@ishifo.uz', 'auditor@ishifo.uz');
+    DELETE FROM "User"
+    WHERE role::text IN ('MT_MANAGER', 'AUDITOR')
+       OR email IN ('manager@ishifo.uz', 'auditor@ishifo.uz');
+  END IF;
 
   IF NOT new_enum_exists THEN
     CREATE TYPE "UserRole_new" AS ENUM ('UT_OPERATOR', 'MT_DOCTOR', 'ADMIN');
