@@ -14,9 +14,12 @@ import {
   CalendarClock,
   UserRound,
   Eye,
+  FileText,
 } from 'lucide-react';
 import { api, Consultation, DashboardStats, Patient } from '@/lib/api';
 import { PatientDetailPanel } from '@/components/analytics/PatientDetailPanel';
+import { ConsultationReportModal } from '@/components/consultations/ConsultationReportModal';
+import { PdfDownloadButton } from '@/components/dashboard/PdfDownloadButton';
 import { ConsultationFilters, FilterOptions, TRIAGE_OPTIONS } from '@/lib/analytics-types';
 import { SmartFilterBar, countActiveFilters } from '@/components/analytics/SmartFilterBar';
 import { useDebouncedValue } from '@/hooks/use-debounce';
@@ -122,6 +125,8 @@ export function DoctorPatientsView({
   const [myPatientsTotal, setMyPatientsTotal] = useState(0);
   const [myPatientsLoading, setMyPatientsLoading] = useState(false);
   const [openPatientId, setOpenPatientId] = useState<string | null>(null);
+  // UT operatordagi "Tashxis" ro'yxati bilan bir xil yakuniy xulosa oynasi
+  const [reportView, setReportView] = useState<Consultation | null>(null);
   const [options, setOptions] = useState<FilterOptions | null>(null);
   const [listFilters, setListFilters] = useState<ConsultationFilters>({ page: 1, limit: 30 });
   const debouncedSearch = useDebouncedValue(search, 300);
@@ -504,13 +509,18 @@ export function DoctorPatientsView({
           ) : (
             <div className="space-y-2">
               {historyList.map((c) => (
-                <HistoryCard key={c.id} c={c} />
+                <HistoryCard key={c.id} c={c} onOpenReport={() => setReportView(c)} />
               ))}
             </div>
           )}
         </div>
       {cancelModal}
       <PatientDetailPanel patientId={openPatientId} onClose={() => setOpenPatientId(null)} />
+      <ConsultationReportModal
+        consultation={reportView}
+        open={!!reportView}
+        onClose={() => setReportView(null)}
+      />
     </>
   );
 }
@@ -679,58 +689,84 @@ function ActiveQueueCard({
   );
 }
 
-function HistoryCard({ c }: { c: Consultation }) {
+function HistoryCard({ c, onOpenReport }: { c: Consultation; onOpenReport: () => void }) {
   const { t } = useI18n();
   const status = formatStatus(c.status);
   const triage = formatTriage(c.triageLevel);
   const age = calculateAge(c.patient.birthDate);
+  const primaryDx = c.aiAnalysis?.diagnoses?.[0];
+  // UT operatordagi "Tashxis" qatori bilan bir xil: belgi + ism + tashxis, o'ngda O'qish + PDF
+  const hasReport = Boolean(c.aiAnalysis) || Boolean(c.consultationReport);
 
   return (
-    <div className="ut-glass-card-interactive px-3 py-3 sm:px-4 flex flex-col sm:flex-row sm:items-center gap-3">
-      <div className="flex items-center gap-3 min-w-0 flex-1">
-        <div className="w-11 h-11 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 ring-1 ring-white/50 bg-brand-100/90 text-brand-700">
-          {patientInitial(c.patient.fullName)}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="font-semibold text-slate-900 truncate">{c.patient.fullName}</p>
-            <span className={cn('status-badge !text-[10px]', status.className)}>{t(status.labelKey)}</span>
-            {c.triageLevel && (
-              <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-md', triage.color)}>
-                {t(triageLabelKey(c.triageLevel))}
-              </span>
-            )}
-            {c.followUpDate && (
-              <span
-                className={cn(
-                  'inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md',
-                  isOverdue(c.followUpDate) ? 'bg-red-50 text-red-700' : 'bg-sky-50 text-sky-700',
-                )}
-              >
-                <CalendarClock size={10} />
-                {t('patients.followUpOn', { date: new Date(c.followUpDate).toLocaleDateString() })}
-                {isOverdue(c.followUpDate) ? ` · ${t('patients.followUpOverdue')}` : ''}
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-slate-500 mt-0.5 truncate">
-            {c.utFacility?.code ?? 'UT'} · {age != null ? t('common.years', { age }) : t('common.emptyDash')} · {c.patient.phone}
-          </p>
-          {c.clinicalRecord?.complaints && (
-            <p className="text-xs text-slate-600 mt-1 line-clamp-1">{c.clinicalRecord.complaints}</p>
-          )}
-          {c.status === 'CANCELLED' && c.cancelReason && (
-            <p className="text-xs text-red-700 mt-1 line-clamp-2">
-              {t('common.reason', { reason: c.cancelReason })}
-              {c.cancelledBy?.fullName ? ` · ${c.cancelledBy.fullName}` : ''}
-            </p>
-          )}
-        </div>
+    <div className="w-full px-3 py-2.5 flex items-center gap-2.5 text-left transition-all ut-glass-card-interactive">
+      <div
+        className={cn(
+          'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold ring-1',
+          c.status === 'CANCELLED'
+            ? 'bg-red-100/80 text-red-700 ring-red-200/60'
+            : hasReport
+              ? 'bg-violet-100/80 text-violet-700 ring-violet-200/60'
+              : 'bg-brand-100/80 text-brand-700 ring-brand-200/60',
+        )}
+      >
+        {c.status === 'CANCELLED' ? <XCircle size={14} /> : hasReport ? <FileText size={14} /> : patientInitial(c.patient.fullName)}
       </div>
-      {c.status === 'COMPLETED' && c.aiAnalysis?.diagnoses?.[0] && (
-        <span className="text-[10px] text-violet-700 bg-violet-50 px-2 py-1 rounded-lg max-w-[160px] truncate shrink-0">
-          {c.aiAnalysis.diagnoses[0].name}
-        </span>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <p className="font-semibold text-slate-900 truncate text-sm">{c.patient.fullName}</p>
+          <span className={cn('status-badge !text-[10px]', status.className)}>{t(status.labelKey)}</span>
+          {c.triageLevel && (
+            <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-md', triage.color)}>
+              {t(triageLabelKey(c.triageLevel))}
+            </span>
+          )}
+          {c.followUpDate && (
+            <span
+              className={cn(
+                'inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md',
+                isOverdue(c.followUpDate) ? 'bg-red-50 text-red-700' : 'bg-sky-50 text-sky-700',
+              )}
+            >
+              <CalendarClock size={10} />
+              {t('patients.followUpOn', { date: new Date(c.followUpDate).toLocaleDateString() })}
+              {isOverdue(c.followUpDate) ? ` · ${t('patients.followUpOverdue')}` : ''}
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-slate-500 truncate mt-0.5">
+          {primaryDx
+            ? `${primaryDx.name} (${primaryDx.icd10Code})`
+            : c.clinicalRecord?.complaints || t('common.emptyDash')}
+        </p>
+        <p className="text-[11px] text-slate-400 truncate">
+          {c.utFacility?.code ?? 'UT'} · {age != null ? t('common.years', { age }) : t('common.emptyDash')} · {c.patient.phone}
+        </p>
+        {c.status === 'CANCELLED' && c.cancelReason && (
+          <p className="text-[11px] text-red-700 truncate">
+            {t('common.reason', { reason: c.cancelReason })}
+            {c.cancelledBy?.fullName ? ` · ${c.cancelledBy.fullName}` : ''}
+          </p>
+        )}
+      </div>
+
+      {hasReport && (
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={onOpenReport}
+            className="ut-glass-btn !text-[10px] !py-1 !px-2 inline-flex items-center gap-1"
+          >
+            <Eye size={12} /> {t('ut.read')}
+          </button>
+          <PdfDownloadButton
+            consultationId={c.id}
+            hasReport={!!c.consultationReport}
+            compact
+            onError={(msg) => toast(msg, 'error')}
+          />
+        </div>
       )}
     </div>
   );
