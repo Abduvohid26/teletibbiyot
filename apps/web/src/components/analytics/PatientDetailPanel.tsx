@@ -1,13 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { X, User, Phone, MapPin, Calendar, Stethoscope, Brain, XCircle, Paperclip } from 'lucide-react';
-import { api, PatientDetail } from '@/lib/api';
+import { createPortal } from 'react-dom';
+import { X, User, Phone, MapPin, Calendar, Stethoscope, Brain, XCircle, Paperclip, Eye } from 'lucide-react';
+import { api, Consultation, PatientDetail } from '@/lib/api';
 import { calculateAge, formatGender, formatStatus, formatTriage } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { toast } from '@/lib/toast';
 import { cancelActorLabel } from '@/components/consultations/CancelConsultationModal';
 import { PdfDownloadButton } from '@/components/dashboard/PdfDownloadButton';
+import { ConsultationReportModal } from '@/components/consultations/ConsultationReportModal';
 import { useI18n, LOCALE_BCP47 } from '@/i18n';
 import { triageLabelKey } from '@/i18n/labels';
 
@@ -21,6 +23,11 @@ export function PatientDetailPanel({ patientId, onClose }: PatientDetailPanelPro
   const [patient, setPatient] = useState<PatientDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [mounted, setMounted] = useState(false);
+  // UT operatordagi bilan bir xil yakuniy xulosa oynasi
+  const [reportView, setReportView] = useState<Consultation | null>(null);
+
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (!patientId) return;
@@ -32,10 +39,10 @@ export function PatientDetailPanel({ patientId, onClose }: PatientDetailPanelPro
       .finally(() => setLoading(false));
   }, [patientId]);
 
-  if (!patientId) return null;
+  if (!patientId || !mounted) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex justify-end">
+  return createPortal(
+    <div className="fixed inset-0 z-[90] flex justify-end">
       <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-lg bg-white shadow-2xl h-full overflow-y-auto animate-slide-up">
         <div className="sticky top-0 bg-white/95 backdrop-blur border-b border-slate-100 px-6 py-4 flex items-center justify-between z-10">
@@ -57,7 +64,11 @@ export function PatientDetailPanel({ patientId, onClose }: PatientDetailPanelPro
               <div>
                 <h3 className="text-xl font-bold text-slate-900">{patient.fullName}</h3>
                 <p className="text-sm text-slate-500 mt-0.5">
-                  {calculateAge(patient.birthDate) ?? '—'} yosh · {formatGender(patient.gender)}
+                  {calculateAge(patient.birthDate) != null
+                    ? t('common.years', { age: calculateAge(patient.birthDate) as number })
+                    : t('common.emptyDash')}
+                  {' · '}
+                  {formatGender(patient.gender)}
                 </p>
                 <p className="text-xs text-brand-600 font-medium mt-1">
                   {t('analyticsDetail.consultationsCount', { count: patient._count?.consultations ?? patient.consultations.length })}
@@ -127,12 +138,23 @@ export function PatientDetailPanel({ patientId, onClose }: PatientDetailPanelPro
                         </div>
                       )}
                       {(c.consultationReport || c.aiAnalysis) && (
-                        <PdfDownloadButton
-                          consultationId={c.id}
-                          hasReport={!!c.consultationReport}
-                          compact
-                          onError={(msg) => toast(msg, 'error')}
-                        />
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {c.aiAnalysis && (
+                            <button
+                              type="button"
+                              onClick={() => setReportView(c)}
+                              className="ut-glass-btn !text-[10px] !py-1 !px-2 inline-flex items-center gap-1"
+                            >
+                              <Eye size={12} /> {t('ut.read')}
+                            </button>
+                          )}
+                          <PdfDownloadButton
+                            consultationId={c.id}
+                            hasReport={!!c.consultationReport}
+                            compact
+                            onError={(msg) => toast(msg, 'error')}
+                          />
+                        </div>
                       )}
                       <p className="text-[10px] text-slate-400 flex items-center gap-2">
                         <span className="flex items-center gap-1">
@@ -157,7 +179,14 @@ export function PatientDetailPanel({ patientId, onClose }: PatientDetailPanelPro
           </div>
         )}
       </div>
-    </div>
+
+      <ConsultationReportModal
+        consultation={reportView}
+        open={!!reportView}
+        onClose={() => setReportView(null)}
+      />
+    </div>,
+    document.body,
   );
 }
 

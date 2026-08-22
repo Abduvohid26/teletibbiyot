@@ -8,7 +8,7 @@ import { Consultation } from '@/lib/api';
 import { formatStatus } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { UtQuickNav } from '@/components/ut/UtNavTabs';
-import { UtDiagnosisModal } from '@/components/ut/UtDiagnosisModal';
+import { ConsultationReportModal } from '@/components/consultations/ConsultationReportModal';
 import { PdfDownloadButton } from '@/components/dashboard/PdfDownloadButton';
 import { useI18n } from '@/i18n';
 
@@ -218,13 +218,11 @@ export function UtPatientList({
         </div>
       </div>
 
-      {diagnosisView && (
-        <UtDiagnosisModal
-          consultation={diagnosisView}
-          open
-          onClose={() => setDiagnosisView(null)}
-        />
-      )}
+      <ConsultationReportModal
+        consultation={diagnosisView}
+        open={!!diagnosisView}
+        onClose={() => setDiagnosisView(null)}
+      />
     </>
   );
 }
