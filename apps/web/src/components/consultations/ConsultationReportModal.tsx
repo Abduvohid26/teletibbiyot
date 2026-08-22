@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, FileText, CalendarDays, Paperclip, Stethoscope } from 'lucide-react';
+import { X, FileText, CalendarDays, Paperclip, Stethoscope, Loader2 } from 'lucide-react';
 import { Consultation } from '@/lib/api';
 import { ClinicalConclusionReport } from '@/components/dashboard/ClinicalConclusionReport';
 import { PdfDownloadButton } from '@/components/dashboard/PdfDownloadButton';
+import { useAnalysisTranslation } from '@/hooks/use-analysis-translation';
 import { calculateAge, cn, formatStatus } from '@/lib/utils';
 import { useI18n, LOCALE_BCP47 } from '@/i18n';
 
@@ -24,6 +25,14 @@ export function ConsultationReportModal({ consultation, open, onClose }: Consult
   const { t, locale } = useI18n();
   const [error, setError] = useState('');
   const [mounted, setMounted] = useState(false);
+
+  // Til almashsa xulosa shu yerda ham avtomatik tarjima qilinadi
+  const {
+    analysis: localizedAnalysis,
+    translating,
+    failed: translationFailed,
+    retry: retryTranslation,
+  } = useAnalysisTranslation(consultation?.aiAnalysis, consultation?.id);
 
   useEffect(() => setMounted(true), []);
 
@@ -48,7 +57,12 @@ export function ConsultationReportModal({ consultation, open, onClose }: Consult
 
   if (!mounted || !open || !consultation) return null;
 
-  const primary = consultation.aiAnalysis?.diagnoses?.[0];
+  const shownAnalysis = localizedAnalysis ?? consultation.aiAnalysis;
+  const primary = shownAnalysis?.diagnoses?.[0];
+  // Bosqichlar bor, lekin tugamagan — tahlil hali davom etmoqda
+  const analysisRunning =
+    !consultation.aiAnalysis
+    && (consultation.aiAnalysisSteps?.some((s) => s.status !== 'DONE' && s.status !== 'FAILED') ?? false);
   const status = formatStatus(consultation.status);
   const age = calculateAge(consultation.patient.birthDate);
   const created = consultation.completedAt || consultation.createdAt;
@@ -117,8 +131,24 @@ export function ConsultationReportModal({ consultation, open, onClose }: Consult
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4">
-          {consultation.aiAnalysis ? (
-            <ClinicalConclusionReport analysis={consultation.aiAnalysis} compact />
+          {shownAnalysis ? (
+            <ClinicalConclusionReport
+              analysis={shownAnalysis}
+              compact
+              translating={translating}
+              translationFailed={translationFailed}
+              onRequestTranslation={retryTranslation}
+            />
+          ) : analysisRunning ? (
+            <div className="text-center py-10 space-y-2">
+              <div className="w-12 h-12 rounded-2xl bg-violet-50 ring-1 ring-violet-200/70 flex items-center justify-center mx-auto">
+                <Loader2 className="w-6 h-6 text-violet-600 animate-spin" />
+              </div>
+              <p className="text-sm font-semibold text-violet-800">{t('clinical.inProgressTitle')}</p>
+              <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
+                {t('clinical.inProgressHint')}
+              </p>
+            </div>
           ) : (
             <p className="text-sm text-slate-500 text-center py-8">{t('ut.diagnosisUnavailable')}</p>
           )}
@@ -127,7 +157,7 @@ export function ConsultationReportModal({ consultation, open, onClose }: Consult
         <div className="shrink-0 border-t border-slate-100 p-3 sm:p-4 flex flex-col gap-2 bg-white/90">
           {error && <p className="text-xs text-red-600">{error}</p>}
           <div className="flex items-center gap-2">
-            {(consultation.aiAnalysis || consultation.consultationReport) && (
+            {(consultation.aiAnalysis || consultation.consultationReport) && !translating && (
               <PdfDownloadButton
                 consultationId={consultation.id}
                 hasReport={!!consultation.consultationReport}

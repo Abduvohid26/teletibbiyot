@@ -15,6 +15,7 @@ import {
   Stethoscope,
   Utensils,
   HelpCircle,
+  Loader2,
 } from 'lucide-react';
 import { AiAnalysis } from '@/lib/api';
 import {
@@ -57,9 +58,11 @@ interface ClinicalConclusionReportProps {
   analysis: AiAnalysis;
   compact?: boolean;
   expanded?: boolean;
-  /** Interfeys tilida tarjima yo'q bo'lsa — uni so'rash tugmasi */
+  /** Interfeys tilida tarjima yo'q bo'lsa — uni qayta so'rash */
   onRequestTranslation?: () => void;
   translating?: boolean;
+  /** Avtomatik tarjima urinishi muvaffaqiyatsiz tugadi */
+  translationFailed?: boolean;
 }
 
 function readContentLocale(analysis: AiAnalysis): Locale | null {
@@ -92,6 +95,7 @@ export function ClinicalConclusionReport({
   expanded,
   onRequestTranslation,
   translating,
+  translationFailed,
 }: ClinicalConclusionReportProps) {
   const { t, locale } = useI18n();
   // Interfeys tili almashganda mos tarjima snapshotiga o'tamiz
@@ -112,7 +116,7 @@ export function ClinicalConclusionReport({
   const contentLocale = readContentLocale(rawAnalysis);
 
   return (
-    <div className={cn('space-y-3', dense && 'space-y-2')}>
+    <div className={cn('space-y-3 transition-opacity', dense && 'space-y-2', translating && 'opacity-70')}>
       <div className={cn('rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50/90 to-indigo-50/60', dense ? 'p-2' : 'p-3')}>
         <p className="text-[10px] font-bold uppercase tracking-widest text-violet-600">{t('clinical.finalTitle')}</p>
         <p className="text-xs text-slate-500 mt-0.5">{t('clinical.finalSubtitle')}</p>
@@ -121,21 +125,30 @@ export function ClinicalConclusionReport({
             {t('clinical.generatedIn', { lang: LOCALE_LABELS[contentLocale] })}
           </p>
         )}
-        {!localized.available && (
-          <div className="mt-1.5 flex flex-wrap items-center gap-2">
-            <span className="text-[10px] text-amber-700">{t('clinical.notTranslated')}</span>
+        {translating ? (
+          <div className="mt-2 flex items-start gap-2 rounded-lg bg-violet-50/90 border border-violet-200/70 px-2 py-1.5">
+            <Loader2 size={13} className="text-violet-600 animate-spin shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold text-violet-800">{t('clinical.translatingTitle')}</p>
+              <p className="text-[10px] text-violet-700/80">{t('clinical.translatingHint')}</p>
+            </div>
+          </div>
+        ) : !localized.available ? (
+          <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg bg-amber-50/90 border border-amber-200/70 px-2 py-1.5">
+            <span className="text-[10px] text-amber-800">
+              {translationFailed ? t('clinical.translateFailed') : t('clinical.notTranslated')}
+            </span>
             {onRequestTranslation && (
               <button
                 type="button"
                 onClick={onRequestTranslation}
-                disabled={translating}
-                className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-60"
+                className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-600 text-white hover:bg-violet-700"
               >
-                {translating ? t('clinical.translating') : t('clinical.translateNow')}
+                {t('clinical.translateNow')}
               </button>
             )}
           </div>
-        )}
+        ) : null}
         <div className="flex items-center gap-2 mt-2 flex-wrap">
           <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-full bg-white/80', triage.color)}>
             {t('clinical.triageRisk', { level: triageLabel })}

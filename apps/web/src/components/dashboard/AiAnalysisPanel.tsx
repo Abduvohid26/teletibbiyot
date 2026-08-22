@@ -1,15 +1,15 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { Brain, Send, RefreshCw, ThumbsUp, ThumbsDown, Sparkles, MessageCircle } from 'lucide-react';
-import { AiAnalysis } from '@/lib/api';
+import { useState, useRef, useEffect, useMemo } from 'react';
+import { Brain, Send, RefreshCw, ThumbsUp, ThumbsDown, Sparkles, MessageCircle, Loader2 } from 'lucide-react';
+import { AiAnalysis, AiAnalysisStep } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { getAiAnalysisMeta } from '@/lib/ai-analysis-meta';
-import { toast } from '@/lib/toast';
 import { ClinicalConclusionReport } from '@/components/dashboard/ClinicalConclusionReport';
 import { AiChatMessage } from '@/components/dashboard/AiChatMessage';
 import { PdfDownloadButton } from '@/components/dashboard/PdfDownloadButton';
+import { useAnalysisTranslation } from '@/hooks/use-analysis-translation';
 import { useI18n } from '@/i18n';
 
 interface ChatMessage {
@@ -20,8 +20,16 @@ interface ChatMessage {
 interface AiAnalysisPanelProps {
   analysis?: AiAnalysis;
   consultationId?: string;
+  /** AI tahlil bosqichlari — "xulosa qilinmoqda" holatini shundan bilamiz */
+  steps?: AiAnalysisStep[];
   onRefresh?: () => void;
   compact?: boolean;
+}
+
+/** Tahlil hali ishlayaptimi: bosqichlar bor, lekin hammasi tugamagan */
+function isAnalysisRunning(steps?: AiAnalysisStep[]) {
+  if (!steps?.length) return false;
+  return steps.some((s) => s.status !== 'DONE' && s.status !== 'FAILED');
 }
 
 const SUGGESTED_QUESTION_KEYS = [
@@ -32,8 +40,8 @@ const SUGGESTED_QUESTION_KEYS = [
   'clinical.suggestPrognosis',
 ] as const;
 
-export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }: AiAnalysisPanelProps) {
-  const { t, locale } = useI18n();
+export function AiAnalysisPanel({ analysis, consultationId, steps, onRefresh, compact }: AiAnalysisPanelProps) {
+  const { t } = useI18n();
   const [question, setQuestion] = useState('');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
@@ -41,8 +49,31 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [feedbackError, setFeedbackError] = useState('');
   const [chatOpen, setChatOpen] = useState(true);
-  const [translating, setTranslating] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Til almashsa xulosa avtomatik o'sha tilga o'giriladi
+  const {
+    analysis: localizedAnalysis,
+    translating,
+    failed: translationFailed,
+    retry: retryTranslation,
+  } = useAnalysisTranslation(analysis, consultationId, onRefresh);
+
+  const running = analyzing || (!analysis && isAnalysisRunning(steps));
+  const stepProgress = useMemo(() => {
+    const list = steps ?? [];
+    const done = list.filter((s) => s.status === 'DONE').length;
+    const current = list.find((s) => s.status === 'IN_PROGRESS');
+    return { done, total: list.length, current };
+  }, [steps]);
+
+  // Tahlil fonda davom etayotgan bo'lsa — tayyor bo'lgani bilan o'zi ko'rinsin
+  useEffect(() => {
+    if (analysis || !consultationId || !onRefresh) return;
+    if (!isAnalysisRunning(steps) && !analyzing) return;
+    const timer = setInterval(() => onRefresh(), 5000);
+    return () => clearInterval(timer);
+  }, [analysis, consultationId, onRefresh, steps, analyzing]);
 
   useEffect(() => {
     setChatMessages([]);
@@ -68,20 +99,6 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
       setLoading(false);
     }
   };
-
-  // Interfeys tilida tarjima yo'q bo'lsa — serverdan so'raymiz, keyin qayta yuklaymiz
-  const handleTranslate = useCallback(async () => {
-    if (!consultationId || translating) return;
-    setTranslating(true);
-    try {
-      await api.localizeAnalysis(consultationId);
-      onRefresh?.();
-    } catch (err) {
-      toast(err instanceof Error ? err.message : t('errors.generic'), 'error');
-    } finally {
-      setTranslating(false);
-    }
-  }, [consultationId, translating, onRefresh, t]);
 
   const handleReanalyze = async () => {
     if (!consultationId) return;
@@ -116,21 +133,49 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
           <span className="panel-title text-sm">{t('clinical.title')}</span>
         </div>
         <div className="flex-1 overflow-hidden flex flex-col justify-center p-4 gap-3">
-          <div className="text-center space-y-2">
-            <Brain className="w-10 h-10 text-slate-300 mx-auto" />
-            <p className="text-sm font-medium text-slate-600">
-              {consultationId ? t('clinical.notReadyYet') : t('clinical.selectConsultation')}
-            </p>
-            <p className="text-xs text-slate-400">
-              {consultationId
-                ? t('clinical.fullReport')
-                : t('clinical.startFromQueue')}
-            </p>
-          </div>
+          {running ? (
+            <div className="text-center space-y-2">
+              <div className="w-12 h-12 rounded-2xl bg-violet-50 ring-1 ring-violet-200/70 flex items-center justify-center mx-auto">
+                <Loader2 className="w-6 h-6 text-violet-600 animate-spin" />
+              </div>
+              <p className="text-sm font-semibold text-violet-800">{t('clinical.inProgressTitle')}</p>
+              <p className="text-xs text-slate-500 leading-relaxed max-w-xs mx-auto">
+                {t('clinical.inProgressHint')}
+              </p>
+              {stepProgress.total > 0 && (
+                <div className="max-w-xs mx-auto space-y-1.5 pt-1">
+                  <div className="h-1.5 rounded-full bg-violet-100 overflow-hidden">
+                    <div
+                      className="h-full bg-violet-500 transition-all duration-500"
+                      style={{ width: `${Math.round((stepProgress.done / stepProgress.total) * 100)}%` }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400">
+                    {t('clinical.inProgressCount', { done: stepProgress.done, total: stepProgress.total })}
+                    {stepProgress.current
+                      ? ` · ${t('clinical.inProgressStep', { label: stepProgress.current.label })}`
+                      : ''}
+                  </p>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center space-y-2">
+              <Brain className="w-10 h-10 text-slate-300 mx-auto" />
+              <p className="text-sm font-medium text-slate-600">
+                {consultationId ? t('clinical.notReadyYet') : t('clinical.selectConsultation')}
+              </p>
+              <p className="text-xs text-slate-400">
+                {consultationId
+                  ? t('clinical.fullReport')
+                  : t('clinical.startFromQueue')}
+              </p>
+            </div>
+          )}
           {feedbackError && (
             <p className="text-xs text-red-600 bg-red-50 rounded-lg p-2 text-center">{feedbackError}</p>
           )}
-          {consultationId && (
+          {consultationId && !running && (
             <button
               type="button"
               onClick={() => void handleReanalyze()}
@@ -153,6 +198,12 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
       <div className="panel-header bg-gradient-to-r from-violet-50/80 to-indigo-50/50 shrink-0 py-2 px-3 gap-2">
         <Sparkles size={16} className="text-violet-600 shrink-0" />
         <span className="panel-title text-sm flex-1 min-w-0 truncate">{t('clinical.title')}</span>
+        {translating && (
+          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-violet-700 bg-violet-100/80 px-1.5 py-0.5 rounded-full shrink-0">
+            <Loader2 size={10} className="animate-spin" />
+            {t('clinical.translatingTitle')}
+          </span>
+        )}
         <div className="flex items-center gap-1 shrink-0">
           {consultationId && (
             <PdfDownloadButton consultationId={consultationId} onError={setFeedbackError} />
@@ -192,11 +243,12 @@ export function AiAnalysisPanel({ analysis, consultationId, onRefresh, compact }
         )}
 
         <ClinicalConclusionReport
-          analysis={analysis}
+          analysis={localizedAnalysis ?? analysis}
           compact={compact}
           expanded
-          onRequestTranslation={consultationId ? handleTranslate : undefined}
+          onRequestTranslation={consultationId ? retryTranslation : undefined}
           translating={translating}
+          translationFailed={translationFailed}
         />
 
         {!feedbackSent && (

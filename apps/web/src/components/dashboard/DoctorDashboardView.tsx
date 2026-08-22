@@ -219,6 +219,7 @@ export function DoctorDashboardView({
             <div className="doctor-ai-col">
               <AiAnalysisPanel
                 analysis={activeConsultation?.aiAnalysis ?? consultation?.aiAnalysis}
+                steps={activeConsultation?.aiAnalysisSteps ?? consultation?.aiAnalysisSteps}
                 consultationId={activeConsultationId}
                 onRefresh={passiveRefresh}
               />

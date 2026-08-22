@@ -108,6 +108,7 @@ export function ObserverDashboardView({
               <div className="col-span-12 min-h-[200px]">
                 <AiAnalysisPanel
                   analysis={consultation?.aiAnalysis}
+                  steps={consultation?.aiAnalysisSteps}
                   consultationId={consultation?.id}
                   onRefresh={onReload}
                 />

@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Check, ChevronDown, Download } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Check, ChevronDown, Download, Loader2 } from 'lucide-react';
 import { api } from '@/lib/api';
+import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { useI18n, LOCALES, LOCALE_LABELS, type Locale } from '@/i18n';
 
@@ -36,24 +37,37 @@ export function PdfDownloadButton({
   const [pdfLocale, setPdfLocale] = useState<Locale>(locale);
   const [downloading, setDownloading] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  // Foydalanuvchi PDF tilini qo'lda tanlagan bo'lsa, interfeys tili uni bekor qilmaydi
+  const localePicked = useRef(false);
 
-  // Interfeys tili almashsa PDF tili ham unga ergashadi
+  // Interfeys tili almashsa PDF tili ham unga ergashadi (qo'lda tanlanmagan bo'lsa)
   useEffect(() => {
+    if (localePicked.current) return;
     setPdfLocale(locale);
   }, [locale]);
 
   const download = async (target: Locale = pdfLocale) => {
     setMenuOpen(false);
+    if (downloading) return;
     setDownloading(true);
+    // Yangi oyna AYNAN bosish payti ochiladi — so'rov tugagach ochilsa
+    // brauzer popup-blokerlari uni to'sib qo'yadi ("PDF ochilmadi" holati).
+    const popup = hasReport ? window.open('', '_blank', 'noopener,noreferrer') : null;
     try {
       if (hasReport) {
         const link = await api.getReportLink(consultationId, target);
-        if (link.url) window.open(link.url, '_blank', 'noopener,noreferrer');
+        if (!link.url) throw new Error(t('clinical.pdfError'));
+        if (popup) popup.location.href = link.url;
+        else window.location.assign(link.url);
       } else {
         await api.downloadAiAnalysisPdf(consultationId, target);
       }
     } catch (err) {
-      onError?.(err instanceof Error ? err.message : t('clinical.pdfError'));
+      popup?.close();
+      const message = err instanceof Error ? err.message : t('clinical.pdfError');
+      // onError berilmagan joylarda xato jim qolib ketmasin
+      if (onError) onError(message);
+      else toast(message, 'error');
     } finally {
       setDownloading(false);
     }
@@ -77,8 +91,12 @@ export function PdfDownloadButton({
             pad,
           )}
         >
-          <Download size={compact ? 11 : 12} className={downloading ? 'animate-pulse' : ''} />
-          PDF {pdfLocale.toUpperCase()}
+          {downloading ? (
+            <Loader2 size={compact ? 11 : 12} className="animate-spin" />
+          ) : (
+            <Download size={compact ? 11 : 12} />
+          )}
+          {downloading ? t('clinical.pdfPreparing') : `PDF ${pdfLocale.toUpperCase()}`}
         </button>
         <button
           type="button"
@@ -109,8 +127,10 @@ export function PdfDownloadButton({
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
+                  localePicked.current = true;
                   setPdfLocale(code);
-                  void download(code);
+                  setMenuOpen(false);
+                  toast(t('clinical.pdfLocaleSet', { lang: LOCALE_LABELS[code] }), 'info');
                 }}
                 className={cn(
                   'w-full flex items-center gap-1.5 px-2 py-1.5 text-left text-[11px] hover:bg-violet-50',

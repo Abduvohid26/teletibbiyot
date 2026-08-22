@@ -61,7 +61,11 @@ export function defineIntegrationsApi(client: HttpClient) {
 
     async downloadAiAnalysisPdf(consultationId: string, locale?: string) {
       const qs = locale ? `?locale=${encodeURIComponent(locale)}` : '';
-      const res = await client.fetchApi(`/ai/consultations/${consultationId}/analysis-pdf${qs}`);
+      // PDF server tomonda generatsiya qilinadi (kerak bo'lsa tarjima bilan) —
+      // standart 10s timeout yetmaydi va "yuklanmadi" xatosi chiqadi
+      const res = await client.fetchApi(`/ai/consultations/${consultationId}/analysis-pdf${qs}`, {
+        timeoutMs: AI_TIMEOUT_MS,
+      });
       if (!res.ok) {
         let message = 'PDF yuklab olishda xatolik';
         try {

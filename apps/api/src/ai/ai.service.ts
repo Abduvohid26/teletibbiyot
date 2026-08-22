@@ -292,11 +292,12 @@ export class AiService {
 
     if (!consultation?.clinicalRecord) return;
 
+    // Oxirgi bosqich (tavsiyalar) AYNAN model javobini kutish davri — u tugamaguncha
+    // "DONE" qilinmaydi, aks holda interfeys tahlil tugagandek ko'rsatib qo'yadi.
     const steps = [
       { order: 2, step: 'SYMPTOM_ANALYSIS' },
       { order: 3, step: 'DIFFERENTIAL_DIAGNOSIS' },
       { order: 4, step: 'RISK_ASSESSMENT' },
-      { order: 5, step: 'RECOMMENDATION_GENERATION' },
     ];
 
     for (const s of steps) {
@@ -304,6 +305,7 @@ export class AiService {
       await this.delay(800);
       await this.updateStep(consultationId, s.step, 'DONE');
     }
+    await this.updateStep(consultationId, 'RECOMMENDATION_GENERATION', 'IN_PROGRESS');
 
     const attachmentFindings = consultation.attachments.map((a) => {
       const findings = a.aiFindings as {
@@ -344,6 +346,8 @@ export class AiService {
     let result = await this.callOpenAiAnalysis(clinicalData, locale);
     if (!result) {
       await this.saveUnavailableAnalysis(consultationId);
+      await this.updateStep(consultationId, 'RECOMMENDATION_GENERATION', 'DONE');
+      this.videoGateway.emitConsultationEvent(consultationId, 'ai-analysis-updated', { consultationId });
       return { aiUnavailable: true };
     }
 
@@ -381,6 +385,8 @@ export class AiService {
       where: { id: consultationId },
       data: { triageLevel },
     });
+
+    await this.updateStep(consultationId, 'RECOMMENDATION_GENERATION', 'DONE');
 
     this.videoGateway.emitConsultationEvent(consultationId, 'ai-analysis-updated', { consultationId });
 

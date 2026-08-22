@@ -87,6 +87,27 @@ function resetCursorX(doc: InstanceType<typeof PDFDocument>) {
   doc.x = doc.page.margins.left;
 }
 
+/**
+ * Aniq x/y bilan chizilgan matn bloki va uning PASTKI chegarasini qaytaradi.
+ *
+ * Muhim: pdfkit `doc.y` ni faqat oxirgi chizilgan blokka qarab yangilaydi. Bir
+ * qatorda bir nechta blok bo'lsa (masalan chapda sarlavha, o'ngda sana), keyingi
+ * element eng pastki blokdan boshlanishi kerak — aks holda matnlar bir-birining
+ * ustiga chiqib ketadi (ru/en da sarlavha ikki qatorga sig'ib qolgani kabi).
+ * Shu sababli hech qayerda "y + 40" kabi qat'iy siljish ishlatilmaydi.
+ */
+function drawBlock(
+  doc: InstanceType<typeof PDFDocument>,
+  text: string,
+  x: number,
+  y: number,
+  options: PDFKit.Mixins.TextOptions & { width: number },
+): number {
+  const height = doc.heightOfString(text, options);
+  doc.text(text, x, y, options);
+  return y + height;
+}
+
 function sectionTitle(doc: InstanceType<typeof PDFDocument>, title: string) {
   ensureSpace(doc, 44);
   doc.moveDown(0.5);
@@ -109,12 +130,15 @@ function labelValueTable(doc: InstanceType<typeof PDFDocument>, rows: Array<[str
   for (const [label, value] of rows) {
     if (!value) continue;
     const valueHeight = doc.font(FONT_REGULAR).fontSize(9.5).heightOfString(value, { width: valueWidth });
-    const rowHeight = Math.max(valueHeight, 14) + 8;
+    // Ruscha yorliqlar uzun — ular ham ikki qatorga sig'ishi mumkin, shuning uchun
+    // qator balandligi ikkala ustunning kattasidan olinadi.
+    const labelHeight = doc.font(FONT_BOLD).fontSize(9.5).heightOfString(label, { width: labelWidth });
+    const rowHeight = Math.max(valueHeight, labelHeight, 14) + 8;
     ensureSpace(doc, rowHeight + 4);
     const y = doc.y;
     doc.font(FONT_BOLD).fontSize(9.5).fillColor(SLATE_500).text(label, left, y, { width: labelWidth });
     doc.font(FONT_REGULAR).fontSize(9.5).fillColor(SLATE_900).text(value, left + labelWidth, y, { width: valueWidth });
-    const bottomY = Math.max(doc.y, y + 14) + 4;
+    const bottomY = y + Math.max(valueHeight, labelHeight, 14) + 4;
     doc.moveTo(left, bottomY).lineTo(left + CONTENT_WIDTH, bottomY).lineWidth(0.5).strokeColor(SLATE_200).stroke();
     doc.y = bottomY + 6;
   }
@@ -204,17 +228,28 @@ export function buildAiAnalysisPdfBuffer(data: AiAnalysisPdfInput, localeRaw?: P
     const alternatives = (cc?.alternativeDiagnoses as unknown[]) ?? [];
     const generatedAt = formatPdfDate(locale);
 
+    // Sarlavha ru/en da ikki qatorga sig'adi — quyidagi elementlar HAR DOIM
+    // haqiqiy pastki chegaradan boshlanadi, qat'iy siljishdan emas.
+    const left = doc.page.margins.left;
     const headerTop = doc.y;
-    doc.font(FONT_BOLD).fontSize(16).fillColor(VIOLET).text(L.title, doc.page.margins.left, headerTop, { width: 360 });
-    doc.font(FONT_REGULAR).fontSize(8.5).fillColor(SLATE_500).text(
-      L.subtitle,
-      doc.page.margins.left,
-      doc.y + 2,
-      { width: 360 },
+
+    doc.font(FONT_BOLD).fontSize(16).fillColor(VIOLET);
+    const titleBottom = drawBlock(doc, L.title, left, headerTop, { width: 350 });
+
+    doc.font(FONT_REGULAR).fontSize(9).fillColor(SLATE_500);
+    const dateBottom = drawBlock(
+      doc,
+      `${L.datePrefix} ${generatedAt}`,
+      left + 360,
+      headerTop + 2,
+      { width: 135, align: 'right' },
     );
-    doc.font(FONT_REGULAR).fontSize(9).fillColor(SLATE_500).text(`${L.datePrefix} ${generatedAt}`, doc.page.margins.left + 370, headerTop, { width: 125, align: 'right' });
-    doc.y = Math.max(doc.y, headerTop + 40);
-    doc.moveDown(0.3);
+
+    doc.font(FONT_REGULAR).fontSize(8.5).fillColor(SLATE_500);
+    const subtitleBottom = drawBlock(doc, L.subtitle, left, titleBottom + 4, { width: CONTENT_WIDTH });
+
+    doc.x = left;
+    doc.y = Math.max(subtitleBottom, dateBottom) + 8;
     doc.moveTo(doc.page.margins.left, doc.y).lineTo(doc.page.margins.left + CONTENT_WIDTH, doc.y).lineWidth(1.5).strokeColor(VIOLET).stroke();
     doc.moveDown(0.5);
 
