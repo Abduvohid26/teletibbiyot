@@ -13,7 +13,7 @@ import { buildRecordingStream } from '@/lib/recording-stream';
 import { UT_CAMERA_FEEDS, fetchIceServers } from '@/lib/video-config';
 import { countLiveUtCameraStreams, isUtStreamLive, mapUniqueUtCameraStreams } from '@/lib/ut-camera-streams';
 import { VideoTile } from '@/components/video/VideoTile';
-import { RemoteAudioFeeds } from '@/components/video/RemoteAudioFeeds';
+import { RemoteAudio } from '@/components/video/RemoteAudio';
 import { VideoPreflightModal } from '@/components/video/VideoPreflightModal';
 import { VideoLobby } from '@/components/video/VideoLobby';
 import { VideoRoomPresence } from '@/components/video/VideoRoomPresence';
@@ -66,7 +66,6 @@ export function VideoConsultation({
   // Meet: refreshda auto-rejoin; Leave da lobby; sessionStorage da saqlanadi.
   const [joined, setJoined] = useState(() => (consultationId ? wasJoined(consultationId) : false));
   const [autoRejoin, setAutoRejoin] = useState(() => (consultationId ? wasJoined(consultationId) : false));
-  const remoteAudioRef = useRef<HTMLAudioElement>(null);
 
   const role: VideoRole = observeMode ? 'observe' : 'mt';
 
@@ -83,7 +82,7 @@ export function VideoConsultation({
     remoteCameras,
     remoteAudio,
     remoteDoctorFeeds,
-    remoteAudioFeeds,
+    remoteAudioTrackCount,
     toggleMic,
     toggleCam,
     sendPtz,
@@ -163,14 +162,6 @@ export function VideoConsultation({
     stream: recordStream,
     enabled: connected && !!consultationId && !observeMode,
   });
-
-  useEffect(() => {
-    const el = remoteAudioRef.current;
-    if (!el || !remoteAudio) return;
-    el.srcObject = remoteAudio;
-    el.muted = !speakerOn;
-    void el.play().catch(() => undefined);
-  }, [remoteAudio, speakerOn]);
 
   useEffect(() => {
     if (activeCamera === ALL_CAMERAS_VIEW) return;
@@ -312,12 +303,8 @@ export function VideoConsultation({
             />
           </>
           )}
-        {/* Konsilium: har bir ishtirokchi uchun alohida audio (shifokorlar bir-birini eshitadi) */}
-        {(remoteAudioFeeds?.length ?? 0) > 0 ? (
-          <RemoteAudioFeeds feeds={remoteAudioFeeds} enabled={speakerOn} />
-        ) : (
-          remoteAudio && <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
-        )}
+        {/* Konsilium: barcha ishtirokchilar ovozi bitta barqaror elementda */}
+        <RemoteAudio stream={remoteAudio} enabled={speakerOn} trackCount={remoteAudioTrackCount} />
 
         {/* Konsiliumdagi boshqa shifokorlar — kichik oynalar */}
         {(remoteDoctorFeeds?.length ?? 0) > 0 && (

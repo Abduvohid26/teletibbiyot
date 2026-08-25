@@ -169,8 +169,42 @@ export function useLivekitRoom({
    * Endi har bir ishtirokchi o'z identity si bo'yicha saqlanadi.
    */
   const [remoteDoctors, setRemoteDoctors] = useState<Record<string, { name: string; stream: MediaStream }>>({});
-  /** Har bir uzoq ishtirokchining audio oqimi — ovoz ham ustma-ust tushmasin */
-  const [remoteAudioStreams, setRemoteAudioStreams] = useState<Record<string, MediaStream>>({});
+  /**
+   * BARCHA uzoq ishtirokchilarning ovozi BITTA MediaStream ichida.
+   *
+   * Nega bitta: <audio> elementi bir marta yaratiladi va brauzerning autoplay
+   * ruxsati unda saqlanib qoladi. Har ishtirokchiga alohida element yaratilsa,
+   * uchinchi odam qo'shilganda YANGI element autoplay bloklanishi sababli jim
+   * qolishi mumkin edi — aynan "operator ovozi bormay qoldi" holati.
+   * Oqim identifikatori o'zgarmaydi, faqat treklar qo'shiladi/olib tashlanadi.
+   */
+  const remoteAudioStreamRef = useRef<MediaStream | null>(null);
+  const remoteAudioTracksRef = useRef<Map<string, MediaStreamTrack>>(new Map());
+  const [remoteAudioTrackCount, setRemoteAudioTrackCount] = useState(0);
+
+  /** Ishtirokchining audio trekini umumiy oqimga qo'shadi */
+  const addRemoteAudioTrack = useCallback((identity: string, track: MediaStreamTrack) => {
+    if (!remoteAudioStreamRef.current) remoteAudioStreamRef.current = new MediaStream();
+    const stream = remoteAudioStreamRef.current;
+    const prev = remoteAudioTracksRef.current.get(identity);
+    if (prev && prev !== track) {
+      try { stream.removeTrack(prev); } catch { /* allaqachon olib tashlangan */ }
+    }
+    remoteAudioTracksRef.current.set(identity, track);
+    if (!stream.getAudioTracks().includes(track)) stream.addTrack(track);
+    setRemoteAudio(stream);
+    setRemoteAudioTrackCount(stream.getAudioTracks().length);
+  }, []);
+
+  /** Ishtirokchi chiqib ketganda uning ovozini oqimdan chiqaradi */
+  const removeRemoteAudioTrack = useCallback((identity: string) => {
+    const stream = remoteAudioStreamRef.current;
+    const track = remoteAudioTracksRef.current.get(identity);
+    if (!stream || !track) return;
+    try { stream.removeTrack(track); } catch { /* ignore */ }
+    remoteAudioTracksRef.current.delete(identity);
+    setRemoteAudioTrackCount(stream.getAudioTracks().length);
+  }, []);
   const [localCameraFeeds, setLocalCameraFeeds] = useState<Record<string, MediaStream>>({});
   const [audioMissing, setAudioMissing] = useState(false);
   const [virtualCameraWarning, setVirtualCameraWarning] = useState<string[]>([]);
@@ -198,9 +232,7 @@ export function useLivekitRoom({
     const participantRole = parseRole(participant.metadata);
 
     if (track.kind === Track.Kind.Audio) {
-      const stream = new MediaStream([media]);
-      setRemoteAudio(stream);
-      setRemoteAudioStreams((prev) => ({ ...prev, [participant.identity]: stream }));
+      addRemoteAudioTrack(participant.identity, media);
       return;
     }
 
@@ -225,19 +257,13 @@ export function useLivekitRoom({
       next[cameraId] = stream;
       return next;
     });
-  }, []);
+  }, [addRemoteAudioTrack]);
 
   const detachRemoteTrack = useCallback((publication: RemoteTrackPublication, participant: RemoteParticipant) => {
     const name = publication.trackName || publication.source;
     const participantRole = parseRole(participant.metadata);
     if (publication.kind === Track.Kind.Audio) {
-      setRemoteAudioStreams((prev) => {
-        const next = { ...prev };
-        delete next[participant.identity];
-        const rest = Object.values(next);
-        setRemoteAudio(rest[0] ?? null);
-        return next;
-      });
+      removeRemoteAudioTrack(participant.identity);
       return;
     }
     let cameraId = name.startsWith('cam-') ? name.slice(4) : '';
@@ -267,7 +293,7 @@ export function useLivekitRoom({
       delete next[cameraId];
       return next;
     });
-  }, []);
+  }, [removeRemoteAudioTrack]);
 
   const refreshPeers = useCallback((room: Room) => {
     const remotes = Array.from(room.remoteParticipants.values());
@@ -507,7 +533,11 @@ export function useLivekitRoom({
     setRemoteCameras({});
     setRemoteAudio(null);
     setRemoteDoctors({});
-    setRemoteAudioStreams({});
+    remoteAudioStreamRef.current?.getAudioTracks().forEach((t) => {
+      remoteAudioStreamRef.current?.removeTrack(t);
+    });
+    remoteAudioTracksRef.current.clear();
+    setRemoteAudioTrackCount(0);
     setMediaReady(false);
   }, []);
 
@@ -654,12 +684,7 @@ export function useLivekitRoom({
         });
         return next;
       });
-      setRemoteAudioStreams((prev) => {
-        const next = { ...prev };
-        delete next[participant.identity];
-        setRemoteAudio(Object.values(next)[0] ?? null);
-        return next;
-      });
+      removeRemoteAudioTrack(participant.identity);
       refreshPeers(room);
     });
     room.on(RoomEvent.Reconnecting, () => setReconnecting(true));
@@ -1247,11 +1272,8 @@ export function useLivekitRoom({
       name: d.name,
       stream: d.stream,
     })),
-    /** Har bir ishtirokchining audio oqimi — alohida <audio> element uchun */
-    remoteAudioFeeds: Object.entries(remoteAudioStreams).map(([identity, stream]) => ({
-      id: identity,
-      stream,
-    })),
+    /** Umumiy audio oqimdagi trek soni — <audio> ni qayta ishga tushirish uchun */
+    remoteAudioTrackCount,
     utCameraStreams,
     remoteCameras,
     toggleMic,

@@ -2024,7 +2024,7 @@ export function useP2PVideoRoom({
     // P2P rejimida ko'p ishtirokchili konsilium qo'llab-quvvatlanmaydi —
     // interfeys bir xil bo'lishi uchun bo'sh ro'yxat qaytaramiz (LiveKit da to'la ishlaydi).
     remoteDoctorFeeds: [] as Array<{ id: string; name: string; stream: MediaStream }>,
-    remoteAudioFeeds: [] as Array<{ id: string; stream: MediaStream }>,
+    remoteAudioTrackCount: remoteAudio ? remoteAudio.getAudioTracks().length : 0,
     utCameraStreams,
     remoteCameras,
     toggleMic,

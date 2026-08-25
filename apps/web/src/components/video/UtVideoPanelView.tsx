@@ -20,7 +20,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useVideoRoom } from '@/hooks/use-video-room';
 import { VideoTile } from '@/components/video/VideoTile';
-import { RemoteAudioFeeds } from '@/components/video/RemoteAudioFeeds';
+import { RemoteAudio } from '@/components/video/RemoteAudio';
 import { ConnectionQualityBadge } from '@/components/video/ConnectionQualityBadge';
 import { VideoRoomPresence } from '@/components/video/VideoRoomPresence';
 import { applyUtPtzAction, isPtzAction } from '@/lib/ut-ptz-state';
@@ -57,7 +57,6 @@ export function UtVideoPanelView({
   onApplyCameraMapping,
 }: UtVideoPanelViewProps) {
   const { t } = useI18n();
-  const remoteAudioRef = useRef<HTMLAudioElement>(null);
   const [viewMode, setViewMode] = useState<ViewMode>(defaultView === 'all' ? 'all' : 'doctor');
   const [ptzHint, setPtzHint] = useState('');
   // Kamera tanlangach oqimlar qayta olinadi — shu davrda qisqa ko'rsatkich
@@ -92,7 +91,7 @@ export function UtVideoPanelView({
     mtDoctorStream,
     remoteAudio,
     remoteDoctorFeeds,
-    remoteAudioFeeds,
+    remoteAudioTrackCount,
     toggleMic,
     toggleCam,
     leaveCall,
@@ -120,14 +119,6 @@ export function UtVideoPanelView({
       setViewMode('all');
     }
   }, [roomPhase]);
-
-  useEffect(() => {
-    const el = remoteAudioRef.current;
-    if (!el || !remoteAudio) return;
-    el.srcObject = remoteAudio;
-    el.muted = !speakerOn;
-    void el.play().catch(() => undefined);
-  }, [remoteAudio, speakerOn]);
 
   useEffect(() => {
     const onPtz = (event: Event) => {
@@ -345,12 +336,8 @@ export function UtVideoPanelView({
             </div>
           )}
 
-          {/* Har bir ishtirokchi uchun alohida audio — konsiliumda ovozlar almashmasin */}
-          {(remoteAudioFeeds?.length ?? 0) > 0 ? (
-            <RemoteAudioFeeds feeds={remoteAudioFeeds} enabled={speakerOn} />
-          ) : (
-            remoteAudio && <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
-          )}
+          {/* Barcha ishtirokchilar ovozi — bitta barqaror audio elementi */}
+          <RemoteAudio stream={remoteAudio} enabled={speakerOn} trackCount={remoteAudioTrackCount} />
 
           {/* Konsiliumdagi qolgan shifokorlar — kichik oynalar */}
           {extraDoctors.length > 0 && (
