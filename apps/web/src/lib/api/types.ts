@@ -280,6 +280,8 @@ export interface CreateConsultationData {
   clientRequestId?: string;
   /** Majburiy — navbat shu shifokorga biriktiriladi */
   mtDoctorId: string;
+  /** Konsiliumga darhol qo'shiladigan qo'shimcha shifokorlar */
+  consultantDoctorIds?: string[];
   checklistData?: Array<{ id: string; label: string; required: boolean; checked: boolean; notes?: string }>;
   clinicalRecord: {
     complaints: string;

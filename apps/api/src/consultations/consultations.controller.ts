@@ -158,7 +158,7 @@ export class ConsultationsController {
   }
 
   @Post(':id/participants')
-  @Roles(...ROLES_MT_DOCTOR)
+  @Roles(...ROLES_MT_DOCTOR, ...ROLES_UT)
   @ApiOperation({ summary: 'Konsiliumga shifokor(lar) qo\'shish' })
   addParticipants(
     @Param('id') id: string,
@@ -169,7 +169,7 @@ export class ConsultationsController {
   }
 
   @Delete(':id/participants/:doctorId')
-  @Roles(...ROLES_MT_DOCTOR)
+  @Roles(...ROLES_MT_DOCTOR, ...ROLES_UT)
   @ApiOperation({ summary: 'Konsiliumdan shifokorni chiqarish' })
   removeParticipant(
     @Param('id') id: string,

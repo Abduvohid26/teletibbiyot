@@ -58,6 +58,7 @@ export default function UtPatientsPage() {
         showGoLive
         sessionCount={sessions.length}
         liveCount={inProgressList.length}
+        onReload={() => void refreshAll()}
       />
     </div>
   );

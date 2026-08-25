@@ -335,6 +335,11 @@ const en: MessageTree = {
     noDoctors: 'No available doctors',
     youAreConsultant: 'You are a consulting doctor',
     badge: 'Consilium',
+    closedHint: 'Doctors cannot be added to a finished consultation',
+    manage: 'Doctors',
+    extraDoctors: 'Additional doctors',
+    extraHint: 'For the consilium — optional, you can pick several',
+    countBadge: '{count} doctors',
   },
   clinical: {
     title: 'AI clinical conclusion',

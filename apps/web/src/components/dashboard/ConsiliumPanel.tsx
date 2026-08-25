@@ -1,10 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader2, LogOut, Plus, Users, X } from 'lucide-react';
-import { api, Consultation, ConsultationParticipant, DoctorOption } from '@/lib/api';
-import { toast } from '@/lib/toast';
-import { toUserMessage } from '@/lib/errors';
+import { Consultation } from '@/lib/api';
+import { doctorLabel, useConsilium } from '@/hooks/use-consilium';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/i18n';
 
@@ -16,11 +15,6 @@ interface ConsiliumPanelProps {
   onChanged?: () => void;
 }
 
-function doctorLabel(d: { fullName: string; specialty?: string | null; specialtyRef?: { name: string } | null }) {
-  const spec = d.specialtyRef?.name || d.specialty;
-  return spec ? `${d.fullName} · ${spec}` : d.fullName;
-}
-
 /**
  * Konsilium — bitta bemorga bir vaqtda bir nechta shifokorni ulash.
  *
@@ -30,80 +24,28 @@ function doctorLabel(d: { fullName: string; specialty?: string | null; specialty
  */
 export function ConsiliumPanel({ consultation, currentDoctorId, onChanged }: ConsiliumPanelProps) {
   const { t } = useI18n();
-  const [participants, setParticipants] = useState<ConsultationParticipant[]>([]);
-  const [doctors, setDoctors] = useState<DoctorOption[]>([]);
   const [selected, setSelected] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(false);
 
-  const consultationId = consultation?.id;
   const ownerId = consultation?.mtDoctor?.id ?? null;
   const isOwner = !!currentDoctorId && !!ownerId && currentDoctorId === ownerId;
-  const isConsultant = !!currentDoctorId
-    && participants.some((p) => p.doctorId === currentDoctorId);
   const canEdit =
     isOwner && (consultation?.status === 'IN_PROGRESS' || consultation?.status === 'QUEUED');
 
-  // Serverdan kelgan ro'yxat bo'lsa darhol ko'rsatamiz, keyin yangilaymiz
-  useEffect(() => {
-    setParticipants(consultation?.participants ?? []);
-    setSelected('');
-  }, [consultationId, consultation?.participants]);
+  const { participants, options, add, remove, busy, loading } = useConsilium({
+    consultation,
+    canEdit,
+    onChanged,
+  });
 
-  const reload = useCallback(async () => {
-    if (!consultationId) return;
-    setLoading(true);
-    try {
-      setParticipants(await api.getConsultationParticipants(consultationId));
-    } catch {
-      /* ro'yxat yuklanmasa mavjud holat qoladi */
-    } finally {
-      setLoading(false);
-    }
-  }, [consultationId]);
+  const isConsultant = !!currentDoctorId
+    && participants.some((p) => p.doctorId === currentDoctorId);
 
-  useEffect(() => {
-    if (!canEdit || doctors.length) return;
-    api.getDoctors().then(setDoctors).catch(() => setDoctors([]));
-  }, [canEdit, doctors.length]);
-
-  const options = useMemo(() => {
-    const taken = new Set(participants.map((p) => p.doctorId));
-    if (ownerId) taken.add(ownerId);
-    return doctors
-      .filter((d) => !taken.has(d.id))
-      .sort((a, b) => a.fullName.localeCompare(b.fullName, 'uz-UZ'));
-  }, [doctors, participants, ownerId]);
+  useEffect(() => setSelected(''), [consultation?.id]);
 
   const handleAdd = async () => {
-    if (!consultationId || !selected || busy) return;
-    setBusy(true);
-    try {
-      setParticipants(await api.addConsultationParticipants(consultationId, [selected]));
-      setSelected('');
-      toast(t('consilium.added'), 'success');
-      onChanged?.();
-    } catch (err) {
-      toast(toUserMessage(err, t('consilium.addError')), 'error');
-      void reload();
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const handleRemove = async (doctorId: string) => {
-    if (!consultationId || busy) return;
-    setBusy(true);
-    try {
-      setParticipants(await api.removeConsultationParticipant(consultationId, doctorId));
-      toast(doctorId === currentDoctorId ? t('consilium.left') : t('consilium.removed'), 'info');
-      onChanged?.();
-    } catch (err) {
-      toast(toUserMessage(err, t('consilium.removeError')), 'error');
-      void reload();
-    } finally {
-      setBusy(false);
-    }
+    if (!selected) return;
+    await add([selected]);
+    setSelected('');
   };
 
   if (!consultation) return null;
@@ -135,7 +77,7 @@ export function ConsiliumPanel({ consultation, currentDoctorId, onChanged }: Con
             <button
               type="button"
               disabled={busy}
-              onClick={() => void handleRemove(p.doctorId)}
+              onClick={() => void remove(p.doctorId, p.doctorId === currentDoctorId)}
               aria-label={t('consilium.remove')}
               className="rounded hover:bg-emerald-100 disabled:opacity-50"
             >
@@ -187,7 +129,7 @@ export function ConsiliumPanel({ consultation, currentDoctorId, onChanged }: Con
           <button
             type="button"
             disabled={busy}
-            onClick={() => currentDoctorId && void handleRemove(currentDoctorId)}
+            onClick={() => currentDoctorId && void remove(currentDoctorId, true)}
             className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white/70 text-[10px] font-semibold px-2 py-1 text-slate-600 hover:bg-slate-50 disabled:opacity-50"
           >
             <LogOut size={11} /> {t('consilium.leave')}

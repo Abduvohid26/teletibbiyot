@@ -335,6 +335,11 @@ const ru: MessageTree = {
     noDoctors: 'Нет доступных врачей',
     youAreConsultant: 'Вы врач-консультант',
     badge: 'Консилиум',
+    closedHint: 'В завершённую консультацию нельзя добавить врача',
+    manage: 'Врачи',
+    extraDoctors: 'Дополнительные врачи',
+    extraHint: 'Для консилиума — необязательно, можно выбрать несколько',
+    countBadge: 'Врачей: {count}',
   },
   clinical: {
     title: 'Клиническое заключение ИИ',

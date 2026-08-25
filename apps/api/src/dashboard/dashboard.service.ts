@@ -341,6 +341,14 @@ export class DashboardService {
         patient: true,
         utFacility: true,
         mtDoctor: { select: { id: true, fullName: true } },
+        participants: {
+          where: { leftAt: null },
+          select: {
+            doctorId: true,
+            doctor: { select: { id: true, fullName: true, specialty: true, specialtyRef: { select: { name: true } } } },
+          },
+          orderBy: { createdAt: 'asc' as const },
+        },
       },
       orderBy: { startedAt: 'desc' },
     });
@@ -363,6 +371,14 @@ export class DashboardService {
         clinicalRecord: true,
         utFacility: true,
         mtDoctor: { select: { id: true, fullName: true } },
+        participants: {
+          where: { leftAt: null },
+          select: {
+            doctorId: true,
+            doctor: { select: { id: true, fullName: true, specialty: true, specialtyRef: { select: { name: true } } } },
+          },
+          orderBy: { createdAt: 'asc' as const },
+        },
       },
       orderBy: [
         { status: 'desc' },
@@ -399,6 +415,14 @@ export class DashboardService {
         aiAnalysis: true,
         finalDiagnosis: { select: { diagnosis: true, icd10Code: true, recommendations: true } },
         consultationReport: { select: { fileName: true, generatedAt: true } },
+        participants: {
+          where: { leftAt: null },
+          select: {
+            doctorId: true,
+            doctor: { select: { id: true, fullName: true, specialty: true, specialtyRef: { select: { name: true } } } },
+          },
+          orderBy: { createdAt: 'asc' as const },
+        },
       },
       orderBy: [
         { status: 'asc' },

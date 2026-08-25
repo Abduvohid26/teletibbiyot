@@ -203,6 +203,34 @@ export class ConsultationsService {
       ],
     });
 
+    // Qabulda tanlangan qo'shimcha shifokorlar — darhol konsiliumga biriktiriladi
+    const consultantIds = [...new Set((dto.consultantDoctorIds ?? []).filter(Boolean))]
+      .filter((id) => id !== assignedDoctorId);
+    if (consultantIds.length) {
+      const consultants = await this.prisma.user.findMany({
+        where: { id: { in: consultantIds }, role: UserRole.MT_DOCTOR, isActive: true },
+        select: { id: true },
+      });
+      if (consultants.length) {
+        await this.prisma.consultationParticipant.createMany({
+          data: consultants.map((d) => ({
+            consultationId: consultation.id,
+            doctorId: d.id,
+            invitedById: userId,
+          })),
+          skipDuplicates: true,
+        });
+        await this.notifications
+          .notifyUsers(
+            consultants.map((d) => d.id),
+            'Konsiliumga chaqiruv',
+            `${consultation.patient.fullName} bo'yicha konsiliumga qo'shildingiz`,
+            { consultationId: consultation.id },
+          )
+          .catch((err) => this.logger.warn(`Konsilium bildirishnomasi xatosi: ${err}`));
+      }
+    }
+
     this.aiService.analyzeConsultation(consultation.id).catch((err) => {
       this.logger.error('AI tahlil xatoligi', err instanceof Error ? err.stack : err);
     });
@@ -915,8 +943,11 @@ export class ConsultationsService {
     if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
     await this.access.assertConsultationAccess(user, consultation);
 
-    if (consultation.mtDoctorId !== user.id) {
-      throw new ForbiddenException('Konsiliumga faqat mas\'ul shifokor qo\'sha oladi');
+    // Mas'ul shifokor yoki bemorni yuborgan UT muassasa operatori qo'sha oladi
+    const isLeadDoctor = consultation.mtDoctorId === user.id;
+    const isOwningOperator = isUtRole(user.role) && user.facilityId === consultation.utId;
+    if (!isLeadDoctor && !isOwningOperator) {
+      throw new ForbiddenException('Konsiliumga qo\'shish huquqi yo\'q');
     }
     if (
       consultation.status !== ConsultationStatus.QUEUED
@@ -927,7 +958,7 @@ export class ConsultationsService {
 
     const wanted = [...new Set(doctorIds.filter(Boolean))];
     if (!wanted.length) throw new BadRequestException('Shifokor tanlanmagan');
-    if (wanted.includes(user.id)) {
+    if (consultation.mtDoctorId && wanted.includes(consultation.mtDoctorId)) {
       throw new BadRequestException('Mas\'ul shifokor allaqachon konsultatsiyada');
     }
 
@@ -989,8 +1020,10 @@ export class ConsultationsService {
     if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
     await this.access.assertConsultationAccess(user, consultation);
 
-    const isOwner = consultation.mtDoctorId === user.id;
-    if (!isOwner && doctorId !== user.id) {
+    const canManage =
+      consultation.mtDoctorId === user.id
+      || (isUtRole(user.role) && user.facilityId === consultation.utId);
+    if (!canManage && doctorId !== user.id) {
       throw new ForbiddenException('Boshqa shifokorni konsiliumdan chiqarib bo\'lmaydi');
     }
 

@@ -3,12 +3,13 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Search, Radio, Clock, ChevronRight, Stethoscope, UserPlus, FileText, Eye } from 'lucide-react';
+import { Search, Radio, Clock, ChevronRight, Stethoscope, UserPlus, FileText, Eye, Users } from 'lucide-react';
 import { Consultation } from '@/lib/api';
 import { formatStatus } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { UtQuickNav } from '@/components/ut/UtNavTabs';
 import { ConsultationReportModal } from '@/components/consultations/ConsultationReportModal';
+import { UtConsiliumModal } from '@/components/ut/UtConsiliumModal';
 import { PdfDownloadButton } from '@/components/dashboard/PdfDownloadButton';
 import { useI18n } from '@/i18n';
 
@@ -21,6 +22,8 @@ interface UtPatientListProps {
   showGoLive?: boolean;
   sessionCount?: number;
   liveCount?: number;
+  /** Konsilium tarkibi o'zgargach ro'yxatni yangilash */
+  onReload?: () => void;
 }
 
 function hasTashxis(c: Consultation) {
@@ -34,12 +37,14 @@ export function UtPatientList({
   showGoLive,
   sessionCount = 0,
   liveCount = 0,
+  onReload,
 }: UtPatientListProps) {
   const { t } = useI18n();
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>('all');
   const [search, setSearch] = useState('');
   const [diagnosisView, setDiagnosisView] = useState<Consultation | null>(null);
+  const [consiliumView, setConsiliumView] = useState<Consultation | null>(null);
 
   const filtered = useMemo(() => {
     let list = sessions;
@@ -184,34 +189,55 @@ export function UtPatientList({
                 );
               }
 
+              const consiliumCount = c.participants?.length ?? 0;
+
               return (
-                <button
+                <div
                   key={c.id}
-                  type="button"
-                  onClick={() => handleSelect(c.id)}
                   className={cn(
                     'w-full px-3 py-2 flex items-center gap-2.5 text-left transition-all',
                     isActive ? 'ut-glass-card ut-glass-card-active' : 'ut-glass-card-interactive',
                   )}
                 >
-                  <div
+                  <button
+                    type="button"
+                    onClick={() => handleSelect(c.id)}
+                    className="flex items-center gap-2.5 min-w-0 flex-1 text-left"
+                  >
+                    <div
+                      className={cn(
+                        'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold backdrop-blur-sm',
+                        isLive ? 'bg-emerald-100/80 text-emerald-700 ring-1 ring-emerald-200/60' : 'bg-amber-100/80 text-amber-800 ring-1 ring-amber-200/60',
+                      )}
+                    >
+                      {c.patient.fullName.charAt(0)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-slate-900 truncate text-sm">{c.patient.fullName}</p>
+                      <p className="text-xs text-slate-500 truncate">
+                        {c.patient.phone || '—'}
+                        {c.mtDoctor?.fullName && ` · ${c.mtDoctor.fullName}`}
+                        {consiliumCount > 0 && ` · +${consiliumCount}`}
+                      </p>
+                    </div>
+                    <span className={cn('status-badge shrink-0', st.className)}>{t(st.labelKey)}</span>
+                  </button>
+
+                  {/* Konsilium — bemorga qo'shimcha shifokorlarni biriktirish */}
+                  <button
+                    type="button"
+                    onClick={() => setConsiliumView(c)}
+                    title={t('consilium.manage')}
                     className={cn(
-                      'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold backdrop-blur-sm',
-                      isLive ? 'bg-emerald-100/80 text-emerald-700 ring-1 ring-emerald-200/60' : 'bg-amber-100/80 text-amber-800 ring-1 ring-amber-200/60',
+                      'ut-glass-btn !text-[10px] !py-1 !px-2 inline-flex items-center gap-1 shrink-0',
+                      consiliumCount > 0 && 'text-indigo-700',
                     )}
                   >
-                    {c.patient.fullName.charAt(0)}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-slate-900 truncate text-sm">{c.patient.fullName}</p>
-                    <p className="text-xs text-slate-500 truncate">
-                      {c.patient.phone || '—'}
-                      {c.mtDoctor?.fullName && ` · ${c.mtDoctor.fullName}`}
-                    </p>
-                  </div>
-                  <span className={cn('status-badge shrink-0', st.className)}>{t(st.labelKey)}</span>
+                    <Users size={12} />
+                    {consiliumCount > 0 ? consiliumCount : ''}
+                  </button>
                   <ChevronRight size={14} className="text-slate-300 shrink-0" />
-                </button>
+                </div>
               );
             })
           )}
@@ -222,6 +248,13 @@ export function UtPatientList({
         consultation={diagnosisView}
         open={!!diagnosisView}
         onClose={() => setDiagnosisView(null)}
+      />
+
+      <UtConsiliumModal
+        consultation={consiliumView}
+        open={!!consiliumView}
+        onClose={() => setConsiliumView(null)}
+        onChanged={onReload}
       />
     </>
   );

@@ -335,6 +335,11 @@ const uz: MessageTree = {
     noDoctors: "Bo'sh shifokor yo'q",
     youAreConsultant: 'Siz maslahatchi shifokorsiz',
     badge: 'Konsilium',
+    closedHint: "Yakunlangan konsultatsiyaga shifokor qo'shib bo'lmaydi",
+    manage: 'Shifokorlar',
+    extraDoctors: "Qo'shimcha shifokorlar",
+    extraHint: "Konsilium uchun — ixtiyoriy, bir nechtasini tanlash mumkin",
+    countBadge: '{count} ta shifokor',
   },
   clinical: {
     title: 'AI klinik xulosa',

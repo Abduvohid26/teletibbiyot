@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, isValidElement, cloneElement } from 'reac
 import { useRouter } from 'next/navigation';
 import {
   Stethoscope, Send, CheckCircle2, Upload, Activity,
-  User, HeartPulse, ScanLine, FileText,
+  User, HeartPulse, ScanLine, FileText, X,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
@@ -150,6 +150,8 @@ export default function UTClientPage() {
   const [offlineNotice, setOfflineNotice] = useState('');
   const [doctors, setDoctors] = useState<DoctorOption[]>([]);
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
+  // Konsilium — mas'ul shifokordan tashqari biriktiriladigan shifokorlar
+  const [consultantIds, setConsultantIds] = useState<string[]>([]);
 
   useUtSessions(!!user && isUtRole(user?.role || ''));
 
@@ -250,6 +252,7 @@ export default function UTClientPage() {
     setSuccess(false);
     setCreatedConsultationId(null);
     setSelectedDoctorId('');
+    setConsultantIds([]);
   };
 
   const handleSubmit = async () => {
@@ -281,6 +284,7 @@ export default function UTClientPage() {
       consentGiven: true,
       clientRequestId,
       mtDoctorId: selectedDoctorId,
+      ...(consultantIds.length ? { consultantDoctorIds: consultantIds } : {}),
       clinicalRecord: {
         complaints: clinicalData.complaints,
         anamnesisMorbi: '',
@@ -528,7 +532,11 @@ export default function UTClientPage() {
               <select
                 className={`${IN} !w-[12rem] sm:!w-[15rem] !min-h-[2rem] !py-1`}
                 value={selectedDoctorId}
-                onChange={(e) => setSelectedDoctorId(e.target.value)}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setSelectedDoctorId(id);
+                  setConsultantIds((prev) => prev.filter((c) => c !== id));
+                }}
               >
                 <option value="">{t('ut.selectDoctor')}</option>
                 {sortedDoctors.map((d) => (
@@ -547,6 +555,49 @@ export default function UTClientPage() {
                   {presenceLabel(selectedDoctor.presence, t)} · {loadLabel(selectedDoctor, t)}
                 </span>
               )}
+            </label>
+            <label className="flex items-center gap-1.5 shrink-0 flex-wrap">
+              <span className="text-sm text-slate-600 whitespace-nowrap">
+                {t('consilium.extraDoctors')}
+              </span>
+              {consultantIds.map((id) => {
+                const d = doctorById(doctors, id);
+                return (
+                  <span
+                    key={id}
+                    className="inline-flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200/70"
+                  >
+                    {d?.fullName ?? id}
+                    <button
+                      type="button"
+                      onClick={() => setConsultantIds((prev) => prev.filter((x) => x !== id))}
+                      aria-label={t('consilium.remove')}
+                      className="rounded hover:bg-emerald-100"
+                    >
+                      <X size={11} />
+                    </button>
+                  </span>
+                );
+              })}
+              <select
+                className={`${IN} !w-[10rem] sm:!w-[13rem] !min-h-[2rem] !py-1`}
+                value=""
+                onChange={(e) => {
+                  const id = e.target.value;
+                  if (id) setConsultantIds((prev) => [...new Set([...prev, id])]);
+                }}
+                title={t('consilium.extraHint')}
+              >
+                <option value="">{t('consilium.selectDoctor')}</option>
+                {sortedDoctors
+                  .filter((d) => d.id !== selectedDoctorId && !consultantIds.includes(d.id))
+                  .map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {presenceLabel(d.presence, t)} · {loadLabel(d, t)} · {d.fullName}
+                      {d.specialtyRef?.name || d.specialty ? ` — ${d.specialtyRef?.name || d.specialty}` : ''}
+                    </option>
+                  ))}
+              </select>
             </label>
             <button
               type="button"
