@@ -256,6 +256,14 @@ export class ConsultationsService {
         utFacility: true,
         aiAnalysis: true,
         clinicalRecord: true,
+        mtDoctor: { select: { id: true, fullName: true } },
+        participants: {
+          where: { leftAt: null },
+          select: {
+            doctorId: true,
+            doctor: { select: { id: true, fullName: true } },
+          },
+        },
       },
       orderBy: [{ priority: 'desc' }, { triageLevel: 'desc' }, { createdAt: 'asc' }],
     }),
@@ -364,10 +372,30 @@ export class ConsultationsService {
         },
         sessionRecording: true,
         consultationReport: true,
+        participants: {
+          where: { leftAt: null },
+          select: {
+            id: true,
+            doctorId: true,
+            joinedAt: true,
+            leftAt: true,
+            createdAt: true,
+            doctor: {
+              select: {
+                id: true,
+                fullName: true,
+                specialty: true,
+                specialtyRef: { select: { name: true } },
+              },
+            },
+            invitedBy: { select: { id: true, fullName: true } },
+          },
+          orderBy: { createdAt: 'asc' },
+        },
       },
     });
     if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
-    this.access.assertConsultationAccess(user, consultation);
+    await this.access.assertConsultationAccess(user, consultation);
     return this.crypto.unprotectConsultation(consultation);
   }
 
@@ -580,7 +608,7 @@ export class ConsultationsService {
   async escalate(id: string, user: AuthUser, level: 'SENIOR_REVIEW' | 'EMERGENCY', reason?: string) {
     const consultation = await this.prisma.consultation.findUnique({ where: { id } });
     if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
-    this.access.assertConsultationAccess(user, consultation);
+    await this.access.assertConsultationAccess(user, consultation);
 
     const escalationLevel = level === 'EMERGENCY' ? EscalationLevel.EMERGENCY : EscalationLevel.SENIOR_REVIEW;
 
@@ -635,7 +663,7 @@ export class ConsultationsService {
   async requestSecondOpinion(id: string, user: AuthUser, dto: SecondOpinionDto) {
     const consultation = await this.prisma.consultation.findUnique({ where: { id } });
     if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
-    this.access.assertConsultationAccess(user, consultation);
+    await this.access.assertConsultationAccess(user, consultation);
     if (consultation.status !== ConsultationStatus.IN_PROGRESS) {
       throw new BadRequestException('Faqat jarayondagi konsultatsiyada ikkinchi fikr so\'raladi');
     }
@@ -704,7 +732,7 @@ export class ConsultationsService {
       include: { consultation: true },
     });
     if (!opinion) throw new NotFoundException('So\'rov topilmadi');
-    this.access.assertConsultationAccess(user, opinion.consultation);
+    await this.access.assertConsultationAccess(user, opinion.consultation);
 
     if (!canPerformClinicalMtActions(user.role)) {
       throw new ForbiddenException('Faqat shifokor javob bera oladi');
@@ -836,10 +864,169 @@ export class ConsultationsService {
     });
   }
 
+  // ─────────────────────────────────────────────────────────────
+  // Konsilium: bitta bemorga bir vaqtda bir nechta shifokor
+  // ─────────────────────────────────────────────────────────────
+
+  private readonly participantSelect = {
+    id: true,
+    doctorId: true,
+    joinedAt: true,
+    leftAt: true,
+    createdAt: true,
+    doctor: {
+      select: {
+        id: true,
+        fullName: true,
+        specialty: true,
+        specialtyRef: { select: { name: true } },
+      },
+    },
+    invitedBy: { select: { id: true, fullName: true } },
+  } satisfies Prisma.ConsultationParticipantSelect;
+
+  /** Konsiliumga qo'shilgan (hali chiqmagan) shifokorlar ro'yxati */
+  async listParticipants(id: string, user: AuthUser) {
+    const consultation = await this.prisma.consultation.findUnique({
+      where: { id },
+      select: { id: true, utId: true, mtDoctorId: true, status: true },
+    });
+    if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
+    await this.access.assertConsultationAccess(user, consultation);
+
+    return this.prisma.consultationParticipant.findMany({
+      where: { consultationId: id, leftAt: null },
+      select: this.participantSelect,
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  /**
+   * Konsiliumga shifokor(lar) qo'shish.
+   *
+   * Faqat mas'ul shifokor chaqira oladi. Konsultatsiya navbatda yoki jarayonda
+   * bo'lishi shart — yakunlangan/bekor qilinganga qo'shib bo'lmaydi.
+   */
+  async addParticipants(id: string, user: AuthUser, doctorIds: string[]) {
+    const consultation = await this.prisma.consultation.findUnique({
+      where: { id },
+      select: { id: true, utId: true, mtDoctorId: true, status: true, patientId: true },
+    });
+    if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
+    await this.access.assertConsultationAccess(user, consultation);
+
+    if (consultation.mtDoctorId !== user.id) {
+      throw new ForbiddenException('Konsiliumga faqat mas\'ul shifokor qo\'sha oladi');
+    }
+    if (
+      consultation.status !== ConsultationStatus.QUEUED
+      && consultation.status !== ConsultationStatus.IN_PROGRESS
+    ) {
+      throw new BadRequestException('Yakunlangan konsultatsiyaga shifokor qo\'shib bo\'lmaydi');
+    }
+
+    const wanted = [...new Set(doctorIds.filter(Boolean))];
+    if (!wanted.length) throw new BadRequestException('Shifokor tanlanmagan');
+    if (wanted.includes(user.id)) {
+      throw new BadRequestException('Mas\'ul shifokor allaqachon konsultatsiyada');
+    }
+
+    const doctors = await this.prisma.user.findMany({
+      where: { id: { in: wanted }, role: UserRole.MT_DOCTOR, isActive: true },
+      select: { id: true, fullName: true },
+    });
+    if (doctors.length !== wanted.length) {
+      throw new BadRequestException('Ba\'zi shifokorlar topilmadi yoki faol emas');
+    }
+
+    // Takroriy qo'shish xato bermasin: avval chiqib ketgan bo'lsa qayta faollashadi
+    await this.prisma.$transaction(
+      doctors.map((d) =>
+        this.prisma.consultationParticipant.upsert({
+          where: { consultationId_doctorId: { consultationId: id, doctorId: d.id } },
+          create: { consultationId: id, doctorId: d.id, invitedById: user.id },
+          update: { leftAt: null, invitedById: user.id },
+        }),
+      ),
+    );
+
+    const patient = await this.prisma.patient.findUnique({
+      where: { id: consultation.patientId },
+      select: { fullName: true },
+    });
+    const patientName = patient
+      ? (this.crypto.unprotectPatient(patient as Record<string, unknown>) as { fullName: string }).fullName
+      : 'Bemor';
+
+    await this.notifications
+      .notifyUsers(
+        doctors.map((d) => d.id),
+        'Konsiliumga chaqiruv',
+        `${patientName} bo'yicha konsiliumga qo'shildingiz`,
+        { consultationId: id },
+      )
+      .catch((err) => this.logger.warn(`Konsilium bildirishnomasi xatosi: ${err}`));
+
+    this.videoGateway.emitConsultationEvent(id, 'consultation-participants-updated', {
+      consultationId: id,
+      utId: consultation.utId,
+      mtDoctorId: consultation.mtDoctorId,
+      status: consultation.status,
+    });
+
+    return this.listParticipants(id, user);
+  }
+
+  /**
+   * Konsiliumdan shifokorni chiqarish. Mas'ul shifokor istalganini,
+   * maslahatchi esa faqat o'zini chiqara oladi.
+   */
+  async removeParticipant(id: string, user: AuthUser, doctorId: string) {
+    const consultation = await this.prisma.consultation.findUnique({
+      where: { id },
+      select: { id: true, utId: true, mtDoctorId: true, status: true },
+    });
+    if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
+    await this.access.assertConsultationAccess(user, consultation);
+
+    const isOwner = consultation.mtDoctorId === user.id;
+    if (!isOwner && doctorId !== user.id) {
+      throw new ForbiddenException('Boshqa shifokorni konsiliumdan chiqarib bo\'lmaydi');
+    }
+
+    const participant = await this.prisma.consultationParticipant.findUnique({
+      where: { consultationId_doctorId: { consultationId: id, doctorId } },
+      select: { id: true, leftAt: true },
+    });
+    if (!participant) throw new NotFoundException('Shifokor konsiliumda yo\'q');
+
+    if (!participant.leftAt) {
+      await this.prisma.consultationParticipant.update({
+        where: { id: participant.id },
+        data: { leftAt: new Date() },
+      });
+    }
+
+    this.videoGateway.emitConsultationEvent(id, 'consultation-participants-updated', {
+      consultationId: id,
+      utId: consultation.utId,
+      mtDoctorId: consultation.mtDoctorId,
+      status: consultation.status,
+      removedDoctorId: doctorId,
+    });
+
+    // Chiqarilgan shifokor endi kira olmaydi — ro'yxatni mas'ul shifokor ko'zi bilan qaytaramiz
+    return this.prisma.consultationParticipant.findMany({
+      where: { consultationId: id, leftAt: null },
+      select: this.participantSelect,
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
   async updateTriage(id: string, user: AuthUser, triageLevel: TriageLevel, triageNotes?: string) {
     const consultation = await this.prisma.consultation.findUnique({ where: { id } });
     if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
-    this.access.assertConsultationAccess(user, consultation);
+    await this.access.assertConsultationAccess(user, consultation);
 
     const updated = await this.prisma.consultation.update({
       where: { id },
@@ -854,7 +1041,7 @@ export class ConsultationsService {
   async updatePriority(id: string, user: AuthUser, priority: number) {
     const consultation = await this.prisma.consultation.findUnique({ where: { id } });
     if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
-    this.access.assertConsultationAccess(user, consultation);
+    await this.access.assertConsultationAccess(user, consultation);
 
     const updated = await this.prisma.consultation.update({
       where: { id },
@@ -869,7 +1056,7 @@ export class ConsultationsService {
   async updateNotes(id: string, user: AuthUser, clinicalNotes: string) {
     const consultation = await this.prisma.consultation.findUnique({ where: { id } });
     if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
-    this.access.assertConsultationAccess(user, consultation);
+    await this.access.assertConsultationAccess(user, consultation);
 
     return this.prisma.consultation.update({
       where: { id },
@@ -880,7 +1067,7 @@ export class ConsultationsService {
   async scheduleFollowUp(id: string, user: AuthUser, followUpDate: string) {
     const consultation = await this.prisma.consultation.findUnique({ where: { id } });
     if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
-    this.access.assertConsultationAccess(user, consultation);
+    await this.access.assertConsultationAccess(user, consultation);
 
     const date = new Date(followUpDate);
     if (Number.isNaN(date.getTime())) throw new BadRequestException('Sana noto\'g\'ri');

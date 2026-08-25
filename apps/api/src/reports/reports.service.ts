@@ -10,7 +10,8 @@ import { join } from 'path';
 import PDFDocument from 'pdfkit';
 
 /** PDF shriftlari — nest-cli assets orqali dist ga ko'chiriladi */
-const PDF_FONT_DIR = join(__dirname, '..', 'assets', 'fonts');
+const PDF_FONT_DIR = join(__dirname, '..', 'assets', 'fonts');
+
 import { normalizePdfLocale, type PdfLocale } from '../ai/pdf-labels';
 
 @Injectable()
@@ -29,7 +30,7 @@ export class ReportsService {
       select: { utId: true, mtDoctorId: true, status: true },
     });
     if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
-    this.access.assertConsultationAccess(user, consultation);
+    await this.access.assertConsultationAccess(user, consultation);
     return consultation;
   }
 

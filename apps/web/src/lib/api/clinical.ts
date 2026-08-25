@@ -15,6 +15,7 @@ import type {
   PatientDetail,
   SecondOpinion,
   ConsultationMessage,
+  ConsultationParticipant,
 } from './types';
 
 export function defineConsultationsApi(client: HttpClient) {
@@ -56,6 +57,27 @@ export function defineConsultationsApi(client: HttpClient) {
         method: 'POST',
         body: JSON.stringify({ reason }),
       });
+    },
+
+    /** Konsilium: ulangan shifokorlar ro'yxati */
+    getConsultationParticipants(consultationId: string) {
+      return client.request<ConsultationParticipant[]>(`/consultations/${consultationId}/participants`);
+    },
+
+    /** Konsiliumga shifokor(lar) qo'shish — faqat mas'ul shifokor */
+    addConsultationParticipants(consultationId: string, doctorIds: string[]) {
+      return client.request<ConsultationParticipant[]>(`/consultations/${consultationId}/participants`, {
+        method: 'POST',
+        body: JSON.stringify({ doctorIds }),
+      });
+    },
+
+    /** Konsiliumdan chiqarish (mas'ul shifokor — istalganini, maslahatchi — o'zini) */
+    removeConsultationParticipant(consultationId: string, doctorId: string) {
+      return client.request<ConsultationParticipant[]>(
+        `/consultations/${consultationId}/participants/${doctorId}`,
+        { method: 'DELETE' },
+      );
     },
 
     escalateConsultation(id: string, level: 'SENIOR_REVIEW' | 'EMERGENCY', reason?: string) {

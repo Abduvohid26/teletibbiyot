@@ -18,7 +18,7 @@ export class DicomService {
       select: { id: true, utId: true, mtDoctorId: true, status: true },
     });
     if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
-    this.access.assertConsultationAccess(user, consultation);
+    await this.access.assertConsultationAccess(user, consultation);
 
     const attachments = await this.prisma.attachment.findMany({
       where: { consultationId },
@@ -44,7 +44,7 @@ export class DicomService {
       include: { consultation: { select: { utId: true, mtDoctorId: true, status: true } } },
     });
     if (!attachment) throw new NotFoundException('Fayl topilmadi');
-    this.access.assertConsultationAccess(user, attachment.consultation);
+    await this.access.assertConsultationAccess(user, attachment.consultation);
 
     if (!this.storage.isAvailable()) {
       return {

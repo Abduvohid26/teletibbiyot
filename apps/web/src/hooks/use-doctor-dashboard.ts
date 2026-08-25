@@ -188,6 +188,8 @@ export function useDoctorDashboard() {
       },
       onTriageUpdated: () => refresh(),
       onPriorityUpdated: () => refresh(),
+      // Konsiliumga qo'shilgan/chiqarilgan zahoti ro'yxat yangilansin
+      onParticipantsUpdated: () => refresh(),
     },
     {
       notifyToasts: isMtStaff(user?.role || ''),

@@ -19,7 +19,7 @@ export class RecordingsService {
       select: { utId: true, mtDoctorId: true, status: true, consentGiven: true },
     });
     if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
-    this.access.assertConsultationAccess(user, consultation);
+    await this.access.assertConsultationAccess(user, consultation);
     return consultation;
   }
 

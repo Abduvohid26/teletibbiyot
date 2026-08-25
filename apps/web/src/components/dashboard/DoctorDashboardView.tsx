@@ -6,8 +6,10 @@ import { Loader2, XCircle } from 'lucide-react';
 import { VideoConsultation } from '@/components/dashboard/VideoConsultation';
 import { AiAnalysisPanel } from '@/components/dashboard/AiAnalysisPanel';
 import { PatientDocumentsPanel } from '@/components/dashboard/PatientDocumentsPanel';
+import { ConsiliumPanel } from '@/components/dashboard/ConsiliumPanel';
 import { api, Consultation } from '@/lib/api';
 import { toast } from '@/lib/toast';
+import { useAuth } from '@/lib/auth-context';
 import { useCancelConsultation } from '@/hooks/use-cancel-consultation';
 import { DOCTOR_SELECT_EVENT, dispatchDoctorSelect } from '@/hooks/use-doctor-header-data';
 import { useI18n } from '@/i18n';
@@ -38,6 +40,7 @@ export function DoctorDashboardView({
   onRefresh,
 }: DoctorDashboardViewProps) {
   const { t } = useI18n();
+  const { user } = useAuth();
   const router = useRouter();
   const [reconnectSignal, setReconnectSignal] = useState(0);
   const [completing, setCompleting] = useState(false);
@@ -114,11 +117,15 @@ export function DoctorDashboardView({
     }
   }, [consultation, myInProgress, queuedPatients, requestCancel]);
 
-  const showCompleteBtn = activeConsultation?.status === 'IN_PROGRESS';
+  // Konsiliumga chaqirilgan maslahatchi bemorni yakunlay/bekor qila olmaydi —
+  // bu faqat mas'ul shifokor huquqi (serverda ham shunday tekshiriladi).
+  const isLeadDoctor =
+    !activeConsultation?.mtDoctor?.id || activeConsultation.mtDoctor.id === user?.id;
+  const showCompleteBtn = activeConsultation?.status === 'IN_PROGRESS' && isLeadDoctor;
   // Yakunlagandan keyin navbatda bemor qoladimi — tugma matnini shunga qarab ko'rsatamiz
   const myQueueRemaining = queuedPatients.filter((c) => c.id !== activeConsultationId).length;
   const hasNextInQueue = myQueueRemaining > 0;
-  const showCancelBtn = activeConsultation?.status === 'IN_PROGRESS';
+  const showCancelBtn = activeConsultation?.status === 'IN_PROGRESS' && isLeadDoctor;
 
   return (
     <>
@@ -131,6 +138,12 @@ export function DoctorDashboardView({
             </button>
           </div>
         )}
+
+        <ConsiliumPanel
+          consultation={activeConsultation ?? consultation}
+          currentDoctorId={user?.id}
+          onChanged={passiveRefresh}
+        />
 
         {(showCompleteBtn || showCancelBtn) && (
           <div className="shrink-0 mb-2 flex items-center justify-end gap-1.5">

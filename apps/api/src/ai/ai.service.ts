@@ -560,7 +560,7 @@ export class AiService {
       },
     });
     if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
-    this.access.assertConsultationAccess(user, consultation);
+    await this.access.assertConsultationAccess(user, consultation);
     if (!consultation.aiAnalysis) throw new NotFoundException('AI tahlil topilmadi');
 
     const fileName = this.pdfFileName(consultationId, locale);

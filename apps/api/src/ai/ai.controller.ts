@@ -41,7 +41,7 @@ export class AiController {
       where: { id: consultationId },
     });
     if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
-    this.access.assertConsultationAccess(user, consultation);
+    await this.access.assertConsultationAccess(user, consultation);
     return consultation;
   }
 
@@ -141,7 +141,7 @@ export class AiController {
       include: { consultation: true },
     });
     if (!analysis) throw new NotFoundException('AI tahlil topilmadi');
-    this.access.assertConsultationAccess(req.user, analysis.consultation);
+    await this.access.assertConsultationAccess(req.user, analysis.consultation);
     return this.aiService.submitFeedback(id, req.user.id, dto.rating, dto.comment);
   }
 }

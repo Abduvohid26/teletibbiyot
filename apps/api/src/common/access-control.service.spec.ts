@@ -1,9 +1,15 @@
 import { ForbiddenException } from '@nestjs/common';
 import { ConsultationStatus, UserRole } from '@prisma/client';
 import { AccessControlService } from './access-control.service';
+import type { PrismaService } from '../prisma/prisma.service';
 
 describe('AccessControlService', () => {
-  const service = new AccessControlService();
+  // Konsilium ishtirokchisi bazadan qidiriladigan yagona joy — testda bo'sh javob
+  const findFirst = jest.fn().mockResolvedValue(null);
+  const prisma = { consultationParticipant: { findFirst } } as unknown as PrismaService;
+  const service = new AccessControlService(prisma);
+
+  beforeEach(() => findFirst.mockClear());
 
   const utUser = { id: 'u1', role: UserRole.UT_OPERATOR, facilityId: 'fac-ut' };
   const mtDoctor = { id: 'd1', role: UserRole.MT_DOCTOR, facilityId: 'fac-mt' };
@@ -62,8 +68,34 @@ describe('AccessControlService', () => {
       ).toBe(false);
     });
 
-    it('MT consultationFilter faqat o\'z mtDoctorId', () => {
-      expect(service.consultationFilter(mtDoctor)).toEqual({ mtDoctorId: 'd1' });
+    it('MT konsiliumga chaqirilgan konsultatsiyaga ham kiradi', () => {
+      expect(
+        service.canAccessConsultation(mtDoctor, {
+          utId: 'fac-ut',
+          mtDoctorId: 'other-doctor',
+          status: ConsultationStatus.IN_PROGRESS,
+          participants: [{ doctorId: 'd1', leftAt: null }],
+        }),
+      ).toBe(true);
+
+      // Konsiliumdan chiqarilgan shifokor kira olmaydi
+      expect(
+        service.canAccessConsultation(mtDoctor, {
+          utId: 'fac-ut',
+          mtDoctorId: 'other-doctor',
+          status: ConsultationStatus.IN_PROGRESS,
+          participants: [{ doctorId: 'd1', leftAt: new Date() }],
+        }),
+      ).toBe(false);
+    });
+
+    it('MT consultationFilter — o\'ziniki + konsilium', () => {
+      expect(service.consultationFilter(mtDoctor)).toEqual({
+        OR: [
+          { mtDoctorId: 'd1' },
+          { participants: { some: { doctorId: 'd1', leftAt: null } } },
+        ],
+      });
     });
 
     it('Admin klinik konsultatsiyaga kira olmaydi', () => {
@@ -78,20 +110,49 @@ describe('AccessControlService', () => {
   });
 
   describe('assertConsultationAccess', () => {
-    it('admin uchun ForbiddenException', () => {
-      expect(() =>
+    it('admin uchun ForbiddenException', async () => {
+      await expect(
         service.assertConsultationAccess(admin, {
           utId: 'x',
           mtDoctorId: null,
           status: ConsultationStatus.QUEUED,
         }),
-      ).toThrow(ForbiddenException);
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('begona shifokor uchun ForbiddenException', async () => {
+      await expect(
+        service.assertConsultationAccess(mtDoctor, {
+          id: 'c1',
+          utId: 'fac-ut',
+          mtDoctorId: 'other-doctor',
+          status: ConsultationStatus.IN_PROGRESS,
+        }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(findFirst).toHaveBeenCalled();
+    });
+
+    it('ishtirokchilar yuklanmagan bo\'lsa — bazadan tekshiradi', async () => {
+      findFirst.mockResolvedValueOnce({ id: 'p1' });
+      await expect(
+        service.assertConsultationAccess(mtDoctor, {
+          id: 'c1',
+          utId: 'fac-ut',
+          mtDoctorId: 'other-doctor',
+          status: ConsultationStatus.IN_PROGRESS,
+        }),
+      ).resolves.toBeUndefined();
     });
   });
 
   describe('analyticsConsultationFilter', () => {
     it('MT shifokor analitikada faqat o\'z konsultatsiyalarini ko\'radi', () => {
-      expect(service.analyticsConsultationFilter(mtDoctor)).toEqual({ mtDoctorId: 'd1' });
+      expect(service.analyticsConsultationFilter(mtDoctor)).toEqual({
+        OR: [
+          { mtDoctorId: 'd1' },
+          { participants: { some: { doctorId: 'd1', leftAt: null } } },
+        ],
+      });
     });
 
     it('UT operator muassasa bo\'yicha ko\'radi', () => {

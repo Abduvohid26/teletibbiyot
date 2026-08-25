@@ -278,6 +278,10 @@ model User {
 
   appointmentsCreated     Appointment[]      @relation("AppointmentCreator")
 
+  consultationsAsConsultant ConsultationParticipant[] @relation("ConsultationConsultant")
+
+  consultationInvitesSent   ConsultationParticipant[] @relation("ConsultationInviter")
+
 }
 
 
@@ -399,6 +403,47 @@ model Consultation {
   messages         ConsultationMessage[]
 
   appointments     Appointment[]
+
+  participants     ConsultationParticipant[]
+
+}
+
+
+
+/// Konsiliumga qo'shilgan qo'shimcha shifokorlar.
+/// Asosiy (mas'ul) shifokor Consultation.mtDoctorId da qoladi — bu jadval
+/// unga QO'SHIMCHA ulanadigan maslahatchi shifokorlarni saqlaydi.
+model ConsultationParticipant {
+
+  id             String       @id @default(uuid())
+
+  consultationId String
+
+  consultation   Consultation @relation(fields: [consultationId], references: [id], onDelete: Cascade)
+
+  doctorId       String
+
+  doctor         User         @relation("ConsultationConsultant", fields: [doctorId], references: [id], onDelete: Cascade)
+
+  invitedById    String?
+
+  invitedBy      User?        @relation("ConsultationInviter", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  joinedAt       DateTime?
+
+  leftAt         DateTime?
+
+  createdAt      DateTime     @default(now())
+
+  updatedAt      DateTime     @updatedAt
+
+
+
+  @@unique([consultationId, doctorId])
+
+  @@index([doctorId])
+
+  @@index([consultationId])
 
 }
 

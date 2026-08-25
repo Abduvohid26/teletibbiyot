@@ -42,7 +42,7 @@ export class VideoController {
       select: { id: true, utId: true, mtDoctorId: true, status: true },
     });
     if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
-    this.access.assertConsultationAccess(req.user, consultation);
+    await this.access.assertConsultationAccess(req.user, consultation);
 
     const user = await this.prisma.user.findUnique({
       where: { id: req.user.id },

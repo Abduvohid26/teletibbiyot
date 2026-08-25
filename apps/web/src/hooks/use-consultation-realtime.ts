@@ -34,6 +34,8 @@ export interface ConsultationRealtimeHandlers {
   onAiUpdated?: (consultationId: string) => void;
   onChatMessagePersisted?: (consultationId: string) => void;
   onTriageUpdated?: (consultationId: string) => void;
+  /** Konsilium tarkibi o'zgardi (shifokor qo'shildi/chiqarildi) */
+  onParticipantsUpdated?: (consultationId: string) => void;
   onPriorityUpdated?: (consultationId: string) => void;
   onDeviceStatusUpdated?: (facilityId: string) => void;
   onDoctorPresenceUpdated?: (payload: {
@@ -174,6 +176,12 @@ export function useConsultationRealtime(
       handlersRef.current.onTriageUpdated?.(cid);
     };
 
+    const onParticipantsUpdated = (payload: RealtimePayload) => {
+      const cid = resolveConsultationId(payload, '');
+      if (!matchesSubscription(cid, ids, staffFeed)) return;
+      handlersRef.current.onParticipantsUpdated?.(cid);
+    };
+
     const onPriorityUpdated = (payload: RealtimePayload) => {
       const cid = resolveConsultationId(payload, '');
       if (!matchesSubscription(cid, ids, staffFeed)) return;
@@ -211,6 +219,7 @@ export function useConsultationRealtime(
     socket.on('chat-message-persisted', onChatPersisted);
     socket.on('triage-updated', onTriageUpdated);
     socket.on('priority-updated', onPriorityUpdated);
+    socket.on('consultation-participants-updated', onParticipantsUpdated);
     socket.on('device-status-updated', onDeviceUpdated);
     socket.on('doctor-presence-updated', onDoctorPresence);
 
@@ -225,6 +234,7 @@ export function useConsultationRealtime(
       socket.off('chat-message-persisted', onChatPersisted);
       socket.off('triage-updated', onTriageUpdated);
       socket.off('priority-updated', onPriorityUpdated);
+      socket.off('consultation-participants-updated', onParticipantsUpdated);
       socket.off('device-status-updated', onDeviceUpdated);
       socket.off('doctor-presence-updated', onDoctorPresence);
 

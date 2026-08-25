@@ -15,6 +15,7 @@ import {
   UserRound,
   Eye,
   FileText,
+  Users,
 } from 'lucide-react';
 import { api, Consultation, DashboardStats, Patient } from '@/lib/api';
 import { PatientDetailPanel } from '@/components/analytics/PatientDetailPanel';
@@ -28,6 +29,7 @@ import { useCancelConsultation } from '@/hooks/use-cancel-consultation';
 import { calculateAge, cn, formatStatus, formatTriage } from '@/lib/utils';
 import { toast } from '@/lib/toast';
 import { dispatchDoctorSelect } from '@/hooks/use-doctor-header-data';
+import { useAuth } from '@/lib/auth-context';
 import { useI18n } from '@/i18n';
 import { triageLabelKey } from '@/i18n/labels';
 
@@ -112,6 +114,7 @@ export function DoctorPatientsView({
   error,
 }: DoctorPatientsViewProps) {
   const { t } = useI18n();
+  const { user } = useAuth();
   const router = useRouter();
   const [filter, setFilter] = useState<QueueFilter>('all');
   const [search, setSearch] = useState('');
@@ -211,6 +214,7 @@ export function DoctorPatientsView({
     onConsultationCancelled: reloadAll,
     onTriageUpdated: reloadAll,
     onPriorityUpdated: reloadAll,
+    onParticipantsUpdated: reloadAll,
   }, { staffFeed: true });
 
   useEffect(() => {
@@ -460,6 +464,7 @@ export function DoctorPatientsView({
                       c={c}
                       active={c.id === activeId}
                       live
+                      isLead={!c.mtDoctor?.id || c.mtDoctor.id === user?.id}
                       startingId={startingId}
                       continuingId={continuingId}
                       onSelect={() => handleSelect(c.id)}
@@ -480,6 +485,7 @@ export function DoctorPatientsView({
                       key={c.id}
                       c={c}
                       active={c.id === activeId}
+                      isLead={!c.mtDoctor?.id || c.mtDoctor.id === user?.id}
                       startingId={startingId}
                       onSelect={() => handleSelect(c.id)}
                       onStart={() => void handleStart(c.id)}
@@ -572,6 +578,7 @@ function ActiveQueueCard({
   c,
   active,
   live,
+  isLead = true,
   startingId,
   continuingId,
   onSelect,
@@ -582,6 +589,8 @@ function ActiveQueueCard({
   c: Consultation;
   active: boolean;
   live?: boolean;
+  /** Joriy shifokor — mas'ulmi yoki konsiliumga chaqirilgan maslahatchimi */
+  isLead?: boolean;
   startingId?: string | null;
   continuingId?: string | null;
   onSelect: () => void;
@@ -629,9 +638,16 @@ function ActiveQueueCard({
                 {t(triageLabelKey(c.triageLevel))}
               </span>
             )}
+            {(c.participants?.length ?? 0) > 0 && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700">
+                <Users size={10} />
+                {t('consilium.badge')} · {(c.participants?.length ?? 0) + 1}
+              </span>
+            )}
           </div>
           <p className="text-xs text-slate-500 mt-0.5 truncate">
             {live ? t('status.inProgress') : t('patients.assignedToYou')} · {c.utFacility?.code ?? 'UT'} · {age != null ? t('common.years', { age }) : t('common.emptyDash')} · {c.patient.phone}
+            {!isLead && c.mtDoctor?.fullName ? ` · ${t('consilium.lead')}: ${c.mtDoctor.fullName}` : ''}
           </p>
           {c.clinicalRecord?.complaints && (
             <p className="text-xs text-slate-600 mt-1 line-clamp-1">{c.clinicalRecord.complaints}</p>
@@ -657,7 +673,8 @@ function ActiveQueueCard({
             {t('common.connect')}
           </button>
         )}
-        {onStart && (
+        {/* Boshlash — faqat mas'ul shifokor; maslahatchi navbatdagi bemorni boshlay olmaydi */}
+        {onStart && isLead && (
           <button
             type="button"
             disabled={startingId === c.id}
@@ -673,17 +690,20 @@ function ActiveQueueCard({
             {t('common.start')}
           </button>
         )}
-        <button
-          type="button"
-          onClick={onCancel}
-          className={cn(
-            'inline-flex items-center justify-center rounded-xl p-2 transition-colors',
-            active ? 'hover:bg-white/60 text-red-600' : 'hover:bg-red-50 text-red-500',
-          )}
-          aria-label={t('queue.cancelAria')}
-        >
-          <XCircle size={16} />
-        </button>
+        {/* Bekor qilish — faqat mas'ul shifokor huquqi */}
+        {isLead && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className={cn(
+              'inline-flex items-center justify-center rounded-xl p-2 transition-colors',
+              active ? 'hover:bg-white/60 text-red-600' : 'hover:bg-red-50 text-red-500',
+            )}
+            aria-label={t('queue.cancelAria')}
+          >
+            <XCircle size={16} />
+          </button>
+        )}
       </div>
     </div>
   );

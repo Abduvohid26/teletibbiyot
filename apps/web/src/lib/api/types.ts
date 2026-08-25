@@ -193,6 +193,22 @@ export interface PatientDetail extends Patient {
   _count?: { consultations: number };
 }
 
+/** Konsiliumga qo'shilgan qo'shimcha shifokor */
+export interface ConsultationParticipant {
+  id?: string;
+  doctorId: string;
+  joinedAt?: string | null;
+  leftAt?: string | null;
+  createdAt?: string;
+  doctor: {
+    id: string;
+    fullName: string;
+    specialty?: string | null;
+    specialtyRef?: { name: string } | null;
+  };
+  invitedBy?: { id: string; fullName: string } | null;
+}
+
 export interface Consultation {
   id: string;
   status: string;
@@ -215,6 +231,8 @@ export interface Consultation {
   /** Shifokor belgilagan nazorat sanasi */
   followUpDate?: string | null;
   secondOpinions?: SecondOpinion[];
+  /** Konsilium — mas'ul shifokordan tashqari ulangan shifokorlar */
+  participants?: ConsultationParticipant[];
 }
 
 export interface DashboardStats {

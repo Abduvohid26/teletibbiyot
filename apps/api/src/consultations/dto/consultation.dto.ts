@@ -1,4 +1,4 @@
-import { IsString, IsEnum, IsOptional, IsNumber, ValidateNested, IsBoolean, Matches, Equals, MaxLength, MinLength, IsNotEmpty } from 'class-validator';
+import { IsString, IsEnum, IsOptional, IsNumber, ValidateNested, IsBoolean, Matches, Equals, MaxLength, MinLength, IsNotEmpty, IsArray, ArrayNotEmpty, ArrayMaxSize, IsUUID } from 'class-validator';
 
 import { Type } from 'class-transformer';
 
@@ -294,3 +294,14 @@ export class ConfirmAiStepDto {
 }
 
 
+
+
+/** Konsiliumga qo'shiladigan qo'shimcha shifokorlar */
+export class AddParticipantsDto {
+  @ApiProperty({ type: [String], description: 'Shifokorlar ID ro\'yxati' })
+  @IsArray()
+  @ArrayNotEmpty()
+  @ArrayMaxSize(10)
+  @IsUUID('4', { each: true })
+  doctorIds: string[];
+}

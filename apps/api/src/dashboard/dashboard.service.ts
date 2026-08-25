@@ -244,14 +244,35 @@ export class DashboardService {
       aiAnalysis: true,
       utFacility: true,
       aiAnalysisSteps: { orderBy: { order: 'asc' as const } },
+      mtDoctor: { select: { id: true, fullName: true } },
+      participants: {
+        where: { leftAt: null },
+        select: {
+          doctorId: true,
+          joinedAt: true,
+          doctor: {
+            select: {
+              id: true,
+              fullName: true,
+              specialty: true,
+              specialtyRef: { select: { name: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: 'asc' as const },
+      },
     };
 
     if (preferredId) {
+      // Konsiliumga chaqirilgan shifokor ham aynan shu bemorni ocha oladi
       const preferred = await this.prisma.consultation.findFirst({
         where: {
           id: preferredId,
-          mtDoctorId: doctorId,
           status: ConsultationStatus.IN_PROGRESS,
+          OR: [
+            { mtDoctorId: doctorId },
+            { participants: { some: { doctorId, leftAt: null } } },
+          ],
         },
         include,
       });
@@ -403,6 +424,14 @@ export class DashboardService {
         mtDoctor: { select: { id: true, fullName: true } },
 
         aiAnalysis: true,
+
+        participants: {
+          where: { leftAt: null },
+          select: {
+            doctorId: true,
+            doctor: { select: { id: true, fullName: true } },
+          },
+        },
       },
 
       orderBy: { startedAt: "desc" },

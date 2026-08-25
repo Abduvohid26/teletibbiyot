@@ -11,6 +11,7 @@ import {
   Query,
   Res,
   Headers,
+  Delete,
 } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
@@ -23,6 +24,7 @@ import {
   SecondOpinionDto,
   SecondOpinionResponseDto,
   EscalateConsultationDto,
+  AddParticipantsDto,
 } from './dto/consultation.dto';
 import { ConsultationQueryDto } from './dto/consultation-query.dto';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guard';
@@ -146,6 +148,35 @@ export class ConsultationsController {
     @Request() req: { user: AuthUser },
   ) {
     return this.consultationsService.escalate(id, req.user, dto.level as 'SENIOR_REVIEW' | 'EMERGENCY', dto.reason);
+  }
+
+  @Get(':id/participants')
+  @Roles(...ROLES_CLINICAL)
+  @ApiOperation({ summary: 'Konsiliumdagi shifokorlar ro\'yxati' })
+  listParticipants(@Param('id') id: string, @Request() req: { user: AuthUser }) {
+    return this.consultationsService.listParticipants(id, req.user);
+  }
+
+  @Post(':id/participants')
+  @Roles(...ROLES_MT_DOCTOR)
+  @ApiOperation({ summary: 'Konsiliumga shifokor(lar) qo\'shish' })
+  addParticipants(
+    @Param('id') id: string,
+    @Body() dto: AddParticipantsDto,
+    @Request() req: { user: AuthUser },
+  ) {
+    return this.consultationsService.addParticipants(id, req.user, dto.doctorIds);
+  }
+
+  @Delete(':id/participants/:doctorId')
+  @Roles(...ROLES_MT_DOCTOR)
+  @ApiOperation({ summary: 'Konsiliumdan shifokorni chiqarish' })
+  removeParticipant(
+    @Param('id') id: string,
+    @Param('doctorId') doctorId: string,
+    @Request() req: { user: AuthUser },
+  ) {
+    return this.consultationsService.removeParticipant(id, req.user, doctorId);
   }
 
   @Post(':id/second-opinion')

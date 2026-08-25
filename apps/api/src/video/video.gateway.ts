@@ -218,7 +218,7 @@ export class VideoGateway
     }
 
     try {
-      this.access.assertConsultationAccess(
+      await this.access.assertConsultationAccess(
         { id: dbUser.id, role: dbUser.role, facilityId: dbUser.facilityId },
         consultation,
       );
@@ -822,6 +822,18 @@ export class VideoGateway
       }
     }
 
+    // Konsiliumga qo'shilgan shifokorlar ham voqealarni real vaqtda olishi kerak
+    let consultantIds: string[] = [];
+    try {
+      const participants = await this.prisma.consultationParticipant.findMany({
+        where: { consultationId: roomId, leftAt: null },
+        select: { doctorId: true },
+      });
+      consultantIds = participants.map((p) => p.doctorId);
+    } catch (err) {
+      this.logger.warn(`Konsilium ishtirokchilarini o'qib bo'lmadi (${roomId}): ${err}`);
+    }
+
     const data = {
       consultationId: roomId,
       ...payload,
@@ -837,8 +849,10 @@ export class VideoGateway
       this.server.to(VideoGateway.staffFeedUtRoom(utId)).emit(event, data);
     }
     // Assigned doctor model: personal room; open-pool yo'q
-    if (typeof mtDoctorId === 'string') {
-      this.server.to(VideoGateway.staffFeedMtDoctorRoom(mtDoctorId)).emit(event, data);
+    const doctorTargets = new Set<string>(consultantIds);
+    if (typeof mtDoctorId === 'string') doctorTargets.add(mtDoctorId);
+    for (const doctorId of doctorTargets) {
+      this.server.to(VideoGateway.staffFeedMtDoctorRoom(doctorId)).emit(event, data);
     }
 
     this.logger.debug(`WS event ${event} → ${roomId} (status=${status ?? '?'})`);

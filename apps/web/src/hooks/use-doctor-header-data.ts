@@ -61,6 +61,7 @@ export function useDoctorHeaderData() {
     onConsultationCancelled: () => void reload(),
     onTriageUpdated: () => void reload(),
     onPriorityUpdated: () => void reload(),
+    onParticipantsUpdated: () => void reload(),
   }, { staffFeed: true });
 
   useEffect(() => {

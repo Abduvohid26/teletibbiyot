@@ -66,7 +66,7 @@ export class AppointmentsService {
       if (consultation.patientId !== data.patientId) {
         throw new BadRequestException('Konsultatsiya va bemor mos kelmaydi');
       }
-      this.access.assertConsultationAccess(user, consultation);
+      await this.access.assertConsultationAccess(user, consultation);
       if (isUtRole(user.role) && consultation.utId !== user.facilityId) {
         throw new ForbiddenException('Konsultatsiyaga ruxsat yo\'q');
       }

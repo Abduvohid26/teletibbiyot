@@ -40,7 +40,7 @@ export class PrescriptionService {
       },
     });
     if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
-    this.access.assertConsultationAccess(user, consultation);
+    await this.access.assertConsultationAccess(user, consultation);
     if (!consultation.finalDiagnosis) {
       throw new NotFoundException('Yakuniy tashxis kiritilmagan');
     }

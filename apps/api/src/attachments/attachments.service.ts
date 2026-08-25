@@ -30,7 +30,7 @@ export class AttachmentsService {
 
     const consultation = await this.prisma.consultation.findUnique({ where: { id: consultationId } });
     if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
-    this.access.assertConsultationAccess(user, consultation);
+    await this.access.assertConsultationAccess(user, consultation);
 
     try {
       const uploaded = await this.storage.upload(file);
@@ -69,7 +69,7 @@ export class AttachmentsService {
   async finalizeUploads(consultationId: string, user: AuthUser) {
     const consultation = await this.prisma.consultation.findUnique({ where: { id: consultationId } });
     if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
-    this.access.assertConsultationAccess(user, consultation);
+    await this.access.assertConsultationAccess(user, consultation);
 
     const attachments = await this.prisma.attachment.findMany({
       where: { consultationId },
@@ -113,7 +113,7 @@ export class AttachmentsService {
   async list(consultationId: string, user: AuthUser) {
     const consultation = await this.prisma.consultation.findUnique({ where: { id: consultationId } });
     if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
-    this.access.assertConsultationAccess(user, consultation);
+    await this.access.assertConsultationAccess(user, consultation);
 
     const attachments = await this.prisma.attachment.findMany({
       where: { consultationId },
@@ -153,7 +153,7 @@ export class AttachmentsService {
       include: { consultation: true },
     });
     if (!attachment) throw new NotFoundException('Fayl topilmadi');
-    this.access.assertConsultationAccess(user, attachment.consultation);
+    await this.access.assertConsultationAccess(user, attachment.consultation);
 
     await this.audit.log({
       userId: user.id,
