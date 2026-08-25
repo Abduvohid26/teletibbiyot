@@ -2021,6 +2021,10 @@ export function useP2PVideoRoom({
     vitalsStream,
     remoteAudio,
     mtDoctorStream: remoteCameras[MT_DOCTOR_STREAM_ID] ?? null,
+    // P2P rejimida ko'p ishtirokchili konsilium qo'llab-quvvatlanmaydi —
+    // interfeys bir xil bo'lishi uchun bo'sh ro'yxat qaytaramiz (LiveKit da to'la ishlaydi).
+    remoteDoctorFeeds: [] as Array<{ id: string; name: string; stream: MediaStream }>,
+    remoteAudioFeeds: [] as Array<{ id: string; stream: MediaStream }>,
     utCameraStreams,
     remoteCameras,
     toggleMic,

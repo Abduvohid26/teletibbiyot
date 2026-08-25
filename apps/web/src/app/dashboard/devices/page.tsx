@@ -9,6 +9,7 @@ import { CheckCircle2, XCircle, RefreshCw, Cpu } from 'lucide-react';
 import { ROLES_MT_DASHBOARD, ROLES_UT } from '@/lib/roles';
 import { isUtRole } from '@ishifo/shared';
 import { useI18n } from '@/i18n';
+import { LocalDevicesPanel } from '@/components/devices/LocalDevicesPanel';
 
 export default function DevicesPage() {
   const { t } = useI18n();
@@ -101,6 +102,8 @@ export default function DevicesPage() {
         </div>
       }
     >
+      <LocalDevicesPanel canAssign={canEdit} />
+
       {error && (
         <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl p-3.5">{error}</div>
       )}

@@ -151,6 +151,15 @@ export function useLivekitRoom({
   const [localPreview, setLocalPreview] = useState<MediaStream | null>(null);
   const [vitalsStream, setVitalsStream] = useState<MediaStream | null>(null);
   const [remoteAudio, setRemoteAudio] = useState<MediaStream | null>(null);
+  /**
+   * Konsilium: xonada bir nechta shifokor bo'lishi mumkin. Ilgari barcha 'mt'
+   * ishtirokchilar bitta `mt-doctor` kaliti ostida saqlanardi va oxirgisi
+   * avvalgisini o'chirib yuborardi — shu sabab faqat bitta shifokor ko'rinardi.
+   * Endi har bir ishtirokchi o'z identity si bo'yicha saqlanadi.
+   */
+  const [remoteDoctors, setRemoteDoctors] = useState<Record<string, { name: string; stream: MediaStream }>>({});
+  /** Har bir uzoq ishtirokchining audio oqimi — ovoz ham ustma-ust tushmasin */
+  const [remoteAudioStreams, setRemoteAudioStreams] = useState<Record<string, MediaStream>>({});
   const [localCameraFeeds, setLocalCameraFeeds] = useState<Record<string, MediaStream>>({});
   const [audioMissing, setAudioMissing] = useState(false);
   const [virtualCameraWarning, setVirtualCameraWarning] = useState<string[]>([]);
@@ -178,7 +187,9 @@ export function useLivekitRoom({
     const participantRole = parseRole(participant.metadata);
 
     if (track.kind === Track.Kind.Audio) {
-      setRemoteAudio(new MediaStream([media]));
+      const stream = new MediaStream([media]);
+      setRemoteAudio(stream);
+      setRemoteAudioStreams((prev) => ({ ...prev, [participant.identity]: stream }));
       return;
     }
 
@@ -189,9 +200,17 @@ export function useLivekitRoom({
     }
     if (!cameraId) return;
 
+    const stream = new MediaStream([media]);
+    if (cameraId === MT_DOCTOR_STREAM_ID) {
+      setRemoteDoctors((prev) => ({
+        ...prev,
+        [participant.identity]: { name: participant.name || '', stream },
+      }));
+    }
+
     setRemoteCameras((prev) => {
       const next = { ...prev };
-      next[cameraId] = new MediaStream([media]);
+      next[cameraId] = stream;
       return next;
     });
   }, []);
@@ -200,12 +219,34 @@ export function useLivekitRoom({
     const name = publication.trackName || publication.source;
     const participantRole = parseRole(participant.metadata);
     if (publication.kind === Track.Kind.Audio) {
-      setRemoteAudio(null);
+      setRemoteAudioStreams((prev) => {
+        const next = { ...prev };
+        delete next[participant.identity];
+        const rest = Object.values(next);
+        setRemoteAudio(rest[0] ?? null);
+        return next;
+      });
       return;
     }
     let cameraId = name.startsWith('cam-') ? name.slice(4) : '';
     if (cameraId === 'doctor' || participantRole === 'mt') cameraId = MT_DOCTOR_STREAM_ID;
     if (!cameraId) return;
+    if (cameraId === MT_DOCTOR_STREAM_ID) {
+      setRemoteDoctors((prev) => {
+        const next = { ...prev };
+        delete next[participant.identity];
+        // Asosiy "shifokor" oynasi bo'sh qolmasin — qolganidan birini qo'yamiz
+        setRemoteCameras((cams) => {
+          const updated = { ...cams };
+          const first = Object.values(next)[0];
+          if (first) updated[MT_DOCTOR_STREAM_ID] = first.stream;
+          else delete updated[MT_DOCTOR_STREAM_ID];
+          return updated;
+        });
+        return next;
+      });
+      return;
+    }
     setRemoteCameras((prev) => {
       const next = { ...prev };
       delete next[cameraId];
@@ -356,6 +397,8 @@ export function useLivekitRoom({
     setVitalsStream(null);
     setRemoteCameras({});
     setRemoteAudio(null);
+    setRemoteDoctors({});
+    setRemoteAudioStreams({});
     setMediaReady(false);
   }, []);
 
@@ -479,7 +522,28 @@ export function useLivekitRoom({
       detachRemoteTrack(publication, participant);
     });
     room.on(RoomEvent.ParticipantConnected, () => refreshPeers(room));
-    room.on(RoomEvent.ParticipantDisconnected, () => refreshPeers(room));
+    room.on(RoomEvent.ParticipantDisconnected, (participant) => {
+      // Chiqib ketgan ishtirokchining oynasi va ovozi osilib qolmasin
+      setRemoteDoctors((prev) => {
+        const next = { ...prev };
+        delete next[participant.identity];
+        setRemoteCameras((cams) => {
+          const updated = { ...cams };
+          const first = Object.values(next)[0];
+          if (first) updated[MT_DOCTOR_STREAM_ID] = first.stream;
+          else delete updated[MT_DOCTOR_STREAM_ID];
+          return updated;
+        });
+        return next;
+      });
+      setRemoteAudioStreams((prev) => {
+        const next = { ...prev };
+        delete next[participant.identity];
+        setRemoteAudio(Object.values(next)[0] ?? null);
+        return next;
+      });
+      refreshPeers(room);
+    });
     room.on(RoomEvent.Reconnecting, () => setReconnecting(true));
     room.on(RoomEvent.Reconnected, () => {
       reconnectAttemptRef.current = 0;
@@ -955,6 +1019,17 @@ export function useLivekitRoom({
     vitalsStream,
     remoteAudio,
     mtDoctorStream: remoteCameras[MT_DOCTOR_STREAM_ID] ?? null,
+    /** Konsiliumdagi barcha uzoq shifokorlar (o'zidan tashqari) */
+    remoteDoctorFeeds: Object.entries(remoteDoctors).map(([identity, d]) => ({
+      id: identity,
+      name: d.name,
+      stream: d.stream,
+    })),
+    /** Har bir ishtirokchining audio oqimi — alohida <audio> element uchun */
+    remoteAudioFeeds: Object.entries(remoteAudioStreams).map(([identity, stream]) => ({
+      id: identity,
+      stream,
+    })),
     utCameraStreams,
     remoteCameras,
     toggleMic,

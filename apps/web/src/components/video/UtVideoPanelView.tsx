@@ -20,11 +20,13 @@ import {
 import { cn } from '@/lib/utils';
 import { useVideoRoom } from '@/hooks/use-video-room';
 import { VideoTile } from '@/components/video/VideoTile';
+import { RemoteAudioFeeds } from '@/components/video/RemoteAudioFeeds';
 import { ConnectionQualityBadge } from '@/components/video/ConnectionQualityBadge';
 import { VideoRoomPresence } from '@/components/video/VideoRoomPresence';
 import { applyUtPtzAction, isPtzAction } from '@/lib/ut-ptz-state';
 import { UT_CAMERA_FEEDS } from '@/lib/video-config';
-import { isUtStreamLive } from '@/lib/ut-camera-streams';
+import { isUtStreamLive } from '@/lib/ut-camera-streams';
+
 import { UtCameraSlotPicker } from '@/components/video/UtCameraSlotPicker';
 import { useI18n } from '@/i18n';
 
@@ -89,6 +91,8 @@ export function UtVideoPanelView({
     toggleSpeaker,
     mtDoctorStream,
     remoteAudio,
+    remoteDoctorFeeds,
+    remoteAudioFeeds,
     toggleMic,
     toggleCam,
     leaveCall,
@@ -104,6 +108,8 @@ export function UtVideoPanelView({
   } = video;
 
   const doctorLive = !!mtDoctorStream && isUtStreamLive(mtDoctorStream);
+  // Konsilium: asosiy oynadagidan tashqari qolgan shifokorlar
+  const extraDoctors = (remoteDoctorFeeds ?? []).filter((d) => d.stream !== mtDoctorStream);
   const utLiveCount = utCameraStreams.filter((c) => c.active && isUtStreamLive(c.stream)).length;
   const isAllView = viewMode === 'all';
   const doctorLabel = t('common.doctor');
@@ -339,8 +345,34 @@ export function UtVideoPanelView({
             </div>
           )}
 
-          {remoteAudio && (
-            <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
+          {/* Har bir ishtirokchi uchun alohida audio — konsiliumda ovozlar almashmasin */}
+          {(remoteAudioFeeds?.length ?? 0) > 0 ? (
+            <RemoteAudioFeeds feeds={remoteAudioFeeds} enabled={speakerOn} />
+          ) : (
+            remoteAudio && <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
+          )}
+
+          {/* Konsiliumdagi qolgan shifokorlar — kichik oynalar */}
+          {extraDoctors.length > 0 && (
+            <div className="absolute bottom-2 left-2 z-20 flex gap-1.5">
+              {extraDoctors.map((d) => (
+                <div
+                  key={d.id}
+                  className="relative w-24 h-16 sm:w-28 sm:h-20 rounded-lg overflow-hidden ring-1 ring-violet-400/60 bg-slate-900 shadow-lg"
+                >
+                  <VideoTile
+                    stream={d.stream}
+                    muted
+                    className="absolute inset-0 w-full h-full [&_video]:object-cover"
+                    placeholder={doctorLabel}
+                    live={isUtStreamLive(d.stream)}
+                  />
+                  <span className="absolute bottom-0 inset-x-0 bg-slate-950/75 text-white text-[9px] font-semibold px-1 py-0.5 truncate pointer-events-none">
+                    {d.name || doctorLabel}
+                  </span>
+                </div>
+              ))}
+            </div>
           )}
         </div>
 

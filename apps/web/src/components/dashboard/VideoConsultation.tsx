@@ -13,6 +13,7 @@ import { buildRecordingStream } from '@/lib/recording-stream';
 import { UT_CAMERA_FEEDS, fetchIceServers } from '@/lib/video-config';
 import { countLiveUtCameraStreams, isUtStreamLive, mapUniqueUtCameraStreams } from '@/lib/ut-camera-streams';
 import { VideoTile } from '@/components/video/VideoTile';
+import { RemoteAudioFeeds } from '@/components/video/RemoteAudioFeeds';
 import { VideoPreflightModal } from '@/components/video/VideoPreflightModal';
 import { VideoLobby } from '@/components/video/VideoLobby';
 import { VideoRoomPresence } from '@/components/video/VideoRoomPresence';
@@ -81,6 +82,8 @@ export function VideoConsultation({
     utCameraStreams,
     remoteCameras,
     remoteAudio,
+    remoteDoctorFeeds,
+    remoteAudioFeeds,
     toggleMic,
     toggleCam,
     sendPtz,
@@ -309,8 +312,28 @@ export function VideoConsultation({
             />
           </>
           )}
-        {remoteAudio && (
-          <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
+        {/* Konsilium: har bir ishtirokchi uchun alohida audio (shifokorlar bir-birini eshitadi) */}
+        {(remoteAudioFeeds?.length ?? 0) > 0 ? (
+          <RemoteAudioFeeds feeds={remoteAudioFeeds} enabled={speakerOn} />
+        ) : (
+          remoteAudio && <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
+        )}
+
+        {/* Konsiliumdagi boshqa shifokorlar — kichik oynalar */}
+        {(remoteDoctorFeeds?.length ?? 0) > 0 && (
+          <div className="absolute bottom-3 left-3 z-10 flex gap-1.5">
+            {remoteDoctorFeeds.map((d) => (
+              <div
+                key={d.id}
+                className="relative w-28 sm:w-32 aspect-video rounded-lg overflow-hidden ring-2 ring-violet-400/60 shadow-lg bg-slate-900"
+              >
+                <VideoTile stream={d.stream} muted className="absolute inset-0 w-full h-full [&_video]:object-cover" />
+                <span className="absolute bottom-0 inset-x-0 bg-slate-950/75 text-white text-[9px] font-semibold px-1 py-0.5 truncate pointer-events-none">
+                  {d.name || t('common.doctor')}
+                </span>
+              </div>
+            ))}
+          </div>
         )}
 
         {!observeMode && localPreview && (
