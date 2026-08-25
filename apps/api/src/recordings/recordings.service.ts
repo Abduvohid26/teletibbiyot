@@ -16,7 +16,7 @@ export class RecordingsService {
   private async assertAccess(consultationId: string, user: AuthUser) {
     const consultation = await this.prisma.consultation.findUnique({
       where: { id: consultationId },
-      select: { utId: true, mtDoctorId: true, status: true, consentGiven: true },
+      select: { id: true, utId: true, mtDoctorId: true, status: true, consentGiven: true },
     });
     if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
     await this.access.assertConsultationAccess(user, consultation);

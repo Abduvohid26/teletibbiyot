@@ -18,7 +18,12 @@ export interface AuthUser {
  * uchun eski chaqiruv joylari ham to'g'ri ishlaydi.
  */
 export interface ConsultationAccessTarget {
-  id?: string;
+  /**
+   * MAJBURIY: konsilium ishtirokchisini bazadan tekshirish uchun kerak.
+   * Ilgari ixtiyoriy edi va `select` da `id` unutilgan joylarda maslahatchi
+   * shifokor "kirish huquqi yo'q" xatosini olardi.
+   */
+  id: string;
   utId: string;
   mtDoctorId: string | null;
   status: string;

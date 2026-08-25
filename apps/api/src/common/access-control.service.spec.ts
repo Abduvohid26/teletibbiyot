@@ -19,6 +19,7 @@ describe('AccessControlService', () => {
     it('UT faqat o\'z muassasasidagi konsultatsiyaga kiradi', () => {
       expect(
         service.canAccessConsultation(utUser, {
+          id: 'c-test',
           utId: 'fac-ut',
           mtDoctorId: null,
           status: ConsultationStatus.QUEUED,
@@ -27,6 +28,7 @@ describe('AccessControlService', () => {
 
       expect(
         service.canAccessConsultation(utUser, {
+          id: 'c-test',
           utId: 'fac-other',
           mtDoctorId: null,
           status: ConsultationStatus.QUEUED,
@@ -37,6 +39,7 @@ describe('AccessControlService', () => {
     it('MT shifokor faqat o\'ziga biriktirilgan konsultatsiyaga kiradi', () => {
       expect(
         service.canAccessConsultation(mtDoctor, {
+          id: 'c-test',
           utId: 'fac-ut',
           mtDoctorId: 'd1',
           status: ConsultationStatus.IN_PROGRESS,
@@ -45,6 +48,7 @@ describe('AccessControlService', () => {
 
       expect(
         service.canAccessConsultation(mtDoctor, {
+          id: 'c-test',
           utId: 'fac-ut',
           mtDoctorId: null,
           status: ConsultationStatus.QUEUED,
@@ -53,6 +57,7 @@ describe('AccessControlService', () => {
 
       expect(
         service.canAccessConsultation(mtDoctor, {
+          id: 'c-test',
           utId: 'fac-ut',
           mtDoctorId: 'other-doctor',
           status: ConsultationStatus.QUEUED,
@@ -61,6 +66,7 @@ describe('AccessControlService', () => {
 
       expect(
         service.canAccessConsultation(mtDoctor, {
+          id: 'c-test',
           utId: 'fac-ut',
           mtDoctorId: 'other-doctor',
           status: ConsultationStatus.IN_PROGRESS,
@@ -71,6 +77,7 @@ describe('AccessControlService', () => {
     it('MT konsiliumga chaqirilgan konsultatsiyaga ham kiradi', () => {
       expect(
         service.canAccessConsultation(mtDoctor, {
+          id: 'c-test',
           utId: 'fac-ut',
           mtDoctorId: 'other-doctor',
           status: ConsultationStatus.IN_PROGRESS,
@@ -81,6 +88,7 @@ describe('AccessControlService', () => {
       // Konsiliumdan chiqarilgan shifokor kira olmaydi
       expect(
         service.canAccessConsultation(mtDoctor, {
+          id: 'c-test',
           utId: 'fac-ut',
           mtDoctorId: 'other-doctor',
           status: ConsultationStatus.IN_PROGRESS,
@@ -101,6 +109,7 @@ describe('AccessControlService', () => {
     it('Admin klinik konsultatsiyaga kira olmaydi', () => {
       expect(
         service.canAccessConsultation(admin, {
+          id: 'c-test',
           utId: 'fac-ut',
           mtDoctorId: null,
           status: ConsultationStatus.QUEUED,
@@ -113,6 +122,7 @@ describe('AccessControlService', () => {
     it('admin uchun ForbiddenException', async () => {
       await expect(
         service.assertConsultationAccess(admin, {
+          id: 'c-test',
           utId: 'x',
           mtDoctorId: null,
           status: ConsultationStatus.QUEUED,

@@ -41,7 +41,7 @@ export class DicomService {
   async getViewerUrl(attachmentId: string, user: AuthUser) {
     const attachment = await this.prisma.attachment.findUnique({
       where: { id: attachmentId },
-      include: { consultation: { select: { utId: true, mtDoctorId: true, status: true } } },
+      include: { consultation: { select: { id: true, utId: true, mtDoctorId: true, status: true } } },
     });
     if (!attachment) throw new NotFoundException('Fayl topilmadi');
     await this.access.assertConsultationAccess(user, attachment.consultation);
