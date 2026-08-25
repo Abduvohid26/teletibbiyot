@@ -2049,6 +2049,8 @@ export function useP2PVideoRoom({
     confirmPreflight,
     cancelPreflight,
     reloadMedia,
+    // P2P: nishonli almashtirish yo'q — to'liq qayta olish
+    applyCameraMapping: reloadMedia,
     cameraPermissionNeeded,
     requestCameraAccess,
     qualityPreset: qualityPresetRef.current,

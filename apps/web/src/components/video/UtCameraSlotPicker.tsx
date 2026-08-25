@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { useMediaDevices } from '@/hooks/use-media-devices';
 import { loadMediaPreferences, saveMediaPreferences } from '@/lib/media-preferences';
 import { useI18n } from '@/i18n';
+import { utCameraSlotLabelKey } from '@/i18n/labels';
 
 interface UtCameraSlotPickerProps {
   /** Katakcha identifikatori: main | close | room | equipment */
@@ -31,7 +32,8 @@ export function UtCameraSlotPicker({
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState('');
 
-  const [usedElsewhere, setUsedElsewhere] = useState<Set<string>>(new Set());
+  /** deviceId → qaysi katakda turgani (masalan 'close' → "Bemor") */
+  const [usedElsewhere, setUsedElsewhere] = useState<Record<string, string>>({});
 
   const videoInputs = devices.filter((d) => d.kind === 'videoinput');
 
@@ -39,11 +41,12 @@ export function UtCameraSlotPicker({
     const mapping = loadMediaPreferences().utCameraMapping;
     setSelected(mapping[slotId] || '');
     setUsedElsewhere(
-      new Set(
-        Object.entries(mapping)
-          .filter(([key, value]) => key !== slotId && !!value)
-          .map(([, value]) => value),
-      ),
+      Object.entries(mapping)
+        .filter(([key, value]) => key !== slotId && !!value)
+        .reduce<Record<string, string>>((acc, [key, value]) => {
+          acc[value] = key;
+          return acc;
+        }, {}),
     );
   }, [slotId, open]);
 
@@ -102,8 +105,11 @@ export function UtCameraSlotPicker({
                 hint={
                   busyDeviceIds.includes(d.deviceId)
                     ? t('media.cameraBusyShort')
-                    : usedElsewhere.has(d.deviceId)
-                      ? t('media.movesFromOtherSlot')
+                    : usedElsewhere[d.deviceId]
+                      // Qaysi katakda turganini aniq ko'rsatamiz: "Bemor katagida"
+                      ? t('media.usedInSlot', {
+                        slot: t(utCameraSlotLabelKey(usedElsewhere[d.deviceId])),
+                      })
                       : undefined
                 }
                 busy={busyDeviceIds.includes(d.deviceId)}

@@ -14,7 +14,7 @@ import {
   type RemoteTrack,
   type RemoteTrackPublication,
 } from 'livekit-client';
-import { captureUtCameraStreams, stopAllStreams } from '@/lib/ut-camera-capture';
+import { captureUtCameraStreams, openCamera, stopAllStreams, stopStream } from '@/lib/ut-camera-capture';
 import { isUtStreamLive, mapUniqueUtCameraStreams } from '@/lib/ut-camera-streams';
 import { useSharedVideoSocket } from '@/hooks/use-shared-video-socket';
 import { leaveConsultationRoom } from '@/lib/video-socket-client';
@@ -120,6 +120,17 @@ export function useLivekitRoom({
    */
   const connectGenRef = useRef(0);
   const publishedRoomRef = useRef<Room | null>(null);
+  /**
+   * `cameraId → track sid` — qaysi trek ayni paytda shu katakni to'ldirayotgani.
+   *
+   * Busiz stale (kechikkan) `TrackUnsubscribed` hodisasi YANGI trekni o'chirib
+   * yuborardi: UT qayta publish qilganda eski trekning uzilishi ko'pincha
+   * yangisining obunasidan KEYIN keladi va katak (ko'pincha oxirgi publish
+   * bo'ladigan "Qurilmalar") shifokorda bo'sh qolardi.
+   */
+  const cameraTrackSidRef = useRef<Map<string, string>>(new Map());
+  /** Publish qilinmay qolgan UT kameralarini qaytadan urinish taymeri */
+  const republishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Avtomatik qayta ulanish holati */
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reconnectAttemptRef = useRef(0);
@@ -208,6 +219,7 @@ export function useLivekitRoom({
       }));
     }
 
+    cameraTrackSidRef.current.set(cameraId, publication.trackSid);
     setRemoteCameras((prev) => {
       const next = { ...prev };
       next[cameraId] = stream;
@@ -247,6 +259,9 @@ export function useLivekitRoom({
       });
       return;
     }
+    // Faqat AYNAN shu trek hali ham katakni egallab tursa o'chiramiz.
+    if (cameraTrackSidRef.current.get(cameraId) !== publication.trackSid) return;
+    cameraTrackSidRef.current.delete(cameraId);
     setRemoteCameras((prev) => {
       const next = { ...prev };
       delete next[cameraId];
@@ -264,7 +279,45 @@ export function useLivekitRoom({
     setPeerDisplayName(name || lastPeerNameRef.current);
   }, [role]);
 
-  const publishLocalTracks = useCallback(async (room: Room, gen: number) => {
+  /** Shu nomli trek allaqachon (va tirik holda) e'lon qilinganmi */
+  const hasPublishedName = useCallback((room: Room, name: string) => {
+    for (const pub of room.localParticipant.trackPublications.values()) {
+      if (pub.trackName === name && pub.track?.mediaStreamTrack?.readyState === 'live') {
+        return true;
+      }
+    }
+    return false;
+  }, []);
+
+  /** Yetishmayotgan UT kameralarini qayta e'lon qilish (maks. 5 urinish) */
+  const scheduleFeedRepairRef = useRef<(room: Room, gen: number, attempt: number) => void>(
+    () => undefined,
+  );
+
+  /**
+   * Obunani "tekislash": e'lon qilingan, lekin bizda ko'rinmayotgan treklarni
+   * qo'lga olamiz. `TrackSubscribed` hodisasi qayta ulanish paytida yoki biz
+   * hali handler qo'ymasdan kelib qolgan bo'lsa yo'qolishi mumkin — o'shanda
+   * shifokorda katak (ko'pincha oxirgi e'lon qilinadigan "Qurilmalar") bo'sh
+   * qolardi.
+   */
+  const resyncSubscriptions = useCallback((room: Room) => {
+    for (const participant of room.remoteParticipants.values()) {
+      for (const pub of participant.trackPublications.values()) {
+        if (!pub.isSubscribed) {
+          try {
+            pub.setSubscribed(true);
+          } catch {
+            /* obuna keyinroq hodisa orqali keladi */
+          }
+          continue;
+        }
+        if (pub.track) attachRemoteTrack(pub.track as RemoteTrack, pub, participant);
+      }
+    }
+  }, [attachRemoteTrack]);
+
+  const publishLocalTracks = useCallback(async (room: Room, gen: number, repairAttempt = 0) => {
     if (!isPublisher) return;
     // Har publish oldidan tekshiramiz: xona hali tirikmi va bu urinish eskirmaganmi.
     // `publishTrack` uzilgan xonada `pcManager is undefined` bilan yiqiladi.
@@ -314,7 +367,7 @@ export function useLivekitRoom({
       const stream = localStreamsRef.current.get(MT_DOCTOR_STREAM_ID);
       const video = stream?.getVideoTracks().find((t) => t.readyState === 'live');
       const audio = stream?.getAudioTracks().find((t) => t.readyState === 'live');
-      if (video && stillValid()) {
+      if (video && stillValid() && !hasPublishedName(room, 'cam-doctor')) {
         const local = new LocalVideoTrack(video);
         await room.localParticipant.publishTrack(local, {
           name: 'cam-doctor',
@@ -323,7 +376,7 @@ export function useLivekitRoom({
         });
         local.mediaStreamTrack.enabled = camOnRef.current;
       }
-      if (audio && stillValid()) {
+      if (audio && stillValid() && !hasPublishedName(room, 'mic')) {
         const local = new LocalAudioTrack(audio);
         await room.localParticipant.publishTrack(local, {
           name: 'mic',
@@ -336,21 +389,42 @@ export function useLivekitRoom({
       return;
     }
 
-    for (const feedId of UT_CAMERA_ORDER) {
+    /**
+     * Har bir kamera ALOHIDA himoyalanadi.
+     *
+     * Ilgari bu tsikl himoyasiz `await` edi: bitta kameraning publish'i
+     * yiqilsa (kodek/CPU/tarmoq), butun tsikl uzilib, undan KEYINGI feed'lar
+     * umuman e'lon qilinmasdi. `UT_CAMERA_ORDER` da "equipment" (Qurilmalar)
+     * OXIRGI — aynan u shifokorda "goh chiqadi, goh chiqmaydi" bo'lardi.
+     */
+    const publishFeed = async (feedId: string): Promise<boolean> => {
       const stream = localStreamsRef.current.get(feedId);
       const video = stream?.getVideoTracks().find((t) => t.readyState === 'live');
-      if (!video || !stillValid()) continue;
-      const local = new LocalVideoTrack(video);
-      await room.localParticipant.publishTrack(local, {
-        name: `cam-${feedId}`,
-        source: Track.Source.Camera,
-        ...videoOpts,
-      });
-      local.mediaStreamTrack.enabled = camOnRef.current;
+      if (!video) return true; // bunday kamera yo'q — publish qilish shart emas
+      if (!stillValid()) return false;
+      if (hasPublishedName(room, `cam-${feedId}`)) return true;
+      try {
+        const local = new LocalVideoTrack(video);
+        await room.localParticipant.publishTrack(local, {
+          name: `cam-${feedId}`,
+          source: Track.Source.Camera,
+          ...videoOpts,
+        });
+        local.mediaStreamTrack.enabled = camOnRef.current;
+        return true;
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn(`[SFU] "${feedId}" kamerasini e'lon qilib bo'lmadi:`, err);
+        return false;
+      }
+    };
+
+    for (const feedId of UT_CAMERA_ORDER) {
+      await publishFeed(feedId);
     }
     const audioStream = localStreamsRef.current.get('ut-audio');
     const audio = audioStream?.getAudioTracks().find((t) => t.readyState === 'live');
-    if (audio && stillValid()) {
+    if (audio && stillValid() && !hasPublishedName(room, 'mic')) {
       const local = new LocalAudioTrack(audio);
       await room.localParticipant.publishTrack(local, {
         name: 'mic',
@@ -360,13 +434,47 @@ export function useLivekitRoom({
       });
       local.mediaStreamTrack.enabled = micOnRef.current;
     }
-  }, [isPublisher, role]);
+    // Yiqilgan feed'lar uchun tiklash: yetishmayotganini qayta e'lon qilib
+    // turamiz — bir marta yiqilgan kamera shifokorda abadiy yo'q qolmasin.
+    scheduleFeedRepairRef.current(room, gen, repairAttempt);
+  }, [hasPublishedName, isPublisher, role]);
+
+  /**
+   * Publish qilinmay qolgan UT kameralarini qayta e'lon qiladi.
+   * 3s → 6s → 12s ... maksimum 5 urinish; hammasi joyida bo'lsa to'xtaydi.
+   */
+  const scheduleFeedRepair = useCallback((room: Room, gen: number, attempt: number) => {
+    if (role !== 'ut' || attempt >= 5) return;
+    if (republishTimerRef.current) clearTimeout(republishTimerRef.current);
+    republishTimerRef.current = setTimeout(() => {
+      republishTimerRef.current = null;
+      if (gen !== connectGenRef.current || roomRef.current !== room) return;
+      if (room.state !== 'connected') return;
+      const missing = UT_CAMERA_ORDER.filter((feedId) => {
+        const stream = localStreamsRef.current.get(feedId);
+        const live = stream?.getVideoTracks().some((t) => t.readyState === 'live');
+        return live && !hasPublishedName(room, `cam-${feedId}`);
+      });
+      if (!missing.length) return;
+      // eslint-disable-next-line no-console
+      console.warn('[SFU] e\'lon qilinmagan kameralar qayta urinilmoqda:', missing);
+      // Keyingi urinish publishLocalTracks ichidan rejalashtiriladi.
+      void publishLocalTracks(room, gen, attempt + 1);
+    }, Math.min(3000 * 2 ** attempt, 20000));
+  }, [hasPublishedName, publishLocalTracks, role]);
+
+  scheduleFeedRepairRef.current = scheduleFeedRepair;
 
   const teardownRoom = useCallback(async () => {
     // Generatsiyani oshiramiz — jarayondagi connect/publish endi "eskirgan"
     // hisoblanadi va o'zini jimgina to'xtatadi.
     connectGenRef.current += 1;
     publishedRoomRef.current = null;
+    if (republishTimerRef.current) {
+      clearTimeout(republishTimerRef.current);
+      republishTimerRef.current = null;
+    }
+    cameraTrackSidRef.current.clear();
     const room = roomRef.current;
     roomRef.current = null;
     setSfuConnected(false);
@@ -392,6 +500,7 @@ export function useLivekitRoom({
     // faqat `enabled`/`consultationId` ga bog'liq (pastdagi alohida effekt).
     stopAllStreams(localStreamsRef.current);
     localStreamsRef.current.clear();
+    cameraTrackSidRef.current.clear();
     setLocalCameraFeeds({});
     setLocalPreview(null);
     setVitalsStream(null);
@@ -521,7 +630,16 @@ export function useLivekitRoom({
     room.on(RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
       detachRemoteTrack(publication, participant);
     });
-    room.on(RoomEvent.ParticipantConnected, () => refreshPeers(room));
+    room.on(RoomEvent.ParticipantConnected, () => {
+      refreshPeers(room);
+      resyncSubscriptions(room);
+    });
+    room.on(RoomEvent.TrackPublished, () => resyncSubscriptions(room));
+    room.on(RoomEvent.TrackSubscriptionFailed, (sid, participant) => {
+      // eslint-disable-next-line no-console
+      console.warn('[SFU] trekka obuna bo\'lib bo\'lmadi:', sid, participant?.identity);
+      resyncSubscriptions(room);
+    });
     room.on(RoomEvent.ParticipantDisconnected, (participant) => {
       // Chiqib ketgan ishtirokchining oynasi va ovozi osilib qolmasin
       setRemoteDoctors((prev) => {
@@ -549,6 +667,12 @@ export function useLivekitRoom({
       reconnectAttemptRef.current = 0;
       setReconnecting(false);
       setError('');
+      // Qayta ulanishdan keyin obunalar ham, o'z treklarimiz ham tiklanishi kerak.
+      resyncSubscriptions(room);
+      const current = roomRef.current;
+      if (current === room && isPublisher) {
+        void publishLocalTracks(room, connectGenRef.current);
+      }
     });
     room.on(RoomEvent.Disconnected, (reason) => {
       // Sababni ochiq yozamiz — tashxis uchun eng qimmatli ma'lumot.
@@ -629,13 +753,17 @@ export function useLivekitRoom({
     setSfuConnected(true);
     setReconnecting(false);
     refreshPeers(room);
+    resyncSubscriptions(room);
     // Treklar bu yerda EMAS, alohida effektda publish qilinadi — media hali
     // tayyor bo'lmasligi mumkin va uni kutib o'tirish qo'shilishni sekinlashtiradi.
   }, [
     attachRemoteTrack,
     consultationId,
     detachRemoteTrack,
+    isPublisher,
+    publishLocalTracks,
     refreshPeers,
+    resyncSubscriptions,
     sfuToken,
     sfuUrl,
     teardownRoom,
@@ -964,9 +1092,103 @@ export function useLivekitRoom({
     await teardownRoom();
     stopAllStreams(localStreamsRef.current);
     localStreamsRef.current.clear();
+    cameraTrackSidRef.current.clear();
     setMediaReady(false);
     await setupLocalMedia();
   }, [setupLocalMedia, teardownRoom]);
+
+  /**
+   * Kamera biriktiruvi o'zgarganda FAQAT o'zgargan katakni almashtiradi.
+   *
+   * Ilgari bu yerda `reloadMedia()` chaqirilardi — u esa `teardownRoom()` orqali
+   * SFU xonasidan butunlay chiqib, qaytadan ulanardi. Natijada bitta kamerani
+   * almashtirsangiz butun seans "Ulanmoqda..." holatiga tushib, shifokor
+   * tomonda "Shifokor kutilmoqda" ko'rinardi. Endi xona ham, qolgan uchta
+   * kamera ham tegilmaydi: eski trek unpublish qilinadi, yangisi publish.
+   */
+  const applyCameraMapping = useCallback(async () => {
+    if (role !== 'ut') {
+      // Shifokorda bitta kamera — eski yo'l (u yerda ham xona uzilmasin deb
+      // alohida ishlov kerak bo'lsa, keyin qo'shiladi).
+      await reloadMedia();
+      return;
+    }
+
+    const prefs = loadMediaPreferences();
+    qualityPresetRef.current = prefs.qualityPreset;
+    const room = roomRef.current;
+    const roomLive = !!room && room.state === 'connected';
+
+    const currentDeviceId = (feedId: string) =>
+      localStreamsRef.current.get(feedId)?.getVideoTracks()[0]?.getSettings().deviceId ?? '';
+
+    const changed = UT_CAMERA_ORDER.filter(
+      (feedId) => (prefs.utCameraMapping[feedId]?.trim() || '') !== currentDeviceId(feedId),
+    );
+    if (!changed.length) return;
+
+    /** Katakni bo'shatish: publikatsiyani olib tashlash + kamerani yopish */
+    const releaseFeed = async (feedId: string) => {
+      if (roomLive && room) {
+        for (const pub of room.localParticipant.trackPublications.values()) {
+          if (pub.trackName === `cam-${feedId}` && pub.track) {
+            try {
+              await room.localParticipant.unpublishTrack(pub.track, true);
+            } catch {
+              /* trek allaqachon yopilgan bo'lishi mumkin */
+            }
+          }
+        }
+      }
+      stopStream(localStreamsRef.current.get(feedId));
+      localStreamsRef.current.delete(feedId);
+      setLocalCameraFeeds((prev) => {
+        const next = { ...prev };
+        delete next[feedId];
+        return next;
+      });
+    };
+
+    // 1-bosqich: o'zgargan kataklarni bo'shatamiz. Kamera boshqa katakka
+    // ko'chirilayotgan bo'lsa, avval eski katakdan uzilishi SHART — aks holda
+    // qurilma band bo'lib, yangi katakda ochilmaydi.
+    for (const feedId of changed) {
+      await releaseFeed(feedId);
+    }
+
+    // 2-bosqich: yangi kameralarni ochamiz
+    const busy: string[] = [];
+    const opened: string[] = [];
+    for (const feedId of changed) {
+      const deviceId = prefs.utCameraMapping[feedId]?.trim();
+      if (!deviceId) continue;
+      const stream = await openCamera(prefs, deviceId);
+      if (!stream) {
+        busy.push(deviceId);
+        continue;
+      }
+      opened.push(deviceId);
+      localStreamsRef.current.set(feedId, stream);
+      setLocalCameraFeeds((prev) => ({ ...prev, [feedId]: stream }));
+    }
+    // "Band" belgisi: muvaffaqiyatli ochilganlar olib tashlanadi, tegilmagan
+    // kataklarning avvalgi holati saqlanadi.
+    setBusyCameraIds((prev) => [
+      ...new Set([...prev.filter((id) => !opened.includes(id)), ...busy]),
+    ]);
+
+    // Ko'rinish/vital oqimlari yangi holatga moslashsin
+    const streams = localStreamsRef.current;
+    const main = streams.get('main') ?? streams.get('close') ?? null;
+    setLocalPreview(main ?? null);
+    setVitalsStream(streams.get('equipment') ?? streams.get('room') ?? main ?? null);
+
+    // 3-bosqich: faqat yetishmayotgan treklar publish qilinadi
+    // (`publishLocalTracks` allaqachon e'lon qilinganlarini o'tkazib yuboradi).
+    if (roomLive && room) {
+      await publishLocalTracks(room, connectGenRef.current);
+    }
+  }, [publishLocalTracks, reloadMedia, role]);
 
   const requestCameraAccess = useCallback(async () => {
     setCameraPermissionNeeded(false);
@@ -1054,6 +1276,7 @@ export function useLivekitRoom({
     confirmPreflight,
     cancelPreflight,
     reloadMedia,
+    applyCameraMapping,
     cameraPermissionNeeded,
     requestCameraAccess,
     qualityPreset: qualityPresetRef.current,

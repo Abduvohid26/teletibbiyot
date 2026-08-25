@@ -71,11 +71,10 @@ export function UtConsultationSession({ consultation, patientName }: UtConsultat
   };
 
   /**
-   * Kamera biriktiruvi o'zgargach oqimlarni darhol qayta oladi.
-   * Xonadan chiqmaymiz — reloadMedia mahalliy media'ni qayta oladi va
-   * ulanishni qayta kelishuvga oladi, shifokor bilan aloqa uzilmaydi.
+   * Kamera biriktiruvi o'zgargach FAQAT o'sha katak almashtiriladi.
+   * SFU xonasi uzilmaydi, qolgan kameralar va shifokor bilan aloqa saqlanadi.
    */
-  const handleReconnect = () => video.reloadMedia();
+  const handleReconnect = () => video.applyCameraMapping();
 
   const handleLeave = () => {
     video.leaveCall();

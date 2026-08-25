@@ -1,6 +1,7 @@
 import { UT_CAMERA_FEEDS, UT_CAMERA_ORDER } from './video-config';
 import type { MediaPreferences } from './media-preferences';
-import { getAudioConstraints, getUtVideoConstraints, acquireUserMedia } from './webrtc-quality';
+import { getAudioConstraints, getUtVideoConstraints, acquireUserMedia } from './webrtc-quality';
+
 import { dedupeVideoInputs } from './video-input-devices';
 
 type CaptureMap = Map<string, MediaStream>;
@@ -21,7 +22,7 @@ export interface CaptureResult {
  * o'rniga standart kamerani qaytaradi va u barcha katakchalarda takrorlanib ketadi.
  * Ochilmasa — katak bo'sh qolgani rost ma'lumot beradi.
  */
-async function openCamera(
+export async function openCamera(
   prefs: MediaPreferences,
   deviceId: string,
 ): Promise<MediaStream | null> {

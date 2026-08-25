@@ -33,3 +33,19 @@ export function triageLabelKey(level?: string | null): string {
 export function genderLabelKey(gender: string): string {
   return gender === 'MALE' ? 'common.male' : 'common.female';
 }
+
+
+/** UT kamera katagi nomi — "Asosiy | Bemor | Xona | Qurilmalar" */
+export function utCameraSlotLabelKey(slotId: string): string {
+  switch (slotId) {
+    case 'close':
+      return 'video.camPatient';
+    case 'room':
+      return 'video.camRoom';
+    case 'equipment':
+      return 'video.camEquipment';
+    case 'main':
+    default:
+      return 'video.camMain';
+  }
+}

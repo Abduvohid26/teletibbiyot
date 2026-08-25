@@ -1177,6 +1177,7 @@ const ru: MessageTree = {
     pickCameraForSlot: 'Выбрать камеру для этой плитки',
     slotNotUsed: 'Не используется',
     movesFromOtherSlot: 'в другой ячейке',
+    usedInSlot: 'в ячейке «{slot}»',
     cameraBusyShort: 'занята',
     unnamedCamera: 'Безымянная камера',
     noCameras: 'Камеры не найдены',

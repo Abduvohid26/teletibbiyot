@@ -1177,6 +1177,7 @@ const en: MessageTree = {
     pickCameraForSlot: 'Pick a camera for this tile',
     slotNotUsed: 'Not used',
     movesFromOtherSlot: 'in another slot',
+    usedInSlot: 'in the {slot} slot',
     cameraBusyShort: 'busy',
     unnamedCamera: 'Unnamed camera',
     noCameras: 'No cameras found',

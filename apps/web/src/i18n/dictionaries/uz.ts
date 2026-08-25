@@ -1178,6 +1178,7 @@ const uz: MessageTree = {
     pickCameraForSlot: 'Bu katak uchun kamera tanlash',
     slotNotUsed: 'Ishlatilmasin',
     movesFromOtherSlot: "boshqa katakda",
+    usedInSlot: '{slot} katagida',
     cameraBusyShort: 'band',
     unnamedCamera: 'Nomsiz kamera',
     noCameras: 'Kamera topilmadi',
