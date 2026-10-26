@@ -162,9 +162,12 @@ export class HttpClient {
     if (res.status === 401) {
       const err = await this.parseJsonBody<{ message?: string | string[] }>(res).catch(() => ({ message: translateClient('http.sessionExpired') }));
       const msg = err.message;
-      const message = Array.isArray(msg)
-        ? msg.join(', ')
-        : (msg || (path === '/auth/login' ? translateClient('http.badCredentials') : translateClient('http.sessionExpired')));
+      // Login xatosi foydalanuvchi tilida bo'lsin (server matni faqat o'zbekcha)
+      const message = path === '/auth/login'
+        ? translateClient('http.badCredentials')
+        : Array.isArray(msg)
+          ? msg.join(', ')
+          : (msg || translateClient('http.sessionExpired'));
 
       if (path !== '/auth/login' && path !== '/auth/me') {
         this.setToken(null);

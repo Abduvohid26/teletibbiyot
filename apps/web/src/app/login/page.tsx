@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Eye, EyeOff, Activity, Lock } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowLeft, ArrowRight, Eye, EyeOff, Info, Loader2, ShieldCheck, Stethoscope, Users } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { getRoleHomePath } from '@/lib/auth-utils';
 import { BrandName } from '@/components/brand/BrandName';
@@ -13,10 +14,26 @@ import { Alert } from '@/components/ui/Alert';
 import { FormField } from '@/components/ui/FormField';
 import { LanguageSwitcher, useI18n } from '@/i18n';
 
+const ROLES = [
+  { key: 'ut', titleKey: 'roles.utOperator', bodyKey: 'login.roleUt', icon: Users },
+  { key: 'doctor', titleKey: 'roles.mtDoctor', bodyKey: 'login.roleDoctor', icon: Stethoscope },
+  { key: 'admin', titleKey: 'roles.admin', bodyKey: 'login.roleAdmin', icon: ShieldCheck },
+] as const;
+
+/** Faqat dev: seed hisoblar — bosilsa forma to'ldiriladi */
+const DEV_ACCOUNTS = [
+  { titleKey: 'roles.utOperator', email: 'operator@ishifo.uz' },
+  { titleKey: 'roles.mtDoctor', email: 'doctor@ishifo.uz' },
+  { titleKey: 'roles.admin', email: 'admin@ishifo.uz' },
+] as const;
+// Prod bundle'ga tushmasin — NODE_ENV build paytida almashtiriladi
+const DEV_PASSWORD = process.env.NODE_ENV === 'development' ? 'password123' : '';
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [capsLock, setCapsLock] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login, user } = useAuth();
@@ -24,11 +41,15 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim() || !password) {
+      setError(t('login.fillBoth'));
+      return;
+    }
     setError('');
     setLoading(true);
 
     try {
-      const result = await login(email, password);
+      const result = await login(email.trim(), password);
       const role = result.user?.role || user?.role;
       if (!role) {
         setError(t('login.fail'));
@@ -43,70 +64,99 @@ export default function LoginPage() {
     }
   };
 
+  const onPasswordKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    setCapsLock(e.getModifierState?.('CapsLock') ?? false);
+  };
+
   return (
-    <div className="min-h-screen flex bg-surface">
-      <div className="hidden lg:flex lg:w-[52%] relative overflow-hidden p-12 flex-col justify-between text-white">
-        <div className="absolute inset-0 bg-gradient-to-br from-brand-700 via-brand-900 to-brand-950" />
-        <div className="absolute inset-0 opacity-30">
-          <div className="absolute top-20 left-10 w-72 h-72 bg-white/10 rounded-full blur-3xl" />
-          <div className="absolute bottom-20 right-10 w-96 h-96 bg-gold-400/10 rounded-full blur-3xl" />
-        </div>
+    <div className="flex min-h-screen bg-[#f2f4f8]">
+      {/* Chap — brend paneli */}
+      <aside className="relative hidden w-[46%] flex-col justify-between overflow-hidden bg-brand-950 p-10 text-white lg:flex xl:p-12">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-60"
+          style={{
+            backgroundImage: 'radial-gradient(rgb(255 255 255 / 0.07) 1px, transparent 1px)',
+            backgroundSize: '22px 22px',
+          }}
+          aria-hidden
+        />
+        <div className="pointer-events-none absolute -right-40 top-1/3 h-[30rem] w-[30rem] rounded-full bg-brand-600/30 blur-3xl" aria-hidden />
 
-        <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-10">
-            <BrandLogo size={48} className="rounded-2xl ring-1 ring-white/25" />
-            <div>
-              <h1 className="text-2xl tracking-tight"><BrandName size="xl" className="text-white" /></h1>
-              <p className="text-brand-200 text-sm font-medium">
+        <div className="relative">
+          <Link href="/" className="inline-flex items-center gap-3">
+            <BrandLogo size={44} className="rounded-xl ring-1 ring-white/20" />
+            <span>
+              <BrandName size="xl" className="text-white" />
+              <span className="block text-xs font-medium text-gold-300">
                 {t('brand.platformOf', { name: BRAND.supporterShort })}
-              </p>
-            </div>
-            <FjstiEmblem size={52} className="ml-auto ring-2 ring-white/25 shadow-lg" />
-          </div>
-          <h2 className="text-4xl font-extrabold leading-tight mb-5 tracking-tight">
+              </span>
+            </span>
+          </Link>
+
+          <h1 className="mt-14 max-w-md font-serif text-4xl font-semibold leading-[1.15]">
             {t('login.heroTitle')}
-          </h2>
-          <p className="text-brand-100 text-lg leading-relaxed max-w-lg">
-            {t('login.heroBody')}
-          </p>
+          </h1>
+          <p className="mt-5 max-w-md leading-relaxed text-slate-300">{t('login.heroBody')}</p>
 
-          <div className="mt-10 grid grid-cols-2 gap-4 max-w-md">
-            <FeaturePill icon={Activity} text={t('login.featureVideo')} />
-            <FeaturePill icon={Lock} text={t('login.featureSecure')} />
+          <div className="mt-10 max-w-md">
+            <p className="flex items-center gap-3 text-xs font-bold uppercase tracking-[0.16em] text-gold-300">
+              <span className="h-px w-8 bg-gold-400" />
+              {t('login.rolesTitle')}
+            </p>
+            <ul className="mt-4 space-y-2">
+              {ROLES.map(({ key, titleKey, bodyKey, icon: Icon }) => (
+                <li key={key} className="flex items-center gap-3 rounded-xl bg-white/[0.05] px-4 py-3 ring-1 ring-white/10">
+                  <Icon size={18} className="shrink-0 text-gold-300" />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold">{t(titleKey)}</span>
+                    <span className="block text-xs text-slate-400">{t(bodyKey)}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
 
-        <div className="relative z-10">
+        <div className="relative flex items-end justify-between gap-6">
           <PlatformFooter variant="dark" />
+          <FjstiEmblem size={48} className="shrink-0 ring-white/20" />
         </div>
-      </div>
+      </aside>
 
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-10">
-        <div className="w-full max-w-md animate-slide-up">
-          <div className="lg:hidden flex items-center gap-2.5 mb-8">
-            <BrandLogo size={40} />
-            <h1 className="text-xl text-slate-900"><BrandName size="lg" /></h1>
-          </div>
+      {/* O'ng — forma */}
+      <main className="flex flex-1 flex-col">
+        <div className="flex items-center justify-between gap-3 px-5 py-4 sm:px-8">
+          <Link href="/" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-brand-950">
+            <ArrowLeft size={15} /> {t('login.backHome')}
+          </Link>
+          <LanguageSwitcher compact />
+        </div>
 
-          <div className="panel p-8 shadow-panel">
-            <div className="flex items-start justify-between gap-3 mb-1">
-              <h2 className="text-2xl font-bold text-slate-900">{t('login.title')}</h2>
-              <LanguageSwitcher compact />
+        <div className="flex flex-1 items-center justify-center px-5 pb-10 sm:px-8">
+          <div className="w-full max-w-sm animate-slide-up">
+            <div className="mb-8 flex items-center gap-2.5 lg:hidden">
+              <BrandLogo size={40} />
+              <BrandName size="lg" className="text-brand-950" />
+              <FjstiEmblem size={32} className="ml-auto" />
             </div>
-            <p className="text-slate-500 mb-7 text-sm">{t('login.subtitle')}</p>
 
-            <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+            <h2 className="font-serif text-3xl font-semibold text-brand-950">{t('login.title')}</h2>
+            <p className="mt-1.5 text-sm text-slate-500">{t('login.subtitle')}</p>
+
+            <form onSubmit={handleSubmit} className="mt-8 space-y-5" noValidate>
               {error && <Alert variant="error">{error}</Alert>}
 
               <FormField id="login-email" label={t('login.email')} required>
                 <input
                   id="login-email"
                   type="email"
+                  inputMode="email"
                   autoComplete="email"
+                  autoFocus
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="input"
+                  className="input !rounded-lg"
                   placeholder="doctor@ishifo.uz"
                 />
               </FormField>
@@ -119,65 +169,82 @@ export default function LoginPage() {
                     autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    onKeyUp={onPasswordKey}
+                    onKeyDown={onPasswordKey}
+                    onBlur={() => setCapsLock(false)}
                     required
-                    className="input pr-11"
+                    className="input !rounded-lg pr-11"
                     placeholder="••••••••"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-2 rounded-lg"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-400 hover:text-slate-600"
                     aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
+                {capsLock && (
+                  <p className="mt-1.5 text-xs font-medium text-amber-700" role="status">
+                    {t('login.capsLock')}
+                  </p>
+                )}
               </FormField>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full gradient-btn py-3 rounded-xl disabled:opacity-50"
+                className="inline-flex min-h-[var(--touch-min)] w-full items-center justify-center gap-2 rounded-lg bg-brand-950 py-3 font-semibold text-white transition-colors hover:bg-brand-800 disabled:opacity-60"
               >
+                {loading ? <Loader2 size={17} className="animate-spin" /> : null}
                 {loading ? t('login.submitting') : t('login.submit')}
+                {!loading && <ArrowRight size={16} className="text-gold-400" />}
               </button>
+
+              <p className="flex items-start gap-2 text-xs leading-relaxed text-slate-500">
+                <Info size={14} className="mt-0.5 shrink-0 text-slate-400" />
+                {t('login.forgot')}
+              </p>
             </form>
-          </div>
 
-          {process.env.NODE_ENV === 'development' && (
-            <div className="mt-6 panel p-4 border-dashed">
-              <p className="text-xs font-semibold text-slate-600 mb-2">Test hisoblar (faqat dev):</p>
-              <div className="space-y-1 text-xs text-slate-500">
-                <p>UT Operator: operator@ishifo.uz</p>
-                <p>MT Shifokor: doctor@ishifo.uz</p>
-                <p>Admin: admin@ishifo.uz</p>
-                <p>Parol: password123</p>
+            {process.env.NODE_ENV === 'development' && (
+              <div className="mt-8 rounded-xl border border-dashed border-slate-300 p-3">
+                <p className="mb-2 text-xs font-semibold text-slate-500">{t('login.devAccounts')}</p>
+                <div className="grid gap-1.5">
+                  {DEV_ACCOUNTS.map((a) => (
+                    <button
+                      key={a.email}
+                      type="button"
+                      onClick={() => {
+                        setEmail(a.email);
+                        setPassword(DEV_PASSWORD);
+                        setError('');
+                      }}
+                      className="flex items-center justify-between rounded-lg bg-white px-3 py-2 text-left text-xs ring-1 ring-slate-200 hover:ring-brand-300"
+                    >
+                      <span className="font-semibold text-brand-950">{t(a.titleKey)}</span>
+                      <span className="text-slate-500">{a.email}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
+            )}
+
+            <p className="mt-8 text-center text-xs text-slate-400">
+              <a href="/privacy" className="hover:text-brand-700">{t('footer.privacy')}</a>
+              {' · '}
+              <a href="/terms" className="hover:text-brand-700">{t('footer.terms')}</a>
+              {' · '}
+              <a href={BRAND.openDataPath} className="hover:text-brand-700">{t('footer.openData')}</a>
+            </p>
+
+            <div className="mt-8 lg:hidden">
+              <PlatformFooter variant="compact" />
             </div>
-          )}
-
-          <p className="mt-6 text-center text-xs text-slate-400">
-            <a href="/privacy" className="hover:text-brand-600">{t('footer.privacy')}</a>
-            {' · '}
-            <a href="/terms" className="hover:text-brand-600">{t('footer.terms')}</a>
-            {' · '}
-            <a href={BRAND.openDataPath} className="hover:text-brand-600">{t('footer.openData')}</a>
-          </p>
-
-          <div className="mt-8 lg:hidden">
-            <PlatformFooter variant="compact" />
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function FeaturePill({ icon: Icon, text }: { icon: React.ElementType; text: string }) {
-  return (
-    <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-xl px-4 py-3 ring-1 ring-white/15">
-      <Icon size={16} />
-      <span className="text-sm font-medium">{text}</span>
+      </main>
     </div>
   );
 }
