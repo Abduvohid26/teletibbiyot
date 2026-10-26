@@ -1,6 +1,7 @@
 'use client';
 
-import { LogOut, Stethoscope } from 'lucide-react';
+import { LogOut } from 'lucide-react';
+import { BrandLogo } from '@/components/brand/BrandLogo';
 import { useAuth } from '@/lib/auth-context';
 import { BrandName } from '@/components/brand/BrandName';
 import { DoctorNavTabs } from '@/components/dashboard/DoctorNavTabs';
@@ -25,9 +26,7 @@ export function DoctorHeader({
     <header className="ut-shell-header ut-header-flux">
       <div className="app-header-row">
         <div className="ut-shell-brand shrink-0 min-w-0 justify-self-start">
-          <div className="w-8 h-8 rounded-lg gradient-btn flex items-center justify-center shadow-sm shrink-0">
-            <Stethoscope className="w-3.5 h-3.5 text-white" />
-          </div>
+          <BrandLogo size={32} className="rounded-lg" />
           <div className="min-w-0 hidden sm:block">
             <p className="text-xs font-bold text-slate-900 truncate max-w-[100px] md:max-w-[160px] lg:max-w-[200px]">
               {user?.fullName || t('roles.doctor')}

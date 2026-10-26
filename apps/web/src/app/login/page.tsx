@@ -1,10 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { Stethoscope, Eye, EyeOff, Activity, Lock } from 'lucide-react';
+import { Eye, EyeOff, Activity, Lock } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import { getRoleHomePath } from '@/lib/auth-utils';
 import { BrandName } from '@/components/brand/BrandName';
+import { BrandLogo } from '@/components/brand/BrandLogo';
+import { FjstiEmblem } from '@/components/brand/FjstiEmblem';
 import { PlatformFooter } from '@/components/layout/PlatformFooter';
 import { BRAND } from '@ishifo/shared';
 import { Alert } from '@/components/ui/Alert';
@@ -52,15 +54,14 @@ export default function LoginPage() {
 
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-10">
-            <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center ring-1 ring-white/20">
-              <Stethoscope className="w-6 h-6" />
-            </div>
+            <BrandLogo size={48} className="rounded-2xl ring-1 ring-white/25" />
             <div>
               <h1 className="text-2xl tracking-tight"><BrandName size="xl" className="text-white" /></h1>
               <p className="text-brand-200 text-sm font-medium">
                 {t('brand.platformOf', { name: BRAND.supporterShort })}
               </p>
             </div>
+            <FjstiEmblem size={52} className="ml-auto ring-2 ring-white/25 shadow-lg" />
           </div>
           <h2 className="text-4xl font-extrabold leading-tight mb-5 tracking-tight">
             {t('login.heroTitle')}
@@ -83,9 +84,7 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center p-6 sm:p-10">
         <div className="w-full max-w-md animate-slide-up">
           <div className="lg:hidden flex items-center gap-2.5 mb-8">
-            <div className="w-10 h-10 rounded-xl gradient-btn flex items-center justify-center">
-              <Stethoscope className="w-5 h-5 text-white" />
-            </div>
+            <BrandLogo size={40} />
             <h1 className="text-xl text-slate-900"><BrandName size="lg" /></h1>
           </div>
 

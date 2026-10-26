@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { LogOut, UserPlus, Stethoscope } from 'lucide-react';
+import { LogOut, UserPlus } from 'lucide-react';
+import { BrandLogo } from '@/components/brand/BrandLogo';
 import { UtNavTabs } from '@/components/ut/UtNavTabs';
 import { LanguageSwitcher, useI18n } from '@/i18n';
 
@@ -31,9 +32,7 @@ export function UtHeader({
     <header className="ut-shell-header ut-header-flux">
       <div className="app-header-row">
         <div className="ut-shell-brand shrink-0 min-w-0 justify-self-start">
-          <div className="w-8 h-8 rounded-lg gradient-btn flex items-center justify-center shadow-sm shrink-0">
-            <Stethoscope className="w-3.5 h-3.5 text-white" />
-          </div>
+          <BrandLogo size={32} className="rounded-lg" />
           <div className="min-w-0 hidden sm:block">
             <p className="text-xs font-bold text-slate-900 truncate max-w-[100px] md:max-w-[160px] lg:max-w-[200px]">
               {facilityName || t('roles.utOperator')}

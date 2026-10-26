@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import { BRAND, brandCopyright } from '@ishifo/shared';
 import { BrandName } from '@/components/brand/BrandName';
+import { FjstiEmblem } from '@/components/brand/FjstiEmblem';
+import { BrandLogo } from '@/components/brand/BrandLogo';
 import { LanguageSwitcher, useI18n } from '@/i18n';
 import { cn } from '@/lib/utils';
 
@@ -86,8 +88,8 @@ export function LandingPage() {
 
           <div className="relative mx-auto grid max-w-6xl items-center gap-14 px-4 pb-24 pt-14 sm:px-6 lg:grid-cols-2 lg:pt-24">
             <div className="animate-slide-up">
-              <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 shadow-card">
-                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white py-1 pl-1 pr-3 text-xs font-medium text-slate-600 shadow-card">
+                <FjstiEmblem size={22} />
                 {t('landing.hero.badge')}
               </span>
               <h1 className="mt-6 text-4xl font-extrabold leading-[1.08] tracking-tight text-slate-900 sm:text-5xl lg:text-[3.4rem]">
@@ -265,12 +267,11 @@ export function LandingPage() {
 function Logo() {
   return (
     <Link href="/" className="flex items-center gap-2.5">
-      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-600 to-violet-700 text-white shadow-glow">
-        <Stethoscope className="h-5 w-5" />
-      </span>
+      <BrandLogo size={36} />
       <BrandName size="lg" className="text-slate-900" />
-      <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500">
-        {BRAND.supporterShort}
+      <span className="ml-1 hidden items-center gap-1.5 border-l border-slate-200 pl-2.5 sm:inline-flex">
+        <FjstiEmblem size={28} />
+        <span className="text-[11px] font-bold text-slate-500">{BRAND.supporterShort}</span>
       </span>
     </Link>
   );
