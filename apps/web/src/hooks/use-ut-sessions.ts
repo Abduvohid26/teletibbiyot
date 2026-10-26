@@ -7,10 +7,12 @@ import { fetchUtSessionConsultations } from '@/lib/ut-sessions-fetch';
 import { useConsultationRealtime } from '@/hooks/use-consultation-realtime';
 import { toast } from '@/lib/toast';
 import { UT_SELECT_EVENT } from '@/hooks/use-ut-header-data';
+import { useRouter } from 'next/navigation';
 import { useI18n } from '@/i18n';
 
 export function useUtSessions(enabled = true) {
   const { t } = useI18n();
+  const router = useRouter();
   const [consultation, setConsultation] = useState<Consultation | null>(null);
   const [sessions, setSessions] = useState<Consultation[]>([]);
   const [patientConsultations, setPatientConsultations] = useState<Consultation[]>([]);
@@ -118,7 +120,21 @@ export function useUtSessions(enabled = true) {
         const name = payload.doctorName || payload.mtDoctorName || t('common.doctor');
         setLiveBanner({ doctorName: name });
         // Yagona xabar — "qabul boshlandi" uchun boshqa joylarda toast yo'q
-        toast(t('ut.doctorStartedJoinNamed', { name }), 'success');
+        const onLivePage = typeof window !== 'undefined' && window.location.pathname === '/ut/vitals';
+        toast.success(t('utToast.doctorStartedTitle', { name }), {
+          id: `ut-started-${payload.consultationId ?? ''}`,
+          description: t('utToast.doctorStartedBody'),
+          duration: 12000,
+          action: onLivePage
+            ? undefined
+            : {
+                label: t('utToast.goLive'),
+                onClick: () => {
+                  if (payload.consultationId) switchToConsultation(payload.consultationId);
+                  router.push('/ut/vitals');
+                },
+              },
+        });
         if (payload.consultationId) {
           // Optimistic status — API round-tripdan oldin UI yangilansin
           setSessions((prev) =>
@@ -218,7 +234,7 @@ export function useUtSessions(enabled = true) {
   const cancelSession = useCallback(async (consultationId: string, reason: string) => {
     await api.cancelConsultation(consultationId, reason);
     await applyAfterCancel(consultationId);
-    toast('Navbatdan bekor qilindi', 'info');
+    toast.info(t('utToast.cancelled'));
   }, [applyAfterCancel]);
 
   return {

@@ -64,8 +64,18 @@ module.exports = {
         'gradient-shift': 'gradient-shift 6s ease infinite',
         'dash-flow': 'dash-flow 1.8s linear infinite',
         'ring-pulse': 'ring-pulse 2.8s ease-out infinite',
+        'toast-in': 'toast-in 0.22s ease-out',
+        'toast-progress': 'toast-progress linear forwards',
       },
       keyframes: {
+        'toast-in': {
+          from: { opacity: '0', transform: 'translateY(-6px) scale(0.98)' },
+          to: { opacity: '1', transform: 'translateY(0) scale(1)' },
+        },
+        'toast-progress': {
+          from: { transform: 'scaleX(1)' },
+          to: { transform: 'scaleX(0)' },
+        },
         'dash-flow': {
           to: { strokeDashoffset: '-32' },
         },

@@ -328,16 +328,22 @@ function UTClientPageInner() {
   const handleSubmit = async () => {
     const err = validateForm();
     if (err) {
-      toast(err, 'error');
+      toast.warning(t('utToast.fillRequired'), { id: 'ut-intake-validation', description: err });
       return;
     }
 
     if (!selectedDoctorId) {
-      toast(t('ut.selectDoctor'), 'error');
+      toast.warning(t('utToast.chooseDoctor'), {
+        id: 'ut-intake-validation',
+        description: t('utToast.chooseDoctorBody'),
+      });
       return;
     }
 
     setSubmitting(true);
+    let progressId = '';
+    // Server'da bemor yaratilgach "Qayta urinish" dublikat yaratardi — faqat undan oldin
+    let createdOnServer = false;
     const clientRequestId = crypto.randomUUID();
     const patientPayload = {
       fullName: patientData.fullName.trim(),
@@ -391,11 +397,14 @@ function UTClientPageInner() {
         });
         setSuccess(true);
         setOfflineNotice(t('ut.offlineSavedNotice'));
-        toast(t('ut.offlineSavedToast'), 'info');
+        toast.warning(t('utToast.offlineTitle'), { description: t('utToast.offlineBody') });
         return;
       }
 
+      toast.dismiss('ut-intake-validation');
+      progressId = toast.loading(t('utToast.sending'), { description: patientPayload.fullName });
       const patient = await api.createPatient(patientPayload);
+      createdOnServer = true;
       const consultation = await api.createConsultation({ ...consultationPayload, patientId: patient.id });
       // Darhol faol qilamiz: server "consultation-queued" hodisasini fayllar
       // yuklanib bo'lguncha yuboradi va realtime yuklash eski bemorni tanlab qo'yardi.
@@ -411,7 +420,10 @@ function UTClientPageInner() {
         }
       }
 
-      for (const file of files) {
+      for (const [i, file] of files.entries()) {
+        toast.update(progressId, {
+          description: t('utToast.uploadingFiles', { done: i + 1, total: files.length }),
+        });
         await api.uploadAttachment(consultation.id, file);
       }
       if (files.length > 0) {
@@ -423,16 +435,26 @@ function UTClientPageInner() {
         sessionStorage.setItem(UT_ACTIVE_CONSULTATION_KEY, consultation.id);
       }
       setFiles([]);
-      toast(
-        t('ut.queuedSuccessDoctor', {
+      toast.update(progressId, {
+        type: 'success',
+        title: t('utToast.queuedTitle'),
+        description: t('utToast.queuedBody', {
           name: doctorById(doctors, selectedDoctorId)?.fullName ?? t('common.doctor'),
         }),
-        'success',
-      );
+      });
       router.push('/ut/vitals');
     } catch (err) {
       const message = err instanceof Error ? err.message : t('errors.generic');
-      toast(message, 'error');
+      const failure = {
+        type: 'error' as const,
+        title: t('utToast.sendFailed'),
+        description: message,
+        action: createdOnServer
+          ? undefined
+          : { label: t('utToast.retry'), onClick: () => void handleSubmit() },
+      };
+      if (progressId) toast.update(progressId, failure);
+      else toast.error(failure.title, failure);
     } finally {
       setSubmitting(false);
     }
