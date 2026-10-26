@@ -54,7 +54,7 @@ export function useDoctorBreak() {
       window.dispatchEvent(new CustomEvent(BREAK_EVENT, { detail: next }));
       toast(next ? t('presence.onBreakNotice') : t('presence.endBreak'), 'success');
     } catch (err) {
-      toast(err instanceof Error ? err.message : t('common.error'), 'error');
+      toast.error(t('common.error'), { description: err instanceof Error ? err.message : undefined });
     } finally {
       setSaving(false);
     }

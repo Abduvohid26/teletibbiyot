@@ -409,7 +409,7 @@ export function DoctorPatientsView({
     try {
       await onStartConsultation(id);
     } catch (err) {
-      toast(err instanceof Error ? err.message : t('patients.startError'), 'error');
+      toast.error(t('patients.startError'), { description: err instanceof Error ? err.message : undefined });
     } finally {
       setStartingId(null);
     }
@@ -961,7 +961,7 @@ function HistoryCard({ c, onOpenReport }: { c: Consultation; onOpenReport: () =>
             consultationId={c.id}
             hasReport={!!c.consultationReport}
             compact
-            onError={(msg) => toast(msg, 'error')}
+            onError={(msg) => toast.error(t('clinical.pdfError'), { description: msg !== t('clinical.pdfError') ? msg : undefined })}
           />
         </div>
       )}

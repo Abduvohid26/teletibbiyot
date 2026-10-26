@@ -21,7 +21,7 @@ export function ChatTranscript({ consultationId, compact }: { consultationId?: s
     if (!consultationId) return;
     api.getConsultationMessages(consultationId)
       .then(setMessages)
-      .catch((err) => toast(err instanceof Error ? err.message : t('chat.loadError'), 'error'));
+      .catch((err) => toast.error(t('chat.loadError'), { description: err instanceof Error ? err.message : undefined }));
   }, [consultationId, t]);
 
   useConsultationRealtime(consultationId ? [consultationId] : [], {
@@ -48,7 +48,7 @@ export function ChatTranscript({ consultationId, compact }: { consultationId?: s
       setMessages((prev) => [...prev, msg]);
       setText('');
     } catch (err) {
-      toast(err instanceof Error ? err.message : t('chat.sendError'), 'error');
+      toast.error(t('chat.sendError'), { description: err instanceof Error ? err.message : undefined });
     } finally {
       setSending(false);
     }

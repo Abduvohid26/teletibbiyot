@@ -59,7 +59,7 @@ export default function TriagePage() {
       toast(level === 'EMERGENCY' ? t('triage.escalateEmergencyOk') : t('triage.escalateSeniorOk'), 'success');
       load();
     } catch (err) {
-      toast(err instanceof Error ? err.message : t('triage.escalateError'), 'error');
+      toast.error(t('triage.escalateError'), { description: err instanceof Error ? err.message : undefined });
     } finally {
       setEscalatingId(null);
     }
@@ -71,7 +71,7 @@ export default function TriagePage() {
       toast(t('triage.triageUpdated'), 'success');
       load();
     } catch (err) {
-      toast(err instanceof Error ? err.message : t('errors.generic'), 'error');
+      toast.error(t('errors.generic'), { description: err instanceof Error ? err.message : undefined });
     } finally {
       setPendingTriage(null);
     }
@@ -83,7 +83,7 @@ export default function TriagePage() {
       toast(t('triage.priorityRaised'), 'success');
       load();
     } catch (err) {
-      toast(err instanceof Error ? err.message : t('errors.generic'), 'error');
+      toast.error(t('errors.generic'), { description: err instanceof Error ? err.message : undefined });
     } finally {
       setPendingPriority(null);
     }

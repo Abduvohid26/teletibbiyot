@@ -37,7 +37,7 @@ export default function AppointmentsPage() {
     setLoading(true);
     api.getUpcomingAppointments(14)
       .then(setItems)
-      .catch((e) => toast(e instanceof Error ? e.message : t('errors.generic'), 'error'))
+      .catch((e) => toast.error(t('errors.loadDataFailed'), { description: e instanceof Error ? e.message : undefined }))
       .finally(() => setLoading(false));
   };
 
@@ -70,14 +70,14 @@ export default function AppointmentsPage() {
       toast(t('appointments.statusUpdated'), 'success');
       load();
     } catch (e) {
-      toast(e instanceof Error ? e.message : t('errors.generic'), 'error');
+      toast.error(t('errors.generic'), { description: e instanceof Error ? e.message : undefined });
     }
   };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.patientId || !form.facilityId || !form.scheduledAt) {
-      toast(t('appointments.requiredFields'), 'error');
+      toast.warning(t('appointments.requiredFields'));
       return;
     }
     setCreating(true);
@@ -95,7 +95,7 @@ export default function AppointmentsPage() {
       setPatientSearch('');
       load();
     } catch (e) {
-      toast(e instanceof Error ? e.message : t('errors.generic'), 'error');
+      toast.error(t('errors.generic'), { description: e instanceof Error ? e.message : undefined });
     } finally {
       setCreating(false);
     }

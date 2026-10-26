@@ -1257,6 +1257,10 @@ const en: MessageTree = {
       'This consultation was opened in another window or device — video stopped here',
   },
   realtime: {
+    queuedTitle: "New patient in queue",
+    openQueue: "Open queue",
+    newAttachmentTitle: "New document uploaded",
+    aiAnalyzedTitle: "AI analysed a document",
     newAttachment: 'New document: {name}',
     aiAnalyzed: 'AI analysis: {name}',
     queuedPatient: 'Added to queue: {name}',

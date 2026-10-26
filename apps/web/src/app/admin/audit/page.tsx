@@ -51,7 +51,7 @@ export default function AuditPage() {
       URL.revokeObjectURL(url);
       toast(t('admin.csvDownloaded'), 'success');
     } catch (err) {
-      toast(err instanceof Error ? err.message : t('admin.exportError'), 'error');
+      toast.error(t('admin.exportError'), { description: err instanceof Error ? err.message : undefined });
     } finally {
       setExporting(false);
     }

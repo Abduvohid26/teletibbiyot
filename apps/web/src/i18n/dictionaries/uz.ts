@@ -1258,6 +1258,10 @@ const uz: MessageTree = {
       "Bu konsultatsiya boshqa oyna yoki qurilmada ochildi — video shu yerda to'xtatildi",
   },
   realtime: {
+    queuedTitle: "Yangi bemor navbatda",
+    openQueue: "Navbatni ochish",
+    newAttachmentTitle: "Yangi hujjat yuklandi",
+    aiAnalyzedTitle: "AI hujjatni tahlil qildi",
     newAttachment: 'Yangi hujjat: {name}',
     aiAnalyzed: 'AI tahlil: {name}',
     queuedPatient: "Navbatga qo'shildi: {name}",

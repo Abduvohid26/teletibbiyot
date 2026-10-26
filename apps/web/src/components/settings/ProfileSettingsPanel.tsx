@@ -74,7 +74,7 @@ export function ProfileSettingsPanel({ compact }: ProfileSettingsPanelProps) {
       toast(t('profile.updated'), 'success');
       resetForm();
     } catch (err) {
-      toast(err instanceof Error ? err.message : t('profile.saveError'), 'error');
+      toast.error(t('profile.saveError'), { description: err instanceof Error ? err.message : undefined });
     } finally {
       setSaving(false);
     }

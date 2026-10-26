@@ -52,7 +52,7 @@ export function AttachmentManager({
       .then(setAttachments)
       .catch((err) => {
         setAttachments([]);
-        toast(err instanceof Error ? err.message : t('attachments.loadFailed'), 'error');
+        toast.error(t('attachments.loadFailed'), { description: err instanceof Error ? err.message : undefined });
       })
       .finally(() => setLoading(false));
   }, [consultationId]);
@@ -116,7 +116,7 @@ export function AttachmentManager({
       load();
       onChange?.();
     } catch (err) {
-      toast(err instanceof Error ? err.message : t('attachments.uploadError'), 'error');
+      toast.error(t('attachments.uploadError'), { description: err instanceof Error ? err.message : undefined });
     } finally {
       setUploading(false);
     }
@@ -127,7 +127,7 @@ export function AttachmentManager({
       const { blob, fileName } = await api.fetchAttachmentFile(attachment.id);
       downloadBlob(blob, fileName);
     } catch (err) {
-      toast(err instanceof Error ? err.message : t('attachments.downloadError'), 'error');
+      toast.error(t('attachments.downloadError'), { description: err instanceof Error ? err.message : undefined });
     }
   };
 

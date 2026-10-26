@@ -152,7 +152,7 @@ export function PatientDetailPanel({ patientId, onClose }: PatientDetailPanelPro
                             consultationId={c.id}
                             hasReport={!!c.consultationReport}
                             compact
-                            onError={(msg) => toast(msg, 'error')}
+                            onError={(msg) => toast.error(t('clinical.pdfError'), { description: msg !== t('clinical.pdfError') ? msg : undefined })}
                           />
                         </div>
                       )}

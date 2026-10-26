@@ -60,28 +60,30 @@ export function CompleteDiagnosisModal({
     setLoading(true);
     try {
       await api.completeConsultation(consultationId, form);
+      // Bitta natija toasti: tashxis saqlandi + retsept holati tavsifda.
+      // Retsept/qayta ko'rik xatosi — ogohlantirish (konsultatsiya baribir yakunlangan).
+      let rxNote: string | undefined;
       if (form.prescription?.trim()) {
         try {
           const rx = await api.submitPrescription(consultationId);
-          if (rx.status === 'stub') {
-            toast(rx.message || t('diagnosis.rxStub'), 'info');
-          } else if (rx.status === 'submitted') {
-            toast(t('diagnosis.rxSubmitted'), 'success');
-          } else {
-            toast(t('diagnosis.rxSaved'), 'success');
-          }
+          rxNote =
+            rx.status === 'stub'
+              ? rx.message || t('diagnosis.rxStub')
+              : rx.status === 'submitted'
+                ? t('diagnosis.rxSubmitted')
+                : t('diagnosis.rxSaved');
         } catch {
-          toast(t('diagnosis.rxError'), 'error');
+          toast.warning(t('diagnosis.rxError'));
         }
       }
       if (followUpDate) {
         try {
           await api.scheduleFollowUp(consultationId, followUpDate);
         } catch {
-          toast(t('diagnosis.followUpError'), 'error');
+          toast.warning(t('diagnosis.followUpError'));
         }
       }
-      toast(t('diagnosis.completeSuccess'), 'success');
+      toast.success(t('diagnosis.completeSuccess'), { description: rxNote });
 
       let url: string | null = null;
       try {

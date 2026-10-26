@@ -9,6 +9,7 @@ import {
   releaseVideoSocketRooms,
 } from '@/lib/video-socket-client';
 import { toast } from '@/lib/toast';
+import { useRouter } from 'next/navigation';
 import { useI18n } from '@/i18n';
 
 export interface ConsultationRealtimeHandlers {
@@ -75,6 +76,7 @@ export function useConsultationRealtime(
   options?: { notifyToasts?: boolean; staffFeed?: boolean; enabled?: boolean },
 ) {
   const { t } = useI18n();
+  const router = useRouter();
   const handlersRef = useRef(handlers);
   handlersRef.current = handlers;
   const idsKey = consultationIds.filter(Boolean).join(',');
@@ -94,7 +96,7 @@ export function useConsultationRealtime(
       const attachment = payload as Attachment;
       handlersRef.current.onAttachmentUploaded?.(attachment, cid);
       if (options?.notifyToasts && attachment.fileName) {
-        toast(t('realtime.newAttachment', { name: attachment.fileName }), 'info');
+        toast.info(t('realtime.newAttachmentTitle'), { description: attachment.fileName });
       }
       window.dispatchEvent(
         new CustomEvent('attachment-uploaded', { detail: { consultationId: cid, attachment } }),
@@ -107,7 +109,7 @@ export function useConsultationRealtime(
       const attachment = payload as Attachment;
       handlersRef.current.onAttachmentAnalyzed?.(attachment, cid);
       if (options?.notifyToasts && attachment.aiSummary) {
-        toast(t('realtime.aiAnalyzed', { name: attachment.fileName }), 'success');
+        toast.success(t('realtime.aiAnalyzedTitle'), { description: attachment.fileName });
       }
       window.dispatchEvent(
         new CustomEvent('attachment-analyzed', { detail: { consultationId: cid, attachment } }),
@@ -127,7 +129,15 @@ export function useConsultationRealtime(
         mtDoctorName: payload.mtDoctorName,
       });
       if (options?.notifyToasts && payload.patientName) {
-        toast(t('realtime.queuedPatient', { name: payload.patientName }), 'info');
+        const onQueuePage = window.location.pathname === '/dashboard/patients';
+        toast.info(t('realtime.queuedTitle'), {
+          id: `rt-queued-${cid}`,
+          description: payload.utCode ? `${payload.patientName} · ${payload.utCode}` : payload.patientName,
+          duration: 10000,
+          action: onQueuePage
+            ? undefined
+            : { label: t('realtime.openQueue'), onClick: () => router.push('/dashboard/patients') },
+        });
       }
     };
 

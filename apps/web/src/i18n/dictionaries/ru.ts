@@ -1257,6 +1257,10 @@ const ru: MessageTree = {
       'Эта консультация открыта в другом окне или на другом устройстве — видео здесь остановлено',
   },
   realtime: {
+    queuedTitle: "Новый пациент в очереди",
+    openQueue: "Открыть очередь",
+    newAttachmentTitle: "Загружен новый документ",
+    aiAnalyzedTitle: "ИИ проанализировал документ",
     newAttachment: 'Новый документ: {name}',
     aiAnalyzed: 'AI-анализ: {name}',
     queuedPatient: 'Добавлено в очередь: {name}',

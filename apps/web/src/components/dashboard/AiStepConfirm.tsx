@@ -29,7 +29,7 @@ export function AiStepConfirm({ consultationId, steps, onConfirmed, canConfirm, 
       await api.confirmAiStep(consultationId, stepId);
       onConfirmed?.();
     } catch (err) {
-      toast(toUserMessage(err, t('aiStep.confirmError')), 'error');
+      toast.error(t('aiStep.confirmError'), { description: err instanceof Error ? err.message : undefined });
     } finally {
       setConfirmingId(null);
     }

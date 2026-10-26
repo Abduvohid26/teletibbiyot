@@ -78,7 +78,7 @@ export function useConsilium({ consultation, canEdit, onChanged }: UseConsiliumO
         toast(t('consilium.added'), 'success');
         onChanged?.();
       } catch (err) {
-        toast(toUserMessage(err, t('consilium.addError')), 'error');
+        toast.error(t('consilium.addError'), { description: err instanceof Error ? err.message : undefined });
         void reload();
       } finally {
         setBusy(false);
@@ -96,7 +96,7 @@ export function useConsilium({ consultation, canEdit, onChanged }: UseConsiliumO
         toast(self ? t('consilium.left') : t('consilium.removed'), 'info');
         onChanged?.();
       } catch (err) {
-        toast(toUserMessage(err, t('consilium.removeError')), 'error');
+        toast.error(t('consilium.removeError'), { description: err instanceof Error ? err.message : undefined });
         void reload();
       } finally {
         setBusy(false);

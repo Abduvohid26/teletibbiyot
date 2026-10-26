@@ -33,7 +33,7 @@ export function useCancelConsultation(options?: UseCancelConsultationOptions) {
       setTarget(null);
       await options?.onSuccess?.(id);
     } catch (err) {
-      toast(err instanceof Error ? err.message : t('cancelConsult.cancelError'), 'error');
+      toast.error(t('cancelConsult.cancelError'), { description: err instanceof Error ? err.message : undefined });
     } finally {
       setSubmitting(false);
     }

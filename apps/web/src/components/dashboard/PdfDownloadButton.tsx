@@ -67,7 +67,7 @@ export function PdfDownloadButton({
       const message = err instanceof Error ? err.message : t('clinical.pdfError');
       // onError berilmagan joylarda xato jim qolib ketmasin
       if (onError) onError(message);
-      else toast(message, 'error');
+      else toast.error(t('clinical.pdfError'), { description: message !== t('clinical.pdfError') ? message : undefined });
     } finally {
       setDownloading(false);
     }

@@ -101,7 +101,7 @@ export function useDoctorHeaderData() {
       goLive(id);
       void reload();
     } catch (err) {
-      toast(err instanceof Error ? err.message : t('patients.startError'), 'error');
+      toast.error(t('patients.startError'), { description: err instanceof Error ? err.message : undefined });
     }
   }, [goLive, reload, t]);
 
