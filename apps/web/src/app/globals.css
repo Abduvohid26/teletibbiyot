@@ -282,7 +282,7 @@ body {
   }
 
   .glass-video-bg {
-    background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.9) 50%, rgba(49, 46, 129, 0.85) 100%);
+    background: linear-gradient(135deg, #0b1b45 0%, #061743 55%, #122554 100%);
     background-size: 200% 200%;
     animation: gradient-shift 8s ease infinite;
   }
@@ -360,6 +360,34 @@ body {
 
   .ut-shell-flat .ut-glass-banner {
     @apply backdrop-blur-none;
+    box-shadow: none;
+  }
+
+  .ut-shell-flat .ut-glass-card {
+    @apply bg-white border-slate-200 backdrop-blur-none;
+    box-shadow: none;
+  }
+
+  .ut-shell-flat .ut-glass-card-interactive:hover {
+    @apply bg-white border-brand-200;
+    box-shadow: none;
+  }
+
+  .ut-shell-flat .ut-glass-card-active {
+    @apply border-brand-300 ring-brand-100;
+  }
+
+  .ut-shell-flat .ut-glass-btn {
+    @apply bg-white border-slate-200 backdrop-blur-none;
+    box-shadow: none;
+  }
+
+  .ut-shell-flat .ut-glass-btn:hover {
+    @apply border-brand-300 text-brand-800;
+  }
+
+  .ut-shell-flat .ut-empty-panel {
+    @apply bg-white border-slate-200 backdrop-blur-none;
     box-shadow: none;
   }
 

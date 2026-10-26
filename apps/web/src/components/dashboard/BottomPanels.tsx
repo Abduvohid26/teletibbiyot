@@ -158,7 +158,7 @@ export function AiProcessSteps({
   const displaySteps = steps?.length ? steps : [];
 
   return (
-    <PanelShell icon={Brain} title={t('panels.aiProcess')} iconColor="text-violet-600" compact={compact}>
+    <PanelShell icon={Brain} title={t('panels.aiProcess')} iconColor="text-gold-700" compact={compact}>
       {steps?.length ? (
         <AiStepConfirm
           consultationId={consultationId}
@@ -174,7 +174,7 @@ export function AiProcessSteps({
               {step.status === 'DONE' ? (
                 <CheckCircle2 size={13} className="text-emerald-500 shrink-0" />
               ) : step.status === 'IN_PROGRESS' ? (
-                <Loader2 size={13} className="text-violet-500 animate-spin shrink-0" />
+                <Loader2 size={13} className="text-gold-600 animate-spin shrink-0" />
               ) : (
                 <Circle size={13} className="text-slate-300 shrink-0" />
               )}
@@ -215,7 +215,7 @@ export function AiReportSummary({ analysis, compact }: { analysis?: BottomPanels
             <div className="shimmer-line w-3/4" />
             <div className="shimmer-line w-1/2" />
             <div className="h-1.5 bg-slate-100/80 rounded-full overflow-hidden mt-2">
-              <div className="h-full w-2/3 rounded-full bg-gradient-to-r from-brand-400 to-violet-500 animate-pulse-soft" />
+              <div className="h-full w-2/3 rounded-full bg-gradient-to-r from-brand-400 to-gold-400 animate-pulse-soft" />
             </div>
           </div>
           <p className="text-[10px] text-slate-400 text-center">{t('panels.analysisWaiting')}</p>
@@ -367,7 +367,7 @@ export function BottomPanels({
         <DeviceStatusPanel devices={devices} compact={compact} />
         <SessionStatusPanel compact={compact} hasConsultation={!!consultationId} startedAt={consultationStartedAt} />
         <div className="min-h-0 overflow-hidden">
-          <PanelShell icon={MessageSquare} title={t('panels.chatArchive')} iconColor="text-violet-500" compact={compact}>
+          <PanelShell icon={MessageSquare} title={t('panels.chatArchive')} iconColor="text-gold-600" compact={compact}>
             <ChatTranscript consultationId={consultationId} compact={compact} />
           </PanelShell>
         </div>

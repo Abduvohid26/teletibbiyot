@@ -1312,6 +1312,10 @@ const ru: MessageTree = {
     tooManyRequests: 'Слишком много запросов — подождите и попробуйте снова',
     badResponse: 'Неверный формат ответа сервера',
   },
+  doctorSwitch: {
+    current: 'Текущие',
+    queue: 'Очередь ({count})',
+  },
   utToast: {
     sending: 'Отправка пациента…',
     uploadingFiles: 'Загрузка файлов: {done}/{total}',

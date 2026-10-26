@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { ChevronDown, Play, Radio, User, X } from 'lucide-react';
 import { Consultation } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { useI18n } from '@/i18n';
 
 interface ConsultationSwitcherProps {
   activeId?: string;
@@ -37,6 +38,7 @@ export function ConsultationSwitcher({
   onCancel,
   className,
 }: ConsultationSwitcherProps) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [menuStyle, setMenuStyle] = useState<{ top: number; left: number; width: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -118,10 +120,10 @@ export function ConsultationSwitcher({
             width: menuStyle.width,
             zIndex: 9999,
           }}
-          className="rounded-xl border border-white/60 bg-white/70 backdrop-blur-xl shadow-xl overflow-hidden max-h-[min(70vh,420px)] overflow-y-auto"
+          className="rounded-xl border border-slate-200 bg-white shadow-xl shadow-brand-950/15 overflow-hidden max-h-[min(70vh,420px)] overflow-y-auto"
         >
           {currentList.length > 0 && (
-            <Section title="Hozirgi">
+            <Section title={t('doctorSwitch.current')}>
               {currentList.map((c) => (
                 <QueueRow
                   key={c.id}
@@ -137,7 +139,7 @@ export function ConsultationSwitcher({
           )}
 
           {waitingList.length > 0 && (
-            <Section title={`Navbat (${waitingList.length})`}>
+            <Section title={t('doctorSwitch.queue', { count: waitingList.length })}>
               {waitingList.map((c) => (
                 <QueueRow
                   key={c.id}
@@ -164,24 +166,24 @@ export function ConsultationSwitcher({
         aria-expanded={open}
         aria-haspopup="listbox"
         className={cn(
-          'flex items-center gap-1.5 rounded-xl border border-white/60 bg-white/55 backdrop-blur-md px-2 py-1 text-left hover:bg-white/70 transition-all shadow-sm max-w-[120px] sm:max-w-[180px]',
+          'flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.07] px-2 py-1 text-left hover:bg-white/[0.12] transition-colors max-w-[120px] sm:max-w-[180px]',
           canSwitch && 'cursor-pointer',
           className,
         )}
       >
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold bg-brand-100 text-brand-700">
+        <div className="w-7 h-7 rounded-md flex items-center justify-center shrink-0 text-xs font-bold bg-gold-400 text-brand-950">
           {active ? patientInitial(active.patient.fullName) : <User size={13} />}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold text-slate-900 truncate leading-tight">
-            {active ? active.patient.fullName : 'Tanlang'}
+          <p className="text-sm font-bold text-white truncate leading-tight">
+            {active ? active.patient.fullName : t('common.select')}
           </p>
           {active?.utFacility?.name && (
-            <p className="text-[10px] text-slate-500 truncate hidden lg:block">{active.utFacility.name}</p>
+            <p className="text-[10px] text-slate-400 truncate hidden lg:block">{active.utFacility.name}</p>
           )}
         </div>
         {canSwitch && (
-          <ChevronDown size={13} className={cn('text-slate-400 shrink-0 transition-transform', open && 'rotate-180')} />
+          <ChevronDown size={13} className={cn('text-slate-300 shrink-0 transition-transform', open && 'rotate-180')} />
         )}
       </button>
       {menu}
@@ -191,8 +193,8 @@ export function ConsultationSwitcher({
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="border-b border-white/40 last:border-b-0">
-      <p className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-white/30">
+    <div className="border-b border-slate-100 last:border-b-0">
+      <p className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-50">
         {title}
       </p>
       <div className="p-1.5 pt-0">{children}</div>
@@ -217,11 +219,12 @@ function QueueRow({
   onReconnect?: () => void;
   onCancel?: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <div
       className={cn(
         'flex items-center gap-1 rounded-lg transition-colors',
-        active ? 'bg-brand-600 text-white shadow-sm' : 'bg-white/70 hover:bg-white/90 text-slate-800 ring-1 ring-white/80',
+        active ? 'bg-brand-950 text-white shadow-sm' : 'bg-white hover:bg-slate-50 text-slate-800',
       )}
     >
       <button
@@ -265,7 +268,7 @@ function QueueRow({
           )}
         >
           <Play size={11} />
-          Boshlash
+          {t('common.start')}
         </button>
       )}
       {onReconnect && (
@@ -277,7 +280,7 @@ function QueueRow({
             active ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200',
           )}
         >
-          Ulash
+          {t('common.connect')}
         </button>
       )}
       {onCancel && (
@@ -288,7 +291,7 @@ function QueueRow({
             'mr-1 shrink-0 inline-flex items-center justify-center rounded-md p-1.5',
             active ? 'hover:bg-white/20 text-white/90' : 'hover:bg-red-50 text-red-500',
           )}
-          aria-label="Bekor qilish"
+          aria-label={t('common.cancel')}
         >
           <X size={14} />
         </button>

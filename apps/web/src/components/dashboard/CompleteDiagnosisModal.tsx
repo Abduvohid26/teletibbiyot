@@ -148,7 +148,7 @@ export function CompleteDiagnosisModal({
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
       <div className="panel w-full max-w-lg max-h-[90vh] overflow-hidden shadow-2xl animate-slide-up">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-brand-50/50 to-violet-50/30">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-gradient-to-r from-brand-50/50 to-gold-50/30">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-white shadow-sm">
               <Stethoscope className="w-5 h-5 text-brand-600" />

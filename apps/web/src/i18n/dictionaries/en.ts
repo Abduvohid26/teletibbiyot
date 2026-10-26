@@ -1312,6 +1312,10 @@ const en: MessageTree = {
     tooManyRequests: 'Too many requests — wait a moment and try again',
     badResponse: 'Invalid server response format',
   },
+  doctorSwitch: {
+    current: 'Current',
+    queue: 'Queue ({count})',
+  },
   utToast: {
     sending: 'Sending patient…',
     uploadingFiles: 'Uploading files: {done}/{total}',

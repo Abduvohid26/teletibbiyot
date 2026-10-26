@@ -2,11 +2,10 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, XCircle } from 'lucide-react';
 import { VideoConsultation } from '@/components/dashboard/VideoConsultation';
 import { AiAnalysisPanel } from '@/components/dashboard/AiAnalysisPanel';
 import { PatientDocumentsPanel } from '@/components/dashboard/PatientDocumentsPanel';
-import { ConsiliumPanel } from '@/components/dashboard/ConsiliumPanel';
+import { DoctorPatientBar } from '@/components/dashboard/DoctorPatientBar';
 import { api, Consultation } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { useAuth } from '@/lib/auth-context';
@@ -73,26 +72,27 @@ export function DoctorDashboardView({
   const handleComplete = useCallback(async () => {
     if (!activeConsultation || completing) return;
     if (!activeConsultation.aiAnalysis) {
-      toast(t('clinical.notReady'), 'error');
+      toast.warning(t('clinical.notReady'));
       return;
     }
     setCompleting(true);
     try {
       const { next } = await api.completeConsultation(activeConsultation.id, {});
-      toast(t('dashboard.completeSuccess'), 'success');
       // PDF ATAYLAB avtomatik ochilmaydi — u fonda tayyorlanadi va
       // "AI klinik xulosa" panelidagi PDF tugmasi orqali istalgan tilda olinadi.
       onReload();
 
       // Uzluksiz oqim: navbatdagi keyingi bemorga avtomatik o'tamiz
-      if (next) {
-        dispatchDoctorSelect(next.id);
-        toast(t('dashboard.nextPatient', { name: next.patient?.fullName ?? '' }), 'info');
-      } else {
-        toast(t('dashboard.queueEmpty'), 'info');
-      }
+      if (next) dispatchDoctorSelect(next.id);
+      toast.success(t('dashboard.completeSuccess'), {
+        description: next
+          ? t('dashboard.nextPatient', { name: next.patient?.fullName ?? '' })
+          : t('dashboard.queueEmpty'),
+      });
     } catch (err) {
-      toast(err instanceof Error ? err.message : t('dashboard.completeError'), 'error');
+      toast.error(t('dashboard.completeError'), {
+        description: err instanceof Error ? err.message : undefined,
+      });
     } finally {
       setCompleting(false);
     }
@@ -124,8 +124,6 @@ export function DoctorDashboardView({
   const showCompleteBtn = activeConsultation?.status === 'IN_PROGRESS' && isLeadDoctor;
   // Yakunlagandan keyin navbatda bemor qoladimi — tugma matnini shunga qarab ko'rsatamiz
   const myQueueRemaining = queuedPatients.filter((c) => c.id !== activeConsultationId).length;
-  const hasNextInQueue = myQueueRemaining > 0;
-  const showCancelBtn = activeConsultation?.status === 'IN_PROGRESS' && isLeadDoctor;
 
   return (
     <>
@@ -139,54 +137,17 @@ export function DoctorDashboardView({
           </div>
         )}
 
-        <ConsiliumPanel
-          consultation={activeConsultation ?? consultation}
-          currentDoctorId={user?.id}
-          onChanged={passiveRefresh}
-        />
-
-        {(showCompleteBtn || showCancelBtn) && (
-          <div className="shrink-0 mb-2 flex items-center justify-end gap-1.5">
-            {hasNextInQueue && (
-              <span className="text-[10px] sm:text-[11px] text-slate-500 mr-auto truncate">
-                {t('dashboard.queueRemaining', { count: myQueueRemaining })}
-              </span>
-            )}
-            {showCancelBtn && (
-              <button
-                type="button"
-                onClick={() => activeConsultation && handleCancelRequest(activeConsultation.id)}
-                className="inline-flex items-center gap-1 rounded-xl border border-red-200 text-red-600 text-[11px] sm:text-xs font-semibold px-2 py-1.5 hover:bg-red-50 bg-white/70"
-              >
-                <XCircle size={12} />
-                <span className="hidden sm:inline">{t('common.cancel')}</span>
-              </button>
-            )}
-            {showCompleteBtn && (
-              <button
-                type="button"
-                onClick={() => void handleComplete()}
-                disabled={completing}
-                className="gradient-btn !py-1.5 !px-2.5 !text-[11px] sm:!text-xs shrink-0 whitespace-nowrap disabled:opacity-60 inline-flex items-center gap-1"
-              >
-                {completing ? <Loader2 size={12} className="animate-spin" /> : null}
-                <span className="hidden sm:inline">
-                  {completing
-                    ? t('dashboard.completing')
-                    : hasNextInQueue
-                      ? t('dashboard.completeAndNext')
-                      : t('dashboard.complete')}
-                </span>
-                <span className="sm:hidden">
-                  {completing
-                    ? t('dashboard.completingShort')
-                    : hasNextInQueue
-                      ? t('dashboard.completeAndNextShort')
-                      : t('dashboard.completeShort')}
-                </span>
-              </button>
-            )}
-          </div>
+        {activeConsultation && (
+          <DoctorPatientBar
+            consultation={activeConsultation}
+            currentDoctorId={user?.id}
+            onConsiliumChanged={passiveRefresh}
+            showActions={showCompleteBtn}
+            queueRemaining={myQueueRemaining}
+            completing={completing}
+            onComplete={() => void handleComplete()}
+            onCancel={() => handleCancelRequest(activeConsultation.id)}
+          />
         )}
 
         <div className="flex-1 min-h-0 overflow-hidden doctor-main-grid">
@@ -199,16 +160,16 @@ export function DoctorDashboardView({
                 compact
               />
             </div>
-            <div className="doctor-docs-col glass-panel overflow-hidden flex flex-col min-h-0">
-              <div className="shrink-0 glass-header py-1 px-2 flex items-center justify-between gap-1">
-                <span className="text-[10px] font-semibold text-slate-700 uppercase tracking-wide truncate">
+            <div className="doctor-docs-col overflow-hidden flex flex-col min-h-0 rounded-xl border border-slate-200 bg-white">
+              <div className="shrink-0 border-b border-slate-100 py-1.5 px-2.5 flex items-center justify-between gap-1">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider truncate">
                   {t('dashboard.documents')}
                 </span>
                 <div className="flex items-center gap-1.5 shrink-0">
                   {documentsConsultationId && (
                     <a
                       href={`/dashboard/dicom?consultationId=${documentsConsultationId}`}
-                      className="text-[9px] font-semibold text-teal-700 hover:underline"
+                      className="text-[10px] font-semibold text-brand-700 hover:underline"
                     >
                       {t('dashboard.dicom')}
                     </a>

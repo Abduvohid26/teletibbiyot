@@ -91,7 +91,7 @@ export function SecondOpinionPanel({ consultationId, onRequested }: SecondOpinio
               <p className="text-slate-800">{o.question}</p>
               {o.response && (
                 <p className="mt-2 text-slate-700 bg-white rounded-lg p-2 border border-slate-100">
-                  <span className="text-xs font-semibold text-violet-600">{t('secondOpinion.responseLabel')}</span>
+                  <span className="text-xs font-semibold text-gold-700">{t('secondOpinion.responseLabel')}</span>
                   {o.response}
                 </p>
               )}
@@ -114,7 +114,7 @@ export function SecondOpinionPanel({ consultationId, onRequested }: SecondOpinio
                     </div>
                   </div>
                 ) : (
-                  <button type="button" onClick={() => setRespondingId(o.id)} className="mt-2 text-xs text-violet-600 font-medium">
+                  <button type="button" onClick={() => setRespondingId(o.id)} className="mt-2 text-xs text-gold-700 font-medium">
                     {t('secondOpinion.respond')}
                   </button>
                 )
@@ -126,7 +126,7 @@ export function SecondOpinionPanel({ consultationId, onRequested }: SecondOpinio
 
       <div className="panel p-4">
         <div className="flex items-center gap-2 mb-3">
-          <MessageSquarePlus size={16} className="text-violet-600" />
+          <MessageSquarePlus size={16} className="text-gold-700" />
           <h3 className="font-semibold text-sm text-slate-900">{t('secondOpinion.newRequest')}</h3>
         </div>
         {doctors.length > 0 && (

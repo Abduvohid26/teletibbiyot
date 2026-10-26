@@ -18,11 +18,7 @@ export function DoctorShell({ children, scrollable = false }: DoctorShellProps) 
   const header = useDoctorHeaderData();
 
   return (
-    <div className="ut-shell">
-      <div className="ut-shell-bg" aria-hidden>
-        <div className="liquid-orb liquid-orb-1 opacity-50 scale-75" />
-        <div className="liquid-orb liquid-orb-2 opacity-40 scale-90" />
-      </div>
+    <div className="ut-shell ut-shell-flat">
 
       <DoctorHeader
         liveCount={header.liveCount}

@@ -13,6 +13,8 @@ interface ConsiliumPanelProps {
   currentDoctorId?: string;
   /** Ro'yxat o'zgargach yuqoridagi ma'lumotni yangilash */
   onChanged?: () => void;
+  /** Bemor paneli ichida — o'z kartasi va chekkasisiz */
+  embedded?: boolean;
 }
 
 /**
@@ -22,7 +24,7 @@ interface ConsiliumPanelProps {
  * qo'shadi; qo'shilgan shifokorda bemor darhol "Jonli qabul" ro'yxatida chiqadi
  * va u video xonaga ulana oladi. Jarayondagi bemorga ham qo'shsa bo'ladi.
  */
-export function ConsiliumPanel({ consultation, currentDoctorId, onChanged }: ConsiliumPanelProps) {
+export function ConsiliumPanel({ consultation, currentDoctorId, onChanged, embedded }: ConsiliumPanelProps) {
   const { t } = useI18n();
   const [selected, setSelected] = useState('');
 
@@ -53,7 +55,12 @@ export function ConsiliumPanel({ consultation, currentDoctorId, onChanged }: Con
   if (!canEdit && participants.length === 0) return null;
 
   return (
-    <div className="shrink-0 mb-2 ut-glass-card px-2.5 py-1.5 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+    <div
+      className={cn(
+        'flex flex-wrap items-center gap-x-2 gap-y-1.5',
+        embedded ? 'min-w-0' : 'shrink-0 mb-2 ut-glass-card px-2.5 py-1.5',
+      )}
+    >
       <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 shrink-0">
         <Users size={12} className="text-brand-600" />
         {t('consilium.title')}
@@ -92,12 +99,12 @@ export function ConsiliumPanel({ consultation, currentDoctorId, onChanged }: Con
       )}
 
       {canEdit && (
-        <div className="flex items-center gap-1 ml-auto shrink-0">
+        <div className={cn('flex items-center gap-1 shrink-0', !embedded && 'ml-auto')}>
           <select
             value={selected}
             onChange={(e) => setSelected(e.target.value)}
             disabled={busy || options.length === 0}
-            className="form-input ut-glass-input !py-1 !px-2 !text-[11px] !min-h-0 max-w-[13rem]"
+            className="form-input ut-glass-input !py-1 !px-2 !text-[11px] !min-h-[1.75rem] max-w-[13rem]"
           >
             <option value="">
               {options.length ? t('consilium.selectDoctor') : t('consilium.noDoctors')}
@@ -114,7 +121,7 @@ export function ConsiliumPanel({ consultation, currentDoctorId, onChanged }: Con
             disabled={!selected || busy}
             className={cn(
               'inline-flex items-center gap-1 rounded-lg text-[10px] font-bold px-2 py-1.5 transition-colors',
-              'bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-50',
+              'bg-brand-950 text-white hover:bg-brand-800 disabled:opacity-50',
             )}
           >
             {busy ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}

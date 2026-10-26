@@ -1313,6 +1313,10 @@ const uz: MessageTree = {
     tooManyRequests: "So'rovlar juda ko'p — biroz kutib qayta urinib ko'ring",
     badResponse: "Server javobi noto'g'ri formatda",
   },
+  doctorSwitch: {
+    current: 'Hozirgi',
+    queue: 'Navbat ({count})',
+  },
   utToast: {
     sending: 'Bemor yuborilmoqda…',
     uploadingFiles: 'Fayllar yuklanmoqda: {done}/{total}',

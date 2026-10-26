@@ -87,7 +87,7 @@ export function PdfDownloadButton({
           disabled={downloading}
           title={t('clinical.downloadPdf')}
           className={cn(
-            'inline-flex items-center gap-1 bg-violet-600 hover:bg-violet-700 text-white font-semibold disabled:opacity-60',
+            'inline-flex items-center gap-1 bg-brand-950 hover:bg-brand-800 text-white font-semibold disabled:opacity-60',
             pad,
           )}
         >
@@ -108,7 +108,7 @@ export function PdfDownloadButton({
           aria-haspopup="menu"
           aria-expanded={menuOpen}
           title={t('clinical.pdfLanguage')}
-          className="px-1 bg-violet-700 hover:bg-violet-800 text-white disabled:opacity-60 border-l border-violet-500/50"
+          className="px-1 bg-brand-900 hover:bg-brand-800 text-white disabled:opacity-60 border-l border-white/20"
         >
           <ChevronDown size={11} />
         </button>
@@ -133,8 +133,8 @@ export function PdfDownloadButton({
                   toast(t('clinical.pdfLocaleSet', { lang: LOCALE_LABELS[code] }), 'info');
                 }}
                 className={cn(
-                  'w-full flex items-center gap-1.5 px-2 py-1.5 text-left text-[11px] hover:bg-violet-50',
-                  code === pdfLocale ? 'text-violet-700 font-semibold' : 'text-slate-600',
+                  'w-full flex items-center gap-1.5 px-2 py-1.5 text-left text-[11px] hover:bg-gold-50',
+                  code === pdfLocale ? 'text-gold-700 font-semibold' : 'text-slate-600',
                 )}
               >
                 <Check size={11} className={cn('shrink-0', code === pdfLocale ? 'opacity-100' : 'opacity-0')} />

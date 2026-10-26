@@ -441,56 +441,49 @@ export function DoctorPatientsView({
       label: t('patients.activeQueue'),
       value: counts.all,
       icon: Radio,
-      tone: 'from-brand-400/15 to-sky-300/10 text-brand-900 ring-brand-200/50',
-      iconTone: 'text-brand-600 bg-brand-100/80',
+      dot: 'bg-brand-600',
     },
     {
       id: 'queued' as const,
       label: t('status.queued'),
       value: counts.queued,
       icon: Clock,
-      tone: 'from-amber-400/20 to-orange-300/10 text-amber-800 ring-amber-200/60',
-      iconTone: 'text-amber-600 bg-amber-100/80',
+      dot: 'bg-amber-500',
     },
     {
       id: 'live' as const,
       label: t('patients.liveReception'),
       value: counts.live,
       icon: Radio,
-      tone: 'from-emerald-400/20 to-teal-300/10 text-emerald-900 ring-emerald-200/60',
-      iconTone: 'text-emerald-600 bg-emerald-100/80',
+      dot: 'bg-emerald-500',
     },
     {
       id: 'completed' as const,
       label: t('status.completed'),
       value: counts.completed,
       icon: CheckCircle2,
-      tone: 'from-violet-400/15 to-brand-300/10 text-violet-900 ring-violet-200/50',
-      iconTone: 'text-violet-600 bg-violet-100/80',
+      dot: 'bg-gold-500',
     },
     {
       id: 'mypatients' as const,
       label: t('patients.myPatients'),
       value: counts.mypatients,
       icon: UserRound,
-      tone: 'from-brand-400/15 to-blue-300/10 text-brand-900 ring-brand-200/50',
-      iconTone: 'text-brand-600 bg-brand-100/80',
+      dot: 'bg-brand-400',
     },
     {
       id: 'followup' as const,
       label: t('patients.followUp'),
       value: counts.followup,
       icon: CalendarClock,
-      tone: 'from-sky-400/15 to-cyan-300/10 text-sky-900 ring-sky-200/50',
-      iconTone: 'text-sky-600 bg-sky-100/80',
+      dot: 'bg-sky-500',
     },
     {
       id: 'cancelled' as const,
       label: t('status.cancelled'),
       value: counts.cancelled,
       icon: XCircle,
-      tone: 'from-red-400/15 to-rose-300/10 text-red-900 ring-red-200/50',
-      iconTone: 'text-red-600 bg-red-100/80',
+      dot: 'bg-rose-500',
     },
   ];
 
@@ -515,35 +508,43 @@ export function DoctorPatientsView({
           )}
 
           <div>
-            <h1 className="text-lg font-bold text-slate-900 tracking-tight">{t('patients.doctorTitle')}</h1>
+            <h1 className="text-lg font-bold text-brand-950 tracking-tight">{t('patients.doctorTitle')}</h1>
             <p className="text-sm text-slate-500">
               {t('patients.doctorSubtitle')}
             </p>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1.5 sm:gap-2">
-            {statCards.map(({ id, label, value, icon: Icon, tone, iconTone }) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setFilter(id)}
-                title={label}
-                className={cn(
-                  // 7 ta kartochka bitta qatorga sig'ishi uchun ixcham o'lchov
-                  'ut-glass-card text-left p-2 sm:p-2.5 transition-all duration-200 ring-1 bg-gradient-to-br min-w-0',
-                  tone,
-                  filter === id && 'ut-glass-card-active scale-[1.02]',
-                )}
-              >
-                <div className="flex items-center justify-between gap-1.5">
-                  <div className={cn('w-7 h-7 rounded-lg flex items-center justify-center ring-1 ring-white/40 shrink-0', iconTone)}>
-                    <Icon size={15} />
-                  </div>
-                  <span className="text-xl font-bold leading-none tabular-nums">{value}</span>
-                </div>
-                <p className="text-[11px] font-semibold mt-1.5 opacity-80 truncate">{label}</p>
-              </button>
-            ))}
+            {statCards.map(({ id, label, value, dot }) => {
+              const active = filter === id;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setFilter(id)}
+                  title={label}
+                  aria-pressed={active}
+                  className={cn(
+                    // 7 ta kartochka bitta qatorga sig'ishi uchun ixcham o'lchov
+                    'min-w-0 rounded-xl border p-2 text-left transition-colors sm:p-2.5',
+                    active
+                      ? 'border-brand-950 bg-brand-950 text-white'
+                      : 'border-slate-200 bg-white text-brand-950 hover:border-brand-300',
+                  )}
+                >
+                  <span className="block text-xl font-bold leading-none tabular-nums">{value}</span>
+                  <span
+                    className={cn(
+                      'mt-1.5 flex items-center gap-1.5 truncate text-[11px] font-semibold',
+                      active ? 'text-slate-300' : 'text-slate-500',
+                    )}
+                  >
+                    <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', dot)} />
+                    {label}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
           <div className="relative">
@@ -751,7 +752,7 @@ function ActiveQueueCard({
         'before:absolute before:inset-y-0 before:left-0 before:w-1',
         TRIAGE_STRIPE[c.triageLevel || ''] ?? 'before:bg-transparent',
         active
-          ? 'ring-2 ring-brand-500/80 bg-brand-50/50 shadow-sm'
+          ? 'ring-2 ring-brand-600/70 bg-brand-50/50'
           : live
             ? 'ring-1 ring-emerald-200/80 bg-emerald-50/30'
             : isNew
@@ -762,12 +763,12 @@ function ActiveQueueCard({
       <button type="button" onClick={onSelect} className="flex items-center gap-3 min-w-0 flex-1 text-left">
         <div
           className={cn(
-            'w-11 h-11 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 ring-1 ring-white/50',
+            'w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold shrink-0',
             active
-              ? 'bg-brand-600 text-white'
+              ? 'bg-brand-950 text-gold-300'
               : live
-                ? 'bg-emerald-100 text-emerald-700'
-                : 'bg-amber-100 text-amber-800',
+                ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
+                : 'bg-slate-100 text-slate-600',
           )}
         >
           {patientInitial(c.patient.fullName)}
@@ -902,7 +903,7 @@ function HistoryCard({ c, onOpenReport }: { c: Consultation; onOpenReport: () =>
           c.status === 'CANCELLED'
             ? 'bg-red-100/80 text-red-700 ring-red-200/60'
             : hasReport
-              ? 'bg-violet-100/80 text-violet-700 ring-violet-200/60'
+              ? 'bg-gold-100/80 text-gold-700 ring-gold-200/60'
               : 'bg-brand-100/80 text-brand-700 ring-brand-200/60',
         )}
       >

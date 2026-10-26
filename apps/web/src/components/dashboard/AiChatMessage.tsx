@@ -56,7 +56,7 @@ export function AiChatMessage({ text, role }: { text: string; role: 'user' | 'as
                 <span
                   className={cn(
                     'shrink-0 tabular-nums',
-                    block.ordered ? 'font-semibold text-violet-600' : 'text-violet-400',
+                    block.ordered ? 'font-semibold text-gold-700' : 'text-gold-500',
                   )}
                 >
                   {item.marker}

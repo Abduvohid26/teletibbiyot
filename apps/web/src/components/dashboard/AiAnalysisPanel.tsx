@@ -128,25 +128,25 @@ export function AiAnalysisPanel({ analysis, consultationId, steps, onRefresh, co
   if (!analysis) {
     return (
       <div className="glass-panel h-full flex flex-col overflow-hidden min-h-0">
-        <div className="glass-header shrink-0 bg-gradient-to-r from-violet-500/10 to-brand-500/10 py-2 px-3">
-          <Sparkles size={16} className="text-violet-600" />
+        <div className="glass-header shrink-0 bg-gradient-to-r from-gold-400/10 to-brand-500/10 py-2 px-3">
+          <Sparkles size={16} className="text-gold-700" />
           <span className="panel-title text-sm">{t('clinical.title')}</span>
         </div>
         <div className="flex-1 overflow-hidden flex flex-col justify-center p-4 gap-3">
           {running ? (
             <div className="text-center space-y-2">
-              <div className="w-12 h-12 rounded-2xl bg-violet-50 ring-1 ring-violet-200/70 flex items-center justify-center mx-auto">
-                <Loader2 className="w-6 h-6 text-violet-600 animate-spin" />
+              <div className="w-12 h-12 rounded-2xl bg-gold-50 ring-1 ring-gold-200/70 flex items-center justify-center mx-auto">
+                <Loader2 className="w-6 h-6 text-gold-700 animate-spin" />
               </div>
-              <p className="text-sm font-semibold text-violet-800">{t('clinical.inProgressTitle')}</p>
+              <p className="text-sm font-semibold text-gold-700">{t('clinical.inProgressTitle')}</p>
               <p className="text-xs text-slate-500 leading-relaxed max-w-xs mx-auto">
                 {t('clinical.inProgressHint')}
               </p>
               {stepProgress.total > 0 && (
                 <div className="max-w-xs mx-auto space-y-1.5 pt-1">
-                  <div className="h-1.5 rounded-full bg-violet-100 overflow-hidden">
+                  <div className="h-1.5 rounded-full bg-gold-100 overflow-hidden">
                     <div
-                      className="h-full bg-violet-500 transition-all duration-500"
+                      className="h-full bg-gold-400 transition-all duration-500"
                       style={{ width: `${Math.round((stepProgress.done / stepProgress.total) * 100)}%` }}
                     />
                   </div>
@@ -195,11 +195,11 @@ export function AiAnalysisPanel({ analysis, consultationId, steps, onRefresh, co
 
   return (
     <div className="panel h-full flex flex-col overflow-hidden min-h-0">
-      <div className="panel-header bg-gradient-to-r from-violet-50/80 to-brand-50/50 shrink-0 py-2 px-3 gap-2">
-        <Sparkles size={16} className="text-violet-600 shrink-0" />
+      <div className="panel-header bg-gradient-to-r from-gold-50/80 to-brand-50/50 shrink-0 py-2 px-3 gap-2">
+        <Sparkles size={16} className="text-gold-700 shrink-0" />
         <span className="panel-title text-sm flex-1 min-w-0 truncate">{t('clinical.title')}</span>
         {translating && (
-          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-violet-700 bg-violet-100/80 px-1.5 py-0.5 rounded-full shrink-0">
+          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-gold-700 bg-gold-100/80 px-1.5 py-0.5 rounded-full shrink-0">
             <Loader2 size={10} className="animate-spin" />
             {t('clinical.translatingTitle')}
           </span>
@@ -214,7 +214,7 @@ export function AiAnalysisPanel({ analysis, consultationId, steps, onRefresh, co
               onClick={() => void handleReanalyze()}
               disabled={analyzing}
               title={t('clinical.reanalyze')}
-              className="p-1.5 rounded-lg hover:bg-white/60 text-violet-600"
+              className="p-1.5 rounded-lg hover:bg-white/60 text-gold-700"
             >
               <RefreshCw size={14} className={analyzing ? 'animate-spin' : ''} />
             </button>
@@ -224,8 +224,8 @@ export function AiAnalysisPanel({ analysis, consultationId, steps, onRefresh, co
             onClick={() => setChatOpen((v) => !v)}
             title={t('clinical.chat')}
             className={cn(
-              'p-1.5 rounded-lg text-violet-600',
-              chatOpen ? 'bg-violet-100' : 'hover:bg-white/60',
+              'p-1.5 rounded-lg text-gold-700',
+              chatOpen ? 'bg-gold-100' : 'hover:bg-white/60',
             )}
           >
             <MessageCircle size={14} />
@@ -280,7 +280,7 @@ export function AiAnalysisPanel({ analysis, consultationId, steps, onRefresh, co
                         key={key}
                         type="button"
                         onClick={() => void handleAsk(sq)}
-                        className="text-[10px] px-2 py-1 rounded-full bg-white border border-violet-200 text-violet-700 hover:bg-violet-50"
+                        className="text-[10px] px-2 py-1 rounded-full bg-white border border-gold-200 text-gold-700 hover:bg-gold-50"
                       >
                         {sq}
                       </button>

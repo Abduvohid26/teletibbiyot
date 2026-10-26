@@ -11,10 +11,11 @@ import { useAuth } from '@/lib/auth-context';
 const LIVE_WORKSPACE = new Set(['/dashboard']);
 
 export default function DashboardRootLayout({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, hydrated } = useAuth();
   const pathname = usePathname();
 
-  if (user && isMtDoctor(user.role)) {
+  // Server user'ni bilmaydi (kesh sessionStorage'da) — shell faqat hydrate'dan keyin
+  if (hydrated && user && isMtDoctor(user.role)) {
     return (
       <DoctorShell scrollable={!LIVE_WORKSPACE.has(pathname)}>
         {children}
@@ -22,7 +23,7 @@ export default function DashboardRootLayout({ children }: { children: ReactNode 
     );
   }
 
-  if (user && isUtRole(user.role)) {
+  if (hydrated && user && isUtRole(user.role)) {
     return <UtShell scrollable>{children}</UtShell>;
   }
 

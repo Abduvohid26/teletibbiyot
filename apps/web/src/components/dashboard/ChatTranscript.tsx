@@ -71,7 +71,7 @@ export function ChatTranscript({ consultationId, compact }: { consultationId?: s
           <div className="space-y-1.5">
             {systemHints.map((hint) => (
               <div key={hint} className="flex items-start gap-2 glass-preview-card !p-2">
-                <Bot size={12} className="text-violet-500 shrink-0 mt-0.5" />
+                <Bot size={12} className="text-gold-600 shrink-0 mt-0.5" />
                 <p className="text-[10px] text-slate-500 leading-relaxed">{hint}</p>
               </div>
             ))}

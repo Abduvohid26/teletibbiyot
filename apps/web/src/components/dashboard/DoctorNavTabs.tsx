@@ -53,7 +53,7 @@ export function DoctorNavTabs({ liveCount = 0, queueCount = 0, className }: Doct
   return (
     <nav
       className={cn(
-        'flex items-stretch gap-0.5 p-0.5 rounded-xl bg-white/40 backdrop-blur-md border border-white/55 shadow-sm flex-nowrap shrink-0',
+        'flex items-stretch gap-0.5 p-0.5 rounded-xl bg-white/[0.06] border border-white/10 flex-nowrap shrink-0',
         className,
       )}
       aria-label={t('nav.doctorAria')}
@@ -77,11 +77,11 @@ export function DoctorNavTabs({ liveCount = 0, queueCount = 0, className }: Doct
               'relative flex items-center justify-center gap-1.5 rounded-lg font-semibold transition-all duration-200 shrink-0',
               'px-2 py-1.5 sm:px-3 sm:py-2',
               active
-                ? 'bg-white/90 text-brand-700 shadow-sm ring-1 ring-brand-200/70'
-                : 'text-slate-500 hover:text-slate-800 hover:bg-white/50',
+                ? 'bg-white text-brand-950 shadow-sm'
+                : 'text-slate-300 hover:text-white hover:bg-white/10',
             )}
           >
-            <Icon size={16} className={cn('shrink-0', active && 'text-brand-600')} />
+            <Icon size={16} className={cn('shrink-0', active && 'text-gold-600')} />
             <span className="hidden sm:inline text-xs truncate max-w-[6rem]">
               <span className="lg:hidden">{shortLabel}</span>
               <span className="hidden lg:inline">{label}</span>
@@ -90,7 +90,7 @@ export function DoctorNavTabs({ liveCount = 0, queueCount = 0, className }: Doct
               <span
                 className={cn(
                   'min-w-[16px] h-4 px-1 rounded-full text-[9px] font-bold inline-flex items-center justify-center text-white',
-                  badgeKey === 'live' ? 'bg-emerald-500' : 'bg-amber-500',
+                  badgeKey === 'live' ? 'bg-emerald-500' : 'bg-gold-400 !text-brand-950',
                 )}
               >
                 {badge}

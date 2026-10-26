@@ -43,7 +43,7 @@ const EVIDENCE_LABEL_KEYS: Record<EvidenceLevel, string> = {
 const SOURCE_STYLES: Record<SourceType, string> = {
   protocol: 'bg-teal-50 text-teal-700',
   guideline: 'bg-brand-50 text-brand-700',
-  article: 'bg-violet-50 text-violet-700',
+  article: 'bg-gold-50 text-gold-700',
   general: 'bg-slate-100 text-slate-600',
 };
 
@@ -117,8 +117,8 @@ export function ClinicalConclusionReport({
 
   return (
     <div className={cn('space-y-3 transition-opacity', dense && 'space-y-2', translating && 'opacity-70')}>
-      <div className={cn('rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50/90 to-brand-50/60', dense ? 'p-2' : 'p-3')}>
-        <p className="text-[10px] font-bold uppercase tracking-widest text-violet-600">{t('clinical.finalTitle')}</p>
+      <div className={cn('rounded-xl border border-gold-200/80 bg-gradient-to-br from-gold-50/90 to-brand-50/60', dense ? 'p-2' : 'p-3')}>
+        <p className="text-[10px] font-bold uppercase tracking-widest text-gold-700">{t('clinical.finalTitle')}</p>
         <p className="text-xs text-slate-500 mt-0.5">{t('clinical.finalSubtitle')}</p>
         {contentLocale && (
           <p className="text-[10px] text-slate-400 mt-1">
@@ -126,11 +126,11 @@ export function ClinicalConclusionReport({
           </p>
         )}
         {translating ? (
-          <div className="mt-2 flex items-start gap-2 rounded-lg bg-violet-50/90 border border-violet-200/70 px-2 py-1.5">
-            <Loader2 size={13} className="text-violet-600 animate-spin shrink-0 mt-0.5" />
+          <div className="mt-2 flex items-start gap-2 rounded-lg bg-gold-50/90 border border-gold-200/70 px-2 py-1.5">
+            <Loader2 size={13} className="text-gold-700 animate-spin shrink-0 mt-0.5" />
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold text-violet-800">{t('clinical.translatingTitle')}</p>
-              <p className="text-[10px] text-violet-700/80">{t('clinical.translatingHint')}</p>
+              <p className="text-[11px] font-semibold text-gold-700">{t('clinical.translatingTitle')}</p>
+              <p className="text-[10px] text-gold-700/80">{t('clinical.translatingHint')}</p>
             </div>
           </div>
         ) : !localized.available ? (
@@ -142,7 +142,7 @@ export function ClinicalConclusionReport({
               <button
                 type="button"
                 onClick={onRequestTranslation}
-                className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-600 text-white hover:bg-violet-700"
+                className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-brand-950 text-white hover:bg-brand-800"
               >
                 {t('clinical.translateNow')}
               </button>
@@ -550,7 +550,7 @@ function Section({
   return (
     <section className={cn('rounded-xl border border-slate-100 bg-white/60', compact ? 'p-2' : 'p-3')}>
       <div className="flex items-center gap-1.5 mb-1.5">
-        <Icon size={compact ? 12 : 14} className="text-violet-600 shrink-0" />
+        <Icon size={compact ? 12 : 14} className="text-gold-700 shrink-0" />
         <div>
           <p className={cn('font-bold text-slate-800', compact ? 'text-[10px]' : 'text-xs')}>{title}</p>
           {subtitle && <p className="text-[9px] text-slate-400">{subtitle}</p>}

@@ -244,7 +244,7 @@ export function VideoConsultation({
       {preflightPending && (
         <VideoPreflightModal role="mt" onConfirm={confirmPreflight} onCancel={cancelPreflight} />
       )}
-    <div className="glass-panel h-full flex flex-col p-0 overflow-hidden min-h-0">
+    <div className="h-full flex flex-col p-0 overflow-hidden min-h-0 rounded-xl bg-brand-950 text-white">
       <div className={cn(
         'flex-1 min-h-0 flex flex-col',
         compact && 'px-1 pt-1',
@@ -312,7 +312,7 @@ export function VideoConsultation({
             {remoteDoctorFeeds.map((d) => (
               <div
                 key={d.id}
-                className="relative w-28 sm:w-32 aspect-video rounded-lg overflow-hidden ring-2 ring-violet-400/60 shadow-lg bg-slate-900"
+                className="relative w-28 sm:w-32 aspect-video rounded-lg overflow-hidden ring-2 ring-gold-400/60 shadow-lg bg-slate-900"
               >
                 <VideoTile stream={d.stream} muted className="absolute inset-0 w-full h-full [&_video]:object-cover" />
                 <span className="absolute bottom-0 inset-x-0 bg-slate-950/75 text-white text-[9px] font-semibold px-1 py-0.5 truncate pointer-events-none">
@@ -335,7 +335,7 @@ export function VideoConsultation({
         )}
 
         {observeMode ? (
-          <div className="absolute top-3 left-3 z-10 flex items-center gap-2 bg-violet-600/80 text-white text-xs font-bold px-2.5 py-1 rounded-lg">
+          <div className="absolute top-3 left-3 z-10 flex items-center gap-2 bg-gold-400 text-brand-950 text-xs font-bold px-2.5 py-1 rounded-lg">
             <Eye size={14} /> {t('video.observeBadge', { code: facilityCode })}
           </div>
         ) : (
@@ -489,7 +489,7 @@ export function VideoConsultation({
               onClick={() => { setActiveCamera(feed.id); if (feed.ptz && !observeMode) setShowPtz(true); }}
               className={cn(
                 'relative aspect-video rounded-lg overflow-hidden border-2 transition-all',
-                activeCamera === feed.id ? 'border-blue-500 ring-2 ring-blue-200' : 'border-transparent',
+                activeCamera === feed.id ? 'border-gold-400' : 'border-transparent hover:border-white/25',
               )}
             >
               <VideoTile stream={stream} muted className="w-full h-full" placeholder={feed.label} live={!!stream} />
@@ -523,8 +523,7 @@ export function VideoConsultation({
                 }}
                 className={cn(
                   'relative flex flex-col shrink-0 rounded-lg overflow-hidden border-2 transition-all w-[4.5rem]',
-                  activeCamera === feed.id ? 'border-brand-500 ring-1 ring-brand-200' : 'border-slate-200',
-                  feed.id === 'close' && activeCamera !== feed.id && 'ring-brand-300/50',
+                  activeCamera === feed.id ? 'border-gold-400' : 'border-white/10 hover:border-white/25',
                 )}
               >
                 <div className="relative w-full h-9">
@@ -532,7 +531,7 @@ export function VideoConsultation({
                 </div>
                 <span className={cn(
                   'text-[8px] font-semibold px-1 py-0.5 truncate text-center',
-                  live ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500',
+                  live ? 'bg-emerald-600 text-white' : 'bg-white/[0.06] text-slate-400',
                 )}>
                   {shortFeedLabel(feed, t)}
                 </span>
@@ -551,7 +550,7 @@ export function VideoConsultation({
       <div className={cn('flex items-center justify-center gap-2 shrink-0', compact ? 'px-2 py-1.5' : 'px-3 py-4')}>
         {!observeMode && (
           <>
-            <div className="flex items-center gap-1 glass-control-bar shadow-glass">
+            <div className="flex items-center gap-1 rounded-full bg-white/[0.06] px-1.5 py-1 ring-1 ring-white/10">
               <ControlBtn active={micOn} onClick={toggleMic} icon={micOn ? Mic : MicOff} compact={compact} label={t('video.mic')} />
               <ControlBtn active={speakerOn} onClick={toggleSpeaker} icon={speakerOn ? Volume2 : VolumeX} compact={compact} label={t('video.speaker')} />
               <ControlBtn active={camOn} onClick={toggleCam} icon={camOn ? Video : VideoOff} compact={compact} label={t('video.cam')} />
@@ -561,7 +560,7 @@ export function VideoConsultation({
               type="button"
               onClick={handleLeave}
               className={cn(
-                'flex items-center gap-1.5 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl transition-all shadow-lg shadow-red-500/25',
+                'flex items-center gap-1.5 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-full transition-colors',
                 compact ? 'text-xs px-3 py-1.5' : 'text-sm px-5 py-2.5 rounded-2xl',
               )}
             >
@@ -573,7 +572,7 @@ export function VideoConsultation({
                 type="button"
                 onClick={handleReconnect}
                 className={cn(
-                  'flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition-all shadow-lg shadow-emerald-500/25',
+                  'flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-full transition-colors',
                   compact ? 'text-xs px-3 py-1.5' : 'text-sm px-5 py-2.5 rounded-2xl',
                 )}
               >
@@ -584,7 +583,7 @@ export function VideoConsultation({
           </>
         )}
         {observeMode && (
-          <p className="text-xs text-slate-500">{t('video.observeOnly')}</p>
+          <p className="text-xs text-slate-400">{t('video.observeOnly')}</p>
         )}
       </div>
     </div>
@@ -615,17 +614,17 @@ function AllCamerasButton({
         onClick={onClick}
         className={cn(
           'relative flex flex-col shrink-0 rounded-lg overflow-hidden border-2 transition-all w-[4.5rem]',
-          active ? 'border-brand-500 ring-1 ring-brand-200' : 'border-slate-200',
+          active ? 'border-gold-400' : 'border-white/10 hover:border-white/25',
         )}
       >
-        <div className="relative w-full h-9 bg-slate-900 grid grid-cols-2 grid-rows-2 gap-px p-0.5">
+        <div className="relative w-full h-9 bg-brand-900 grid grid-cols-2 grid-rows-2 gap-px p-0.5">
           {[0, 1, 2, 3].map((i) => (
-            <span key={i} className={cn('rounded-[1px]', i < liveCount ? 'bg-emerald-500/80' : 'bg-slate-700')} />
+            <span key={i} className={cn('rounded-[1px]', i < liveCount ? 'bg-emerald-500/80' : 'bg-white/10')} />
           ))}
         </div>
         <span className={cn(
           'text-[8px] font-semibold px-1 py-0.5 truncate text-center',
-          active ? 'bg-brand-600 text-white' : liveCount > 0 ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-500',
+          active ? 'bg-gold-400 text-brand-950' : liveCount > 0 ? 'bg-white/10 text-white' : 'bg-white/[0.06] text-slate-400',
         )}>
           {label}
         </span>
@@ -639,13 +638,13 @@ function AllCamerasButton({
       title={hint}
       onClick={onClick}
       className={cn(
-        'relative aspect-video rounded-lg overflow-hidden border-2 transition-all bg-slate-900',
-        active ? 'border-blue-500 ring-2 ring-blue-200' : 'border-transparent hover:border-slate-300',
+        'relative aspect-video rounded-lg overflow-hidden border-2 transition-all bg-brand-900',
+        active ? 'border-gold-400' : 'border-transparent hover:border-white/25',
       )}
     >
       <div className="absolute inset-1 grid grid-cols-2 grid-rows-2 gap-0.5">
         {[0, 1, 2, 3].map((i) => (
-          <span key={i} className={cn('rounded-sm', i < liveCount ? 'bg-emerald-500/70' : 'bg-slate-700')} />
+          <span key={i} className={cn('rounded-sm', i < liveCount ? 'bg-emerald-500/70' : 'bg-white/10')} />
         ))}
       </div>
       <LayoutGrid size={14} className="absolute top-1.5 right-1.5 text-white/40" />
@@ -668,8 +667,8 @@ function ControlBtn({ active, onClick, icon: Icon, compact, label }: { active: b
         'rounded-full transition-all duration-200',
         compact ? 'p-1.5' : 'p-2.5',
         active
-          ? 'bg-white/90 text-slate-700 shadow-sm hover:bg-white'
-          : 'bg-red-500/20 text-red-300 hover:bg-red-500/30',
+          ? 'bg-white/10 text-white hover:bg-white/15'
+          : 'bg-red-500/90 text-white hover:bg-red-500',
       )}
     >
       <Icon size={compact ? 14 : 18} />
