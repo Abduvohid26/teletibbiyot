@@ -85,4 +85,11 @@ export class DashboardController {
   getAdminOverview() {
     return this.dashboardService.getAdminOverview();
   }
+
+  /** Admin monitoring: joriy holat (bemor PII'siz) */
+  @Get('admin-live')
+  @Roles(UserRole.ADMIN)
+  getAdminLive() {
+    return this.dashboardService.getAdminLive();
+  }
 }

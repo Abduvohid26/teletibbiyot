@@ -3,17 +3,19 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Stethoscope, Users, Building2, Activity, LogOut, Shield, FileText, UserPlus, X, GraduationCap, BarChart3 } from 'lucide-react';
+import { Users, Building2, LogOut, FileText, UserPlus, X, GraduationCap, BarChart3, MonitorDot } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
-import { api, User, DashboardStats, Facility, Specialty, AdminOverview } from '@/lib/api';
+import { api, User, Facility, Specialty, AdminOverview } from '@/lib/api';
 import { canAccessAdmin } from '@ishifo/shared';
 import { UserRole } from '@ishifo/shared';
 import { getRoleHomePath } from '@/lib/auth-utils';
 import { BrandName } from '@/components/brand/BrandName';
+import { BrandLogo } from '@/components/brand/BrandLogo';
+import { AdminLivePanel } from '@/components/admin/AdminLivePanel';
 import { PlatformFooter } from '@/components/layout/PlatformFooter';
 import { AdminSpecialtiesPanel } from '@/components/admin/AdminSpecialtiesPanel';
 import { AdminOverviewPanel } from '@/components/admin/AdminOverviewPanel';
-import { useI18n } from '@/i18n';
+import { LanguageSwitcher, useI18n } from '@/i18n';
 
 function roleKey(role: string): string {
   if (role === UserRole.UT_OPERATOR) return 'roles.utOperator';
@@ -28,7 +30,6 @@ export default function AdminPage() {
   const { t } = useI18n();
   const [users, setUsers] = useState<User[]>([]);
   const [facilities, setFacilities] = useState<Facility[]>([]);
-  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [error, setError] = useState('');
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -40,7 +41,7 @@ export default function AdminPage() {
   const [savingUser, setSavingUser] = useState(false);
   const [savingFacility, setSavingFacility] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'users' | 'specialties' | 'facilities' | 'stats'>('users');
+  const [activeTab, setActiveTab] = useState<'monitor' | 'users' | 'specialties' | 'facilities' | 'stats'>('monitor');
   const [specialties, setSpecialties] = useState<Specialty[]>([]);
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [overviewLoading, setOverviewLoading] = useState(false);
@@ -83,14 +84,12 @@ export default function AdminPage() {
     setDataLoading(true);
     Promise.allSettled([
       api.getUsers(),
-      api.getStats(),
       api.getFacilities(),
       api.getSpecialties(true),
     ])
       .then((results) => {
-        const [usersR, statsR, facilitiesR, specialtiesR] = results;
+        const [usersR, facilitiesR, specialtiesR] = results;
         if (usersR.status === 'fulfilled') setUsers(usersR.value);
-        if (statsR.status === 'fulfilled') setStats(statsR.value);
         if (facilitiesR.status === 'fulfilled') setFacilities(facilitiesR.value);
         if (specialtiesR.status === 'fulfilled') setSpecialties(specialtiesR.value);
 
@@ -250,6 +249,7 @@ export default function AdminPage() {
   };
 
   const tabs = [
+    ['monitor', 'adminLive.tab', MonitorDot],
     ['users', 'admin.tabUsers', Users],
     ['specialties', 'admin.tabSpecialties', GraduationCap],
     ['facilities', 'admin.tabFacilities', Building2],
@@ -257,48 +257,29 @@ export default function AdminPage() {
   ] as const;
 
   return (
-    <div className="min-h-screen bg-surface">
-      <header className="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b border-slate-200/80">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl gradient-btn flex items-center justify-center">
-              <Shield className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 className="font-bold text-slate-900 tracking-tight"><BrandName size="sm" /> — {t('admin.title')}</h1>
-              <p className="text-xs text-slate-500">{t('admin.subtitle')}</p>
+    <div className="min-h-screen bg-[#f2f4f8]">
+      <header className="sticky top-0 z-20 border-b border-gold-400/25 bg-brand-950 text-white">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <BrandLogo size={32} className="rounded-lg ring-1 ring-white/15" />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold"><BrandName size="sm" /> · {t('admin.title')}</p>
+              <p className="hidden truncate text-xs text-gold-300/90 sm:block">{user.fullName}</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <Link href="/admin/audit" className="btn-secondary !py-2 !text-xs hidden sm:inline-flex">
-              <FileText size={14} /> {t('admin.auditLog')}
-            </Link>
-            <button onClick={logout} className="btn-ghost text-red-500 hover:text-red-600 hover:bg-red-50">
-              <LogOut size={16} /> {t('common.logout')}
+          <div className="flex shrink-0 items-center gap-2">
+            <LanguageSwitcher compact tone="dark" className="hidden sm:inline-flex" />
+            <button
+              type="button"
+              onClick={logout}
+              className="inline-flex items-center gap-1.5 rounded-lg p-2 text-sm text-slate-300 hover:bg-white/10 hover:text-rose-300"
+              aria-label={t('common.logout')}
+            >
+              <LogOut size={16} /> <span className="hidden md:inline">{t('common.logout')}</span>
             </button>
           </div>
         </div>
-      </header>
-
-      <main className="max-w-6xl mx-auto p-6 animate-fade-in">
-        {error && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl p-3.5">{error}</div>
-        )}
-
-        {dataLoading && (
-          <div className="text-sm text-slate-500 animate-pulse mb-4">{t('admin.loadingData')}</div>
-        )}
-
-        {stats && activeTab === 'users' && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <StatCard icon={Activity} label={t('admin.totalConsultations')} value={stats.totalConsultations} bg="bg-brand-50" text="text-brand-600" />
-            <StatCard icon={Users} label={t('nav.patients')} value={stats.totalPatients} bg="bg-cyan-50" text="text-cyan-600" />
-            <StatCard icon={Building2} label={t('status.inProgress')} value={stats.inProgress} bg="bg-emerald-50" text="text-emerald-600" />
-            <StatCard icon={Stethoscope} label={t('status.queued')} value={stats.queued} bg="bg-amber-50" text="text-amber-600" />
-          </div>
-        )}
-
-        <div className="flex flex-wrap gap-2 mb-6">
+        <nav className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 pb-2 ut-nav-scroll sm:px-6" aria-label={t('admin.title')}>
           {tabs.map(([id, labelKey, Icon]) => (
             <button
               key={id}
@@ -307,17 +288,34 @@ export default function AdminPage() {
                 setActiveTab(id);
                 if (id === 'stats') loadOverview();
               }}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-                activeTab === id
-                  ? 'bg-brand-600 text-white shadow-sm'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              aria-current={activeTab === id ? 'page' : undefined}
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors ${
+                activeTab === id ? 'bg-white text-brand-950' : 'text-slate-300 hover:bg-white/10 hover:text-white'
               }`}
             >
-              <Icon size={16} />
+              <Icon size={15} className={activeTab === id ? 'text-gold-600' : undefined} />
               {t(labelKey)}
             </button>
           ))}
-        </div>
+          <Link
+            href="/admin/audit"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold text-slate-300 hover:bg-white/10 hover:text-white"
+          >
+            <FileText size={15} /> {t('admin.auditLog')}
+          </Link>
+        </nav>
+      </header>
+
+      <main className="mx-auto max-w-7xl p-4 animate-fade-in sm:p-6">
+        {error && (
+          <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3.5 text-sm text-red-700">{error}</div>
+        )}
+
+        {dataLoading && activeTab !== 'monitor' && (
+          <div className="mb-4 animate-pulse text-sm text-slate-500">{t('admin.loadingData')}</div>
+        )}
+
+        {activeTab === 'monitor' && <AdminLivePanel />}
 
         {activeTab === 'users' && (
         <div className="panel overflow-hidden animate-slide-up">
@@ -646,24 +644,8 @@ export default function AdminPage() {
         </div>
       )}
 
-      <div className="max-w-6xl mx-auto px-6 pb-8 mt-8">
+      <div className="max-w-7xl mx-auto px-6 pb-8 mt-8">
         <PlatformFooter variant="compact" />
-      </div>
-    </div>
-  );
-}
-
-function StatCard({ icon: Icon, label, value, bg, text }: {
-  icon: React.ElementType; label: string; value: number; bg: string; text: string;
-}) {
-  return (
-    <div className="stat-card">
-      <div className={`p-3 rounded-xl ${bg}`}>
-        <Icon className={text} size={22} />
-      </div>
-      <div>
-        <p className="text-2xl font-bold text-slate-900">{value}</p>
-        <p className="text-xs text-slate-500 mt-0.5">{label}</p>
       </div>
     </div>
   );

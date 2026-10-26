@@ -9,6 +9,22 @@ import { AuthUser } from "../common/access-control.service";
 
 import { AccessControlService } from "../common/access-control.service";
 import { FieldCryptoService } from "../common/field-crypto.service";
+import { DoctorPresenceService } from "../video/doctor-presence.service";
+import { StorageService } from "../storage/storage.service";
+
+const TRIAGE_ORDER: Record<string, number> = { EMERGENCY: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+/** groupBy natijasini { kalit: soni } ga yig'adi; kalit null bo'lsa — tashlanadi */
+function tally<T extends { _count: { _all: number } }>(rows: T[], keyOf: (row: T) => string | null) {
+  const out: Record<string, number> = {};
+  for (const row of rows) {
+    const key = keyOf(row);
+    if (key) out[key] = (out[key] ?? 0) + row._count._all;
+  }
+  return out;
+}
+
+const minutesSince = (from: Date | null | undefined, now: Date) =>
+  from ? Math.max(0, Math.round((now.getTime() - from.getTime()) / 60000)) : null;
 
 @Injectable()
 export class DashboardService {
@@ -18,6 +34,10 @@ export class DashboardService {
     private access: AccessControlService,
 
     private crypto: FieldCryptoService,
+
+    private presence: DoctorPresenceService,
+
+    private storage: StorageService,
   ) {}
 
   private scopedConsultationWhere(user?: AuthUser): Prisma.ConsultationWhereInput | undefined {
@@ -566,6 +586,189 @@ export class DashboardService {
       consultationsToday: completedToday.length,
 
       inProgress,
+    };
+  }
+
+  /**
+   * Admin monitoring — tizimning joriy holati (real vaqt).
+   * Admin klinik ma'lumotga kirmaydi (AccessControlService): bemor ismi/PII qaytarilmaydi,
+   * faqat operatsion holat — qaysi UT, qaysi shifokor, qancha vaqt, xavf darajasi.
+   */
+  async getAdminLive() {
+    const now = new Date();
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+
+    const facilitySelect = { select: { id: true, name: true, code: true } } as const;
+    const doctorSelect = { select: { id: true, fullName: true } } as const;
+
+    const [
+      liveRows,
+      queueRows,
+      completedToday,
+      cancelledToday,
+      intakesToday,
+      doctors,
+      utFacilities,
+      activeByDoctor,
+      completedByDoctor,
+      activeByFacility,
+      intakesByFacility,
+      operatorsByFacility,
+      dbOk,
+    ] = await Promise.all([
+      this.prisma.consultation.findMany({
+        where: { status: ConsultationStatus.IN_PROGRESS },
+        select: {
+          id: true,
+          startedAt: true,
+          triageLevel: true,
+          escalationLevel: true,
+          utFacility: facilitySelect,
+          mtDoctor: doctorSelect,
+          _count: { select: { participants: { where: { leftAt: null } } } },
+        },
+        orderBy: { startedAt: "asc" },
+        take: 100,
+      }),
+      this.prisma.consultation.findMany({
+        where: { status: ConsultationStatus.QUEUED },
+        select: {
+          id: true,
+          createdAt: true,
+          triageLevel: true,
+          escalationLevel: true,
+          utFacility: facilitySelect,
+          mtDoctor: doctorSelect,
+        },
+        orderBy: { createdAt: "asc" },
+        take: 500,
+      }),
+      this.prisma.consultation.findMany({
+        where: { status: ConsultationStatus.COMPLETED, completedAt: { gte: todayStart } },
+        select: { startedAt: true, completedAt: true },
+      }),
+      this.prisma.consultation.count({
+        where: { status: ConsultationStatus.CANCELLED, cancelledAt: { gte: todayStart } },
+      }),
+      this.prisma.consultation.count({ where: { createdAt: { gte: todayStart } } }),
+      this.prisma.user.findMany({
+        where: { role: { in: MT_DOCTOR_ROLES }, isActive: true },
+        select: {
+          id: true,
+          fullName: true,
+          onBreak: true,
+          specialty: true,
+          specialtyRef: { select: { name: true } },
+        },
+        orderBy: { fullName: "asc" },
+      }),
+      this.prisma.facility.findMany({
+        where: { type: FacilityType.UT },
+        select: { id: true, name: true, code: true, region: true },
+        orderBy: { code: "asc" },
+      }),
+      this.prisma.consultation.groupBy({
+        by: ["mtDoctorId", "status"],
+        where: { status: { in: [ConsultationStatus.QUEUED, ConsultationStatus.IN_PROGRESS] } },
+        _count: { _all: true },
+      }),
+      this.prisma.consultation.groupBy({
+        by: ["mtDoctorId"],
+        where: { status: ConsultationStatus.COMPLETED, completedAt: { gte: todayStart } },
+        _count: { _all: true },
+      }),
+      this.prisma.consultation.groupBy({
+        by: ["utId", "status"],
+        where: { status: { in: [ConsultationStatus.QUEUED, ConsultationStatus.IN_PROGRESS] } },
+        _count: { _all: true },
+      }),
+      this.prisma.consultation.groupBy({
+        by: ["utId"],
+        where: { createdAt: { gte: todayStart } },
+        _count: { _all: true },
+      }),
+      this.prisma.user.groupBy({
+        by: ["facilityId"],
+        where: { role: UserRole.UT_OPERATOR, isActive: true },
+        _count: { _all: true },
+      }),
+      this.prisma.$queryRaw`SELECT 1`.then(() => true).catch(() => false),
+    ]);
+
+    const presence = await this.presence.getStatuses(doctors.map((d) => d.id));
+
+    const queueWaits = queueRows.map((q) => minutesSince(q.createdAt, now) ?? 0);
+    const durations = completedToday
+      .map((c) => (c.startedAt && c.completedAt ? (c.completedAt.getTime() - c.startedAt.getTime()) / 60000 : null))
+      .filter((v): v is number => v != null && v >= 0);
+    const avg = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null);
+
+    const doctorQueued = tally(activeByDoctor, (r) => (r.status === ConsultationStatus.QUEUED ? r.mtDoctorId : null));
+    const doctorLive = tally(activeByDoctor, (r) => (r.status === ConsultationStatus.IN_PROGRESS ? r.mtDoctorId : null));
+    const doctorDone = tally(completedByDoctor, (r) => r.mtDoctorId);
+    const facQueued = tally(activeByFacility, (r) => (r.status === ConsultationStatus.QUEUED ? r.utId : null));
+    const facLive = tally(activeByFacility, (r) => (r.status === ConsultationStatus.IN_PROGRESS ? r.utId : null));
+    const facIntakes = tally(intakesByFacility, (r) => r.utId);
+    const facOperators = tally(operatorsByFacility, (r) => r.facilityId);
+
+    const queueSorted = [...queueRows].sort(
+      (a, b) =>
+        (TRIAGE_ORDER[a.triageLevel ?? ""] ?? 4) - (TRIAGE_ORDER[b.triageLevel ?? ""] ?? 4)
+        || a.createdAt.getTime() - b.createdAt.getTime(),
+    );
+
+    return {
+      generatedAt: now.toISOString(),
+      counters: {
+        queued: queueRows.length,
+        inProgress: liveRows.length,
+        completedToday: completedToday.length,
+        cancelledToday,
+        intakesToday,
+        emergencyQueued: queueRows.filter((q) => q.triageLevel === "EMERGENCY" || q.triageLevel === "HIGH").length,
+        avgWaitMinutes: avg(queueWaits),
+        maxWaitMinutes: queueWaits.length ? Math.max(...queueWaits) : null,
+        avgDurationTodayMinutes: avg(durations),
+        unassignedQueued: queueRows.filter((q) => !q.mtDoctor).length,
+      },
+      live: liveRows.map((c) => ({
+        id: c.id,
+        triageLevel: c.triageLevel,
+        escalationLevel: c.escalationLevel,
+        facility: c.utFacility,
+        doctor: c.mtDoctor,
+        consultants: c._count.participants,
+        minutes: minutesSince(c.startedAt, now),
+      })),
+      queue: queueSorted.slice(0, 30).map((c) => ({
+        id: c.id,
+        triageLevel: c.triageLevel,
+        escalationLevel: c.escalationLevel,
+        facility: c.utFacility,
+        doctor: c.mtDoctor,
+        waitMinutes: minutesSince(c.createdAt, now),
+      })),
+      doctors: doctors.map((d) => ({
+        id: d.id,
+        fullName: d.fullName,
+        specialty: d.specialtyRef?.name ?? d.specialty ?? null,
+        presence: presence[d.id] ?? "offline",
+        queued: doctorQueued[d.id] ?? 0,
+        inProgress: doctorLive[d.id] ?? 0,
+        completedToday: doctorDone[d.id] ?? 0,
+      })),
+      facilities: utFacilities.map((f) => ({
+        ...f,
+        operators: facOperators[f.id] ?? 0,
+        intakesToday: facIntakes[f.id] ?? 0,
+        queued: facQueued[f.id] ?? 0,
+        inProgress: facLive[f.id] ?? 0,
+      })),
+      system: {
+        database: dbOk ? "up" : "down",
+        storage: this.storage.isAvailable() ? "up" : "down",
+      },
     };
   }
 }

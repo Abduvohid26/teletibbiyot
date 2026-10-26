@@ -64,35 +64,43 @@ export default function AuditPage() {
   if (!user || !canAccessAudit(user.role)) return null;
 
   return (
-    <div className="min-h-screen bg-surface">
-      <header className="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b border-slate-200/80">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center gap-4 flex-wrap">
-          <Link href="/admin" className="btn-ghost !p-2">
+    <div className="min-h-screen bg-[#f2f4f8]">
+      <header className="sticky top-0 z-20 border-b border-gold-400/25 bg-brand-950 text-white">
+        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 sm:px-6">
+          <Link
+            href="/admin"
+            className="rounded-lg p-2 text-slate-300 hover:bg-white/10 hover:text-white"
+            aria-label={t('admin.title')}
+          >
             <ArrowLeft size={18} />
           </Link>
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-violet-100 flex items-center justify-center">
-              <Shield className="w-5 h-5 text-violet-600" />
-            </div>
-            <div>
-              <h1 className="font-bold text-slate-900 tracking-tight">{t('admin.auditTitle')}</h1>
-              <p className="text-xs text-slate-500">{t('admin.auditCount', { count: logs.length })}</p>
-            </div>
-          </div>
-          <div className="ml-auto flex items-center gap-2 flex-wrap">
-            <input type="date" className="input !py-1.5 !text-xs !w-auto" value={from} onChange={(e) => setFrom(e.target.value)} />
-            <input type="date" className="input !py-1.5 !text-xs !w-auto" value={to} onChange={(e) => setTo(e.target.value)} />
-            <button type="button" onClick={exportCsv} disabled={exporting} className="btn-secondary !text-xs inline-flex items-center gap-1.5">
-              <Download size={14} /> {exporting ? t('admin.exporting') : t('admin.exportCsv')}
-            </button>
-            <button type="button" onClick={load} className="btn-secondary !text-xs inline-flex items-center gap-1.5">
-              <RefreshCw size={14} /> {t('common.refresh')}
-            </button>
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/[0.06] ring-1 ring-gold-400/40">
+            <Shield className="h-5 w-5 text-gold-300" />
+          </span>
+          <div className="min-w-0">
+            <h1 className="truncate font-bold tracking-tight">{t('admin.auditTitle')}</h1>
+            <p className="text-xs text-slate-400">{t('admin.auditCount', { count: logs.length })}</p>
           </div>
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto p-6">
+      <div className="mx-auto max-w-7xl px-4 pt-4 sm:px-6">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-2">
+          <input type="date" className="input !min-h-0 !w-auto !py-1.5 !text-xs" value={from} onChange={(e) => setFrom(e.target.value)} />
+          <span className="text-slate-300" aria-hidden>—</span>
+          <input type="date" className="input !min-h-0 !w-auto !py-1.5 !text-xs" value={to} onChange={(e) => setTo(e.target.value)} />
+          <div className="ml-auto flex items-center gap-2">
+            <button type="button" onClick={exportCsv} disabled={exporting} className="btn-secondary !min-h-0 !py-1.5 !text-xs inline-flex items-center gap-1.5">
+              <Download size={14} /> {exporting ? t('admin.exporting') : t('admin.exportCsv')}
+            </button>
+            <button type="button" onClick={load} className="inline-flex items-center gap-1.5 rounded-lg bg-brand-950 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-800">
+              <RefreshCw size={14} /> {t('common.refresh')}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <main className="mx-auto max-w-7xl p-4 sm:p-6">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl p-3.5 mb-4 flex items-center justify-between">
             <span>{error}</span>

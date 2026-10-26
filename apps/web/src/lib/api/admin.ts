@@ -1,5 +1,5 @@
 import type { HttpClient } from './http-client';
-import type { User, Facility, AuditLog, Specialty, DoctorOption, AdminOverview } from './types';
+import type { User, Facility, AuditLog, Specialty, DoctorOption, AdminOverview, AdminLive } from './types';
 
 export function defineAdminApi(client: HttpClient) {
   return {
@@ -65,6 +65,10 @@ export function defineAdminApi(client: HttpClient) {
 
     getAdminOverview() {
       return client.request<AdminOverview>('/dashboard/admin-overview');
+    },
+
+    getAdminLive() {
+      return client.request<AdminLive>('/dashboard/admin-live');
     },
 
     createFacility(data: { name: string; code: string; type: string; address: string; region?: string; district?: string; phone?: string }) {

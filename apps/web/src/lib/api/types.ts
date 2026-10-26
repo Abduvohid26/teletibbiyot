@@ -30,6 +30,63 @@ export interface DoctorOption {
   activeCount?: number;
 }
 
+type AdminLiveFacilityRef = { id: string; name: string; code: string };
+type AdminLiveDoctorRef = { id: string; fullName: string } | null;
+
+/** GET /dashboard/admin-live — tizimning joriy holati (bemor PII'siz) */
+export interface AdminLive {
+  generatedAt: string;
+  counters: {
+    queued: number;
+    inProgress: number;
+    completedToday: number;
+    cancelledToday: number;
+    intakesToday: number;
+    emergencyQueued: number;
+    avgWaitMinutes: number | null;
+    maxWaitMinutes: number | null;
+    avgDurationTodayMinutes: number | null;
+    unassignedQueued: number;
+  };
+  live: Array<{
+    id: string;
+    triageLevel: string | null;
+    escalationLevel: string;
+    facility: AdminLiveFacilityRef;
+    doctor: AdminLiveDoctorRef;
+    consultants: number;
+    minutes: number | null;
+  }>;
+  queue: Array<{
+    id: string;
+    triageLevel: string | null;
+    escalationLevel: string;
+    facility: AdminLiveFacilityRef;
+    doctor: AdminLiveDoctorRef;
+    waitMinutes: number | null;
+  }>;
+  doctors: Array<{
+    id: string;
+    fullName: string;
+    specialty: string | null;
+    presence: 'online' | 'in_meet' | 'break' | 'offline';
+    queued: number;
+    inProgress: number;
+    completedToday: number;
+  }>;
+  facilities: Array<{
+    id: string;
+    name: string;
+    code: string;
+    region: string | null;
+    operators: number;
+    intakesToday: number;
+    queued: number;
+    inProgress: number;
+  }>;
+  system: { database: 'up' | 'down'; storage: 'up' | 'down' };
+}
+
 export interface AdminOverview {
   summary: {
     totalConsultations: number;
