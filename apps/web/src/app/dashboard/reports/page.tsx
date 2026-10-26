@@ -309,7 +309,7 @@ function MetricCard({
     amber: 'bg-amber-50 text-amber-600',
     cyan: 'bg-cyan-50 text-cyan-600',
     violet: 'bg-violet-50 text-violet-600',
-    indigo: 'bg-indigo-50 text-indigo-600',
+    indigo: 'bg-brand-50 text-brand-600',
     slate: 'bg-slate-100 text-slate-600',
   };
 

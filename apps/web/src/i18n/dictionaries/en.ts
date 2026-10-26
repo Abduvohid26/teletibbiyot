@@ -596,6 +596,12 @@ const en: MessageTree = {
   vitals: {
     weight: 'Weight (kg)',
     height: 'Height (cm)',
+    bmi: 'Body mass index (BMI)',
+    bmiHint: 'Enter weight and height — BMI is calculated automatically',
+    bmiUnder: 'Underweight',
+    bmiNormal: 'Normal',
+    bmiOver: 'Overweight',
+    bmiObese: 'Obese',
   },
   gender: {
     male: 'Male',
@@ -1305,6 +1311,18 @@ const en: MessageTree = {
     tooManyRequests: 'Too many requests — wait a moment and try again',
     badResponse: 'Invalid server response format',
   },
+  utConnect: {
+    step1: 'Patient sent',
+    step2: 'Doctor accepts',
+    step3: 'Video call',
+    nowTitle: 'What to do now?',
+    nowQueued: 'Press “Join and wait”. Your camera turns on, and video connects automatically as soon as the doctor accepts. Keep this page open.',
+    nowQueuedAway: 'The doctor is not online right now. You can still join and wait — video connects as soon as they sign in.',
+    nowLive: 'The doctor has started and is waiting for you. Press “Connect to doctor” now.',
+    joinWait: 'Join and wait',
+    joinNow: 'Connect to doctor',
+    waitingInRoom: 'You are on air. Wait for the doctor to accept — keep this page open.',
+  },
   landing: {
     nav: {
       features: "Features",
@@ -1337,6 +1355,14 @@ const en: MessageTree = {
       ecg: "ECG result attached",
       queue: "In queue: 3 patients",
       queueSub: "Specialist consultation",
+    },
+    network: {
+      center: "Central hospital",
+      centerSub: "Specialist physicians",
+      node: "District clinic",
+      live: "Live consultation",
+      liveSub: "Cardiology · 12 min",
+      queue: "In queue",
     },
     facts: {
       title: "The platform at a glance",

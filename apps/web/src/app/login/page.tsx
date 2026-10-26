@@ -46,10 +46,10 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex bg-surface">
       <div className="hidden lg:flex lg:w-[52%] relative overflow-hidden p-12 flex-col justify-between text-white">
-        <div className="absolute inset-0 bg-gradient-to-br from-brand-600 via-indigo-700 to-violet-800" />
+        <div className="absolute inset-0 bg-gradient-to-br from-brand-700 via-brand-900 to-brand-950" />
         <div className="absolute inset-0 opacity-30">
           <div className="absolute top-20 left-10 w-72 h-72 bg-white/10 rounded-full blur-3xl" />
-          <div className="absolute bottom-20 right-10 w-96 h-96 bg-violet-400/20 rounded-full blur-3xl" />
+          <div className="absolute bottom-20 right-10 w-96 h-96 bg-gold-400/10 rounded-full blur-3xl" />
         </div>
 
         <div className="relative z-10">

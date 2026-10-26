@@ -58,7 +58,7 @@ export function PatientDetailPanel({ patientId, onClose }: PatientDetailPanelPro
         {patient && (
           <div className="p-6 space-y-6">
             <div className="flex items-start gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-500 to-indigo-600 flex items-center justify-center text-white text-xl font-bold">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center text-white text-xl font-bold">
                 {patient.fullName.charAt(0)}
               </div>
               <div>

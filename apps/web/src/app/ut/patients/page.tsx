@@ -21,6 +21,7 @@ export default function UtPatientsPage() {
     error,
     switchToConsultation,
     refreshAll,
+    loaded,
   } = useUtSessions(!!user && isUtRole(user?.role || ''));
 
   useEffect(() => {
@@ -59,6 +60,7 @@ export default function UtPatientsPage() {
         sessionCount={sessions.length}
         liveCount={inProgressList.length}
         onReload={() => void refreshAll()}
+        loading={!loaded}
       />
     </div>
   );

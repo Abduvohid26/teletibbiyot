@@ -67,7 +67,7 @@ export function UtConsiliumModal({ consultation, open, onClose, onChanged }: UtC
     >
       <div className="panel w-full max-w-lg max-h-[92dvh] min-h-0 flex flex-col shadow-2xl animate-slide-up overflow-hidden">
         <div className="shrink-0 flex items-start gap-3 px-4 py-3 border-b border-slate-100 bg-white/90">
-          <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-brand-100 text-brand-700 flex items-center justify-center shrink-0">
             <Users size={16} />
           </div>
           <div className="min-w-0 flex-1">

@@ -597,6 +597,12 @@ const uz: MessageTree = {
   vitals: {
     weight: 'Vazn (kg)',
     height: "Bo'y (sm)",
+    bmi: 'Tana vazni indeksi (TVI)',
+    bmiHint: "Vazn va bo'yni kiriting — TVI avtomatik hisoblanadi",
+    bmiUnder: 'Vazn yetishmasligi',
+    bmiNormal: "Me'yorda",
+    bmiOver: 'Ortiqcha vazn',
+    bmiObese: 'Semizlik',
   },
   gender: {
     male: 'Erkak',
@@ -1306,6 +1312,18 @@ const uz: MessageTree = {
     tooManyRequests: "So'rovlar juda ko'p — biroz kutib qayta urinib ko'ring",
     badResponse: "Server javobi noto'g'ri formatda",
   },
+  utConnect: {
+    step1: 'Bemor yuborildi',
+    step2: 'Shifokor qabul qiladi',
+    step3: 'Video aloqa',
+    nowTitle: 'Hozir nima qilish kerak?',
+    nowQueued: "«Efirga kirib kutish» tugmasini bosing. Kamerangiz yoqiladi, shifokor qabul qilishi bilan video o‘zi ulanadi. Sahifani yopmang.",
+    nowQueuedAway: "Shifokor hozir tizimda emas. Baribir efirga kirib kutishingiz mumkin — u kirishi bilan video o‘zi ulanadi.",
+    nowLive: "Shifokor qabulni boshladi va sizni kutmoqda. Hoziroq «Shifokorga ulanish» tugmasini bosing.",
+    joinWait: 'Efirga kirib kutish',
+    joinNow: 'Shifokorga ulanish',
+    waitingInRoom: "Siz efirdasiz. Shifokor qabul qilishini kuting — sahifani yopmang.",
+  },
   landing: {
     nav: {
       features: "Imkoniyatlar",
@@ -1338,6 +1356,14 @@ const uz: MessageTree = {
       ecg: "EKG natijasi biriktirildi",
       queue: "Navbatda: 3 bemor",
       queueSub: "Mutaxassis konsultatsiyasi",
+    },
+    network: {
+      center: "Markaziy shifoxona",
+      centerSub: "Mutaxassis shifokorlar",
+      node: "Tuman TM",
+      live: "Jonli konsultatsiya",
+      liveSub: "Kardiologiya · 12 daqiqa",
+      queue: "Navbatda",
     },
     facts: {
       title: "Platforma qisqacha",

@@ -26,6 +26,7 @@ export default function UtVitalsPage() {
     liveBanner,
     setLiveBanner,
     switchToConsultation,
+    loaded,
   } = useUtSessions(!!user && isUtRole(user?.role || ''));
 
   useEffect(() => {
@@ -74,7 +75,7 @@ export default function UtVitalsPage() {
           <button
             type="button"
             onClick={() => setShowDocuments(true)}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg bg-white/90 text-slate-700 ring-1 ring-slate-200 hover:bg-brand-50 hover:text-brand-700 hover:ring-brand-200 transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-white text-slate-700 border border-slate-200 hover:border-brand-300 hover:text-brand-700 transition-colors"
           >
             <FileText size={13} />
             {t('dashboard.documents')}
@@ -82,13 +83,15 @@ export default function UtVitalsPage() {
         </div>
       )}
 
-      {!consultation ? (
+      {!consultation && !loaded ? (
+        <div className="flex-1 min-h-0 animate-pulse rounded-xl bg-brand-950/90" aria-busy="true" />
+      ) : !consultation ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-4 min-h-0 text-center p-4">
           <div className="ut-glass-empty">
-            <Stethoscope className="w-7 h-7 text-slate-300" />
+            <Stethoscope className="w-7 h-7 text-brand-300" />
           </div>
           <div>
-            <h2 className="font-bold text-slate-800 text-sm mb-1">{t('ut.noPatientSelected')}</h2>
+            <h2 className="font-bold text-brand-950 text-sm mb-1">{t('ut.noPatientSelected')}</h2>
             <p className="text-sm text-slate-500 max-w-xs">
               {t('ut.noPatientHint')}
             </p>

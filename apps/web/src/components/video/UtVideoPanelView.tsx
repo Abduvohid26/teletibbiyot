@@ -29,6 +29,7 @@ import { isUtStreamLive } from '@/lib/ut-camera-streams';
 
 import { UtCameraSlotPicker } from '@/components/video/UtCameraSlotPicker';
 import { useI18n } from '@/i18n';
+import { UtConnectSteps } from '@/components/ut/UtConnectSteps';
 
 interface UtVideoPanelViewProps {
   video: ReturnType<typeof useVideoRoom>;
@@ -39,6 +40,8 @@ interface UtVideoPanelViewProps {
   onLeave?: () => void;
   /** Kamera tanlovi o'zgargach oqimlarni darhol qayta olish */
   onApplyCameraMapping?: () => Promise<void> | void;
+  /** Kutish paytida operatorga bosqichni ko'rsatish uchun */
+  consultationStatus?: string;
 }
 
 type ViewMode = 'doctor' | 'all';
@@ -55,6 +58,7 @@ export function UtVideoPanelView({
   defaultView = 'doctor',
   onLeave,
   onApplyCameraMapping,
+  consultationStatus,
 }: UtVideoPanelViewProps) {
   const { t } = useI18n();
   const [viewMode, setViewMode] = useState<ViewMode>(defaultView === 'all' ? 'all' : 'doctor');
@@ -147,13 +151,20 @@ export function UtVideoPanelView({
   }, [ptzHint]);
 
   return (
-    <div className="panel overflow-hidden h-full flex flex-col">
-      <div className="panel-header gap-2 !py-2 shrink-0">
-        <Radio size={15} className={connected ? 'text-emerald-500' : 'text-slate-400'} />
+    <div className="h-full flex flex-col overflow-hidden rounded-xl bg-brand-950 text-white">
+      <div className="flex shrink-0 items-center gap-2.5 border-b border-white/10 px-3 py-2">
+        <span
+          className={cn(
+            'flex h-7 w-7 shrink-0 items-center justify-center rounded-full',
+            connected ? 'bg-emerald-500/15 text-emerald-400' : 'bg-white/10 text-slate-400',
+          )}
+        >
+          <Radio size={14} className={connected ? 'animate-pulse' : undefined} />
+        </span>
         <div className="min-w-0 flex-1">
-          <p className="panel-title !text-sm leading-tight">{t('video.videoTransmit')}</p>
+          <p className="text-sm font-bold leading-tight">{t('video.videoTransmit')}</p>
           {patientName && (
-            <p className="text-xs text-slate-500 truncate">
+            <p className="text-xs text-slate-400 truncate">
               {patientName}
               {doctorName ? ` · ${doctorName}` : ''}
             </p>
@@ -161,7 +172,7 @@ export function UtVideoPanelView({
         </div>
         <div className="flex items-center gap-1.5 shrink-0 ml-auto">
           {videoPaused ? (
-            <span className="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-0.5 rounded-full">
+            <span className="bg-amber-400/15 text-amber-300 ring-1 ring-amber-400/30 text-xs font-bold px-2 py-0.5 rounded-full">
               {t('video.disconnected')}
             </span>
           ) : connected ? (
@@ -177,39 +188,55 @@ export function UtVideoPanelView({
               </span>
             </>
           ) : (
-            <span className="text-xs text-slate-400 font-medium">{t('video.connectingShort')}</span>
+            <span className="inline-flex items-center gap-1.5 text-xs text-slate-400 font-medium">
+              <Loader2 size={12} className="animate-spin" />
+              {t('video.connectingShort')}
+            </span>
           )}
         </div>
       </div>
 
-      <div className="panel-body flex-1 min-h-0 flex flex-col gap-2 !p-3">
+      {(roomPhase === 'waiting_peer' || roomPhase === 'joining') && (
+        <div className="flex shrink-0 flex-col items-center gap-3 border-b border-white/10 bg-white/[0.03] px-3 py-3 sm:flex-row sm:gap-5">
+          <UtConnectSteps
+            consultationStatus={consultationStatus}
+            videoLive={doctorLive}
+            className="max-w-sm"
+          />
+          <p className="text-center text-xs leading-relaxed text-slate-300 sm:text-left">
+            {t('utConnect.waitingInRoom')}
+          </p>
+        </div>
+      )}
+
+      <div className="flex-1 min-h-0 flex flex-col gap-2 p-2.5">
         {error && (
-          <div className="text-xs text-red-700 bg-red-50 rounded-lg px-2.5 py-2">{error}</div>
+          <div className="text-xs text-red-200 bg-red-500/15 ring-1 ring-red-400/30 rounded-lg px-2.5 py-2">{error}</div>
         )}
 
         {audioMissing && (
-          <div className="text-xs text-amber-800 bg-amber-50 rounded-lg px-2.5 py-2 flex gap-2">
+          <div className="text-xs text-amber-200 bg-amber-400/10 ring-1 ring-amber-400/25 rounded-lg px-2.5 py-2 flex gap-2">
             <AlertTriangle size={13} className="shrink-0 mt-0.5" />
             {t('video.micMissing')}
           </div>
         )}
 
         {networkAudioOnly && (
-          <div className="text-xs text-sky-900 bg-sky-50 rounded-lg px-2.5 py-2 flex gap-2">
+          <div className="text-xs text-sky-200 bg-sky-400/10 ring-1 ring-sky-400/25 rounded-lg px-2.5 py-2 flex gap-2">
             <AlertTriangle size={13} className="shrink-0 mt-0.5" />
             {t('video.networkAudioOnly')}
           </div>
         )}
 
         {/* Shifokor (katta) | Hammasi: chapda shifokor, o'ngda 4 kamera */}
-        <div className="relative flex-[2] min-h-[220px] lg:min-h-[280px] rounded-xl overflow-hidden bg-slate-950 ring-2 ring-brand-500/90">
+        <div className="relative flex-[2] min-h-[220px] lg:min-h-[280px] rounded-lg overflow-hidden bg-black/40 ring-1 ring-white/10">
           {isAllView ? (
             <div className="absolute inset-0 p-1.5 grid grid-cols-[1fr_minmax(7rem,32%)] gap-1.5">
               {/* Chap — shifokor (katta) */}
               <button
                 type="button"
                 onClick={() => setViewMode('doctor')}
-                className="relative min-h-0 min-w-0 rounded-lg overflow-hidden ring-1 ring-violet-400/50 hover:ring-violet-300/80 transition-shadow bg-slate-900"
+                className="relative min-h-0 min-w-0 rounded-lg overflow-hidden ring-1 ring-gold-400/40 hover:ring-gold-300/80 transition-shadow bg-brand-900"
               >
                 <VideoTile
                   stream={mtDoctorStream}
@@ -218,12 +245,12 @@ export function UtVideoPanelView({
                   placeholder={doctorLabel}
                   live={doctorLive}
                 />
-                <span className="absolute top-2 left-2 bg-violet-600/90 text-white text-xs font-semibold px-2 py-0.5 rounded pointer-events-none inline-flex items-center gap-1">
+                <span className="absolute top-2 left-2 bg-gold-400 text-brand-950 text-xs font-semibold px-2 py-0.5 rounded pointer-events-none inline-flex items-center gap-1">
                   <Stethoscope size={12} />
                   {doctorLabel}
                 </span>
                 {!doctorLive && (
-                  <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-slate-900/50 pointer-events-none">
+                  <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-brand-950/60 pointer-events-none">
                     <VideoOff className="w-7 h-7 text-slate-500" />
                     <span className="text-xs text-slate-400">{t('video.doctorWaiting')}</span>
                   </span>
@@ -244,7 +271,7 @@ export function UtVideoPanelView({
                   return (
                     <div
                       key={id}
-                      className="relative min-h-0 min-w-0 rounded-md overflow-hidden ring-1 ring-white/10 bg-slate-900"
+                      className="relative min-h-0 min-w-0 rounded-md overflow-hidden ring-1 ring-white/10 bg-brand-900"
                     >
                       <VideoTile
                         stream={stream}
@@ -274,10 +301,6 @@ export function UtVideoPanelView({
                 })}
               </div>
 
-              <span className="absolute top-2 right-2 z-10 bg-brand-600/90 text-white text-xs font-bold px-2 py-0.5 rounded-md pointer-events-none">
-                {t('video.allCameras')}
-              </span>
-
               {applyingCameras && (
                 <div className="absolute bottom-2 left-1/2 z-30 -translate-x-1/2 flex items-center gap-1.5 rounded-lg bg-slate-900/90 px-2.5 py-1.5 text-[11px] font-medium text-slate-100 shadow-lg ring-1 ring-white/15">
                   <Loader2 size={12} className="animate-spin" />
@@ -302,7 +325,7 @@ export function UtVideoPanelView({
                   </span>
                 </div>
               )}
-              <span className="absolute top-2 left-2 bg-violet-600/90 text-white text-xs font-bold px-2 py-0.5 rounded-md inline-flex items-center gap-1">
+              <span className="absolute top-2 left-2 bg-gold-400 text-brand-950 text-xs font-bold px-2 py-0.5 rounded-md inline-flex items-center gap-1">
                 <Stethoscope size={12} />
                 {doctorLabel}
               </span>
@@ -345,7 +368,7 @@ export function UtVideoPanelView({
               {extraDoctors.map((d) => (
                 <div
                   key={d.id}
-                  className="relative w-24 h-16 sm:w-28 sm:h-20 rounded-lg overflow-hidden ring-1 ring-violet-400/60 bg-slate-900 shadow-lg"
+                  className="relative w-24 h-16 sm:w-28 sm:h-20 rounded-lg overflow-hidden ring-1 ring-gold-400/60 bg-brand-900 shadow-lg"
                 >
                   <VideoTile
                     stream={d.stream}
@@ -364,15 +387,15 @@ export function UtVideoPanelView({
         </div>
 
         {/* Faqat 2 rejim: Shifokor | Hammasi */}
-        <div className="flex items-center justify-center gap-2 shrink-0">
+        <div className="mx-auto flex shrink-0 items-center gap-0.5 rounded-lg bg-white/[0.06] p-0.5 ring-1 ring-white/10">
           <button
             type="button"
             onClick={() => setViewMode('doctor')}
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-colors',
+              'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors',
               !isAllView
-                ? 'bg-violet-600 text-white shadow-sm'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+                ? 'bg-white text-brand-950 shadow-sm'
+                : 'text-slate-300 hover:bg-white/10 hover:text-white',
             )}
           >
             <Stethoscope size={14} />
@@ -383,16 +406,16 @@ export function UtVideoPanelView({
             onClick={() => setViewMode('all')}
             title={t('video.allCamerasTitle')}
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition-colors',
+              'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors',
               isAllView
-                ? 'bg-brand-600 text-white shadow-sm'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200',
+                ? 'bg-white text-brand-950 shadow-sm'
+                : 'text-slate-300 hover:bg-white/10 hover:text-white',
             )}
           >
             <LayoutGrid size={14} />
             {t('video.allCameras')}
             {utLiveCount > 0 && (
-              <span className="min-w-[16px] h-4 px-1 rounded-full bg-white/20 text-[10px] flex items-center justify-center">
+              <span className="min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-white text-[10px] flex items-center justify-center">
                 {utLiveCount}
               </span>
             )}
@@ -400,13 +423,13 @@ export function UtVideoPanelView({
         </div>
 
         {ptzHint && (
-          <div className="flex items-center gap-2 text-xs text-brand-700 bg-brand-50 rounded-lg px-2.5 py-1.5 shrink-0">
+          <div className="flex items-center gap-2 text-xs text-gold-200 bg-white/[0.06] rounded-lg px-2.5 py-1.5 shrink-0">
             <Move size={13} />
             {ptzHint}
           </div>
         )}
 
-        <div className="flex items-center justify-center gap-2 flex-wrap border-t border-slate-100 pt-2 shrink-0 mt-auto">
+        <div className="flex items-center justify-center gap-2 flex-wrap border-t border-white/10 pt-2.5 shrink-0 mt-auto">
           <ControlBtn active={micOn} onClick={toggleMic} icon={micOn ? Mic : MicOff} label={t('video.mic')} />
           <ControlBtn
             active={speakerOn}
@@ -421,25 +444,25 @@ export function UtVideoPanelView({
               leaveCall();
               onLeave?.();
             }}
-            className="inline-flex items-center gap-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold px-3 py-2 rounded-xl"
+            className="inline-flex min-h-[var(--touch-min)] items-center gap-1.5 rounded-full bg-red-500 px-4 py-2 text-xs font-semibold text-white hover:bg-red-600"
           >
-            <PhoneOff size={14} />
+            <PhoneOff size={15} />
             {t('video.leave')}
           </button>
           {videoPaused && (
             <button
               type="button"
               onClick={() => reconnectCall()}
-              className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-3 py-2 rounded-xl"
+              className="inline-flex min-h-[var(--touch-min)] items-center gap-1.5 rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-500"
             >
-              <Phone size={14} />
+              <Phone size={15} />
               {t('video.reconnect')}
             </button>
           )}
         </div>
 
         {qualityLabel && (
-          <p className="text-center text-xs text-slate-400 shrink-0">{qualityLabel}</p>
+          <p className="text-center text-xs text-slate-500 shrink-0">{qualityLabel}</p>
         )}
       </div>
     </div>
@@ -465,8 +488,8 @@ function ControlBtn({
       aria-pressed={active}
       title={label}
       className={cn(
-        'flex items-center justify-center gap-1 rounded-xl font-medium min-h-[var(--touch-min)] transition-colors px-3 py-2 text-xs',
-        active ? 'bg-slate-100 text-slate-700' : 'bg-red-50 text-red-600 ring-1 ring-red-100',
+        'flex items-center justify-center gap-1.5 rounded-full font-medium min-h-[var(--touch-min)] min-w-[var(--touch-min)] transition-colors px-3.5 py-2 text-xs',
+        active ? 'bg-white/10 text-white hover:bg-white/15' : 'bg-red-500/90 text-white hover:bg-red-500',
       )}
     >
       <Icon size={15} />

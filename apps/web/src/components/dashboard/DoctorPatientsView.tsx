@@ -465,7 +465,7 @@ export function DoctorPatientsView({
       label: t('status.completed'),
       value: counts.completed,
       icon: CheckCircle2,
-      tone: 'from-violet-400/15 to-indigo-300/10 text-violet-900 ring-violet-200/50',
+      tone: 'from-violet-400/15 to-brand-300/10 text-violet-900 ring-violet-200/50',
       iconTone: 'text-violet-600 bg-violet-100/80',
     },
     {
@@ -473,8 +473,8 @@ export function DoctorPatientsView({
       label: t('patients.myPatients'),
       value: counts.mypatients,
       icon: UserRound,
-      tone: 'from-indigo-400/15 to-blue-300/10 text-indigo-900 ring-indigo-200/50',
-      iconTone: 'text-indigo-600 bg-indigo-100/80',
+      tone: 'from-brand-400/15 to-blue-300/10 text-brand-900 ring-brand-200/50',
+      iconTone: 'text-brand-600 bg-brand-100/80',
     },
     {
       id: 'followup' as const,
@@ -683,7 +683,7 @@ function MyPatientCard({
 
   return (
     <div className="w-full px-3 py-2.5 flex items-center gap-2.5 text-left transition-all ut-glass-card-interactive">
-      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold bg-indigo-100/80 text-indigo-700 ring-1 ring-indigo-200/60">
+      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold bg-brand-100/80 text-brand-700 ring-1 ring-brand-200/60">
         <UserRound size={14} />
       </div>
       <div className="min-w-0 flex-1">
@@ -784,7 +784,7 @@ function ActiveQueueCard({
               </span>
             )}
             {(c.participants?.length ?? 0) > 0 && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700">
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-brand-50 text-brand-700">
                 <Users size={10} />
                 {t('consilium.badge')} · {(c.participants?.length ?? 0) + 1}
               </span>

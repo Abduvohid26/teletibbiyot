@@ -197,9 +197,9 @@ export function AiReportSummary({ analysis, compact }: { analysis?: BottomPanels
   const diagnosis = analysis?.diagnoses?.[0];
 
   return (
-    <PanelShell icon={FileText} title={t('panels.aiSummary')} iconColor="text-indigo-600" compact={compact}>
+    <PanelShell icon={FileText} title={t('panels.aiSummary')} iconColor="text-brand-600" compact={compact}>
       {diagnosis ? (
-        <div className={cn('rounded-xl glass-preview-card border-indigo-100/50', compact ? '!p-1.5' : '!p-3')}>
+        <div className={cn('rounded-xl glass-preview-card border-brand-100/50', compact ? '!p-1.5' : '!p-3')}>
           <p className={cn('font-bold text-slate-900 leading-snug', compact ? 'text-[10px] line-clamp-2' : 'text-sm')}>
             {diagnosis.name}
           </p>
@@ -215,7 +215,7 @@ export function AiReportSummary({ analysis, compact }: { analysis?: BottomPanels
             <div className="shimmer-line w-3/4" />
             <div className="shimmer-line w-1/2" />
             <div className="h-1.5 bg-slate-100/80 rounded-full overflow-hidden mt-2">
-              <div className="h-full w-2/3 rounded-full bg-gradient-to-r from-indigo-400 to-violet-500 animate-pulse-soft" />
+              <div className="h-full w-2/3 rounded-full bg-gradient-to-r from-brand-400 to-violet-500 animate-pulse-soft" />
             </div>
           </div>
           <p className="text-[10px] text-slate-400 text-center">{t('panels.analysisWaiting')}</p>

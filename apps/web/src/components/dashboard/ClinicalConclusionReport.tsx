@@ -42,7 +42,7 @@ const EVIDENCE_LABEL_KEYS: Record<EvidenceLevel, string> = {
 
 const SOURCE_STYLES: Record<SourceType, string> = {
   protocol: 'bg-teal-50 text-teal-700',
-  guideline: 'bg-indigo-50 text-indigo-700',
+  guideline: 'bg-brand-50 text-brand-700',
   article: 'bg-violet-50 text-violet-700',
   general: 'bg-slate-100 text-slate-600',
 };
@@ -117,7 +117,7 @@ export function ClinicalConclusionReport({
 
   return (
     <div className={cn('space-y-3 transition-opacity', dense && 'space-y-2', translating && 'opacity-70')}>
-      <div className={cn('rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50/90 to-indigo-50/60', dense ? 'p-2' : 'p-3')}>
+      <div className={cn('rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50/90 to-brand-50/60', dense ? 'p-2' : 'p-3')}>
         <p className="text-[10px] font-bold uppercase tracking-widest text-violet-600">{t('clinical.finalTitle')}</p>
         <p className="text-xs text-slate-500 mt-0.5">{t('clinical.finalSubtitle')}</p>
         {contentLocale && (

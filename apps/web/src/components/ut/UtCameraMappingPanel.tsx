@@ -103,7 +103,7 @@ export function UtCameraMappingPanel({ compact, onPrefsChange }: UtCameraMapping
       </div>
 
       <div className={cn(
-        'rounded-xl border border-slate-200 bg-slate-50/80 p-2.5 flex items-center justify-center shrink-0',
+        'rounded-xl border border-slate-200 bg-white p-2.5 flex items-center justify-center shrink-0',
       )}>
         <div className={cn(
           'flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg',
@@ -131,28 +131,24 @@ function CameraSlotCard({
   onChange: (deviceId: string) => void;
 }) {
   const { t } = useI18n();
-  const accentRing = {
-    brand: 'ring-brand-500/40 border-brand-200',
-    violet: 'ring-violet-500/40 border-violet-200',
-    slate: 'ring-slate-400/30 border-slate-200',
-  }[slot.accent];
+  const mapped = !!deviceId;
 
   return (
     <div className={cn(
-      'rounded-xl border bg-white overflow-hidden flex flex-col min-h-0 ring-1',
-      accentRing,
+      'rounded-xl border bg-white overflow-hidden flex flex-col min-h-0 transition-colors',
+      mapped ? 'border-emerald-300' : 'border-slate-200',
       compact ? 'min-h-[11rem]' : 'min-h-[12.5rem]',
     )}>
       <div className={cn('px-2.5 py-2 border-b border-slate-100 bg-slate-50/60', compact && 'px-2 py-1.5')}>
         <div className="flex items-start gap-2">
           <span className={cn(
-            'shrink-0 min-w-[22px] h-[22px] rounded-md flex items-center justify-center text-[11px] font-bold text-white',
-            slot.num === 4 ? 'bg-violet-600' : 'bg-brand-600',
+            'shrink-0 min-w-[22px] h-[22px] rounded-full flex items-center justify-center text-[11px] font-bold text-white',
+            mapped ? 'bg-emerald-500' : 'bg-brand-950',
           )}>
-            {slot.num}
+            {mapped ? <CheckCircle2 size={13} /> : slot.num}
           </span>
           <div className="min-w-0 flex-1">
-            <p className={cn('font-bold text-slate-900 leading-tight', compact ? 'text-xs' : 'text-sm')}>
+            <p className={cn('font-bold text-brand-950 leading-tight', compact ? 'text-xs' : 'text-sm')}>
               {t(slot.labelKey)}
             </p>
             <p className={cn('text-slate-500 mt-0.5 leading-snug', compact ? 'text-[10px]' : 'text-xs')}>
@@ -162,7 +158,7 @@ function CameraSlotCard({
         </div>
       </div>
 
-      <div className="relative flex-1 min-h-[5.5rem] bg-slate-950">
+      <div className="relative flex-1 min-h-[5.5rem] bg-brand-950">
         <SlotPreview deviceId={deviceId} slotLabel={t(slot.shortLabelKey)} />
       </div>
 

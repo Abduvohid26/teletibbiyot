@@ -144,7 +144,7 @@ export default function AiPage() {
                     </div>
                     {top && (
                       <div className="panel-body space-y-3">
-                        <div className="p-4 rounded-xl bg-gradient-to-br from-violet-50 to-indigo-50/50 border border-violet-100">
+                        <div className="p-4 rounded-xl bg-gradient-to-br from-violet-50 to-brand-50/50 border border-violet-100">
                           <div className="flex items-start gap-2">
                             <Sparkles size={16} className="text-violet-500 mt-0.5 shrink-0" />
                             <div className="flex-1 min-w-0">

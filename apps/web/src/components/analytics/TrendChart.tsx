@@ -25,15 +25,15 @@ export function TrendChart({ data }: TrendChartProps) {
     <div>
       <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-24" preserveAspectRatio="none">
         <polyline fill="none" stroke="#e2e8f0" strokeWidth="0.5" points={`0,${height} ${width},${height}`} />
-        <polyline fill="none" stroke="#93c5fd" strokeWidth="1.5" strokeLinejoin="round" points={totalPoints} />
-        <polyline fill="none" stroke="#2563eb" strokeWidth="2" strokeLinejoin="round" points={completedPoints} />
+        <polyline fill="none" stroke="#bccae8" strokeWidth="1.5" strokeLinejoin="round" points={totalPoints} />
+        <polyline fill="none" stroke="#233f84" strokeWidth="2" strokeLinejoin="round" points={completedPoints} />
       </svg>
       <div className="flex justify-between text-[10px] text-slate-400 mt-1">
         <span>{data[0]?.date.slice(5)}</span>
         <span>{data[data.length - 1]?.date.slice(5)}</span>
       </div>
       <div className="flex gap-4 mt-2 text-[10px]">
-        <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-blue-300" /> {t('chart.total')}</span>
+        <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-brand-200" /> {t('chart.total')}</span>
         <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-brand-600" /> {t('chart.completed')}</span>
       </div>
     </div>

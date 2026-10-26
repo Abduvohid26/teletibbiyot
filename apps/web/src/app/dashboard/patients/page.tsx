@@ -127,7 +127,7 @@ function StaffPatientsContent() {
                     className="card-hover p-5 text-left group w-full"
                   >
                     <div className="flex items-start gap-3">
-                      <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-brand-100 to-indigo-100 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                      <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-brand-100 to-brand-100 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                         <User size={20} className="text-brand-600" />
                       </div>
                       <div className="min-w-0 flex-1">

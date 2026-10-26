@@ -16,6 +16,9 @@ export function useUtSessions(enabled = true) {
   const [patientConsultations, setPatientConsultations] = useState<Consultation[]>([]);
   const [error, setError] = useState('');
   const [liveBanner, setLiveBanner] = useState<{ doctorName?: string } | null>(null);
+  // Birinchi yuklash tugaguncha ro'yxat "bo'sh" deb ko'rsatilmasin
+  const [sessionsLoaded, setSessionsLoaded] = useState(false);
+  const [patientsLoaded, setPatientsLoaded] = useState(false);
 
   const inProgressList = useMemo(
     () => sessions.filter((c) => c.status === 'IN_PROGRESS'),
@@ -29,14 +32,16 @@ export function useUtSessions(enabled = true) {
   const refreshSessions = useCallback(() => {
     return fetchUtSessionConsultations()
       .then(setSessions)
-      .catch(() => setSessions([]));
+      .catch(() => setSessions([]))
+      .finally(() => setSessionsLoaded(true));
   }, []);
 
   const refreshPatientConsultations = useCallback(() => {
     return api
       .getUtPatientConsultations()
       .then(setPatientConsultations)
-      .catch(() => setPatientConsultations([]));
+      .catch(() => setPatientConsultations([]))
+      .finally(() => setPatientsLoaded(true));
   }, []);
 
   const refreshAll = useCallback(() => {
@@ -233,5 +238,6 @@ export function useUtSessions(enabled = true) {
     refreshPatientConsultations,
     refreshAll,
     patientConsultations,
+    loaded: sessionsLoaded && patientsLoaded,
   };
 }

@@ -84,7 +84,7 @@ export function UtConsultationSession({ consultation, patientName }: UtConsultat
 
   if (video.roomClosed || consultation.status === 'COMPLETED' || consultation.status === 'CANCELLED') {
     return (
-      <div className="h-full min-h-0 flex flex-col relative rounded-xl overflow-hidden bg-slate-950">
+      <div className="h-full min-h-0 flex flex-col relative rounded-xl overflow-hidden bg-brand-950">
         <VideoRoomPresence phase="room_closed" />
       </div>
     );
@@ -119,6 +119,7 @@ export function UtConsultationSession({ consultation, patientName }: UtConsultat
           defaultView="doctor"
           onLeave={handleLeave}
           onApplyCameraMapping={handleReconnect}
+          consultationStatus={consultation.status}
         />
       </div>
     </>

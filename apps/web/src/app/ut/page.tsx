@@ -232,6 +232,18 @@ function UTClientPageInner() {
     if (!clinicalData.height.trim()) m.push(t('vitals.height'));
     return m;
   }, [patientData, clinicalData, t]);
+
+  const sectionDone = {
+    personal:
+      !!patientData.fullName.trim() &&
+      !!patientData.birthDate &&
+      !!patientData.region.trim() &&
+      !!patientData.district.trim() &&
+      isValidUzPhone(patientData.phone),
+    clinical: !!clinicalData.complaints.trim(),
+    vitals: !!clinicalData.weight.trim() && !!clinicalData.height.trim(),
+    exam: files.length > 0 || !!clinicalData.familyHistory.trim(),
+  };
   useEffect(() => {
     flushOfflineQueue(async (payload) => {
       const p = payload as OfflineConsultationPayload;
@@ -488,7 +500,8 @@ function UTClientPageInner() {
             id="shaxsiy"
             title={t('ut.sectionPersonal')}
             icon={User}
-            accent="blue"
+            step={1}
+            done={sectionDone.personal}
             className="ut-intake-shaxsiy"
           >
             <div className="grid grid-cols-2 gap-x-2 gap-y-1 h-full content-start">
@@ -554,7 +567,8 @@ function UTClientPageInner() {
             id="klinik"
             title={t('ut.sectionClinical')}
             icon={Stethoscope}
-            accent="purple"
+            step={2}
+            done={sectionDone.clinical}
             className="ut-intake-klinik"
           >
             <div className="grid grid-cols-2 gap-x-2 gap-y-1 h-full content-start">
@@ -576,7 +590,8 @@ function UTClientPageInner() {
             id="vital"
             title={t('ut.sectionVitals')}
             icon={HeartPulse}
-            accent="violet"
+            step={3}
+            done={sectionDone.vitals}
             className="ut-intake-vital"
           >
             <UtIntakeVitalsPanel
@@ -591,23 +606,26 @@ function UTClientPageInner() {
             id="tekshiruv"
             title={t('ut.sectionExam')}
             icon={FileText}
-            accent="teal"
+            step={4}
+            done={sectionDone.exam}
+            optionalLabel={t('common.optional')}
             className="ut-intake-tekshiruv"
           >
             <div className="grid grid-cols-2 gap-1.5 h-full min-h-0">
-              <UtIntakeSubCard title={t('ut.subDiagnostics')} icon={ScanLine} accent="teal" className="min-h-0 flex flex-col">
-                <label className="flex-1 border border-dashed border-slate-200 rounded-lg p-1.5 text-center text-slate-400 hover:border-teal-300 cursor-pointer flex flex-col items-center justify-center gap-0.5 min-h-[4.75rem]">
-                  <Upload className="w-4 h-4 text-slate-300" />
-                  <span className="text-sm leading-tight">{t('ut.uploadFile')}</span>
+              <UtIntakeSubCard title={t('ut.subDiagnostics')} icon={ScanLine} className="min-h-0 flex flex-col">
+                <label className="flex h-full min-h-[4.75rem] cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-slate-300 bg-white p-1.5 text-center text-slate-500 transition-colors hover:border-brand-400 hover:bg-brand-50/50 hover:text-brand-700">
+                  <Upload className="h-5 w-5 text-brand-400" />
+                  <span className="text-sm font-medium leading-tight">{t('ut.uploadFile')}</span>
+                  <span className="text-[11px] text-slate-400">PDF · JPG · DICOM</span>
                   <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.bmp,.tiff,.tif,.heic,.dcm,.dicom,image/*,application/pdf" className="hidden" onChange={handleFileSelect} />
                 </label>
                 {files.length > 0 && (
-                  <p className="text-sm text-teal-700 mt-0.5 truncate">{t('ut.filesSelected', { count: files.length })}</p>
+                  <p className="text-sm text-brand-700 mt-1 truncate">{t('ut.filesSelected', { count: files.length })}</p>
                 )}
               </UtIntakeSubCard>
 
-              <UtIntakeSubCard title={t('ut.subFamily')} icon={User} accent="amber" className="min-h-0">
-                <textarea className={TA_SM} value={clinicalData.familyHistory} onChange={(e) => setClinicalData({ ...clinicalData, familyHistory: e.target.value })} placeholder={t('ut.placeholderFamily')} />
+              <UtIntakeSubCard title={t('ut.subFamily')} icon={User} className="min-h-0">
+                <textarea className={`${TA_SM} !h-full`} value={clinicalData.familyHistory} onChange={(e) => setClinicalData({ ...clinicalData, familyHistory: e.target.value })} placeholder={t('ut.placeholderFamily')} />
               </UtIntakeSubCard>
             </div>
           </UtIntakeSection>

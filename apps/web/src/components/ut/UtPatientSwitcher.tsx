@@ -166,20 +166,20 @@ export function UtPatientSwitcher({
         aria-expanded={open}
         aria-haspopup="listbox"
         className={cn(
-          'flex items-center gap-1.5 rounded-xl border border-white/60 bg-white/55 backdrop-blur-md px-2 py-1 text-left hover:bg-white/70 transition-all shadow-sm max-w-[120px] sm:max-w-[180px]',
+          'flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/[0.07] px-2 py-1 text-left hover:bg-white/[0.12] transition-colors max-w-[120px] sm:max-w-[180px]',
           canSwitch && 'cursor-pointer',
           className,
         )}
       >
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-xs font-bold bg-brand-100 text-brand-700">
+        <div className="w-7 h-7 rounded-md flex items-center justify-center shrink-0 text-xs font-bold bg-gold-400 text-brand-950">
           {active ? patientInitial(active.patient.fullName) : <User size={13} />}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold text-slate-900 truncate leading-tight">
+          <p className="text-sm font-bold text-white truncate leading-tight">
             {active ? active.patient.fullName : t('ut.select')}
           </p>
           {active && (
-            <p className="text-[10px] text-slate-500 truncate hidden lg:block">{activeSubtitle}</p>
+            <p className="text-[10px] text-slate-400 truncate hidden lg:block">{activeSubtitle}</p>
           )}
         </div>
         {canSwitch && (

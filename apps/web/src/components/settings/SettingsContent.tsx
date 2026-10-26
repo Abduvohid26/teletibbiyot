@@ -56,8 +56,8 @@ export function SettingsContent({ user, videoRole, compact, className }: Setting
     return (
       <div className={cn('ut-settings-grid', isUt && 'ut-settings-grid-cameras', className)}>
         <div id="video-audio" className="ut-settings-panel scroll-mt-4 min-w-0">
-          <div className="panel-header !py-2 !px-3 bg-gradient-to-r from-violet-50/50 to-transparent">
-            {isUt ? <Camera size={15} className="text-violet-600" /> : <Video size={15} className="text-violet-600" />}
+          <div className="panel-header !py-2 !px-3 ">
+            {isUt ? <Camera size={15} className="text-brand-600" /> : <Video size={15} className="text-brand-600" />}
             <span className="panel-title">{isUt ? t('settings.utCameras') : t('settings.videoAudio')}</span>
           </div>
           <div className="ut-settings-panel-body !p-2.5 overflow-y-auto flex flex-col gap-4 min-h-0">
@@ -156,8 +156,8 @@ export function SettingsContent({ user, videoRole, compact, className }: Setting
       </div>
 
       <div id="video-audio" className="panel overflow-hidden scroll-mt-24">
-        <div className="panel-header bg-gradient-to-r from-violet-50/50 to-transparent">
-          <Video size={18} className="text-violet-600" />
+        <div className="panel-header ">
+          <Video size={18} className="text-brand-600" />
           <span className="panel-title">
             {videoRole === 'ut' ? t('settings.utCameras') : t('settings.videoAudioFull')}
           </span>

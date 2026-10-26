@@ -51,6 +51,8 @@ interface UtNavTabsProps {
   compact?: boolean;
   stretch?: boolean;
   mode?: UtNavMode;
+  /** Navy header ustida */
+  tone?: 'light' | 'dark';
 }
 
 function getBadge(
@@ -70,12 +72,17 @@ export function UtNavTabs({
   compact,
   stretch,
   mode = 'pill',
+  tone = 'light',
 }: UtNavTabsProps) {
   const pathname = usePathname();
   const { t } = useI18n();
+  const dark = tone === 'dark';
 
   const navShell = cn(
-    mode === 'pill' && 'flex items-stretch gap-0.5 p-0.5 rounded-xl bg-white/40 backdrop-blur-md border border-white/55 shadow-sm',
+    mode === 'pill' &&
+      (dark
+        ? 'flex items-stretch gap-0.5 p-0.5 rounded-xl bg-white/[0.06] border border-white/10'
+        : 'flex items-stretch gap-0.5 p-0.5 rounded-xl bg-white/40 backdrop-blur-md border border-white/55 shadow-sm'),
     mode === 'icons' && 'flex items-center justify-center gap-1',
     stretch && 'w-full',
     className,
@@ -131,12 +138,19 @@ export function UtNavTabs({
             className={cn(
               'relative flex items-center justify-center gap-1.5 rounded-lg font-semibold transition-all duration-200 min-w-0',
               stretch ? 'flex-1 px-1.5 py-2' : compact ? 'px-2.5 py-1.5 text-xs' : 'px-3 py-2 text-sm',
-              active
-                ? 'bg-white/90 text-brand-700 shadow-sm ring-1 ring-brand-200/70'
-                : 'text-slate-500 hover:text-slate-800 hover:bg-white/50',
+              dark
+                ? active
+                  ? 'bg-white text-brand-950 shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-white/10'
+                : active
+                  ? 'bg-white/90 text-brand-700 shadow-sm ring-1 ring-brand-200/70'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-white/50',
             )}
           >
-            <Icon size={stretch ? 15 : compact ? 14 : 15} className={cn('shrink-0', active && 'text-brand-600')} />
+            <Icon
+              size={stretch ? 15 : compact ? 14 : 15}
+              className={cn('shrink-0', active && (dark ? 'text-gold-600' : 'text-brand-600'))}
+            />
             <span className={cn('truncate leading-none', stretch ? 'text-xs sm:text-sm' : '')}>
               <span className="sm:hidden">{shortLabel}</span>
               <span className="hidden sm:inline">{label}</span>
@@ -145,7 +159,7 @@ export function UtNavTabs({
               <span
                 className={cn(
                   'shrink-0 min-w-[17px] h-[17px] px-1 rounded-full text-[10px] font-bold inline-flex items-center justify-center',
-                  badgeKey === 'live' ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white',
+                  badgeKey === 'live' ? 'bg-emerald-500 text-white' : dark ? 'bg-gold-400 text-brand-950' : 'bg-amber-500 text-white',
                 )}
               >
                 {badge}

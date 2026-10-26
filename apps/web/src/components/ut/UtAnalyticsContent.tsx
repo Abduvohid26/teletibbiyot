@@ -132,7 +132,7 @@ export function UtAnalyticsContent({ className }: UtAnalyticsContentProps) {
       )}
 
       {overview?.scopeLabel && (
-        <p className="text-xs text-slate-500 bg-white/60 border border-white/80 rounded-lg px-3 py-2">
+        <p className="text-xs text-slate-500 bg-white border border-slate-200 rounded-lg px-3 py-2">
           {t('analytics.viewLabel')} <span className="font-medium text-slate-700">{overview.scopeLabel}</span>
         </p>
       )}
@@ -178,13 +178,13 @@ export function UtAnalyticsContent({ className }: UtAnalyticsContentProps) {
 
           <div className="panel p-5 animate-slide-up">
             <h3 className="panel-title mb-4 flex items-center gap-2">
-              <Brain size={16} className="text-violet-600" /> {t('analytics.topAiDiagnoses')}
+              <Brain size={16} className="text-gold-600" /> {t('analytics.topAiDiagnoses')}
             </h3>
             <BarChart
               data={diagnoses.map((d) => ({
                 label: `${d.name} (${d.icd10Code})`,
                 value: d.count,
-                color: 'bg-violet-500',
+                color: 'bg-brand-600',
               }))}
             />
           </div>
@@ -215,7 +215,7 @@ export function UtAnalyticsContent({ className }: UtAnalyticsContentProps) {
                       return {
                         label,
                         value: g.value,
-                        color: isMale ? 'bg-blue-500' : 'bg-pink-500',
+                        color: isMale ? 'bg-brand-600' : 'bg-gold-400',
                       };
                     })}
                   />
@@ -226,7 +226,7 @@ export function UtAnalyticsContent({ className }: UtAnalyticsContentProps) {
                     data={demographics.regions.map((r) => ({
                       label: r.region,
                       value: r.count,
-                      color: 'bg-cyan-500',
+                      color: 'bg-brand-400',
                     }))}
                   />
                 </div>
@@ -257,9 +257,9 @@ function MetricCard({
     brand: 'bg-brand-50 text-brand-600',
     emerald: 'bg-emerald-50 text-emerald-600',
     amber: 'bg-amber-50 text-amber-600',
-    cyan: 'bg-cyan-50 text-cyan-600',
-    violet: 'bg-violet-50 text-violet-600',
-    indigo: 'bg-indigo-50 text-indigo-600',
+    cyan: 'bg-sky-50 text-sky-700',
+    violet: 'bg-gold-50 text-gold-700',
+    indigo: 'bg-brand-50 text-brand-600',
     slate: 'bg-slate-100 text-slate-600',
   };
 
@@ -269,7 +269,7 @@ function MetricCard({
         <Icon size={20} />
       </div>
       <div>
-        <p className="text-xl font-bold text-slate-900">
+        <p className="text-xl font-bold text-brand-950 tabular-nums">
           {value}{suffix && <span className="text-sm font-normal text-slate-500 ml-0.5">{suffix}</span>}
         </p>
         <p className="text-xs text-slate-500">{label}</p>

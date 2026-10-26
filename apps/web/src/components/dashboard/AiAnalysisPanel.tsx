@@ -128,7 +128,7 @@ export function AiAnalysisPanel({ analysis, consultationId, steps, onRefresh, co
   if (!analysis) {
     return (
       <div className="glass-panel h-full flex flex-col overflow-hidden min-h-0">
-        <div className="glass-header shrink-0 bg-gradient-to-r from-violet-500/10 to-indigo-500/10 py-2 px-3">
+        <div className="glass-header shrink-0 bg-gradient-to-r from-violet-500/10 to-brand-500/10 py-2 px-3">
           <Sparkles size={16} className="text-violet-600" />
           <span className="panel-title text-sm">{t('clinical.title')}</span>
         </div>
@@ -195,7 +195,7 @@ export function AiAnalysisPanel({ analysis, consultationId, steps, onRefresh, co
 
   return (
     <div className="panel h-full flex flex-col overflow-hidden min-h-0">
-      <div className="panel-header bg-gradient-to-r from-violet-50/80 to-indigo-50/50 shrink-0 py-2 px-3 gap-2">
+      <div className="panel-header bg-gradient-to-r from-violet-50/80 to-brand-50/50 shrink-0 py-2 px-3 gap-2">
         <Sparkles size={16} className="text-violet-600 shrink-0" />
         <span className="panel-title text-sm flex-1 min-w-0 truncate">{t('clinical.title')}</span>
         {translating && (

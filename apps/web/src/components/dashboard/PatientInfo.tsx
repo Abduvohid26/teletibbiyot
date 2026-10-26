@@ -67,7 +67,7 @@ export function PatientInfo({ patient, clinicalRecord, consultationId, compact }
         </div>
         <div className={cn('flex-1 overflow-hidden', compact ? 'p-2 space-y-2' : 'p-3 space-y-3')}>
           <div className="flex items-center gap-2">
-            <div className={cn('rounded-xl bg-gradient-to-br from-brand-200/40 to-indigo-200/40 flex items-center justify-center shimmer-line', compact ? 'w-9 h-9' : 'w-11 h-11')}>
+            <div className={cn('rounded-xl bg-gradient-to-br from-brand-200/40 to-brand-200/40 flex items-center justify-center shimmer-line', compact ? 'w-9 h-9' : 'w-11 h-11')}>
               <User className="w-4 h-4 text-brand-400/60" />
             </div>
             <div className="flex-1 space-y-1.5">
@@ -115,7 +115,7 @@ export function PatientInfo({ patient, clinicalRecord, consultationId, compact }
 
       <div className={cn('panel-body flex-1 overflow-hidden', compact ? 'space-y-2 !p-2' : 'overflow-y-auto space-y-4')}>
         <div className={cn('flex items-start gap-3', compact && 'gap-2')}>
-          <div className={cn('rounded-2xl bg-gradient-to-br from-brand-100 to-indigo-100 flex items-center justify-center text-brand-700 font-bold shrink-0', compact ? 'w-9 h-9 text-xs rounded-xl' : 'w-12 h-12 text-sm')}>
+          <div className={cn('rounded-2xl bg-gradient-to-br from-brand-100 to-brand-100 flex items-center justify-center text-brand-700 font-bold shrink-0', compact ? 'w-9 h-9 text-xs rounded-xl' : 'w-12 h-12 text-sm')}>
             {initials}
           </div>
           <div className="min-w-0">

@@ -29,7 +29,7 @@ export function PatientChartSummary({ patient, clinicalRecord, compact }: Patien
     <div className={cn('shrink-0 rounded-lg bg-slate-50/90 border border-slate-100 overflow-hidden', compact ? 'text-xs' : 'text-sm')}>
       <div className={cn('flex items-start gap-2 border-b border-slate-100', compact ? 'p-2' : 'p-3')}>
         <div className={cn(
-          'rounded-xl bg-gradient-to-br from-brand-100 to-indigo-100 flex items-center justify-center text-brand-700 font-bold shrink-0',
+          'rounded-xl bg-gradient-to-br from-brand-100 to-brand-100 flex items-center justify-center text-brand-700 font-bold shrink-0',
           compact ? 'w-8 h-8 text-[10px]' : 'w-10 h-10 text-xs',
         )}>
           {initials}

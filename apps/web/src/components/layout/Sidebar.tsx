@@ -84,7 +84,7 @@ export function Sidebar({ visible = true }: SidebarProps) {
             className="flex items-center gap-3 group min-w-0"
             onClick={close}
           >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-600 via-indigo-600 to-accent-600 flex items-center justify-center shadow-sm group-hover:scale-[1.02] transition-transform">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-600 via-brand-600 to-accent-600 flex items-center justify-center shadow-sm group-hover:scale-[1.02] transition-transform">
               <Stethoscope className="w-5 h-5 text-white" strokeWidth={2.5} />
             </div>
             <div className="min-w-0">
