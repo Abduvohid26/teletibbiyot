@@ -1,29 +1,38 @@
 'use client';
 
+// Root layout o'rnini egallaydi — uslublar va til provayderi shu yerda qayta ulanadi
+import './globals.css';
+import { RefreshCw, RotateCw, ServerCrash } from 'lucide-react';
+import { ErrorScreen } from '@/components/ui/ErrorScreen';
 import { I18nProvider, useI18n } from '@/i18n';
 
-function GlobalErrorBody({ reset }: { reset: () => void }) {
+function GlobalErrorBody({ digest, reset }: { digest?: string; reset: () => void }) {
   const { t } = useI18n();
 
   return (
-    <>
-      <h1 className="text-xl font-semibold text-slate-900">{t('errors.globalError')}</h1>
-      <p className="max-w-md text-center text-sm text-slate-600">
-        {t('errors.globalErrorBody')}
-      </p>
-      <button
-        type="button"
-        onClick={reset}
-        className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-      >
-        {t('common.retry')}
-      </button>
-    </>
+    <ErrorScreen
+      icon={ServerCrash}
+      title={t('errors.globalError')}
+      body={t('errors.globalErrorBody')}
+      offlineHint={t('errors.offlineHint')}
+      actions={[
+        { label: t('common.retry'), onClick: reset, icon: RotateCw, primary: true },
+        { label: t('errors.reload'), onClick: () => window.location.reload(), icon: RefreshCw },
+      ]}
+      meta={
+        digest ? (
+          <>
+            <p className="font-mono text-slate-400">{t('errors.errorCode', { code: digest })}</p>
+            <p className="mt-1">{t('errors.supportHint')}</p>
+          </>
+        ) : undefined
+      }
+    />
   );
 }
 
 export default function GlobalError({
-  error: _error,
+  error,
   reset,
 }: {
   error: Error & { digest?: string };
@@ -31,9 +40,9 @@ export default function GlobalError({
 }) {
   return (
     <html lang="uz">
-      <body className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-50 px-4 font-sans">
+      <body>
         <I18nProvider>
-          <GlobalErrorBody reset={reset} />
+          <GlobalErrorBody digest={error.digest} reset={reset} />
         </I18nProvider>
       </body>
     </html>
