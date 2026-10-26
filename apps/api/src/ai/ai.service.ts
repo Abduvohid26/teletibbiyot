@@ -582,7 +582,29 @@ export class AiService {
     }
 
     const buffer = await this.buildAnalysisPdfBufferForConsultation(consultation, locale);
+    // Yakunlangan konsultatsiya: shu tildagi Konsilium PDF hali saqlanmagan (fon tarjimasi
+    // tugamagan/yiqilgan) — saqlab qo'yamiz, keyingi yuklashlar (boshqa rol ham) aynan shu faylni olsin.
+    // Yakunlanmaganini saqlamaymiz: qayta tahlil qilinsa eski PDF qolib ketardi.
+    if (consultation.status === ConsultationStatus.COMPLETED) {
+      await this.storage
+        .uploadBuffer(cachedKey, buffer, 'application/pdf')
+        .catch((err) => this.logger.warn(`Tashxis PDF (${locale}) saqlanmadi (${consultationId}): ${err}`));
+    }
     return { buffer, fileName };
+  }
+
+  /** PDF yuklab olish audit yozuvi (rol va tildan qat'i nazar bir xil) */
+  async recordPdfDownload(consultationId: string, user: AuthUser, fileName: string, ip?: string) {
+    await this.prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: 'DOWNLOAD_REPORT',
+        entity: 'Consultation',
+        entityId: consultationId,
+        ipAddress: ip,
+        details: { consultationId, fileName },
+      },
+    });
   }
 
   /** Yakunlashda UT operator uchun tashxis PDF saqlash (3 til) */

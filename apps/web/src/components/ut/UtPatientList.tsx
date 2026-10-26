@@ -219,7 +219,6 @@ export function UtPatientList({
                       </button>
                       <PdfDownloadButton
                         consultationId={c.id}
-                        hasReport={!!c.consultationReport}
                         compact
                       />
                     </div>

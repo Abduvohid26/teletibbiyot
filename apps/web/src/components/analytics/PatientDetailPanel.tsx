@@ -150,7 +150,6 @@ export function PatientDetailPanel({ patientId, onClose }: PatientDetailPanelPro
                           )}
                           <PdfDownloadButton
                             consultationId={c.id}
-                            hasReport={!!c.consultationReport}
                             compact
                             onError={(msg) => toast.error(t('clinical.pdfError'), { description: msg !== t('clinical.pdfError') ? msg : undefined })}
                           />

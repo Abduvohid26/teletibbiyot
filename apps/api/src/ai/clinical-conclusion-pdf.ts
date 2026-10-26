@@ -69,7 +69,8 @@ export interface AiAnalysisPdfInput {
 }
 
 const CONTENT_WIDTH = 495;
-const VIOLET = '#4f46e5';
+/** iShifo brend navy (logotip bilan bir xil palitra) */
+const BRAND_NAVY = '#233f84';
 const SLATE_900 = '#0f172a';
 const SLATE_500 = '#64748b';
 const SLATE_200 = '#e2e8f0';
@@ -113,9 +114,9 @@ function sectionTitle(doc: InstanceType<typeof PDFDocument>, title: string) {
   doc.moveDown(0.5);
   resetCursorX(doc);
   const left = doc.page.margins.left;
-  doc.fontSize(11).fillColor(VIOLET).font(FONT_BOLD).text(title.toUpperCase(), left, doc.y, { width: CONTENT_WIDTH });
+  doc.fontSize(11).fillColor(BRAND_NAVY).font(FONT_BOLD).text(title.toUpperCase(), left, doc.y, { width: CONTENT_WIDTH });
   const lineY = doc.y + 2;
-  doc.moveTo(left, lineY).lineTo(left + CONTENT_WIDTH, lineY).lineWidth(0.75).strokeColor(VIOLET).stroke();
+  doc.moveTo(left, lineY).lineTo(left + CONTENT_WIDTH, lineY).lineWidth(0.75).strokeColor(BRAND_NAVY).stroke();
   doc.y = lineY;
   doc.moveDown(0.4);
   resetCursorX(doc);
@@ -233,7 +234,7 @@ export function buildAiAnalysisPdfBuffer(data: AiAnalysisPdfInput, localeRaw?: P
     const left = doc.page.margins.left;
     const headerTop = doc.y;
 
-    doc.font(FONT_BOLD).fontSize(16).fillColor(VIOLET);
+    doc.font(FONT_BOLD).fontSize(16).fillColor(BRAND_NAVY);
     const titleBottom = drawBlock(doc, L.title, left, headerTop, { width: 350 });
 
     doc.font(FONT_REGULAR).fontSize(9).fillColor(SLATE_500);
@@ -250,7 +251,7 @@ export function buildAiAnalysisPdfBuffer(data: AiAnalysisPdfInput, localeRaw?: P
 
     doc.x = left;
     doc.y = Math.max(subtitleBottom, dateBottom) + 8;
-    doc.moveTo(doc.page.margins.left, doc.y).lineTo(doc.page.margins.left + CONTENT_WIDTH, doc.y).lineWidth(1.5).strokeColor(VIOLET).stroke();
+    doc.moveTo(doc.page.margins.left, doc.y).lineTo(doc.page.margins.left + CONTENT_WIDTH, doc.y).lineWidth(1.5).strokeColor(BRAND_NAVY).stroke();
     doc.moveDown(0.5);
 
     sectionTitle(doc, L.sectionPatientInfo);

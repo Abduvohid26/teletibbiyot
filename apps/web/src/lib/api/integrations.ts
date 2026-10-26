@@ -1,6 +1,7 @@
 import type { HttpClient } from './http-client';
 import type { AiAnalysis, AiAnalysisStep, DeviceStatus, Appointment, PrescriptionTemplate } from './types';
 import { AI_TIMEOUT_MS, VISION_TIMEOUT_MS } from './constants';
+import { translateClient } from '@/i18n';
 
 export function defineIntegrationsApi(client: HttpClient) {
   return {
@@ -67,7 +68,7 @@ export function defineIntegrationsApi(client: HttpClient) {
         timeoutMs: AI_TIMEOUT_MS,
       });
       if (!res.ok) {
-        let message = 'PDF yuklab olishda xatolik';
+        let message = translateClient('clinical.pdfError');
         try {
           const err = await res.json() as { message?: string | string[] };
           const msg = err.message;

@@ -9,11 +9,6 @@ import { useI18n, LOCALES, LOCALE_LABELS, type Locale } from '@/i18n';
 
 interface PdfDownloadButtonProps {
   consultationId: string;
-  /**
-   * Tayyor hisobot mavjudmi. Bo'lsa saqlangan Konsilium PDF ochiladi,
-   * aks holda tahlil PDF si joyida generatsiya qilinadi.
-   */
-  hasReport?: boolean;
   /** Kichik o'lcham — ro'yxat ichidagi tugmalar uchun */
   compact?: boolean;
   className?: string;
@@ -21,14 +16,16 @@ interface PdfDownloadButtonProps {
 }
 
 /**
- * PDF yuklab olish + til tanlash.
+ * PDF yuklab olish + til tanlash — barcha joyda (shifokor, UT, analitika) bir xil.
+ *
+ * Bitta yo'l: server saqlangan Konsilium PDF ni (shu tilda) qaytaradi, bo'lmasa
+ * o'sha tilda tayyorlaydi. Shuning uchun shifokor va operator aynan bir faylni oladi.
  *
  * Chap qism tanlangan tilda darhol yuklaydi, o'ng qismdagi ▾ tilni almashtiradi.
  * Tanlangan til tugmada ko'rinadi va keyingi bosishlarda saqlanadi.
  */
 export function PdfDownloadButton({
   consultationId,
-  hasReport,
   compact,
   className,
   onError,
@@ -50,20 +47,9 @@ export function PdfDownloadButton({
     setMenuOpen(false);
     if (downloading) return;
     setDownloading(true);
-    // Yangi oyna AYNAN bosish payti ochiladi — so'rov tugagach ochilsa
-    // brauzer popup-blokerlari uni to'sib qo'yadi ("PDF ochilmadi" holati).
-    const popup = hasReport ? window.open('', '_blank', 'noopener,noreferrer') : null;
     try {
-      if (hasReport) {
-        const link = await api.getReportLink(consultationId, target);
-        if (!link.url) throw new Error(t('clinical.pdfError'));
-        if (popup) popup.location.href = link.url;
-        else window.location.assign(link.url);
-      } else {
-        await api.downloadAiAnalysisPdf(consultationId, target);
-      }
+      await api.downloadAiAnalysisPdf(consultationId, target);
     } catch (err) {
-      popup?.close();
       const message = err instanceof Error ? err.message : t('clinical.pdfError');
       // onError berilmagan joylarda xato jim qolib ketmasin
       if (onError) onError(message);

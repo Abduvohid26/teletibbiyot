@@ -983,7 +983,6 @@ function HistoryCard({ c, onOpenReport }: { c: Consultation; onOpenReport: () =>
           </button>
           <PdfDownloadButton
             consultationId={c.id}
-            hasReport={!!c.consultationReport}
             compact
             onError={(msg) => toast.error(t('clinical.pdfError'), { description: msg !== t('clinical.pdfError') ? msg : undefined })}
           />

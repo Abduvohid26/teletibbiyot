@@ -13,6 +13,8 @@ import PDFDocument from 'pdfkit';
 const PDF_FONT_DIR = join(__dirname, '..', 'assets', 'fonts');
 
 import { normalizePdfLocale, type PdfLocale } from '../ai/pdf-labels';
+import { AiService } from '../ai/ai.service';
+import { Readable } from 'stream';
 
 @Injectable()
 export class ReportsService {
@@ -22,6 +24,7 @@ export class ReportsService {
     private notifications: NotificationsService,
     private access: AccessControlService,
     private crypto: FieldCryptoService,
+    private ai: AiService,
   ) {}
 
   private async assertAccess(consultationId: string, user: AuthUser) {
@@ -108,19 +111,20 @@ export class ReportsService {
 
   /**
    * Interfeys tilidagi PDF kaliti. Konsilium PDF si uch tilda saqlanadi
-   * (reports/<id>/tashxis-<short>-<locale>.pdf); so'ralgan til hali tayyor
-   * bo'lmasa, hisobotdagi asosiy fayl qaytariladi.
+   * (reports/<id>/tashxis-<short>-<locale>.pdf). So'ralgan til hali tayyor
+   * bo'lmasa — null (chaqiruvchi o'sha tilda generatsiya qiladi; avval jimgina
+   * asosiy til fayli qaytarilardi va foydalanuvchi boshqa tildagi PDF olardi).
    */
   private async resolveLocalizedFile(
     consultationId: string,
     report: { fileKey: string; fileName: string },
     locale: PdfLocale,
-  ): Promise<{ fileKey: string; fileName: string }> {
+  ): Promise<{ fileKey: string; fileName: string } | null> {
     const fileName = `tashxis-${consultationId.slice(0, 8)}-${locale}.pdf`;
     const fileKey = `reports/${consultationId}/${fileName}`;
     if (fileKey === report.fileKey) return report;
 
-    return (await this.storage.objectExists(fileKey)) ? { fileKey, fileName } : report;
+    return (await this.storage.objectExists(fileKey)) ? { fileKey, fileName } : null;
   }
 
   async streamReport(
@@ -133,7 +137,13 @@ export class ReportsService {
     const report = await this.prisma.consultationReport.findUnique({ where: { consultationId } });
     if (!report) throw new NotFoundException('Hisobot topilmadi');
 
-    const file = await this.resolveLocalizedFile(consultationId, report, normalizePdfLocale(locale));
+    const pdfLocale = normalizePdfLocale(locale);
+    const stored = await this.resolveLocalizedFile(consultationId, report, pdfLocale);
+
+    // Shu til hali saqlanmagan — o'sha tilda tayyorlanadi (va AiService uni saqlab qo'yadi)
+    let generated: { buffer: Buffer; fileName: string } | null = null;
+    if (!stored) generated = await this.ai.buildAnalysisPdf(consultationId, user, pdfLocale);
+    const file = stored ?? { fileKey: '', fileName: generated!.fileName };
 
     await this.prisma.auditLog.create({
       data: {
@@ -146,6 +156,9 @@ export class ReportsService {
       },
     });
 
+    if (generated) {
+      return { stream: Readable.from(generated.buffer), contentType: 'application/pdf', fileName: file.fileName };
+    }
     const { stream, contentType } = await this.storage.getObjectStream(file.fileKey);
     return { stream, contentType: contentType || 'application/pdf', fileName: file.fileName };
   }
@@ -177,7 +190,7 @@ export class ReportsService {
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
-      doc.fontSize(18).fillColor('#2563eb').text(`${data.brandName} — Konsultatsiya hisoboti`);
+      doc.fontSize(18).fillColor('#233f84').text(`${data.brandName} — Konsultatsiya hisoboti`);
       doc.moveDown(0.5);
       doc.fontSize(10).fillColor('#64748b').text(`Sana: ${new Date().toLocaleString('uz-UZ')}`);
       doc.moveDown();

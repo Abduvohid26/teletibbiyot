@@ -160,7 +160,6 @@ export function ConsultationReportModal({ consultation, open, onClose }: Consult
             {(consultation.aiAnalysis || consultation.consultationReport) && !translating && (
               <PdfDownloadButton
                 consultationId={consultation.id}
-                hasReport={!!consultation.consultationReport}
                 onError={setError}
                 className="flex-1 min-w-0 [&>div]:w-full [&>div>button:first-child]:flex-1 [&>div>button:first-child]:justify-center"
               />
