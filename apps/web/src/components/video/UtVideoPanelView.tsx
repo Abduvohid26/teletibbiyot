@@ -204,7 +204,7 @@ export function UtVideoPanelView({
             className="max-w-sm"
           />
           <p className="text-center text-xs leading-relaxed text-slate-300 sm:text-left">
-            {t('utConnect.waitingInRoom')}
+            {consultationStatus === 'IN_PROGRESS' ? t('utConnect.waitingDoctorJoin') : t('utConnect.waitingInRoom')}
           </p>
         </div>
       )}

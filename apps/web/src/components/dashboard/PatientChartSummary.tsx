@@ -68,7 +68,7 @@ export function PatientChartSummary({ patient, clinicalRecord, compact }: Patien
               {clinicalRecord.weight ? t('chart.weight', { value: clinicalRecord.weight }) : ''}
               {clinicalRecord.weight && clinicalRecord.height ? ' · ' : ''}
               {clinicalRecord.height ? t('chart.height', { value: clinicalRecord.height }) : ''}
-              {clinicalRecord.bmi ? ` · ${t('chart.bmi', { value: clinicalRecord.bmi })}` : ''}
+              {clinicalRecord.bmi ? ` · ${t('chart.bmi', { value: Number(clinicalRecord.bmi).toFixed(1) })}` : ''}
             </p>
           )}
         </div>

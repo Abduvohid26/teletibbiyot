@@ -964,6 +964,9 @@ const uz: MessageTree = {
     notFoundHint: "Filter yoki qidiruvni o'zgartiring",
     assignedToYou: 'Sizga biriktirilgan',
     startError: 'Boshlashda xatolik',
+    busyTitle: "Hozir «{name}» bilan qabul davom etmoqda",
+    busyBody: "Navbatdagi bemorni qabul qilish uchun avval joriy qabulni yakunlang.",
+    busyOpen: "Joriy bemorga o‘tish",
   },
   recordings: {
     title: 'Video yozuvlar',
@@ -1396,6 +1399,11 @@ const uz: MessageTree = {
     queue: 'Navbat ({count})',
   },
   utToast: {
+    completedTitle: "«{name}» qabuli yakunlandi",
+    completedBody: "Shifokor tashxis va klinik xulosani yubordi.",
+    viewDiagnosis: "Tashxisni ko‘rish",
+    cancelledTitle: "«{name}» konsultatsiyasi bekor qilindi",
+    cancelledBody: "Sababini bemor kartasida ko‘rishingiz mumkin.",
     sending: 'Bemor yuborilmoqda…',
     uploadingFiles: 'Fayllar yuklanmoqda: {done}/{total}',
     queuedTitle: "Bemor navbatga qo‘yildi",
@@ -1423,6 +1431,7 @@ const uz: MessageTree = {
     joinWait: 'Efirga kirib kutish',
     joinNow: 'Shifokorga ulanish',
     waitingInRoom: "Siz efirdasiz. Shifokor qabul qilishini kuting — sahifani yopmang.",
+    waitingDoctorJoin: "Siz efirdasiz. Shifokor qabulni boshladi — u ulanishi bilan video shu yerda chiqadi.",
   },
   landing: {
     nav: {

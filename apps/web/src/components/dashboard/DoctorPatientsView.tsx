@@ -494,6 +494,8 @@ export function DoctorPatientsView({
 
   const activeCount = countActiveFilters(listFilters as Record<string, string | undefined>, ['page', 'limit']);
   const showActiveEmpty = !isHistoryFilter && currentList.length === 0 && waitingList.length === 0;
+  // Server qoidasi: mas'ul shifokor bir vaqtda faqat bitta bemorni qabul qiladi
+  const busyWith = liveList.find((c) => c.mtDoctor?.id === user?.id);
 
   return (
     <>
@@ -617,6 +619,23 @@ export function DoctorPatientsView({
                   <h2 className="px-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
                     {t('patients.queueCount', { count: waitingList.length })}
                   </h2>
+                  {busyWith && (
+                    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-amber-900">
+                          {t('patients.busyTitle', { name: busyWith.patient.fullName })}
+                        </p>
+                        <p className="text-xs text-amber-800">{t('patients.busyBody')}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleContinue(busyWith.id)}
+                        className="shrink-0 rounded-lg bg-brand-950 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-800"
+                      >
+                        {t('patients.busyOpen')}
+                      </button>
+                    </div>
+                  )}
                   {waitingList.map((c) => (
                     <ActiveQueueCard
                       key={c.id}
@@ -624,6 +643,7 @@ export function DoctorPatientsView({
                       active={c.id === activeId}
                       isLead={!c.mtDoctor?.id || c.mtDoctor.id === user?.id}
                       startingId={startingId}
+                      startBlockedReason={busyWith ? t('patients.busyBody') : undefined}
                       onSelect={() => handleSelect(c.id)}
                       onStart={() => void handleStart(c.id)}
                       onCancel={() => handleCancelRequest(c.id)}
@@ -718,6 +738,7 @@ function ActiveQueueCard({
   isLead = true,
   startingId,
   continuingId,
+  startBlockedReason,
   onSelect,
   onStart,
   onContinue,
@@ -730,6 +751,8 @@ function ActiveQueueCard({
   isLead?: boolean;
   startingId?: string | null;
   continuingId?: string | null;
+  /** Boshqa bemor bilan qabul davom etmoqda — "Qabul qilish" o'chiq, sababi title'da */
+  startBlockedReason?: string;
   onSelect: () => void;
   onStart?: () => void;
   onContinue?: () => void;
@@ -852,7 +875,8 @@ function ActiveQueueCard({
         {onStart && isLead && (
           <button
             type="button"
-            disabled={startingId === c.id}
+            disabled={startingId === c.id || !!startBlockedReason}
+            title={startBlockedReason}
             onClick={onStart}
             className={cn(
               'inline-flex items-center gap-1.5 rounded-xl text-sm font-bold px-4 py-2.5 transition-colors disabled:opacity-60',

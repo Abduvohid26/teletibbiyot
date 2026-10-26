@@ -963,6 +963,9 @@ const ru: MessageTree = {
     notFoundHint: 'Измените фильтр или поиск',
     assignedToYou: 'Назначен вам',
     startError: 'Не удалось начать',
+    busyTitle: "Сейчас идёт приём: «{name}»",
+    busyBody: "Чтобы принять следующего пациента, сначала завершите текущий приём.",
+    busyOpen: "Перейти к текущему пациенту",
   },
   recordings: {
     title: 'Видеозаписи',
@@ -1395,6 +1398,11 @@ const ru: MessageTree = {
     queue: 'Очередь ({count})',
   },
   utToast: {
+    completedTitle: "Приём «{name}» завершён",
+    completedBody: "Врач отправил диагноз и клиническое заключение.",
+    viewDiagnosis: "Посмотреть диагноз",
+    cancelledTitle: "Консультация «{name}» отменена",
+    cancelledBody: "Причину можно посмотреть в карте пациента.",
     sending: 'Отправка пациента…',
     uploadingFiles: 'Загрузка файлов: {done}/{total}',
     queuedTitle: 'Пациент поставлен в очередь',
@@ -1422,6 +1430,7 @@ const ru: MessageTree = {
     joinWait: 'Войти в эфир и ждать',
     joinNow: 'Подключиться к врачу',
     waitingInRoom: 'Вы в эфире. Дождитесь, пока врач примет пациента — не закрывайте страницу.',
+    waitingDoctorJoin: "Вы в эфире. Врач начал приём — видео появится здесь, как только он подключится.",
   },
   landing: {
     nav: {

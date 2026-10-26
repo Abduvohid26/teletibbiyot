@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Search, Radio, Clock, ChevronRight, Stethoscope, UserPlus, FileText, Eye, Users } from 'lucide-react';
@@ -45,6 +45,11 @@ export function UtPatientList({
   const { t } = useI18n();
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>('all');
+  // ?filter=tashxis — toastdagi "Tashxisni ko'rish" shu yerga olib keladi
+  useEffect(() => {
+    const f = new URLSearchParams(window.location.search).get('filter');
+    if (f === 'tashxis' || f === 'live' || f === 'queued') setFilter(f);
+  }, []);
   const [search, setSearch] = useState('');
   const [diagnosisView, setDiagnosisView] = useState<Consultation | null>(null);
   const [consiliumView, setConsiliumView] = useState<Consultation | null>(null);

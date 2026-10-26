@@ -1005,7 +1005,11 @@ export function useLivekitRoom({
   useEffect(() => {
     const socket = socketRef.current;
     if (!enabled || !consultationId || !socket) return;
-    const onClosed = () => {
+    // Socket umumiy (staff feed): boshqa bemorning yakunlanishi/bekor qilinishi
+    // bu xonani yopib qo'ymasin — faqat o'z konsultatsiyamiz uchun
+    const onClosed = (data?: { roomId?: string; consultationId?: string; id?: string }) => {
+      const id = data?.roomId ?? data?.consultationId ?? data?.id;
+      if (id && id !== consultationId) return;
       setRoomClosed(true);
       roomClosedRef.current = true;
       clearReconnectTimer();

@@ -6,6 +6,12 @@ import { CancelConsultationModal } from '@/components/consultations/CancelConsul
 import { toast } from '@/lib/toast';
 import { useI18n } from '@/i18n';
 
+/**
+ * Shu brauzerda foydalanuvchining o'zi bekor qilgan konsultatsiyalar.
+ * Realtime "consultation-cancelled" kelganda ikkinchi toast ko'rsatmaslik uchun.
+ */
+export const selfCancelledConsultations = new Set<string>();
+
 interface UseCancelConsultationOptions {
   onSuccess?: (consultationId: string) => void | Promise<void>;
 }
@@ -27,7 +33,11 @@ export function useCancelConsultation(options?: UseCancelConsultationOptions) {
     if (!target) return;
     setSubmitting(true);
     try {
-      await api.cancelConsultation(target.id, reason);
+      selfCancelledConsultations.add(target.id);
+      await api.cancelConsultation(target.id, reason).catch((err) => {
+        selfCancelledConsultations.delete(target.id);
+        throw err;
+      });
       toast(t('cancelConsult.cancelledToast'), 'info');
       const id = target.id;
       setTarget(null);

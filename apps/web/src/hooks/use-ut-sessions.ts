@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, Consultation } from '@/lib/api';
 import { UT_ACTIVE_CONSULTATION_KEY } from '@/lib/api/constants';
 import { fetchUtSessionConsultations } from '@/lib/ut-sessions-fetch';
@@ -8,6 +8,7 @@ import { useConsultationRealtime } from '@/hooks/use-consultation-realtime';
 import { toast } from '@/lib/toast';
 import { UT_SELECT_EVENT } from '@/hooks/use-ut-header-data';
 import { useRouter } from 'next/navigation';
+import { selfCancelledConsultations } from '@/hooks/use-cancel-consultation';
 import { useI18n } from '@/i18n';
 
 export function useUtSessions(enabled = true) {
@@ -21,6 +22,34 @@ export function useUtSessions(enabled = true) {
   // Birinchi yuklash tugaguncha ro'yxat "bo'sh" deb ko'rsatilmasin
   const [sessionsLoaded, setSessionsLoaded] = useState(false);
   const [patientsLoaded, setPatientsLoaded] = useState(false);
+
+  // Realtime handler'lar eskirgan closure'dan emas, joriy ro'yxatdan o'qisin
+  const sessionsRef = useRef<Consultation[]>([]);
+  sessionsRef.current = sessions;
+
+  /** Faqat shu operatorning bemori bo'lsa — yakun/bekor haqida xabar */
+  const notifyFinished = useCallback((consultationId: string, kind: 'completed' | 'cancelled') => {
+    const mine = sessionsRef.current.find((c) => c.id === consultationId);
+    if (!mine) return;
+    // "Shifokor qabul qildi — jonli efir boshlandi" banneri endi eskirgan
+    setLiveBanner(null);
+    // Operatorning o'zi bekor qilgan bo'lsa — u allaqachon toast ko'rdi
+    if (kind === 'cancelled' && selfCancelledConsultations.delete(consultationId)) return;
+    const name = mine.patient.fullName;
+    if (kind === 'completed') {
+      toast.success(t('utToast.completedTitle', { name }), {
+        id: `ut-done-${consultationId}`,
+        description: t('utToast.completedBody'),
+        duration: 12000,
+        action: { label: t('utToast.viewDiagnosis'), onClick: () => router.push('/ut/patients?filter=tashxis') },
+      });
+    } else {
+      toast.warning(t('utToast.cancelledTitle', { name }), {
+        id: `ut-cancel-${consultationId}`,
+        description: t('utToast.cancelledBody'),
+      });
+    }
+  }, [router, t]);
 
   const inProgressList = useMemo(
     () => sessions.filter((c) => c.status === 'IN_PROGRESS'),
@@ -168,11 +197,13 @@ export function useUtSessions(enabled = true) {
           void load();
         }
       },
-      onConsultationCompleted: () => {
+      onConsultationCompleted: ({ consultationId }) => {
+        notifyFinished(consultationId, 'completed');
         void load();
         void refreshPatientConsultations();
       },
-      onConsultationCancelled: () => {
+      onConsultationCancelled: ({ consultationId }) => {
+        notifyFinished(consultationId, 'cancelled');
         void load();
         void refreshPatientConsultations();
       },
@@ -232,7 +263,11 @@ export function useUtSessions(enabled = true) {
   }, [consultation?.id, refreshSessions, switchToConsultation]);
 
   const cancelSession = useCallback(async (consultationId: string, reason: string) => {
-    await api.cancelConsultation(consultationId, reason);
+    selfCancelledConsultations.add(consultationId);
+    await api.cancelConsultation(consultationId, reason).catch((err) => {
+      selfCancelledConsultations.delete(consultationId);
+      throw err;
+    });
     await applyAfterCancel(consultationId);
     toast.info(t('utToast.cancelled'));
   }, [applyAfterCancel]);

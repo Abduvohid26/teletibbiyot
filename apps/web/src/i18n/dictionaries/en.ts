@@ -963,6 +963,9 @@ const en: MessageTree = {
     notFoundHint: 'Try changing filters or search',
     assignedToYou: 'Assigned to you',
     startError: 'Failed to start',
+    busyTitle: "Consultation with “{name}” is in progress",
+    busyBody: "Finish the current consultation before accepting the next patient.",
+    busyOpen: "Go to current patient",
   },
   recordings: {
     title: 'Video recordings',
@@ -1395,6 +1398,11 @@ const en: MessageTree = {
     queue: 'Queue ({count})',
   },
   utToast: {
+    completedTitle: "Consultation for “{name}” completed",
+    completedBody: "The doctor has sent the diagnosis and clinical summary.",
+    viewDiagnosis: "View diagnosis",
+    cancelledTitle: "Consultation for “{name}” was cancelled",
+    cancelledBody: "You can see the reason in the patient record.",
     sending: 'Sending patient…',
     uploadingFiles: 'Uploading files: {done}/{total}',
     queuedTitle: 'Patient added to the queue',
@@ -1422,6 +1430,7 @@ const en: MessageTree = {
     joinWait: 'Join and wait',
     joinNow: 'Connect to doctor',
     waitingInRoom: 'You are on air. Wait for the doctor to accept — keep this page open.',
+    waitingDoctorJoin: "You are on air. The doctor has started — their video appears here as soon as they join.",
   },
   landing: {
     nav: {
