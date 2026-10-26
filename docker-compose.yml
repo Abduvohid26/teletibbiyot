@@ -96,7 +96,7 @@ services:
     image: livekit/livekit-server:v1.9.1
     container_name: ishifo-livekit
     # Profil yo'q — `docker compose up -d` bilan postgres/redis/minio qatori ko'tariladi.
-    # Brauzer signaling: ws://localhost:7880  |  media UDP: 50000-50050
+    # Brauzer signaling: ws://localhost:7880  |  media: UDP 50000 (single-port), TCP 7881
     command:
       - --config
       - /livekit.yaml
@@ -109,7 +109,8 @@ services:
     ports:
       - '${LIVEKIT_PUBLISH:-7880}:7880'
       - '${LIVEKIT_TCP_PUBLISH:-7881}:7881'
-      - '50000-50050:50000-50050/udp'
+      # Host va konteyner porti BIR XIL bo'lishi shart (ICE shu portni e'lon qiladi)
+      - '50000:50000/udp'
     restart: unless-stopped
     networks:
       - ishifo

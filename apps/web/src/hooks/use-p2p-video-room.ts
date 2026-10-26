@@ -128,6 +128,29 @@ export function useP2PVideoRoom({
   const relayOnlyPeersRef = useRef<Set<string>>(new Set());
   /** socketId → ism/rol — presence overlay uchun */
   const participantMetaRef = useRef<Map<string, { userName: string; role: string }>>(new Map());
+  /**
+   * Konsilium: har bir uzoq shifokor o'z socketId'si bo'yicha alohida.
+   * Ilgari hammasi bitta `mt-doctor` katagiga yozilardi va oxirgisi oldingisini
+   * bosib ketardi — 3 kishilik qo'ng'iroqda faqat bitta shifokor ko'rinardi.
+   */
+  const remoteDoctorsRef = useRef<Map<string, { name: string; stream: MediaStream }>>(new Map());
+  const [remoteDoctors, setRemoteDoctors] = useState<Array<{ id: string; name: string; stream: MediaStream }>>([]);
+  /**
+   * BARCHA uzoq ishtirokchilar ovozi bitta barqaror MediaStream ichida
+   * (LiveKit hook bilan bir xil model). Ilgari `setRemoteAudio(stream)` har
+   * yangi peer'da avvalgisini almashtirardi — har kim faqat BITTA suhbatdoshni eshitardi.
+   */
+  const remoteAudioStreamRef = useRef<MediaStream | null>(null);
+  const remoteAudioTracksRef = useRef<Map<string, MediaStreamTrack>>(new Map());
+  const [remoteAudioTrackCount, setRemoteAudioTrackCount] = useState(0);
+  const lastOfferRequestAtRef = useRef(0);
+  /**
+   * Xonadan chiqib ketgan peer'lar. ICE-restart qayta offerni kechiktirib
+   * rejalashtiradi — shu orada peer chiqib ketsa, unga keraksiz yangi
+   * PeerConnection qurilmasligi kerak. Peer qaytsa (xuddi shu socketId bilan
+   * "Uzish" → "Qo'shilish") ro'yxatdan o'chiriladi.
+   */
+  const departedPeersRef = useRef<Set<string>>(new Set());
 
   const [videoPaused, setVideoPaused] = useState(false);
   const [connectNonce, setConnectNonce] = useState(0);
@@ -247,6 +270,76 @@ export function useP2PVideoRoom({
   const isOfferer = role === 'mt' || role === 'observe';
   const isPublisher = role === 'mt' || role === 'ut';
   const flushPendingOffersRef = useRef<() => void>(() => undefined);
+
+  /** UT faqat shifokorlar bilan ulanadi; shifokor uchun — meta bo'yicha */
+  const isDoctorPeer = useCallback((remoteSocketId: string): boolean => {
+    if (role === 'ut') return true;
+    return participantMetaRef.current.get(remoteSocketId)?.role === 'MT_DOCTOR';
+  }, [role]);
+
+  /**
+   * Konsiliumda ikki shifokor ham "offerer". Ikkalasi bir-biriga bir vaqtda
+   * offer yuborsa glare bo'ladi (ikkinchi shifokor qo'shilganda server
+   * `peer-media-resumed` yuborgani uchun bu HAR safar sodir bo'lardi).
+   * Juftlikda faqat socketId'si kichigi boshlaydi — qoida ikki tomonda bir xil.
+   */
+  const shouldInitiateTo = useCallback((remoteSocketId: string): boolean => {
+    if (!isOfferer) return false;
+    if (!isDoctorPeer(remoteSocketId)) return true;
+    const self = socketRef.current?.id;
+    return !self || self < remoteSocketId;
+  }, [isDoctorPeer, isOfferer, socketRef]);
+
+  /** Boshlash navbati bizda emas — juftlikdagi shifokordan offer so'raymiz */
+  const requestOffersFromPeers = useCallback(() => {
+    const socket = socketRef.current;
+    if (!socket?.connected || !consultationId) return;
+    const now = Date.now();
+    if (now - lastOfferRequestAtRef.current < 3000) return;
+    lastOfferRequestAtRef.current = now;
+    socket.emit('request-offers', { roomId: consultationId });
+  }, [consultationId, socketRef]);
+
+  const publishRemoteDoctors = useCallback(() => {
+    setRemoteDoctors(
+      [...remoteDoctorsRef.current.entries()].map(([id, d]) => ({ id, name: d.name, stream: d.stream })),
+    );
+  }, []);
+
+  /** Peer ovozini umumiy oqimga qo'shadi (peer'ning eski trekini almashtirib) */
+  const addRemoteAudioTrack = useCallback((remoteSocketId: string, track: MediaStreamTrack) => {
+    if (!remoteAudioStreamRef.current) remoteAudioStreamRef.current = new MediaStream();
+    const stream = remoteAudioStreamRef.current;
+    const prev = remoteAudioTracksRef.current.get(remoteSocketId);
+    if (prev && prev !== track) {
+      try { stream.removeTrack(prev); } catch { /* allaqachon olib tashlangan */ }
+    }
+    remoteAudioTracksRef.current.set(remoteSocketId, track);
+    if (!stream.getAudioTracks().includes(track)) stream.addTrack(track);
+    setRemoteAudio(stream);
+    setRemoteAudioTrackCount(stream.getAudioTracks().length);
+  }, []);
+
+  const removeRemoteAudioTrack = useCallback((remoteSocketId: string) => {
+    const stream = remoteAudioStreamRef.current;
+    const track = remoteAudioTracksRef.current.get(remoteSocketId);
+    remoteAudioTracksRef.current.delete(remoteSocketId);
+    if (!stream || !track) return;
+    try { stream.removeTrack(track); } catch { /* ignore */ }
+    setRemoteAudioTrackCount(stream.getAudioTracks().length);
+  }, []);
+
+  const resetRemoteAudio = useCallback(() => {
+    remoteAudioTracksRef.current.clear();
+    remoteAudioStreamRef.current = null;
+    setRemoteAudio(null);
+    setRemoteAudioTrackCount(0);
+  }, []);
+
+  const resetRemoteDoctors = useCallback(() => {
+    remoteDoctorsRef.current.clear();
+    setRemoteDoctors([]);
+  }, []);
 
   const peerHasLiveVideo = useCallback((remoteSocketId: string): boolean => {
     const pc = pcsRef.current.get(remoteSocketId);
@@ -399,16 +492,30 @@ export function useP2PVideoRoom({
   const clearRemoteVideoForPeer = useCallback((remoteSocketId: string) => {
     const cameraIds = socketToCamerasRef.current.get(remoteSocketId) ?? [];
     socketToCamerasRef.current.delete(remoteSocketId);
+    if (remoteDoctorsRef.current.delete(remoteSocketId)) publishRemoteDoctors();
+    removeRemoteAudioTrack(remoteSocketId);
+
+    // UT: asosiy shifokor oynasi bo'shasa — qolgan shifokorlardan birini qo'yamiz
+    let promoted: [string, MediaStream] | null = null;
+    if (role === 'ut' && remoteDoctorSocketRef.current === remoteSocketId) {
+      remoteDoctorSocketRef.current = null;
+      const next = remoteDoctorsRef.current.entries().next().value as
+        | [string, { name: string; stream: MediaStream }]
+        | undefined;
+      if (next) {
+        remoteDoctorSocketRef.current = next[0];
+        promoted = [next[0], next[1].stream];
+      }
+    }
+
     setRemoteCameras((prev) => {
       const next = { ...prev };
       cameraIds.forEach((id) => delete next[id]);
-      if (role === 'ut' && remoteDoctorSocketRef.current === remoteSocketId) {
-        delete next[MT_DOCTOR_STREAM_ID];
-        remoteDoctorSocketRef.current = null;
-      }
+      if (role === 'ut' && !remoteDoctorSocketRef.current) delete next[MT_DOCTOR_STREAM_ID];
+      if (promoted) next[MT_DOCTOR_STREAM_ID] = promoted[1];
       return next;
     });
-  }, [role]);
+  }, [publishRemoteDoctors, removeRemoteAudioTrack, role]);
 
   const clearUtRemoteFeeds = useCallback(() => {
     socketToCamerasRef.current.clear();
@@ -463,6 +570,7 @@ export function useP2PVideoRoom({
       reconnectTimersRef.current.delete(socketId);
     });
 
+    departedPeersRef.current.delete(participant.socketId);
     knownParticipantsRef.current.add(participant.socketId);
     participantUserIdsRef.current.set(participant.socketId, participant.userId);
     if (participant.userName) {
@@ -480,6 +588,22 @@ export function useP2PVideoRoom({
       const applyTrack = () => {
         if (track.readyState === 'ended' || !track.enabled) return;
 
+        // Shifokor videosi (UT tomonida har qanday peer; shifokor tomonida —
+        // konsiliumdagi hamkasb) alohida plitka bo'ladi, UT kamera katagiga tushmaydi.
+        if (isDoctorPeer(remoteSocketId)) {
+          const name = participantMetaRef.current.get(remoteSocketId)?.userName ?? '';
+          remoteDoctorsRef.current.set(remoteSocketId, { name, stream });
+          publishRemoteDoctors();
+          if (role === 'ut') {
+            const primary = remoteDoctorSocketRef.current;
+            if (!primary || primary === remoteSocketId || !remoteDoctorsRef.current.has(primary)) {
+              remoteDoctorSocketRef.current = remoteSocketId;
+              updateRemoteCamera(MT_DOCTOR_STREAM_ID, stream);
+            }
+          }
+          return;
+        }
+
         if (role === 'mt' || role === 'observe') {
           const trackIds = remoteTrackIdsRef.current.get(remoteSocketId) ?? new Set<string>();
           if (trackIds.has(track.id)) return;
@@ -493,11 +617,7 @@ export function useP2PVideoRoom({
           mapped.push(cameraId);
           socketToCamerasRef.current.set(remoteSocketId, mapped);
           updateRemoteCamera(cameraId, stream);
-          return;
         }
-
-        updateRemoteCamera(MT_DOCTOR_STREAM_ID, stream);
-        remoteDoctorSocketRef.current = remoteSocketId;
       };
 
       if (track.muted || track.readyState !== 'live') {
@@ -508,7 +628,7 @@ export function useP2PVideoRoom({
       }
       applyTrack();
     },
-    [role, updateRemoteCamera],
+    [isDoctorPeer, publishRemoteDoctors, role, updateRemoteCamera],
   );
 
   const createPeerConnection = useCallback(
@@ -545,7 +665,7 @@ export function useP2PVideoRoom({
         const stream = event.streams[0] ?? new MediaStream([event.track]);
 
         if (event.track.kind === 'audio') {
-          setRemoteAudio(stream);
+          addRemoteAudioTrack(remoteSocketId, event.track);
           return;
         }
 
@@ -675,6 +795,7 @@ export function useP2PVideoRoom({
     },
     [
       addLocalTracks,
+      addRemoteAudioTrack,
       attachRemoteVideoTrack,
       clearRemoteVideoForPeer,
       consultationId,
@@ -689,6 +810,12 @@ export function useP2PVideoRoom({
     async (remoteSocketId: string, force = false) => {
       const socket = socketRef.current;
       if (!isOfferer || !consultationId || !socket) return;
+      if (departedPeersRef.current.has(remoteSocketId)) return;
+      // Shifokor↔shifokor juftligida navbat boshqa tomonda — undan offer so'raymiz
+      if (!shouldInitiateTo(remoteSocketId)) {
+        requestOffersFromPeers();
+        return;
+      }
       if (!mediaReady) {
         pendingOfferTargetsRef.current.add(remoteSocketId);
         return;
@@ -759,7 +886,16 @@ export function useP2PVideoRoom({
         makingOfferRef.current.set(remoteSocketId, false);
       }
     },
-    [consultationId, createPeerConnection, isOfferer, mediaReady, socketRef, teardownPeerConnection],
+    [
+      consultationId,
+      createPeerConnection,
+      isOfferer,
+      mediaReady,
+      requestOffersFromPeers,
+      shouldInitiateTo,
+      socketRef,
+      teardownPeerConnection,
+    ],
   );
 
   const flushPendingOffers = useCallback(() => {
@@ -796,6 +932,10 @@ export function useP2PVideoRoom({
   const scheduleOfferToPeer = useCallback(
     (remoteSocketId: string, immediate = false) => {
       if (!isOfferer) return;
+      if (!shouldInitiateTo(remoteSocketId)) {
+        requestOffersFromPeers();
+        return;
+      }
       pendingOfferTargetsRef.current.add(remoteSocketId);
       if (immediate && mediaReadyRef.current) {
         flushPendingOffersRef.current();
@@ -826,7 +966,7 @@ export function useP2PVideoRoom({
       }, 2200);
       peerWatchdogRef.current.set(remoteSocketId, watchdog);
     },
-    [debouncedFlushPendingOffers, isOfferer, peerHasLiveVideo],
+    [debouncedFlushPendingOffers, isOfferer, peerHasLiveVideo, requestOffersFromPeers, shouldInitiateTo],
   );
 
   /** Bitta offerni qo'llash: iloji bo'lsa mavjud ulanishni QAYTA ISHLATADI (buzmaydi) */
@@ -975,9 +1115,10 @@ export function useP2PVideoRoom({
     socketToCamerasRef.current.clear();
     remoteDoctorSocketRef.current = null;
     setRemoteCameras({});
+    resetRemoteDoctors();
     setLocalPreview(null);
     setVitalsStream(null);
-    setRemoteAudio(null);
+    resetRemoteAudio();
     setLocalCameraFeeds({});
     setAudioMissing(false);
     setVirtualCameraWarning([]);
@@ -993,6 +1134,7 @@ export function useP2PVideoRoom({
     latestOfferRef.current.clear();
     participantUserIdsRef.current.clear();
     participantMetaRef.current.clear();
+    departedPeersRef.current.clear();
     offerSentAtRef.current.clear();
     iceFailuresRef.current.clear();
     relayOnlyPeersRef.current.clear();
@@ -1003,7 +1145,7 @@ export function useP2PVideoRoom({
     if (signalDebounceRef.current) clearTimeout(signalDebounceRef.current);
     signalDebounceRef.current = null;
     clearReconnectTimers();
-  }, [clearReconnectTimers]);
+  }, [clearReconnectTimers, resetRemoteAudio, resetRemoteDoctors]);
 
   useEffect(() => {
     if (consultationId) setSessionKicked(false);
@@ -1024,6 +1166,8 @@ export function useP2PVideoRoom({
   }, [cleanupMedia, consultationId, enabled, socketRef]);
 
   const removeRemotePeer = useCallback((socketId: string) => {
+    departedPeersRef.current.add(socketId);
+    pendingOfferTargetsRef.current.delete(socketId);
     teardownPeerConnection(socketId);
     knownParticipantsRef.current.delete(socketId);
     participantUserIdsRef.current.delete(socketId);
@@ -1047,17 +1191,18 @@ export function useP2PVideoRoom({
       remoteTrackIdsRef.current.clear();
       remoteDoctorSocketRef.current = null;
       setRemoteCameras({});
-      setRemoteAudio(null);
+      resetRemoteDoctors();
+      resetRemoteAudio();
     }
-  }, [refreshPeerDisplayName, teardownPeerConnection]);
+  }, [refreshPeerDisplayName, resetRemoteAudio, resetRemoteDoctors, teardownPeerConnection]);
 
   /** Yumshoq uzish (end-call): video to'xtaydi, lekin ishtirokchi xotirada qoladi — qayta offer uchun */
   const softDisconnectRemotePeer = useCallback((socketId: string) => {
     teardownPeerConnection(socketId);
     if (pcsRef.current.size === 0) {
-      setRemoteAudio(null);
+      resetRemoteAudio();
     }
-  }, [teardownPeerConnection]);
+  }, [resetRemoteAudio, teardownPeerConnection]);
 
   const setupLocalMedia = useCallback(async () => {
     if (!isPublisher) {
@@ -1363,6 +1508,13 @@ export function useP2PVideoRoom({
         scheduleOfferToPeer(participant.socketId, true);
         return;
       }
+      // Konsilium: hamkasb shifokor bilan ham ulanish kerak. Navbat qaysi
+      // tomonda ekanini scheduleOfferToPeer o'zi hal qiladi (shouldInitiateTo).
+      if (isOfferer && participant.role === 'MT_DOCTOR') {
+        if (peerHasLiveVideo(participant.socketId) || peerIsNegotiating(participant.socketId)) return;
+        scheduleOfferToPeer(participant.socketId);
+        return;
+      }
       if (!isOfferer && participant.role === 'MT_DOCTOR') {
         if (peerHasLiveVideo(participant.socketId) || peerIsNegotiating(participant.socketId)) return;
         teardownPeerConnection(participant.socketId);
@@ -1522,11 +1674,19 @@ export function useP2PVideoRoom({
       handleRemoteParticipant(participant);
     };
 
-    const onOffer = (data: { socketId: string; offer: RTCSessionDescriptionInit }) => {
+    /** Signal bilan kelgan rol/ism — `participant-joined` dan oldin kelsa ham peer aniq bo'ladi */
+    const rememberSenderMeta = (data: { socketId: string; role?: string; userName?: string }) => {
+      if (!data.role || participantMetaRef.current.has(data.socketId)) return;
+      participantMetaRef.current.set(data.socketId, { role: data.role, userName: data.userName ?? '' });
+    };
+
+    const onOffer = (data: { socketId: string; offer: RTCSessionDescriptionInit; role?: string; userName?: string }) => {
+      rememberSenderMeta(data);
       void handleOffer(data.socketId, data.offer);
     };
 
-    const onAnswer = (data: { socketId: string; answer: RTCSessionDescriptionInit }) => {
+    const onAnswer = (data: { socketId: string; answer: RTCSessionDescriptionInit; role?: string; userName?: string }) => {
+      rememberSenderMeta(data);
       void handleAnswer(data.socketId, data.answer);
     };
 
@@ -1915,7 +2075,8 @@ export function useP2PVideoRoom({
     pendingIceCandidatesRef.current.clear();
     pendingIncomingOffersRef.current.clear();
     setRemoteCameras({});
-    setRemoteAudio(null);
+    resetRemoteDoctors();
+    resetRemoteAudio();
 
     const localStillLive = [...localStreamsRef.current.values()].some((stream) =>
       stream.getTracks().some((t) => t.readyState === 'live'),
@@ -1951,7 +2112,16 @@ export function useP2PVideoRoom({
     } finally {
       isReconnectingRef.current = false;
     }
-  }, [consultationId, emitReconnectSignals, mediaReady, setupLocalMedia, skipPreflight, autoRejoin]);
+  }, [
+    consultationId,
+    emitReconnectSignals,
+    mediaReady,
+    resetRemoteAudio,
+    resetRemoteDoctors,
+    setupLocalMedia,
+    skipPreflight,
+    autoRejoin,
+  ]);
 
   const reloadMedia = useCallback(async () => {
     const existingTargets = [...pcsRef.current.keys()];
@@ -2021,10 +2191,10 @@ export function useP2PVideoRoom({
     vitalsStream,
     remoteAudio,
     mtDoctorStream: remoteCameras[MT_DOCTOR_STREAM_ID] ?? null,
-    // P2P rejimida ko'p ishtirokchili konsilium qo'llab-quvvatlanmaydi —
-    // interfeys bir xil bo'lishi uchun bo'sh ro'yxat qaytaramiz (LiveKit da to'la ishlaydi).
-    remoteDoctorFeeds: [] as Array<{ id: string; name: string; stream: MediaStream }>,
-    remoteAudioTrackCount: remoteAudio ? remoteAudio.getAudioTracks().length : 0,
+    /** Konsiliumdagi barcha uzoq shifokorlar (o'zidan tashqari), har biri alohida */
+    remoteDoctorFeeds: remoteDoctors,
+    /** Umumiy audio oqimdagi trek soni — <audio> ni qayta ishga tushirish uchun */
+    remoteAudioTrackCount,
     utCameraStreams,
     remoteCameras,
     toggleMic,

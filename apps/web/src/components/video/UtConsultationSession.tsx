@@ -99,6 +99,7 @@ export function UtConsultationSession({ consultation, patientName }: UtConsultat
           consultationStatus={consultation.status}
           peerPresence={consultation.mtDoctor?.id ? doctorPresence.status : undefined}
           peerActiveCount={doctorPresence.activeCount}
+          patientName={patientName ?? consultation.patient.fullName}
           onJoin={handleJoin}
         />
       </div>

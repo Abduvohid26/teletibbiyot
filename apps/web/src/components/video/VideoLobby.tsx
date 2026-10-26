@@ -16,6 +16,8 @@ interface VideoLobbyProps {
   peerPresence?: 'online' | 'in_meet' | 'break' | 'offline';
   /** Shifokorning yakunlanmagan konsultatsiyalari soni */
   peerActiveCount?: number;
+  /** UT: qaysi bemorning xonasi — bir nechta bemor bo'lganda adashmaslik uchun */
+  patientName?: string;
 }
 
 const PRESENCE_DOT: Record<string, string> = {
@@ -44,6 +46,7 @@ export function VideoLobby({
   consultationStatus,
   peerPresence,
   peerActiveCount,
+  patientName,
 }: VideoLobbyProps) {
   const { t } = useI18n();
   const title = role === 'observe' ? t('video.joinObserve') : t('video.joinLive');
@@ -51,7 +54,12 @@ export function VideoLobby({
     role === 'observe'
       ? t('video.lobbyObserveSub')
       : role === 'ut'
-        ? t('video.lobbyUtSub')
+        // Operator hozir qo'shilishi kerakmi yoki kutishi — holatga qarab aniq aytamiz
+        ? consultationStatus === 'IN_PROGRESS'
+          ? t('video.lobbyUtSubLive')
+          : consultationStatus === 'QUEUED'
+            ? t('video.lobbyUtSubQueued')
+            : t('video.lobbyUtSub')
         : t('video.lobbyMtSub');
 
   return (
@@ -66,7 +74,12 @@ export function VideoLobby({
         <Video className={compact ? 'w-8 h-8 text-white/80' : 'w-10 h-10 text-white/80'} />
       </div>
 
-      <div className="max-w-xs">
+      <div className="max-w-sm">
+        {patientName && (
+          <p className="mb-2 inline-flex max-w-full items-center rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white ring-1 ring-white/15">
+            <span className="truncate">{t('common.patient')}: {patientName}</span>
+          </p>
+        )}
         <h3 className={cn('font-bold', compact ? 'text-base' : 'text-lg')}>{title}</h3>
         <p className="text-slate-300 text-xs mt-1 leading-relaxed">{subtitle}</p>
         {peerName && (
@@ -113,9 +126,9 @@ export function VideoLobby({
         </div>
       )}
 
-      {peerPresence === 'offline' && (
+      {(peerPresence === 'offline' || peerPresence === 'break') && (
         <p className="max-w-xs text-[11px] leading-relaxed text-amber-300/90">
-          {t('video.lobbyDoctorOfflineHint')}
+          {peerPresence === 'break' ? t('video.lobbyDoctorBreakHint') : t('video.lobbyDoctorOfflineHint')}
         </p>
       )}
 

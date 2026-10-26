@@ -39,6 +39,7 @@ import { FieldCryptoService } from '../common/field-crypto.service';
 import { buildPatientSearchOr } from '../common/patient-search.util';
 import { isAccessDeniedScope } from '../common/access-scope.constants';
 import { assertCanStartWhileAnotherActive } from './consultations.rules';
+import { AishifokorService } from '../integrations/aishifokor.service';
 
 /** Konsultatsiyani yakunlashda ishlatiladigan AI tahlil shakli. */
 type AiAnalysisForCompletion = {
@@ -61,6 +62,7 @@ export class ConsultationsService {
     private presence: DoctorPresenceService,
     private reportsService: ReportsService,
     private crypto: FieldCryptoService,
+    private aishifokor: AishifokorService,
   ) {}
 
   private buildChecklist(dto: CreateConsultationDto) {
@@ -609,6 +611,12 @@ export class ConsultationsService {
     void this.videoGateway.closeVideoRoom(id, 'completed');
     void this.presence.broadcast(doctorId);
 
+    void this.aishifokor.notifyConsultationCompleted(
+      id,
+      resolved.diagnosis,
+      resolved.icd10Code,
+    );
+
     // Shifokor uzluksiz ishlashi uchun keyingi bemorni darhol qaytaramiz
     return { ...result, next: await this.findNextForDoctor(doctorId, id) };
   }
@@ -1047,6 +1055,7 @@ export class ConsultationsService {
       status: consultation.status,
       removedDoctorId: doctorId,
     });
+    await this.videoGateway.removeUserFromRoom(id, doctorId);
 
     // Chiqarilgan shifokor endi kira olmaydi — ro'yxatni mas'ul shifokor ko'zi bilan qaytaramiz
     return this.prisma.consultationParticipant.findMany({

@@ -111,6 +111,22 @@ async function main() {
     },
   });
 
+  // Konsilium (bir nechta shifokorli video) sinovi uchun ikkinchi shifokor
+  const kardiolog = await prisma.specialty.findFirst({ where: { name: 'Kardiolog' } });
+  await prisma.user.upsert({
+    where: { email: 'doctor2@ishifo.uz' },
+    update: { role: UserRole.MT_DOCTOR, facilityId: mtFacility.id },
+    create: {
+      email: 'doctor2@ishifo.uz',
+      passwordHash,
+      fullName: 'Dr. Dilnoza Rahimova',
+      role: UserRole.MT_DOCTOR,
+      facilityId: mtFacility.id,
+      specialtyId: kardiolog?.id ?? null,
+      specialty: 'Kardiolog',
+    },
+  });
+
   await prisma.user.upsert({
     where: { email: 'operator@ishifo.uz' },
     update: { role: UserRole.UT_OPERATOR, facilityId: utFacilities[0].id },

@@ -298,6 +298,7 @@ Seed (`npm run db:seed`) dan keyin:
 | Rol | Email | Parol (default) |
 |-----|-------|-----------------|
 | MT Shifokor | `doctor@ishifo.uz` | `password123` |
+| MT Shifokor (konsilium) | `doctor2@ishifo.uz` | `password123` |
 | UT Operator | `operator@ishifo.uz` | `password123` |
 | MT Manager | `manager@ishifo.uz` | `password123` |
 | Admin | `admin@ishifo.uz` | `password123` |

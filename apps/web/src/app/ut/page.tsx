@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState, isValidElement, cloneElement } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState, isValidElement, cloneElement, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Stethoscope, Send, CheckCircle2, Upload, Activity,
-  User, HeartPulse, ScanLine, FileText, X,
+  User, HeartPulse, ScanLine, FileText, X, AlertCircle, Coffee,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
@@ -127,6 +127,16 @@ function emptyVitals() {
 }
 
 export default function UTClientPage() {
+  return (
+    <Suspense fallback={<AuthLoadingScreen message="Yuklanmoqda…" />}>
+      <UTClientPageInner />
+    </Suspense>
+  );
+}
+
+function UTClientPageInner() {
+  const searchParams = useSearchParams();
+  const handoffFromUrl = searchParams.get('handoff') || '';
   const { user, loading } = useAuth();
   const { t, locale } = useI18n();
   const localeTag = LOCALE_BCP47[locale];
@@ -152,6 +162,11 @@ export default function UTClientPage() {
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
   // Konsilium — mas'ul shifokordan tashqari biriktiriladigan shifokorlar
   const [consultantIds, setConsultantIds] = useState<string[]>([]);
+  // AiShifokor (aishifokor.uz) yo'naltirishi — /ut?handoff=<token>
+  const [handoffToken, setHandoffToken] = useState('');
+  const [handoffUrgency, setHandoffUrgency] = useState<'routine' | 'urgent'>('routine');
+  const [handoffLoading, setHandoffLoading] = useState(false);
+  const [handoffError, setHandoffError] = useState('');
 
   useUtSessions(!!user && isUtRole(user?.role || ''));
 
@@ -166,11 +181,57 @@ export default function UTClientPage() {
       .catch(() => setDoctors([]));
   }, [user]);
 
+  useEffect(() => {
+    if (!handoffFromUrl || !user || !isUtRole(user.role)) return;
+    setHandoffToken(handoffFromUrl);
+    setHandoffLoading(true);
+    setHandoffError('');
+    api.getAishifokorHandoff(handoffFromUrl)
+      .then(({ prefill }) => {
+        if (prefill.fullName) {
+          setPatientData((p) => ({
+            ...p,
+            fullName: prefill.fullName || p.fullName,
+            passportNumber: prefill.passportNumber || p.passportNumber,
+            birthDate: prefill.birthDate || p.birthDate,
+            gender: prefill.gender || p.gender,
+            phone: prefill.phone || p.phone,
+          }));
+        }
+        if (prefill.complaints) {
+          setClinicalData((c) => ({
+            ...c,
+            complaints: prefill.complaints,
+          }));
+        }
+        if (prefill.urgency === 'urgent') setHandoffUrgency('urgent');
+        toast(t('ut.aishifokorBannerTitle'), 'info');
+      })
+      .catch(() => setHandoffError(t('ut.aishifokorLoadError')))
+      .finally(() => setHandoffLoading(false));
+  }, [handoffFromUrl, user, t]);
+
   const sortedDoctors = useMemo(() => sortDoctorsByPresence(doctors, localeTag), [doctors, localeTag]);
   const selectedDoctor = useMemo(
     () => sortedDoctors.find((d) => d.id === selectedDoctorId),
     [sortedDoctors, selectedDoctorId],
   );
+  /**
+   * Yuborishdan oldin operatorga nima yetishmayotganini DOIM ko'rsatamiz.
+   * Ilgari xato faqat tugma bosilgandan keyin, bittadan toast bo'lib chiqardi.
+   */
+  const missingFields = useMemo(() => {
+    const m: string[] = [];
+    if (!patientData.fullName.trim()) m.push(t('ut.fieldFullName'));
+    if (!patientData.birthDate) m.push(t('ut.fieldBirthDate'));
+    if (!patientData.region.trim()) m.push(t('ut.fieldRegion'));
+    if (!patientData.district.trim()) m.push(t('ut.fieldDistrict'));
+    if (!isValidUzPhone(patientData.phone)) m.push(t('ut.fieldPhone'));
+    if (!clinicalData.complaints.trim()) m.push(t('ut.fieldComplaints'));
+    if (!clinicalData.weight.trim()) m.push(t('vitals.weight'));
+    if (!clinicalData.height.trim()) m.push(t('vitals.height'));
+    return m;
+  }, [patientData, clinicalData, t]);
   useEffect(() => {
     flushOfflineQueue(async (payload) => {
       const p = payload as OfflineConsultationPayload;
@@ -204,9 +265,6 @@ export default function UTClientPage() {
   useConsultationRealtime(
     createdConsultationId ? [createdConsultationId] : [],
     {
-      onConsultationStarted: (payload) => {
-        toast(t('ut.doctorStartedConsult', { name: payload.doctorName || t('common.doctor') }), 'success');
-      },
       onDoctorPresenceUpdated: ({ doctorId, status, activeCount }) => {
         setDoctors((prev) =>
           sortDoctorsByPresence(
@@ -327,6 +385,19 @@ export default function UTClientPage() {
 
       const patient = await api.createPatient(patientPayload);
       const consultation = await api.createConsultation({ ...consultationPayload, patientId: patient.id });
+      // Darhol faol qilamiz: server "consultation-queued" hodisasini fayllar
+      // yuklanib bo'lguncha yuboradi va realtime yuklash eski bemorni tanlab qo'yardi.
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem(UT_ACTIVE_CONSULTATION_KEY, consultation.id);
+      }
+
+      if (handoffToken) {
+        try {
+          await api.linkAishifokorConsultation(handoffToken, consultation.id);
+        } catch {
+          /* handoff link ixtiyoriy — konsultatsiya yaratilgan */
+        }
+      }
 
       for (const file of files) {
         await api.uploadAttachment(consultation.id, file);
@@ -392,6 +463,22 @@ export default function UTClientPage() {
 
   return (
       <div className="ut-page">
+        {(handoffToken || handoffLoading || handoffError) && (
+          <div className={`shrink-0 rounded-xl border px-3 py-2 mb-2 text-sm ${
+            handoffUrgency === 'urgent'
+              ? 'border-rose-200 bg-rose-50 text-rose-900'
+              : 'border-violet-200 bg-violet-50 text-violet-900'
+          }`}>
+            <p className="font-bold">{t('ut.aishifokorBannerTitle')}</p>
+            {handoffLoading && <p className="text-xs mt-0.5">{t('ut.aishifokorLoading')}</p>}
+            {handoffError && <p className="text-xs mt-0.5 text-red-700">{handoffError}</p>}
+            {!handoffLoading && !handoffError && (
+              <p className="text-xs mt-0.5">
+                {handoffUrgency === 'urgent' ? t('ut.aishifokorBannerUrgent') : t('ut.aishifokorBannerBody')}
+              </p>
+            )}
+          </div>
+        )}
         {offlineNotice && (
           <div className="shrink-0 ut-glass-banner ut-glass-banner-warn !py-1.5 !px-3 !text-xs mb-2 truncate">{offlineNotice}</div>
         )}
@@ -527,6 +614,11 @@ export default function UTClientPage() {
 
           <div className="ut-intake-footer">
             <div className="ut-intake-footer-inner justify-end gap-3 flex-wrap">
+            <IntakeReadiness
+              missing={missingFields}
+              doctor={selectedDoctor}
+              t={t}
+            />
             <label className="flex items-center gap-1.5 shrink-0">
               <span className="text-sm text-slate-600 whitespace-nowrap">{t('ut.doctorLabel')}</span>
               <select
@@ -541,8 +633,7 @@ export default function UTClientPage() {
                 <option value="">{t('ut.selectDoctor')}</option>
                 {sortedDoctors.map((d) => (
                   <option key={d.id} value={d.id}>
-                    {presenceLabel(d.presence, t)} · {loadLabel(d, t)} · {d.fullName}
-                    {d.specialtyRef?.name || d.specialty ? ` — ${d.specialtyRef?.name || d.specialty}` : ''}
+                    {doctorOptionLabel(d, t)}
                   </option>
                 ))}
               </select>
@@ -593,8 +684,7 @@ export default function UTClientPage() {
                   .filter((d) => d.id !== selectedDoctorId && !consultantIds.includes(d.id))
                   .map((d) => (
                     <option key={d.id} value={d.id}>
-                      {presenceLabel(d.presence, t)} · {loadLabel(d, t)} · {d.fullName}
-                      {d.specialtyRef?.name || d.specialty ? ` — ${d.specialtyRef?.name || d.specialty}` : ''}
+                      {doctorOptionLabel(d, t)}
                     </option>
                   ))}
               </select>
@@ -612,6 +702,64 @@ export default function UTClientPage() {
           </div>
         </div>
       </div>
+  );
+}
+
+/** Ro'yxatda avval ism (operator shifokorni ismi bo'yicha qidiradi), keyin holat */
+function doctorOptionLabel(d: DoctorOption, t: (key: string, vars?: Record<string, string | number>) => string) {
+  const spec = d.specialtyRef?.name || d.specialty;
+  return `${d.fullName}${spec ? ` — ${spec}` : ''} · ${presenceLabel(d.presence, t)} · ${loadLabel(d, t)}`;
+}
+
+/** Pastki paneldagi holat: nima yetishmaydi / shifokor qayerda / hammasi tayyor */
+function IntakeReadiness({
+  missing,
+  doctor,
+  t,
+}: {
+  missing: string[];
+  doctor?: DoctorOption;
+  t: (key: string, vars?: Record<string, string | number>) => string;
+}) {
+  const base = 'mr-auto min-w-0 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium';
+
+  if (missing.length > 0) {
+    const shown = missing.slice(0, 3).join(', ');
+    const rest = missing.length - 3;
+    return (
+      <p className={`${base} bg-amber-50 text-amber-800 ring-1 ring-amber-200/70`} title={missing.join(', ')}>
+        <AlertCircle size={14} className="shrink-0" />
+        <span className="truncate">
+          {t('ut.readyMissing', { fields: rest > 0 ? `${shown} +${rest}` : shown })}
+        </span>
+      </p>
+    );
+  }
+  if (!doctor) {
+    return (
+      <p className={`${base} bg-amber-50 text-amber-800 ring-1 ring-amber-200/70`}>
+        <AlertCircle size={14} className="shrink-0" />
+        {t('ut.readyPickDoctor')}
+      </p>
+    );
+  }
+  if (doctor.presence === 'break' || doctor.presence === 'offline' || !doctor.presence) {
+    return (
+      <p className={`${base} bg-orange-50 text-orange-800 ring-1 ring-orange-200/70`}>
+        {doctor.presence === 'break' ? <Coffee size={14} className="shrink-0" /> : <AlertCircle size={14} className="shrink-0" />}
+        <span className="truncate">
+          {t(doctor.presence === 'break' ? 'ut.readyDoctorBreak' : 'ut.readyDoctorOffline', { name: doctor.fullName })}
+        </span>
+      </p>
+    );
+  }
+  return (
+    <p className={`${base} bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200/70`}>
+      <CheckCircle2 size={14} className="shrink-0" />
+      <span className="truncate">
+        {t(doctor.presence === 'in_meet' ? 'ut.readyDoctorBusy' : 'ut.readyToSend', { name: doctor.fullName })}
+      </span>
+    </p>
   );
 }
 

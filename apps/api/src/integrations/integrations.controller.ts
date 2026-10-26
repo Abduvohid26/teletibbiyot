@@ -9,6 +9,7 @@ import { ROLES_MT_DOCTOR, ROLES_ADMIN } from '../common/roles.constants';
 import { OneIdService } from './oneid.service';
 import { PrescriptionService } from './prescription.service';
 import { DicomService } from './dicom.service';
+import { AishifokorService } from './aishifokor.service';
 import { resolveAuthCookieOptions } from '../common/auth-cookie.util';
 import { jwtExpiresInMs } from '../common/jwt-cookie.util';
 import { UserRole } from '@prisma/client';
@@ -31,6 +32,7 @@ export class IntegrationsController {
     private oneId: OneIdService,
     private prescription: PrescriptionService,
     private dicom: DicomService,
+    private aishifokor: AishifokorService,
     private config: ConfigService,
   ) {}
 
@@ -43,6 +45,7 @@ export class IntegrationsController {
       oneId: { enabled: this.oneId.isEnabled(), mock: this.config.get('ONEID_MOCK') === 'true' },
       prescription: { enabled: this.prescription.isEnabled() },
       dicom: { enabled: true },
+      aishifokor: { configured: this.aishifokor.isConfigured() },
       fieldEncryption: { enabled: !!this.config.get('ENCRYPTION_KEY') },
     };
   }

@@ -406,6 +406,43 @@ model Consultation {
 
   participants     ConsultationParticipant[]
 
+  aishifokorReferral AishifokorReferral?
+
+}
+
+
+
+/// AiShifokor (aishifokor.uz) dan kelgan teletibbiyot yo'naltirishlari
+model AishifokorReferral {
+
+  id                   String   @id @default(uuid())
+
+  handoffToken         String   @unique
+
+  correlationId        String   @unique
+
+  aishifokorReferralId Int?
+
+  aishifokorAnalysisId Int?
+
+  reason               String?
+
+  urgency              String   @default("routine")
+
+  payload              Json     @default("{}")
+
+  consultationId       String?  @unique
+
+  consultation         Consultation? @relation(fields: [consultationId], references: [id], onDelete: SetNull)
+
+  callbackSentAt       DateTime?
+
+  callbackError        String?
+
+  createdAt            DateTime @default(now())
+
+  updatedAt            DateTime @updatedAt
+
 }
 
 

@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, UseGuards, Request, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards, Request, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
@@ -43,20 +43,23 @@ export class VideoController {
     });
     if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
     await this.access.assertConsultationAccess(req.user, consultation);
+    // Socket xonasi bilan bir xil qoida: yakunlangan konsultatsiyaga video yo'q
+    if (consultation.status !== 'QUEUED' && consultation.status !== 'IN_PROGRESS') {
+      throw new ForbiddenException('Konsultatsiya yakunlangan — video xona yopilgan');
+    }
 
     const user = await this.prisma.user.findUnique({
       where: { id: req.user.id },
       select: { fullName: true },
     });
 
+    // Rol FOYDALANUVCHI rolidan aniqlanadi. Ilgari ?role= so'rovdan olinardi —
+    // UT operator o'zini shifokor (yoki aksincha) qilib ko'rsatishi mumkin edi.
+    // Klient faqat pasaytirishi mumkin: kuzatuvchi (observe).
     let role: SfuVideoRole = 'observe';
-    if (roleQuery === 'observe' || roleQuery === 'mt' || roleQuery === 'ut') {
-      role = roleQuery;
-    } else if (isUtRole(req.user.role)) {
-      role = 'ut';
-    } else if (isMtDoctor(req.user.role)) {
-      role = 'mt';
-    }
+    if (isUtRole(req.user.role)) role = 'ut';
+    else if (isMtDoctor(req.user.role)) role = 'mt';
+    if (roleQuery === 'observe') role = 'observe';
 
     const minted = await this.livekit.mintToken({
       identity: req.user.id,

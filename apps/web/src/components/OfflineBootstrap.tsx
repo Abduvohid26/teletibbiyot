@@ -41,6 +41,13 @@ export function OfflineBootstrap() {
 
     const registerServiceWorker = async () => {
       if (!('serviceWorker' in navigator)) return;
+      // Dev'da chunk nomlari hash'siz — SW eski kodni keshdan beradi
+      if (process.env.NODE_ENV === 'development') {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+        await Promise.all((await caches.keys()).map((k) => caches.delete(k)));
+        return;
+      }
       try {
         const reg = await navigator.serviceWorker.register('/service-worker.js', { scope: '/' });
         // Yangi SW darhol faol bo'lsin (eski / keshini tozalash)

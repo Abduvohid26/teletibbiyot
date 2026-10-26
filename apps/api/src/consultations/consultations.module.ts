@@ -4,9 +4,10 @@ import { ConsultationsController } from './consultations.controller';
 import { AiModule } from '../ai/ai.module';
 import { VideoModule } from '../video/video.module';
 import { ReportsModule } from '../reports/reports.module';
+import { IntegrationsModule } from '../integrations/integrations.module';
 
 @Module({
-  imports: [forwardRef(() => AiModule), VideoModule, ReportsModule],
+  imports: [forwardRef(() => AiModule), VideoModule, ReportsModule, IntegrationsModule],
   controllers: [ConsultationsController],
   providers: [ConsultationsService],
   exports: [ConsultationsService],

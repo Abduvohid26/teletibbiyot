@@ -108,8 +108,40 @@ export function defineIntegrationsApi(client: HttpClient) {
         oneId: { enabled: boolean; mock: boolean };
         prescription: { enabled: boolean };
         dicom: { enabled: boolean };
+        aishifokor: { configured: boolean };
         fieldEncryption: { enabled: boolean };
       }>('/integrations/status');
+    },
+
+    getAishifokorHandoff(token: string) {
+      return client.request<{
+        payload: Record<string, unknown>;
+        prefill: {
+          fullName: string;
+          passportNumber: string;
+          birthDate: string;
+          gender: string;
+          phone: string;
+          complaints: string;
+          urgency: string;
+          reason: string;
+          analysisId: number | null;
+          referralId: number | null;
+          fhirBundleUrl: string;
+          referrerName: string;
+        };
+        linkedConsultationId: string | null;
+      }>(`/integrations/aishifokor/handoff/${encodeURIComponent(token)}`);
+    },
+
+    linkAishifokorConsultation(handoffToken: string, consultationId: string) {
+      return client.request<{ linked: boolean; referralId: string }>(
+        '/integrations/aishifokor/link',
+        {
+          method: 'POST',
+          body: JSON.stringify({ handoffToken, consultationId }),
+        },
+      );
     },
 
     listDicomStudies(consultationId: string) {

@@ -16,6 +16,7 @@ import { AccessControlService } from '../common/access-control.service';
 import { canPerformClinicalMtActions, isMtDoctor } from '../common/roles.constants';
 import { ConsultationStatus } from '@prisma/client';
 import { DoctorPresenceService } from './doctor-presence.service';
+import { LivekitService } from './livekit.service';
 
 interface RoomParticipant {
   socketId: string;
@@ -92,6 +93,7 @@ export class VideoGateway
     private prisma: PrismaService,
     private access: AccessControlService,
     private presence: DoctorPresenceService,
+    private livekit: LivekitService,
   ) {}
 
   afterInit(server: Server) {
@@ -437,7 +439,11 @@ export class VideoGateway
     @MessageBody() data: { roomId: string; targetSocketId: string; offer: RTCSessionDescriptionInit },
   ) {
     if (!(await this.assertCanSignal(client, data))) return;
-    this.server.to(data.targetSocketId).emit('offer', { socketId: client.id, offer: data.offer });
+    this.server.to(data.targetSocketId).emit('offer', {
+      socketId: client.id,
+      offer: data.offer,
+      ...this.senderMeta(client),
+    });
   }
 
   @SubscribeMessage('answer')
@@ -446,7 +452,21 @@ export class VideoGateway
     @MessageBody() data: { roomId: string; targetSocketId: string; answer: RTCSessionDescriptionInit },
   ) {
     if (!(await this.assertCanSignal(client, data))) return;
-    this.server.to(data.targetSocketId).emit('answer', { socketId: client.id, answer: data.answer });
+    this.server.to(data.targetSocketId).emit('answer', {
+      socketId: client.id,
+      answer: data.answer,
+      ...this.senderMeta(client),
+    });
+  }
+
+  /**
+   * Konsilium: qabul qiluvchi peer kimligini (UT yoki hamkasb shifokor) aniq
+   * bilishi kerak — aks holda shifokor videosi UT kamera katagiga tushib qoladi.
+   * `participant-joined` dan oldin offer kelib qolsa ham rol ma'lum bo'ladi.
+   */
+  private senderMeta(client: Socket): { role?: string; userName?: string; userId?: string } {
+    const p = client.data.participant as RoomParticipant | undefined;
+    return p ? { role: p.role, userName: p.userName, userId: p.userId } : {};
   }
 
   @SubscribeMessage('ice-candidate')
@@ -791,7 +811,39 @@ export class VideoGateway
       this.logger.warn(`Video xonani yopib bo'lmadi (${roomId}): ${err}`);
     }
     this.invalidateParticipants(roomId);
+    // SFU rejimida media serverdagi xonani ham yopamiz — aks holda ulangan
+    // klientlar konsultatsiya yakunlangandan keyin ham media almashishi mumkin
+    void this.livekit.closeRoom(roomId);
     this.logger.debug(`WS room-closed → ${roomId} (${reason})`);
+  }
+
+  /**
+   * Konsiliumdan chiqarilgan shifokorni video xonadan ham chiqarish.
+   * Ilgari u ro'yxatdan o'chirilsa ham qo'ng'iroqda qolaverardi.
+   */
+  async removeUserFromRoom(roomId: string, userId: string) {
+    try {
+      const sockets = await this.server.in(roomId).fetchSockets();
+      for (const s of sockets) {
+        const p = s.data?.participant as RoomParticipant | undefined;
+        if (p?.userId !== userId) continue;
+        s.emit('room-closed', { roomId, consultationId: roomId, reason: 'removed' });
+        s.leave(roomId);
+        this.socketRooms.get(s.id)?.delete(roomId);
+        this.server.to(roomId).emit('participant-left', { socketId: s.id });
+        if (isMtDoctor(p.role)) {
+          const meetPresence = DoctorPresenceService.presenceInMeetRoom(userId);
+          s.leave(meetPresence);
+          this.socketRooms.get(s.id)?.delete(meetPresence);
+          this.schedulePresenceBroadcast(userId);
+        }
+      }
+    } catch (err) {
+      this.logger.warn(`Ishtirokchini xonadan chiqarib bo'lmadi (${roomId}): ${err}`);
+    }
+    this.invalidateParticipants(roomId);
+    // SFU xonasidan ham (identity = userId)
+    await this.livekit.removeParticipant(roomId, userId);
   }
 
   private async broadcastConsultationEvent(

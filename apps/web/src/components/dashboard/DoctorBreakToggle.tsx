@@ -1,10 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
 import { Coffee, Loader2 } from 'lucide-react';
-import { api } from '@/lib/api';
-import { toast } from '@/lib/toast';
-import { useAuth } from '@/lib/auth-context';
+import { useDoctorBreak } from '@/hooks/use-doctor-break';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/i18n';
 
@@ -13,46 +10,8 @@ import { useI18n } from '@/i18n';
  * shuning uchun UT operator shifokorlar ro'yxatida darhol "Tanaffus" ko'radi.
  */
 export function DoctorBreakToggle({ className }: { className?: string }) {
-  const { user } = useAuth();
   const { t } = useI18n();
-  const [onBreak, setOnBreak] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  const isDoctor = user?.role === 'MT_DOCTOR';
-
-  // Boshlang'ich holatni shifokorlar ro'yxatidan olamiz (alohida endpoint kerak emas)
-  useEffect(() => {
-    if (!isDoctor || !user?.id) return;
-    let cancelled = false;
-    api
-      .getDoctors()
-      .then((doctors) => {
-        if (cancelled) return;
-        const me = doctors.find((d) => d.id === user.id);
-        if (me) setOnBreak(me.presence === 'break');
-      })
-      .catch(() => {
-        /* header tugmasi uchun jim o'tamiz */
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [isDoctor, user?.id]);
-
-  const toggle = useCallback(async () => {
-    if (saving) return;
-    const next = !onBreak;
-    setSaving(true);
-    try {
-      await api.setMyBreak(next);
-      setOnBreak(next);
-      toast(next ? t('presence.onBreakNotice') : t('presence.endBreak'), 'success');
-    } catch (err) {
-      toast(err instanceof Error ? err.message : t('common.error'), 'error');
-    } finally {
-      setSaving(false);
-    }
-  }, [onBreak, saving, t]);
+  const { isDoctor, onBreak, saving, toggle } = useDoctorBreak();
 
   if (!isDoctor) return null;
 

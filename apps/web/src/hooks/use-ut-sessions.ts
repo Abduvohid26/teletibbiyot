@@ -7,8 +7,10 @@ import { fetchUtSessionConsultations } from '@/lib/ut-sessions-fetch';
 import { useConsultationRealtime } from '@/hooks/use-consultation-realtime';
 import { toast } from '@/lib/toast';
 import { UT_SELECT_EVENT } from '@/hooks/use-ut-header-data';
+import { useI18n } from '@/i18n';
 
 export function useUtSessions(enabled = true) {
+  const { t } = useI18n();
   const [consultation, setConsultation] = useState<Consultation | null>(null);
   const [sessions, setSessions] = useState<Consultation[]>([]);
   const [patientConsultations, setPatientConsultations] = useState<Consultation[]>([]);
@@ -50,6 +52,16 @@ export function useUtSessions(enabled = true) {
     return api
       .getUtActiveConsultation(preferred)
       .then((c) => {
+        // So'rov davomida boshqa bemor tanlangan bo'lsa (masalan operator yangi
+        // bemorni hozirgina yubordi) — eskirgan javob bilan uni BOSIB KETMAYMIZ.
+        // Aks holda "Jonli efir" yangi emas, oldingi bemorning xonasini ochardi.
+        const current = typeof window !== 'undefined'
+          ? sessionStorage.getItem(UT_ACTIVE_CONSULTATION_KEY)
+          : null;
+        if (current && current !== (preferred ?? null) && current !== c?.id) {
+          refreshSessions();
+          return c;
+        }
         setConsultation(c);
         if (c?.id && typeof window !== 'undefined') {
           sessionStorage.setItem(UT_ACTIVE_CONSULTATION_KEY, c.id);
@@ -98,9 +110,10 @@ export function useUtSessions(enabled = true) {
     {
       onConsultationQueued: () => void load(),
       onConsultationStarted: (payload) => {
-        const name = payload.doctorName || payload.mtDoctorName || 'Shifokor';
+        const name = payload.doctorName || payload.mtDoctorName || t('common.doctor');
         setLiveBanner({ doctorName: name });
-        toast(`${name} qabulni boshladi — efirga qo‘shiling`, 'success');
+        // Yagona xabar — "qabul boshlandi" uchun boshqa joylarda toast yo'q
+        toast(t('ut.doctorStartedJoinNamed', { name }), 'success');
         if (payload.consultationId) {
           // Optimistic status — API round-tripdan oldin UI yangilansin
           setSessions((prev) =>
@@ -156,7 +169,8 @@ export function useUtSessions(enabled = true) {
       const detail = (e as CustomEvent<{ consultationId?: string; doctorName?: string }>).detail;
       const name = detail?.doctorName || 'Shifokor';
       setLiveBanner({ doctorName: name });
-      toast(`${name} qabul qildi — jonli efir boshlandi`, 'success');
+      // Toast YO'Q: bu window hodisasini har bir realtime hook nusxasi yuboradi
+      // (sahifada 3 ta) — xabar onConsultationStarted'da bir marta chiqadi.
       if (detail?.consultationId) {
         void switchToConsultation(detail.consultationId);
       } else {
