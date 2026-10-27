@@ -69,18 +69,21 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#f2f4f8]">
+    // Desktopda sahifa aynan bir ekran — scroll yo'q; juda past ekranda faqat panel ichi scroll bo'ladi
+    <div className="flex min-h-dvh bg-[#f2f4f8] lg:h-dvh lg:overflow-hidden">
       {/* Chap — brend paneli */}
-      <aside className="relative hidden w-[46%] flex-col justify-between overflow-hidden bg-brand-950 p-10 text-white lg:flex xl:p-12">
-        <div
-          className="pointer-events-none absolute inset-0 opacity-60"
-          style={{
-            backgroundImage: 'radial-gradient(rgb(255 255 255 / 0.07) 1px, transparent 1px)',
-            backgroundSize: '22px 22px',
-          }}
-          aria-hidden
-        />
-        <div className="pointer-events-none absolute -right-40 top-1/3 h-[30rem] w-[30rem] rounded-full bg-brand-600/30 blur-3xl" aria-hidden />
+      <aside className="relative hidden w-[46%] flex-col justify-between gap-6 overflow-y-auto bg-brand-950 px-10 py-9 text-white lg:flex xl:px-12 [@media(max-height:800px)]:gap-4 [@media(max-height:800px)]:py-5">
+        {/* Dekoratsiya alohida qatlamda: absolute doira panel o'lchamini cho'zib, scroll paydo qilmasin */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+          <div
+            className="absolute inset-0 opacity-60"
+            style={{
+              backgroundImage: 'radial-gradient(rgb(255 255 255 / 0.07) 1px, transparent 1px)',
+              backgroundSize: '22px 22px',
+            }}
+          />
+          <div className="absolute -right-40 top-1/3 h-[30rem] w-[30rem] rounded-full bg-brand-600/30 blur-3xl" />
+        </div>
 
         <div className="relative">
           <Link href="/" className="inline-flex items-center gap-3">
@@ -93,19 +96,19 @@ export default function LoginPage() {
             </span>
           </Link>
 
-          <h1 className="mt-14 max-w-md font-serif text-4xl font-semibold leading-[1.15]">
+          <h1 className="mt-12 max-w-md font-serif text-[2.1rem] font-semibold leading-[1.15] xl:text-4xl [@media(max-height:800px)]:mt-5 [@media(max-height:800px)]:text-3xl">
             {t('login.heroTitle')}
           </h1>
-          <p className="mt-5 max-w-md leading-relaxed text-slate-300">{t('login.heroBody')}</p>
+          <p className="mt-4 max-w-md leading-relaxed text-slate-300 [@media(max-height:800px)]:mt-3 [@media(max-height:800px)]:text-sm">{t('login.heroBody')}</p>
 
-          <div className="mt-10 max-w-md">
+          <div className="mt-9 max-w-md [@media(max-height:800px)]:mt-5">
             <p className="flex items-center gap-3 text-xs font-bold uppercase tracking-[0.16em] text-gold-300">
               <span className="h-px w-8 bg-gold-400" />
               {t('login.rolesTitle')}
             </p>
-            <ul className="mt-4 space-y-2">
+            <ul className="mt-3 space-y-2">
               {ROLES.map(({ key, titleKey, bodyKey, icon: Icon }) => (
-                <li key={key} className="flex items-center gap-3 rounded-xl bg-white/[0.05] px-4 py-3 ring-1 ring-white/10">
+                <li key={key} className="flex items-center gap-3 rounded-xl bg-white/[0.05] px-4 py-2.5 ring-1 ring-white/10 [@media(max-height:800px)]:py-2">
                   <Icon size={18} className="shrink-0 text-gold-300" />
                   <span className="min-w-0">
                     <span className="block text-sm font-semibold">{t(titleKey)}</span>
@@ -118,13 +121,13 @@ export default function LoginPage() {
         </div>
 
         <div className="relative flex items-end justify-between gap-6">
-          <PlatformFooter variant="dark" />
-          <FjstiEmblem size={48} className="shrink-0 ring-white/20" />
+          <PlatformFooter variant="dense" />
+          <FjstiEmblem size={44} className="shrink-0 ring-white/20" />
         </div>
       </aside>
 
       {/* O'ng — forma */}
-      <main className="flex flex-1 flex-col">
+      <main className="flex flex-1 flex-col lg:overflow-y-auto">
         <div className="flex items-center justify-between gap-3 px-5 py-4 sm:px-8">
           <Link href="/" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-brand-950">
             <ArrowLeft size={15} /> {t('login.backHome')}
@@ -132,7 +135,7 @@ export default function LoginPage() {
           <LanguageSwitcher compact />
         </div>
 
-        <div className="flex flex-1 items-center justify-center px-5 pb-10 sm:px-8">
+        <div className="flex flex-1 items-center justify-center px-5 pb-8 sm:px-8">
           <div className="w-full max-w-sm animate-slide-up">
             <div className="mb-8 flex items-center gap-2.5 lg:hidden">
               <BrandLogo size={40} />
