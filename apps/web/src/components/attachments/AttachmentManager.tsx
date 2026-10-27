@@ -38,7 +38,7 @@ export function AttachmentManager({
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [viewer, setViewer] = useState<{ attachment?: Attachment; previewUrl?: string } | null>(null);
+  const [viewer, setViewer] = useState<{ attachment?: Attachment; previewUrl?: string; file?: File } | null>(null);
   const [localFiles, setLocalFiles] = useState<LocalPreview[]>([]);
 
   const load = useCallback(() => {
@@ -192,7 +192,7 @@ export function AttachmentManager({
             name={lf.file.name}
             size={lf.file.size}
             isImage={isImageFile(lf.file.name, lf.file.type)}
-            onView={() => setViewer({ previewUrl: lf.url })}
+            onView={() => setViewer({ previewUrl: lf.url, file: lf.file })}
             onRemove={() => removeLocal(i)}
             local
           />
@@ -205,7 +205,7 @@ export function AttachmentManager({
               size={a.fileSize}
               isImage={isImageFile(a.fileName, a.fileType)}
               status={a.aiAnalysisStatus}
-              mockAi={a.aiFindings?.source === 'mock' || a.aiFindings?.source === 'unavailable'}
+              mockAi={a.aiFindings?.source === 'mock'}
               onView={() => setViewer({ attachment: a })}
               onDownload={() => handleDownload(a)}
             />
@@ -229,6 +229,10 @@ export function AttachmentManager({
         <AttachmentViewer
           attachment={viewer.attachment || null}
           previewUrl={viewer.previewUrl}
+          previewName={viewer.file?.name}
+          previewType={viewer.file?.type}
+          siblings={viewer.attachment ? attachments : undefined}
+          onNavigate={(next) => setViewer({ attachment: next })}
           onClose={() => setViewer(null)}
         />
       )}
@@ -273,14 +277,19 @@ function AttachmentRow({
           <FileText size={14} className="text-slate-500 group-hover:text-brand-600" />
         )}
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-medium text-slate-700 truncate">{name}</p>
+      <button
+        type="button"
+        onClick={onView}
+        className="flex-1 min-w-0 text-left cursor-pointer"
+        title={t('attachments.view')}
+      >
+        <p className="text-xs font-medium text-slate-700 truncate group-hover:text-brand-700">{name}</p>
         <div className="flex items-center gap-2 mt-0.5">
           <p className="text-[10px] text-slate-400">{formatSize(size)}</p>
           {status && <AiStatusBadge status={status} mock={mockAi} />}
           {local && <span className="text-[10px] text-amber-600 font-medium">{t('attachments.pendingSend')}</span>}
         </div>
-      </div>
+      </button>
       <button
         type="button"
         onClick={onView}

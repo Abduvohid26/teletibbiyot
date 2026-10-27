@@ -563,7 +563,7 @@ export class ConsultationsService {
 
     const resolved = this.resolveFinalDiagnosis(dto, consultation.aiAnalysis);
     if (!resolved) {
-      throw new BadRequestException('AI klinik xulosa topilmadi. Avval tahlil tugashini kuting.');
+      throw new BadRequestException('AI tashxis bermadi. Yakunlash uchun tashxisni o\'zingiz kiriting.');
     }
     // Tashxis manbasi: shifokor qo'lda kiritganmi yoki AI'dan olinganmi.
     const diagnosisSource = dto.diagnosis?.trim() ? 'manual' : 'ai';
@@ -1172,9 +1172,13 @@ export class ConsultationsService {
     aiAnalysis: AiAnalysisForCompletion | null,
   ): { diagnosis: string; icd10Code: string; recommendations: string; prescription?: string; notes?: string } | null {
     const fromAi = aiAnalysis ? this.buildFinalDiagnosisFromAi(aiAnalysis) : null;
-    const diagnosis = dto.diagnosis?.trim() || fromAi?.diagnosis;
-    const icd10Code = dto.icd10Code?.trim() || fromAi?.icd10Code;
-    const recommendations = dto.recommendations?.trim() || fromAi?.recommendations;
+    const manualDiagnosis = dto.diagnosis?.trim();
+    // Shifokor tashxisni o'zi yozgan bo'lsa (masalan AI ishlamagan) — kod va tavsiya ixtiyoriy
+    const diagnosis = manualDiagnosis || fromAi?.diagnosis;
+    const icd10Code = dto.icd10Code?.trim() || (manualDiagnosis ? 'R69' : fromAi?.icd10Code);
+    const recommendations = dto.recommendations?.trim()
+      || fromAi?.recommendations
+      || (manualDiagnosis ? 'Shifokor ko\'rigi asosida — tavsiyalar bemorga og\'zaki tushuntirildi.' : undefined);
     if (!diagnosis || !icd10Code || !recommendations) return null;
     return {
       diagnosis,

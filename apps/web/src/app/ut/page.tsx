@@ -20,6 +20,8 @@ import {
 import { AuthLoadingScreen } from '@/components/auth/AuthLoadingScreen';
 import { UtIntakeSection, UtIntakeSubCard } from '@/components/ut/UtIntakeSection';
 import { UtIntakeVitalsPanel } from '@/components/ut/UtIntakeVitalsPanel';
+import { UtSelectedFiles } from '@/components/ut/UtSelectedFiles';
+import { cn } from '@/lib/utils';
 import { useUtSessions } from '@/hooks/use-ut-sessions';
 import { useConsultationRealtime } from '@/hooks/use-consultation-realtime';
 import { toast } from '@/lib/toast';
@@ -295,9 +297,15 @@ function UTClientPageInner() {
     { notifyToasts: false, staffFeed: true },
   );
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setFiles((prev) => [...prev, ...Array.from(e.target.files!)]);
-    }
+    const picked = e.target.files ? Array.from(e.target.files) : [];
+    // Qiymat tozalanadi — olib tashlangan faylni qayta tanlash ham ishlasin
+    e.target.value = '';
+    if (!picked.length) return;
+    setFiles((prev) => [
+      ...prev,
+      // Bir faylni ikki marta qo'shib yubormaslik
+      ...picked.filter((f) => !prev.some((p) => p.name === f.name && p.size === f.size)),
+    ]);
   };
 
   const validateForm = (): string | null => {
@@ -635,15 +643,21 @@ function UTClientPageInner() {
           >
             <div className="grid grid-cols-2 gap-1.5 h-full min-h-0">
               <UtIntakeSubCard title={t('ut.subDiagnostics')} icon={ScanLine} className="min-h-0 flex flex-col">
-                <label className="flex h-full min-h-[4.75rem] cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-slate-300 bg-white p-1.5 text-center text-slate-500 transition-colors hover:border-brand-400 hover:bg-brand-50/50 hover:text-brand-700">
-                  <Upload className="h-5 w-5 text-brand-400" />
-                  <span className="text-sm font-medium leading-tight">{t('ut.uploadFile')}</span>
+                <label
+                  className={cn(
+                    'flex cursor-pointer items-center justify-center gap-1 rounded-lg border border-dashed border-slate-300 bg-white p-1.5 text-center text-slate-500 transition-colors hover:border-brand-400 hover:bg-brand-50/50 hover:text-brand-700',
+                    // Fayl tanlangach yuklash maydoni ixchamlashadi — joy ro'yxatga beriladi
+                    files.length ? 'shrink-0 flex-row py-1.5' : 'h-full min-h-[4.75rem] flex-col',
+                  )}
+                >
+                  <Upload className={cn('text-brand-400', files.length ? 'h-4 w-4' : 'h-5 w-5')} />
+                  <span className="text-sm font-medium leading-tight">
+                    {files.length ? t('ut.addMoreFiles') : t('ut.uploadFile')}
+                  </span>
                   <span className="text-[11px] text-slate-400">PDF · JPG · DICOM</span>
                   <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.bmp,.tiff,.tif,.heic,.dcm,.dicom,image/*,application/pdf" className="hidden" onChange={handleFileSelect} />
                 </label>
-                {files.length > 0 && (
-                  <p className="text-sm text-brand-700 mt-1 truncate">{t('ut.filesSelected', { count: files.length })}</p>
-                )}
+                <UtSelectedFiles files={files} onRemove={(i) => setFiles((prev) => prev.filter((_, idx) => idx !== i))} />
               </UtIntakeSubCard>
 
               <UtIntakeSubCard title={t('ut.subFamily')} icon={User} className="min-h-0">

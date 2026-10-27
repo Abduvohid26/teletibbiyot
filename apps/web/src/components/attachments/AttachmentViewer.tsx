@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Download, Loader2, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
+import { X, Download, Loader2, ZoomIn, ZoomOut, Maximize2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { api, Attachment } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { downloadBlob, triggerDownload } from '@/lib/download';
@@ -11,10 +11,24 @@ import { useI18n } from '@/i18n';
 interface AttachmentViewerProps {
   attachment: Attachment | null;
   previewUrl?: string;
+  /** Hali yuborilmagan (lokal) fayl nomi va turi — format aniqlash uchun kerak */
+  previewName?: string;
+  previewType?: string;
+  /** Ro'yxatdagi barcha fayllar — oynani yopmasdan oldingi/keyingisiga o'tish uchun */
+  siblings?: Attachment[];
+  onNavigate?: (attachment: Attachment) => void;
   onClose: () => void;
 }
 
-export function AttachmentViewer({ attachment, previewUrl, onClose }: AttachmentViewerProps) {
+export function AttachmentViewer({
+  attachment,
+  previewUrl,
+  previewName,
+  previewType,
+  siblings,
+  onNavigate,
+  onClose,
+}: AttachmentViewerProps) {
   const { t } = useI18n();
   const [url, setUrl] = useState(previewUrl || '');
   const [loading, setLoading] = useState(!previewUrl && !!attachment);
@@ -68,22 +82,32 @@ export function AttachmentViewer({ attachment, previewUrl, onClose }: Attachment
     setZoom(1);
   }, [attachment?.id, previewUrl]);
 
+  const index = attachment && siblings ? siblings.findIndex((a) => a.id === attachment.id) : -1;
+  const canNavigate = !!onNavigate && !!siblings && siblings.length > 1 && index >= 0;
+  const goTo = (delta: number) => {
+    if (!canNavigate) return;
+    onNavigate!(siblings![(index + delta + siblings!.length) % siblings!.length]);
+  };
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
+      if (e.key === 'ArrowLeft') goTo(-1);
+      if (e.key === 'ArrowRight') goTo(1);
       if (e.key === '+' || e.key === '=') setZoom((z) => Math.min(4, z + 0.25));
       if (e.key === '-') setZoom((z) => Math.max(1, z - 0.25));
       if (e.key === '0') setZoom(1);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onClose, index, canNavigate]);
 
   if (!attachment && !previewUrl) return null;
   if (!mounted) return null;
 
-  const fileName = attachment?.fileName || t('attachments.view');
-  const fileType = attachment?.fileType || '';
+  const fileName = attachment?.fileName || previewName || t('attachments.view');
+  const fileType = attachment?.fileType || previewType || '';
   const isImage = fileType.startsWith('image/') || /\.(jpe?g|png|gif|webp|bmp|tiff?|heic)$/i.test(fileName);
   const isPdf = fileType === 'application/pdf' || fileName.toLowerCase().endsWith('.pdf');
 
@@ -112,12 +136,39 @@ export function AttachmentViewer({ attachment, previewUrl, onClose }: Attachment
       >
         <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-200 shrink-0">
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-slate-900 truncate">{fileName}</p>
+            <p className="text-sm font-semibold text-slate-900 truncate">
+              {canNavigate && (
+                <span className="mr-2 text-xs font-medium text-slate-400 tabular-nums">
+                  {index + 1}/{siblings!.length}
+                </span>
+              )}
+              {fileName}
+            </p>
             {attachment?.aiSummary && (
               <p className="text-xs text-violet-600 mt-0.5 line-clamp-2">AI: {attachment.aiSummary}</p>
             )}
           </div>
           <div className="flex items-center gap-1 shrink-0">
+            {canNavigate && (
+              <div className="flex items-center gap-0.5 mr-1 rounded-lg bg-slate-100 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => goTo(-1)}
+                  className="p-1.5 rounded-md text-slate-600 hover:bg-white"
+                  title={t('attachments.prevFile')}
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => goTo(1)}
+                  className="p-1.5 rounded-md text-slate-600 hover:bg-white"
+                  title={t('attachments.nextFile')}
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            )}
             {isImage && url && (
               <div className="flex items-center gap-0.5 mr-1 rounded-lg bg-slate-100 p-0.5">
                 <button
@@ -195,7 +246,12 @@ export function AttachmentViewer({ attachment, previewUrl, onClose }: Attachment
               )}
             />
           ) : isPdf ? (
-            <iframe src={url} title={fileName} className="w-full h-full border-0 bg-white" />
+            // Eskizlar paneli yopiq, sahifa kenglik bo'yicha — hujjat darhol o'qiladigan bo'lib ochiladi
+            <iframe
+              src={previewUrl ? url : `${url}#navpanes=0&view=FitH`}
+              title={fileName}
+              className="w-full h-full border-0 bg-white"
+            />
           ) : (
             <div className="text-center py-12">
               <ZoomIn className="w-12 h-12 text-slate-300 mx-auto mb-3" />
@@ -224,7 +280,7 @@ function AiFindingsBar({ findings }: { findings: Record<string, unknown> }) {
   if (!abnormalities.length && !recs.length) return null;
 
   return (
-    <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-3 max-h-[28vh] overflow-y-auto">
+    <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-3 max-h-[22vh] overflow-y-auto">
       <div className="grid gap-3 sm:grid-cols-2">
         {abnormalities.length > 0 && (
           <section className="rounded-xl border border-red-100 bg-red-50/70 p-3">

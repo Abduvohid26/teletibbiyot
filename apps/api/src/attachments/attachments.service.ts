@@ -76,7 +76,8 @@ export class AttachmentsService {
       orderBy: { uploadedAt: 'desc' },
     });
 
-    const pending = attachments.filter((a) => a.aiAnalysisStatus === 'PENDING');
+    // Yuklash paytida navbatga qo'yilganlari (PROCESSING) ham hali tugamagan hisoblanadi
+    const pending = attachments.filter((a) => a.aiAnalysisStatus === 'PENDING' || a.aiAnalysisStatus === 'PROCESSING');
     if (attachments.length > 0 && pending.length === 0) {
       return {
         success: true,

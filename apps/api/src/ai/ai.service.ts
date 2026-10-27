@@ -10,6 +10,7 @@ import { AccessControlService, AuthUser } from '../common/access-control.service
 import { FieldCryptoService } from '../common/field-crypto.service';
 import { StorageService } from '../storage/storage.service';
 import { buildAiAnalysisPdfBuffer } from './clinical-conclusion-pdf';
+import { AiFailureReason, classifyOpenAiStatus } from './ai-availability';
 import { normalizePdfLocale, type PdfLocale } from './pdf-labels';
 
 const SYSTEM_PROMPT = `Siz ${BRAND.name} platformasining AI-yordamchi shifokorisiz (telemedicine konsilium yordamchisi).
@@ -248,6 +249,21 @@ interface OpenAiAnalysisResult {
 }
 
 /** Kalendarga asoslangan aniq yosh (yil) hisobi. */
+/** Model javobidan JSON obyektni olish (ba'zan atrofida matn bo'ladi) */
+function parseJsonObject(text: string): Record<string, unknown> | null {
+  try {
+    return JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    try {
+      return JSON.parse(match[0]) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
+  }
+}
+
 export function calculateAge(birthDate: Date): number {
   const birth = new Date(birthDate);
   const now = new Date();
@@ -271,7 +287,51 @@ export class AiService {
     private storage: StorageService,
   ) {}
 
+  /** Har konsultatsiya uchun bir vaqtda faqat bitta tahlil; kelgan yangi so'rov navbatga qo'yiladi */
+  private inFlight = new Map<string, Promise<unknown>>();
+  private rerunRequested = new Map<string, string | undefined>();
+  private reanalyzeTimers = new Map<string, NodeJS.Timeout>();
+
   async analyzeConsultation(consultationId: string, localeRaw?: string): Promise<unknown> {
+    const running = this.inFlight.get(consultationId);
+    if (running) {
+      // Hozirgi tahlil eski ma'lumot bilan ketyapti (masalan, hujjat tahlili endi tugadi) —
+      // tugagach yana bir marta yangi ma'lumot bilan ishga tushiramiz
+      this.rerunRequested.set(consultationId, localeRaw);
+      return running;
+    }
+    const run = this.runConsultationAnalysis(consultationId, localeRaw).finally(() => {
+      this.inFlight.delete(consultationId);
+      if (this.rerunRequested.has(consultationId)) {
+        const locale = this.rerunRequested.get(consultationId);
+        this.rerunRequested.delete(consultationId);
+        void this.analyzeConsultation(consultationId, locale).catch((err) =>
+          this.logger.warn(`AI qayta tahlil xatosi (${consultationId}): ${err}`),
+        );
+      }
+    });
+    this.inFlight.set(consultationId, run);
+    return run;
+  }
+
+  /**
+   * Hujjat tahlili tugagach umumiy xulosani hujjat topilmalari bilan qayta tuzish.
+   * Bir nechta fayl ketma-ket tugaydi — shuning uchun bir oz kutib, bitta tahlilga birlashtiramiz.
+   */
+  scheduleReanalysis(consultationId: string, delayMs = 2500) {
+    const prev = this.reanalyzeTimers.get(consultationId);
+    if (prev) clearTimeout(prev);
+    const timer = setTimeout(() => {
+      this.reanalyzeTimers.delete(consultationId);
+      void this.analyzeConsultation(consultationId).catch((err) =>
+        this.logger.warn(`AI qayta tahlil xatosi (${consultationId}): ${err}`),
+      );
+    }, delayMs);
+    timer.unref?.();
+    this.reanalyzeTimers.set(consultationId, timer);
+  }
+
+  private async runConsultationAnalysis(consultationId: string, localeRaw?: string): Promise<unknown> {
     const locale = normalizeAiLocale(localeRaw);
     const consultation = await this.prisma.consultation.findUnique({
       where: { id: consultationId },
@@ -343,13 +403,14 @@ export class AiService {
         : {}),
     });
 
-    let result = await this.callOpenAiAnalysis(clinicalData, locale);
-    if (!result) {
-      await this.saveUnavailableAnalysis(consultationId);
+    const outcome = await this.callOpenAiAnalysis(clinicalData, locale);
+    if (!outcome.ok) {
+      await this.saveUnavailableAnalysis(consultationId, outcome.reason);
       await this.updateStep(consultationId, 'RECOMMENDATION_GENERATION', 'DONE');
       this.videoGateway.emitConsultationEvent(consultationId, 'ai-analysis-updated', { consultationId });
-      return { aiUnavailable: true };
+      return { aiUnavailable: true, reason: outcome.reason };
     }
+    let result = outcome.result;
 
     // Model o'ylab topgan havolalarni olib tashlaymiz — nomi qoladi, soxta URL emas
     result = sanitizeSourceUrls(result);
@@ -439,8 +500,29 @@ export class AiService {
     messages: Array<{ role: 'user' | 'assistant'; content: string }>,
     options?: { maxTokens?: number; json?: boolean; systemPrompt?: string },
   ): Promise<string | null> {
+    const res = await this.requestOpenAiChat(messages, options);
+    return res.ok ? res.text : null;
+  }
+
+  private async requestOpenAiChat(
+    messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+    options?: { maxTokens?: number; json?: boolean; systemPrompt?: string },
+  ): Promise<{ ok: true; text: string } | { ok: false; reason: AiFailureReason }> {
+    const first = await this.requestOpenAiChatOnce(messages, options);
+    // Tarmoq uzilishi va provayder xatosi ko'pincha vaqtinchalik — bir marta qayta urinamiz
+    if (!first.ok && (first.reason === 'network' || first.reason === 'provider_error')) {
+      await this.delay(1500);
+      return this.requestOpenAiChatOnce(messages, options);
+    }
+    return first;
+  }
+
+  private async requestOpenAiChatOnce(
+    messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+    options?: { maxTokens?: number; json?: boolean; systemPrompt?: string },
+  ): Promise<{ ok: true; text: string } | { ok: false; reason: AiFailureReason }> {
     const cfg = this.getOpenAiConfig();
-    if (!cfg) return null;
+    if (!cfg) return { ok: false, reason: 'not_configured' };
 
     try {
       const systemContent = options?.systemPrompt ?? SYSTEM_PROMPT;
@@ -462,30 +544,34 @@ export class AiService {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${cfg.apiKey}`,
         },
+        // Osilib qolgan so'rov shifokorni cheksiz kuttirmasin (frontend 120s kutadi)
+        signal: AbortSignal.timeout(100_000),
         body: JSON.stringify(body),
       });
 
       if (!response.ok) {
         const errText = await response.text();
         this.logger.warn(`OpenAI API xatoligi (${response.status}): ${errText.slice(0, 300)}`);
-        return null;
+        return { ok: false, reason: classifyOpenAiStatus(response.status) };
       }
 
       const data = (await response.json()) as {
         choices?: Array<{ message?: { content?: string } }>;
       };
-      return data.choices?.[0]?.message?.content ?? null;
+      const text = data.choices?.[0]?.message?.content;
+      return text ? { ok: true, text } : { ok: false, reason: 'invalid_response' };
     } catch (err) {
-      this.logger.warn(`OpenAI ulanish xatoligi: ${err instanceof Error ? err.message : err}`);
-      return null;
+      const cause = err instanceof Error && err.cause ? ` (${String((err.cause as Error).message ?? err.cause)})` : '';
+      this.logger.warn(`OpenAI ulanish xatoligi: ${err instanceof Error ? err.message : err}${cause}`);
+      return { ok: false, reason: 'network' };
     }
   }
 
   private async callOpenAiAnalysis(
     clinicalData: Record<string, unknown>,
     locale: AiLocale = 'uz',
-  ): Promise<OpenAiAnalysisResult | null> {
-    const text = await this.callOpenAiChat(
+  ): Promise<{ ok: true; result: OpenAiAnalysisResult } | { ok: false; reason: AiFailureReason }> {
+    const res = await this.requestOpenAiChat(
       [
         {
           role: 'user',
@@ -500,46 +586,50 @@ export class AiService {
       { json: true, maxTokens: 12288, systemPrompt: withLang(SYSTEM_PROMPT, locale) },
     );
 
-    if (!text) return null;
+    if (!res.ok) return res;
 
-    try {
-      const parsed = JSON.parse(text) as OpenAiAnalysisResult;
-      if (!parsed.summary || !parsed.triageLevel) return null;
-      return parsed;
-    } catch {
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) return null;
-      try {
-        return JSON.parse(jsonMatch[0]) as OpenAiAnalysisResult;
-      } catch {
-        return null;
-      }
+    const parsed = parseJsonObject(res.text) as OpenAiAnalysisResult | null;
+    if (!parsed?.summary || !parsed.triageLevel || !Array.isArray(parsed.diagnoses)) {
+      this.logger.warn(`AI tahlil javobi yaroqsiz: ${res.text.slice(0, 200)}`);
+      return { ok: false, reason: 'invalid_response' };
     }
+    return { ok: true, result: parsed };
   }
 
-  private async saveUnavailableAnalysis(consultationId: string) {
+  private async saveUnavailableAnalysis(consultationId: string, reason: AiFailureReason) {
+    this.logger.error(`AI tahlil ishlamadi (${consultationId}): ${reason}`);
+    await this.prisma.auditLog
+      .create({
+        data: {
+          action: 'AI_UNAVAILABLE',
+          entity: 'Consultation',
+          entityId: consultationId,
+          details: { reason },
+        },
+      })
+      .catch(() => undefined);
+
+    // Oldin muvaffaqiyatli tahlil bo'lgan bo'lsa (masalan qayta tahlil ishlamadi) — uni saqlab qolamiz
+    const existing = await this.prisma.aiAnalysis.findUnique({ where: { consultationId } });
+    const existingRaw = (existing?.rawResponse as Record<string, unknown> | null) ?? null;
+    if (existing && existingRaw && !existingRaw.aiUnavailable && existingRaw.source !== 'mock') {
+      return;
+    }
+
+    // Xavf darajasi QO'YILMAYDI: AI baholamagan narsani "O'rta xavf" deb ko'rsatish chalg'itadi
+    const data = {
+      summary: 'AI tahlil vaqtincha ishlamayapti. Bemorni shifokor mustaqil baholaydi.',
+      diagnoses: [],
+      triageLevel: 'MEDIUM' as TriageLevel,
+      recommendations: [],
+      redFlags: [],
+      rawResponse: { aiUnavailable: true, reason, failedAt: new Date().toISOString() },
+    };
     await this.prisma.aiAnalysis.upsert({
       where: { consultationId },
-      create: {
-        consultationId,
-        summary: 'AI tahlil xizmati vaqtincha mavjud emas. Shifokor mustaqiy baholash o\'tkazishi kerak.',
-        diagnoses: [],
-        triageLevel: 'MEDIUM',
-        recommendations: ['AI xizmati offline — qo\'lda klinik baholash talab qilinadi'],
-        redFlags: [],
-        rawResponse: { aiUnavailable: true },
-      },
-      update: {
-        summary: 'AI tahlil xizmati vaqtincha mavjud emas.',
-        diagnoses: [],
-        rawResponse: { aiUnavailable: true },
-      },
+      create: { consultationId, ...data },
+      update: data,
     });
-    await this.prisma.consultation.update({
-      where: { id: consultationId },
-      data: { triageLevel: 'MEDIUM' },
-    });
-    this.videoGateway.emitConsultationEvent(consultationId, 'ai-analysis-updated', { consultationId });
   }
 
   /** AI klinik xulosasini PDF formatida */
@@ -725,6 +815,8 @@ export class AiService {
     if (!analysis) return;
 
     const raw = (analysis.rawResponse as Record<string, unknown>) || {};
+    // AI ishlamagan xulosada tarjima qiladigan narsa yo'q
+    if (raw.aiUnavailable) return;
     const contentLocale = normalizeAiLocale(raw.contentLocale);
     if (contentLocale === targetLocale) return;
 
@@ -852,6 +944,10 @@ export class AiService {
     const rawResponse = (resolved.rawResponse as Record<string, unknown> | null) ?? null;
     const cr = consultation.clinicalRecord;
     const age = calculateAge(p.birthDate);
+    const finalDiagnosis = await this.prisma.finalDiagnosis.findUnique({
+      where: { consultationId: consultation.id },
+      select: { diagnosis: true, icd10Code: true, recommendations: true, prescription: true, notes: true },
+    });
 
     return buildAiAnalysisPdfBuffer({
       patientName: p.fullName,
@@ -876,6 +972,7 @@ export class AiService {
       height: cr?.height,
       bmi: cr?.bmi,
       vitalSigns: (cr?.vitalSigns as Record<string, number>) ?? {},
+      finalDiagnosis,
     }, locale);
   }
 
@@ -960,14 +1057,10 @@ export class AiService {
     );
 
     if (!answer) {
-      if (this.getOpenAiConfig()) {
-        return {
-          answer: 'AI xizmati vaqtincha mavjud emas. Iltimos, keyinroq urinib ko\'ring.',
-          disclaimer: 'Bu faqat AI tavsiyasi, yakuniy qaror shifokorga tegishli.',
-        };
-      }
+      // Soxta "javob" qaytarmaymiz — interfeys aniq xabar ko'rsatadi
       return {
-        answer: `AI yordamchi: "${question}" savolingiz bo'yicha — mavjud klinik ma'lumotlar va AI tahlil natijalariga asoslanib, qo'shimcha tekshiruvlar va kuzatuv tavsiya etiladi. Yakuniy qaror shifokorga tegishli.`,
+        answer: '',
+        aiUnavailable: true,
         disclaimer: 'Bu faqat AI tavsiyasi, yakuniy qaror shifokorga tegishli.',
       };
     }
@@ -992,64 +1085,16 @@ export class AiService {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  /** Hujjatlar AI tahlilini konsultatsiya AI xulosasiga qo'shish */
+  /**
+   * Hujjat tahlili tugadi — umumiy xulosani hujjat topilmalari bilan QAYTA tuzamiz.
+   * Avval topilmalar xulosa matniga qo'shib yozilardi: har yuklashda takrorlanib ketardi
+   * va AI ishlamasa ham "tahlil" sifatida ko'rinardi.
+   */
   async integrateAttachmentFindings(consultationId: string): Promise<void> {
-    const attachments = await this.prisma.attachment.findMany({
-      where: { consultationId, aiAnalysisStatus: 'DONE', aiSummary: { not: null } },
+    const analyzed = await this.prisma.attachment.count({
+      where: { consultationId, aiAnalysisStatus: 'DONE' },
     });
-    if (!attachments.length) return;
-
-    const existing = await this.prisma.aiAnalysis.findUnique({ where: { consultationId } });
-    const docSummaries = attachments.map((a) => {
-      const findings = a.aiFindings as { documentType?: string; findings?: string[]; abnormalities?: string[] } | null;
-      return {
-        fileName: a.fileName,
-        summary: a.aiSummary,
-        documentType: findings?.documentType,
-        findings: findings?.findings || [],
-        abnormalities: findings?.abnormalities || [],
-      };
-    });
-
-    const attachmentBlock = docSummaries
-      .map(
-        (d) =>
-          `• ${d.fileName} (${d.documentType || 'hujjat'}): ${d.summary}` +
-          (d.abnormalities?.length ? ` | Anomaliyalar: ${d.abnormalities.join('; ')}` : ''),
-      )
-      .join('\n');
-
-    const extraRecs = docSummaries.flatMap((d) => {
-      const f = d.findings as string[] | undefined;
-      return f?.length ? [`${d.fileName}: ${f.join(', ')}`] : [];
-    });
-
-    if (existing) {
-      const currentRecs = (existing.recommendations as string[]) || [];
-      const mergedRecs = [...new Set([...currentRecs, ...extraRecs])].slice(0, 12);
-      const raw = (existing.rawResponse as Record<string, unknown>) || {};
-      await this.prisma.aiAnalysis.update({
-        where: { consultationId },
-        data: {
-          summary: `${existing.summary}\n\n📎 Hujjatlar AI tahlili:\n${attachmentBlock}`,
-          recommendations: mergedRecs,
-          rawResponse: { ...raw, attachmentAnalyses: docSummaries },
-        },
-      });
-    } else {
-      await this.prisma.aiAnalysis.create({
-        data: {
-          consultationId,
-          summary: `Hujjatlar asosida AI tahlil:\n${attachmentBlock}`,
-          diagnoses: [],
-          triageLevel: 'MEDIUM',
-          recommendations: extraRecs.length ? extraRecs : ['Hujjatlarni shifokor ko\'rib chiqishi kerak'],
-          redFlags: docSummaries.some((d) => (d.abnormalities?.length ?? 0) > 0)
-            ? ['Hujjatlarda anomaliyalar aniqlangan — shifokor diqqati talab qilinadi']
-            : [],
-          rawResponse: { attachmentAnalyses: docSummaries },
-        },
-      });
-    }
+    if (!analyzed) return;
+    this.scheduleReanalysis(consultationId);
   }
 }

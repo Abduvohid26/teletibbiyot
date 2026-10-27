@@ -66,6 +66,14 @@ export interface AiAnalysisPdfInput {
   height?: number | null;
   bmi?: number | null;
   vitalSigns?: Record<string, number>;
+  /** Shifokor yakunlagan tashxis — UT uchun eng muhim qism, AI xulosasidan oldin turadi */
+  finalDiagnosis?: {
+    diagnosis: string;
+    icd10Code: string;
+    recommendations: string;
+    prescription?: string | null;
+    notes?: string | null;
+  } | null;
 }
 
 const CONTENT_WIDTH = 495;
@@ -282,6 +290,32 @@ export function buildAiAnalysisPdfBuffer(data: AiAnalysisPdfInput, localeRaw?: P
       [L.doctor, data.doctorName ?? ''],
     ]);
     doc.moveDown(0.3);
+
+    const fd = data.finalDiagnosis;
+    if (fd) {
+      ensureSpace(doc, 60);
+      doc.moveDown(0.4);
+      doc.font(FONT_BOLD).fontSize(13).fillColor(BRAND_NAVY).text(L.finalDxTitle);
+      doc.font(FONT_REGULAR).fontSize(10).fillColor(SLATE_900);
+      labelValueTable(doc, [
+        [L.finalDxDiagnosis, `${fd.diagnosis}${fd.icd10Code ? ` (${L.icd10} ${fd.icd10Code})` : ''}`],
+        [L.finalDxRecommendations, fd.recommendations],
+        ...(fd.prescription?.trim() ? [[L.finalDxPrescription, fd.prescription] as [string, string]] : []),
+        ...(fd.notes?.trim() ? [[L.finalDxNotes, fd.notes] as [string, string]] : []),
+      ]);
+      doc.moveDown(0.3);
+    }
+
+    // AI ishlamagan — bo'sh AI bo'limlari o'rniga aniq izoh
+    if (data.rawResponse?.aiUnavailable === true) {
+      ensureSpace(doc, 30);
+      doc.moveDown(0.4);
+      doc.font(FONT_REGULAR).fontSize(9).fillColor(SLATE_500).text(L.aiNotPerformed, { width: CONTENT_WIDTH });
+      doc.fillColor(SLATE_900);
+      addPageFooters(doc, locale);
+      doc.end();
+      return;
+    }
 
     ensureSpace(doc, 30);
     doc.moveDown(0.4);

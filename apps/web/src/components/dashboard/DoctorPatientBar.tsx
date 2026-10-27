@@ -5,6 +5,7 @@ import { Consultation } from '@/lib/api';
 import { ConsiliumPanel } from '@/components/dashboard/ConsiliumPanel';
 import { calculateAge, cn } from '@/lib/utils';
 import { useI18n } from '@/i18n';
+import { getAiAnalysisMeta } from '@/lib/ai-analysis-meta';
 
 const TRIAGE: Record<string, { key: string; className: string }> = {
   LOW: { key: 'clinical.triageLow', className: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
@@ -42,7 +43,11 @@ export function DoctorPatientBar({
   const { t } = useI18n();
   const { patient } = consultation;
   const age = patient?.birthDate ? calculateAge(patient.birthDate) : null;
-  const triageLevel = consultation.aiAnalysis?.triageLevel ?? consultation.triageLevel;
+  // AI ishlamagan bo'lsa uning "xavf darajasi" yo'q — faqat UT qo'ygan daraja (bo'lsa) ko'rsatiladi
+  const aiTriage = getAiAnalysisMeta(consultation.aiAnalysis).isUnavailable
+    ? undefined
+    : consultation.aiAnalysis?.triageLevel;
+  const triageLevel = aiTriage ?? consultation.triageLevel;
   const triage = triageLevel ? TRIAGE[triageLevel] : undefined;
   const hasNext = queueRemaining > 0;
   const meta = [

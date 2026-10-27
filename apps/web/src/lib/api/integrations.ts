@@ -20,7 +20,7 @@ export function defineIntegrationsApi(client: HttpClient) {
     },
 
     aiChat(consultationId: string, question: string) {
-      return client.request<{ answer: string; disclaimer: string }>(`/ai/consultations/${consultationId}/chat`, {
+      return client.request<{ answer: string; disclaimer: string; aiUnavailable?: boolean }>(`/ai/consultations/${consultationId}/chat`, {
         method: 'POST',
         body: JSON.stringify({ question }),
         timeoutMs: AI_TIMEOUT_MS,

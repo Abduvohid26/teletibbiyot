@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { Brain, Send, RefreshCw, ThumbsUp, ThumbsDown, Sparkles, MessageCircle, Loader2 } from 'lucide-react';
+import { Brain, Send, RefreshCw, ThumbsUp, ThumbsDown, Sparkles, MessageCircle, Loader2, CloudOff } from 'lucide-react';
 import { AiAnalysis, AiAnalysisStep } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
+import { toast } from '@/lib/toast';
 import { getAiAnalysisMeta } from '@/lib/ai-analysis-meta';
 import { ClinicalConclusionReport } from '@/components/dashboard/ClinicalConclusionReport';
 import { AiChatMessage } from '@/components/dashboard/AiChatMessage';
@@ -92,7 +93,8 @@ export function AiAnalysisPanel({ analysis, consultationId, steps, onRefresh, co
     setChatOpen(true);
     try {
       const res = await api.aiChat(consultationId, text);
-      setChatMessages((prev) => [...prev, { role: 'assistant', text: res.answer }]);
+      const answer = res.aiUnavailable || !res.answer ? t('clinical.chatUnavailable') : res.answer;
+      setChatMessages((prev) => [...prev, { role: 'assistant', text: answer }]);
     } catch {
       setChatMessages((prev) => [...prev, { role: 'assistant', text: t('clinical.chatError') }]);
     } finally {
@@ -105,8 +107,11 @@ export function AiAnalysisPanel({ analysis, consultationId, steps, onRefresh, co
     setAnalyzing(true);
     setFeedbackError('');
     try {
-      await api.analyzeConsultation(consultationId);
+      const res = (await api.analyzeConsultation(consultationId)) as { aiUnavailable?: boolean } | undefined;
       onRefresh?.();
+      if (res?.aiUnavailable) {
+        toast.warning(t('clinical.unavailableTitle'), { description: t('clinical.unavailableNext') });
+      }
     } catch {
       setFeedbackError(t('clinical.reanalyzeError'));
     } finally {
@@ -191,7 +196,7 @@ export function AiAnalysisPanel({ analysis, consultationId, steps, onRefresh, co
     );
   }
 
-  const { isUnavailable } = getAiAnalysisMeta(analysis);
+  const { isUnavailable, unavailableReason } = getAiAnalysisMeta(analysis);
 
   return (
     <div className="panel h-full flex flex-col overflow-hidden min-h-0">
@@ -205,7 +210,7 @@ export function AiAnalysisPanel({ analysis, consultationId, steps, onRefresh, co
           </span>
         )}
         <div className="flex items-center gap-1 shrink-0">
-          {consultationId && (
+          {consultationId && !isUnavailable && (
             <PdfDownloadButton consultationId={consultationId} onError={setFeedbackError} />
           )}
           {consultationId && (
@@ -219,6 +224,7 @@ export function AiAnalysisPanel({ analysis, consultationId, steps, onRefresh, co
               <RefreshCw size={14} className={analyzing ? 'animate-spin' : ''} />
             </button>
           )}
+          {!isUnavailable && (
           <button
             type="button"
             onClick={() => setChatOpen((v) => !v)}
@@ -230,18 +236,50 @@ export function AiAnalysisPanel({ analysis, consultationId, steps, onRefresh, co
           >
             <MessageCircle size={14} />
           </button>
+          )}
         </div>
       </div>
 
-      <div className="panel-body flex-1 min-h-0 overflow-y-auto p-3">
-        {isUnavailable && (
-          <div className="rounded-xl border bg-red-50 border-red-200 mb-3 p-3">
-            <p className="text-xs font-medium text-red-700">
-              {t('clinical.unavailable')}
-            </p>
+      {isUnavailable && analyzing ? (
+        <div className="panel-body flex-1 min-h-0 p-4 flex flex-col items-center justify-center text-center gap-2">
+          <div className="w-12 h-12 rounded-2xl bg-gold-50 ring-1 ring-gold-200/70 flex items-center justify-center">
+            <Loader2 className="w-6 h-6 text-gold-700 animate-spin" />
           </div>
-        )}
-
+          <p className="text-sm font-semibold text-gold-700">{t('clinical.inProgressTitle')}</p>
+          <p className="text-xs text-slate-500 leading-relaxed max-w-xs">{t('clinical.inProgressHint')}</p>
+        </div>
+      ) : isUnavailable ? (
+        <div className="panel-body flex-1 min-h-0 overflow-y-auto p-4 flex flex-col items-center justify-center text-center gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-amber-50 ring-1 ring-amber-200 flex items-center justify-center">
+            <CloudOff className="w-6 h-6 text-amber-600" />
+          </div>
+          <div className="space-y-1.5 max-w-sm">
+            <p className="text-sm font-semibold text-slate-800">{t('clinical.unavailableTitle')}</p>
+            <p className="text-xs text-slate-600 leading-relaxed">{t('clinical.unavailableBody')}</p>
+            <p className="text-xs text-slate-500 leading-relaxed">{t('clinical.unavailableNext')}</p>
+          </div>
+          {unavailableReason && (
+            <p className="text-[10px] text-slate-400">
+              {t('clinical.unavailableReason', {
+                reason: t(`clinical.reason_${unavailableReason}`),
+              })}
+            </p>
+          )}
+          {consultationId && (
+            <button
+              type="button"
+              onClick={() => void handleReanalyze()}
+              disabled={analyzing}
+              className="btn-secondary text-xs inline-flex items-center justify-center gap-1.5"
+            >
+              <RefreshCw size={14} className={analyzing ? 'animate-spin' : ''} />
+              {analyzing ? t('clinical.analyzing') : t('clinical.retryAnalysis')}
+            </button>
+          )}
+          {feedbackError && <p className="text-xs text-red-600">{feedbackError}</p>}
+        </div>
+      ) : (
+      <div className="panel-body flex-1 min-h-0 overflow-y-auto p-3">
         <ClinicalConclusionReport
           analysis={localizedAnalysis ?? analysis}
           compact={compact}
@@ -265,8 +303,9 @@ export function AiAnalysisPanel({ analysis, consultationId, steps, onRefresh, co
           <p className="text-xs text-red-600 pt-1">{feedbackError}</p>
         )}
       </div>
+      )}
 
-      {chatOpen && (
+      {chatOpen && !isUnavailable && (
         <div className="border-t border-slate-200 bg-slate-50/80 shrink-0 flex flex-col max-h-[60%] min-h-[180px]">
           <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-2">
             {chatMessages.length === 0 && (

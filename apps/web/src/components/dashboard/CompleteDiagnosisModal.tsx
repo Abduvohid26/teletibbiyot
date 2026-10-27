@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Stethoscope, AlertTriangle, Download, CheckCircle2 } from 'lucide-react';
-import { api, FinalDiagnosisData, PrescriptionTemplate } from '@/lib/api';
+import { X, Stethoscope, AlertTriangle, Loader2 } from 'lucide-react';
+import { api, Consultation, FinalDiagnosisData, PrescriptionTemplate } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { safeAsync } from '@/lib/errors';
 import { useI18n } from '@/i18n';
@@ -11,20 +11,23 @@ interface CompleteDiagnosisModalProps {
   consultationId: string;
   aiDiagnosis?: string;
   aiIcd10?: string;
-  unconfirmedAiSteps?: number;
-  onComplete: () => void;
+  /** AI tashxis bermagan — shifokor o'zi yozadi, kod va tavsiya ixtiyoriy */
+  manual?: boolean;
+  onComplete: (result: Consultation & { next: Consultation | null }) => void;
   onClose: () => void;
 }
+
+const ICD10_RE = /^[A-Z][0-9]{2}(\.[0-9]{1,2})?$/;
 
 export function CompleteDiagnosisModal({
   consultationId,
   aiDiagnosis,
   aiIcd10,
-  unconfirmedAiSteps = 0,
+  manual = false,
   onComplete,
   onClose,
 }: CompleteDiagnosisModalProps) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const [form, setForm] = useState<FinalDiagnosisData>({
     diagnosis: aiDiagnosis || '',
     icd10Code: aiIcd10 || '',
@@ -34,8 +37,6 @@ export function CompleteDiagnosisModal({
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [reportUrl, setReportUrl] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
   const [templates, setTemplates] = useState<PrescriptionTemplate[]>([]);
   const [followUpDate, setFollowUpDate] = useState('');
 
@@ -51,27 +52,40 @@ export function CompleteDiagnosisModal({
       prescription: rx,
       recommendations: prev.recommendations || tmpl.instructions,
     }));
-    toast(t('diagnosis.templateApplied', { name: tmpl.name }), 'success');
+    toast.success(t('diagnosis.templateApplied', { name: tmpl.name }));
   };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !loading) onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [loading, onClose]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setError('');
+    const icd = form.icd10Code?.trim().toUpperCase() ?? '';
+    if (icd && !ICD10_RE.test(icd)) {
+      setError(t('diagnosis.icdFormat'));
+      return;
+    }
     setLoading(true);
     try {
-      await api.completeConsultation(consultationId, form);
-      // Bitta natija toasti: tashxis saqlandi + retsept holati tavsifda.
-      // Retsept/qayta ko'rik xatosi — ogohlantirish (konsultatsiya baribir yakunlangan).
-      let rxNote: string | undefined;
-      if (form.prescription?.trim()) {
+      // Bo'sh maydonlar yuborilmaydi — server ularni o'zi to'ldiradi (ICD-10 bo'sh bo'lsa R69)
+      const payload: Partial<FinalDiagnosisData> = { diagnosis: form.diagnosis.trim() };
+      if (icd) payload.icd10Code = icd;
+      if (form.recommendations?.trim()) payload.recommendations = form.recommendations.trim();
+      if (form.prescription?.trim()) payload.prescription = form.prescription.trim();
+      if (form.notes?.trim()) payload.notes = form.notes.trim();
+      const result = await api.completeConsultation(consultationId, payload);
+
+      // Retsept/qayta ko'rik xatosi — ogohlantirish (konsultatsiya baribir yakunlangan)
+      if (payload.prescription) {
         try {
-          const rx = await api.submitPrescription(consultationId);
-          rxNote =
-            rx.status === 'stub'
-              ? rx.message || t('diagnosis.rxStub')
-              : rx.status === 'submitted'
-                ? t('diagnosis.rxSubmitted')
-                : t('diagnosis.rxSaved');
+          await api.submitPrescription(consultationId);
         } catch {
           toast.warning(t('diagnosis.rxError'));
         }
@@ -83,69 +97,14 @@ export function CompleteDiagnosisModal({
           toast.warning(t('diagnosis.followUpError'));
         }
       }
-      toast.success(t('diagnosis.completeSuccess'), { description: rxNote });
-
-      let url: string | null = null;
-      try {
-        const link = await api.getReportLink(consultationId);
-        url = link.url;
-      } catch {
-        await new Promise((r) => setTimeout(r, 2000));
-        try {
-          const link = await api.getReportLink(consultationId);
-          url = link.url;
-        } catch {
-          try {
-            await api.downloadAiAnalysisPdf(consultationId, locale);
-          } catch {
-            /* report may still be generating */
-          }
-        }
-      }
-
-      if (url) {
-        setReportUrl(url);
-        setDone(true);
-      } else {
-        onComplete();
-        onClose();
-      }
+      onComplete(result);
+      onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : t('errors.generic'));
     } finally {
       setLoading(false);
     }
   };
-
-  const handleFinish = () => {
-    onComplete();
-    onClose();
-  };
-
-  if (done && reportUrl) {
-    return (
-      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
-        <div className="panel w-full max-w-lg shadow-2xl animate-slide-up p-6 text-center">
-          <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto mb-3" />
-          <h2 className="font-bold text-slate-900 mb-2">{t('diagnosis.completedTitle')}</h2>
-          <p className="text-sm text-slate-600 mb-6">{t('diagnosis.completedBody')}</p>
-          <div className="flex gap-3">
-            <a
-              href={reportUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex-1 gradient-btn inline-flex items-center justify-center gap-2"
-            >
-              <Download size={16} /> {t('diagnosis.downloadPdf')}
-            </a>
-            <button type="button" onClick={handleFinish} className="flex-1 btn-secondary">
-              {t('common.close')}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
@@ -155,11 +114,14 @@ export function CompleteDiagnosisModal({
             <div className="p-2 rounded-xl bg-white shadow-sm">
               <Stethoscope className="w-5 h-5 text-brand-600" />
             </div>
-            <h2 className="font-bold text-slate-900">{t('diagnosis.completeTitle')}</h2>
+            <h2 className="font-bold text-slate-900">
+              {manual ? t('diagnosis.manualTitle') : t('diagnosis.completeTitle')}
+            </h2>
           </div>
           <button
             type="button"
             onClick={onClose}
+            disabled={loading}
             className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
           >
             <X size={20} />
@@ -169,14 +131,8 @@ export function CompleteDiagnosisModal({
         <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-80px)]">
           <div className="flex gap-3 bg-amber-50 border border-amber-200/80 rounded-xl p-3.5 text-xs text-amber-800">
             <AlertTriangle size={16} className="shrink-0 mt-0.5 text-amber-600" />
-            <p>{t('diagnosis.warning')}</p>
+            <p>{manual ? t('diagnosis.manualHint') : t('diagnosis.warning')}</p>
           </div>
-
-          {unconfirmedAiSteps > 0 && (
-            <div className="bg-red-50 border border-red-200/80 text-red-700 text-sm rounded-xl p-3.5">
-              {t('diagnosis.unconfirmedSteps', { count: unconfirmedAiSteps })}
-            </div>
-          )}
 
           {error && (
             <div className="bg-red-50 border border-red-200/80 text-red-700 text-sm rounded-xl p-3.5">{error}</div>
@@ -187,24 +143,24 @@ export function CompleteDiagnosisModal({
               className="input"
               value={form.diagnosis}
               onChange={(e) => setForm({ ...form, diagnosis: e.target.value })}
+              autoFocus
               required
             />
           </Field>
-          <Field label={t('diagnosis.fieldIcd10')} required>
+          <Field label={t('diagnosis.icdOptional')}>
             <input
-              className="input font-mono"
+              className="input font-mono uppercase"
               value={form.icd10Code}
               onChange={(e) => setForm({ ...form, icd10Code: e.target.value })}
               placeholder="K29.7"
-              required
+              maxLength={6}
             />
           </Field>
-          <Field label={t('diagnosis.fieldRecommendations')} required>
+          <Field label={t('diagnosis.recsOptional')}>
             <textarea
               className="input min-h-[80px] resize-y"
               value={form.recommendations}
               onChange={(e) => setForm({ ...form, recommendations: e.target.value })}
-              required
             />
           </Field>
           <Field label={t('diagnosis.fieldPrescription')}>
@@ -252,14 +208,15 @@ export function CompleteDiagnosisModal({
           </Field>
 
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 btn-secondary">
+            <button type="button" onClick={onClose} disabled={loading} className="flex-1 btn-secondary">
               {t('common.cancel')}
             </button>
             <button
               type="submit"
-              disabled={loading || unconfirmedAiSteps > 0}
-              className="flex-1 gradient-btn disabled:opacity-50"
+              disabled={loading || !form.diagnosis.trim()}
+              className="flex-1 gradient-btn disabled:opacity-50 inline-flex items-center justify-center gap-2"
             >
+              {loading && <Loader2 size={16} className="animate-spin" />}
               {loading ? t('diagnosis.saving') : t('diagnosis.finish')}
             </button>
           </div>

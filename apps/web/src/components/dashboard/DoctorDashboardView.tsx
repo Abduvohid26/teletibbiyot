@@ -6,6 +6,8 @@ import { VideoConsultation } from '@/components/dashboard/VideoConsultation';
 import { AiAnalysisPanel } from '@/components/dashboard/AiAnalysisPanel';
 import { PatientDocumentsPanel } from '@/components/dashboard/PatientDocumentsPanel';
 import { DoctorPatientBar } from '@/components/dashboard/DoctorPatientBar';
+import { CompleteDiagnosisModal } from '@/components/dashboard/CompleteDiagnosisModal';
+import { getAiAnalysisMeta } from '@/lib/ai-analysis-meta';
 import { api, Consultation } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { useAuth } from '@/lib/auth-context';
@@ -43,6 +45,8 @@ export function DoctorDashboardView({
   const router = useRouter();
   const [reconnectSignal, setReconnectSignal] = useState(0);
   const [completing, setCompleting] = useState(false);
+  /** AI tashxis bermagan — shifokor tashxisni o'zi kiritadigan oyna */
+  const [manualCompleteId, setManualCompleteId] = useState<string | null>(null);
   const queuedPatients = queue.filter((c) => c.status === 'QUEUED');
   const passiveRefresh = onRefresh ?? onReload;
   const activeConsultationId = selectedConsultationId ?? consultation?.id;
@@ -69,34 +73,44 @@ export function DoctorDashboardView({
     setReconnectSignal(0);
   }, [activeConsultationId]);
 
+  const afterComplete = useCallback((next: Consultation | null) => {
+    // PDF ATAYLAB avtomatik ochilmaydi — u fonda tayyorlanadi va
+    // "AI klinik xulosa" panelidagi PDF tugmasi orqali istalgan tilda olinadi.
+    onReload();
+
+    // Uzluksiz oqim: navbatdagi keyingi bemorga avtomatik o'tamiz
+    if (next) dispatchDoctorSelect(next.id);
+    toast.success(t('dashboard.completeSuccess'), {
+      description: next
+        ? t('dashboard.nextPatient', { name: next.patient?.fullName ?? '' })
+        : t('dashboard.queueEmpty'),
+    });
+  }, [onReload, t]);
+
   const handleComplete = useCallback(async () => {
     if (!activeConsultation || completing) return;
-    if (!activeConsultation.aiAnalysis) {
-      toast.warning(t('clinical.notReady'));
+    // AI tashxis bermagan (ishlamagan, hali tayyor emas yoki tashxis topmagan) —
+    // yakunlash bloklanmaydi: shifokor tashxisni o'zi kiritadi
+    if (!getAiAnalysisMeta(activeConsultation.aiAnalysis).hasDiagnosis) {
+      setManualCompleteId(activeConsultation.id);
       return;
     }
     setCompleting(true);
     try {
       const { next } = await api.completeConsultation(activeConsultation.id, {});
-      // PDF ATAYLAB avtomatik ochilmaydi — u fonda tayyorlanadi va
-      // "AI klinik xulosa" panelidagi PDF tugmasi orqali istalgan tilda olinadi.
-      onReload();
-
-      // Uzluksiz oqim: navbatdagi keyingi bemorga avtomatik o'tamiz
-      if (next) dispatchDoctorSelect(next.id);
-      toast.success(t('dashboard.completeSuccess'), {
-        description: next
-          ? t('dashboard.nextPatient', { name: next.patient?.fullName ?? '' })
-          : t('dashboard.queueEmpty'),
-      });
+      afterComplete(next);
     } catch (err) {
-      toast.error(t('dashboard.completeError'), {
-        description: err instanceof Error ? err.message : undefined,
-      });
+      const message = err instanceof Error ? err.message : undefined;
+      // Server AI tashxisni topmadi — qo'lda kiritish oynasini ochamiz
+      if (message && /AI tashxis bermadi/i.test(message)) {
+        setManualCompleteId(activeConsultation.id);
+        return;
+      }
+      toast.error(t('dashboard.completeError'), { description: message });
     } finally {
       setCompleting(false);
     }
-  }, [activeConsultation, completing, onReload, t]);
+  }, [activeConsultation, completing, afterComplete, t]);
 
   const { requestCancel, cancelModal } = useCancelConsultation({
     onSuccess: (id) => {
@@ -201,6 +215,14 @@ export function DoctorDashboardView({
         </div>
       </div>
     {cancelModal}
+    {manualCompleteId && (
+      <CompleteDiagnosisModal
+        consultationId={manualCompleteId}
+        manual
+        onComplete={(result) => afterComplete(result.next)}
+        onClose={() => setManualCompleteId(null)}
+      />
+    )}
     </>
   );
 }

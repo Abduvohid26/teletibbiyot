@@ -28,6 +28,12 @@ export type PdfLabels = {
   facility: string;
   doctor: string;
   consensusTitle: string;
+  finalDxTitle: string;
+  finalDxDiagnosis: string;
+  finalDxRecommendations: string;
+  finalDxPrescription: string;
+  finalDxNotes: string;
+  aiNotPerformed: string;
   sectionDiagnoses: string;
   icd10: string;
   justification: string;
@@ -105,6 +111,12 @@ const UZ: PdfLabels = {
   facility: 'UT muassasa:',
   doctor: 'Shifokor:',
   consensusTitle: 'Konsilium Konsensusi',
+  finalDxTitle: "Shifokorning yakuniy tashxisi",
+  finalDxDiagnosis: "Tashxis:",
+  finalDxRecommendations: "Tavsiyalar:",
+  finalDxPrescription: "Retsept:",
+  finalDxNotes: "Izoh:",
+  aiNotPerformed: "AI tahlil o'tkazilmadi (xizmat vaqtincha ishlamagan). Yuqoridagi tashxis shifokor ko'rigi asosida qo'yilgan.",
   sectionDiagnoses: 'Tashxislar',
   icd10: 'MKB-10:',
   justification: 'Asoslash:',
@@ -182,6 +194,12 @@ const RU: PdfLabels = {
   facility: 'УЗ учреждение:',
   doctor: 'Врач:',
   consensusTitle: 'Консенсус консилиума',
+  finalDxTitle: "Заключительный диагноз врача",
+  finalDxDiagnosis: "Диагноз:",
+  finalDxRecommendations: "Рекомендации:",
+  finalDxPrescription: "Рецепт:",
+  finalDxNotes: "Примечание:",
+  aiNotPerformed: "ИИ-анализ не проводился (сервис был временно недоступен). Диагноз выше поставлен врачом по результатам осмотра.",
   sectionDiagnoses: 'Диагнозы',
   icd10: 'МКБ-10:',
   justification: 'Обоснование:',
@@ -259,6 +277,12 @@ const EN: PdfLabels = {
   facility: 'Primary care facility:',
   doctor: 'Physician:',
   consensusTitle: 'Consultation consensus',
+  finalDxTitle: "Doctor's final diagnosis",
+  finalDxDiagnosis: "Diagnosis:",
+  finalDxRecommendations: "Recommendations:",
+  finalDxPrescription: "Prescription:",
+  finalDxNotes: "Notes:",
+  aiNotPerformed: "AI analysis was not performed (service temporarily unavailable). The diagnosis above was made by the doctor based on the examination.",
   sectionDiagnoses: 'Diagnoses',
   icd10: 'ICD-10:',
   justification: 'Rationale:',

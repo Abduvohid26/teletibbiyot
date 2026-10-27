@@ -17,6 +17,7 @@ import { Throttle } from '@nestjs/throttler';
 import { Response } from 'express';
 import { AiService } from './ai.service';
 import { MonitorVitalsService } from './monitor-vitals.service';
+import { AttachmentAnalysisService } from './attachment-analysis.service';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { AiFeedbackDto, ConfirmAiStepDto } from '../consultations/dto/consultation.dto';
@@ -33,6 +34,7 @@ export class AiController {
   constructor(
     private aiService: AiService,
     private monitorVitals: MonitorVitalsService,
+    private attachmentAi: AttachmentAnalysisService,
     private prisma: PrismaService,
     private access: AccessControlService,
   ) {}
@@ -88,6 +90,12 @@ export class AiController {
     @Headers('x-locale') locale?: string,
   ) {
     await this.assertConsultationAccess(req.user, id);
+    // Avval AI ishlamay qolgan hujjatlar ham qayta urinib ko'riladi (fonda);
+    // ular tugagach umumiy xulosa hujjat topilmalari bilan yana yangilanadi
+    void this.attachmentAi
+      .analyzeConsultationAttachments(id)
+      .then(() => this.aiService.integrateAttachmentFindings(id))
+      .catch(() => undefined);
     return this.aiService.analyzeConsultation(id, locale);
   }
 
