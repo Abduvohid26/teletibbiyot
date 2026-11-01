@@ -27,6 +27,7 @@ import {
   EscalateConsultationDto,
   AddParticipantsDto,
   ParticipantOpinionDto,
+  JoinByInviteDto,
 } from './dto/consultation.dto';
 import { ConsultationQueryDto } from './dto/consultation-query.dto';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guard';
@@ -60,6 +61,13 @@ export class ConsultationsController {
   create(@Body() dto: CreateConsultationDto, @Request() req: { user: { id: string; facilityId: string | null } }) {
     if (!req.user.facilityId) throw new ForbiddenException('UT muassasasi biriktirilmagan');
     return this.consultationsService.create(dto, req.user.facilityId, req.user.id);
+  }
+
+  @Post('join-link')
+  @Roles(...ROLES_MT_DOCTOR)
+  @ApiOperation({ summary: 'Taklif havolasi orqali konsiliumga qo\'shilish' })
+  joinByInvite(@Body() dto: JoinByInviteDto, @Request() req: { user: AuthUser }) {
+    return this.consultationsService.joinByInvite(dto.token, req.user);
   }
 
   @Get('queue')
@@ -168,6 +176,13 @@ export class ConsultationsController {
     @Request() req: { user: AuthUser },
   ) {
     return this.consultationsService.addParticipants(id, req.user, dto.doctorIds);
+  }
+
+  @Post(':id/invite-link')
+  @Roles(...ROLES_MT_DOCTOR, ...ROLES_UT)
+  @ApiOperation({ summary: 'Konsilium xonasiga taklif havolasi (6 soat amal qiladi)' })
+  createInviteLink(@Param('id') id: string, @Request() req: { user: AuthUser }) {
+    return this.consultationsService.createInviteLink(id, req.user);
   }
 
   @Put(':id/participants/me/opinion')

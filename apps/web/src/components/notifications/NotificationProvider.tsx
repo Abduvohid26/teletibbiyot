@@ -16,7 +16,7 @@ import { isMtDoctor, isUtRole } from '@ishifo/shared';
 import { api, AppNotification, UT_ACTIVE_CONSULTATION_KEY } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { toast } from '@/lib/toast';
-import { acquireUserSocket, releaseUserSocket } from '@/lib/video-socket-client';
+import { acquireUserSocket, isInLiveCall, releaseUserSocket } from '@/lib/video-socket-client';
 import {
   installAudioUnlock,
   isSoundEnabled,
@@ -27,7 +27,7 @@ import {
   subscribeSoundSetting,
 } from '@/lib/sounds';
 import { notificationHref, presentationOf } from '@/lib/notification-meta';
-import { CALL_ACCEPTED_EVENT, hasAnyJoined, markJoined, wasJoined } from '@/lib/video-room-session';
+import { CALL_ACCEPTED_EVENT, markJoined, wasJoined } from '@/lib/video-room-session';
 import { dispatchDoctorSelect } from '@/hooks/use-doctor-header-data';
 import { markSelfLeave } from '@/hooks/use-consilium';
 import { IncomingCallOverlay } from '@/components/notifications/IncomingCallOverlay';
@@ -91,6 +91,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   callRef.current = call;
   const ringTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const presentRef = useRef<(n: AppNotification) => void>(() => {});
+  const acceptRef = useRef<(n: AppNotification) => Promise<void>>(async () => {});
 
   useEffect(() => installAudioUnlock(), []);
   useEffect(() => setBrowserPermission(readBrowserPermission()), []);
@@ -211,9 +212,23 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
       const cid = n.consultationId ?? undefined;
       const alreadyInThatCall = !!cid && wasJoined(cid);
-      // Boshqa bemor bilan video'da bo'lsa yangi bemor jiringlab xalaqit bermaydi
-      const busyInCall = meta.call?.kind === 'newPatient' && hasAnyJoined();
-      if (meta.call && !alreadyInThatCall && !busyInCall && !callRef.current) {
+      if (alreadyInThatCall && meta.call) return;
+
+      // Hozir boshqa video qo'ng'iroqda (yoki boshqa qo'ng'iroq jiringlayapti) —
+      // ekranni to'sib jiringlamaymiz: yumshoq ovoz + burchakda "Qabul qilish"
+      const kind = meta.call?.kind;
+      if (meta.call && (isInLiveCall() || callRef.current)) {
+        playSound(kind === 'emergency' ? 'alert' : 'chime');
+        toast.info(n.title, {
+          id: `notif-${n.id}`,
+          description: `${n.body} · ${t('notify.inCallHint')}`,
+          duration: 30_000,
+          action: { label: t(`notify.call.${kind}.accept`), onClick: () => void acceptRef.current(n) },
+        });
+        return;
+      }
+
+      if (meta.call) {
         setCall(n);
         startRingtone(meta.call.ringtone);
         ringTimeout.current = setTimeout(() => {
@@ -231,7 +246,6 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      if (alreadyInThatCall && meta.call) return;
       playSound(meta.sound ?? 'chime');
       const href = notificationHref(n, role);
       const show = n.type === 'emergency' || n.type === 'device_offline' ? toast.error : toast.info;
@@ -285,9 +299,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => () => clearRing(), [clearRing]);
 
-  const accept = useCallback(async () => {
-    const n = callRef.current;
-    if (!n) return;
+  /** Qo'ng'iroqni qabul qilish — jiringlayotgan oynadan ham, qo'ng'iroq paytidagi toastdan ham */
+  const acceptFor = useCallback(async (n: AppNotification) => {
     const cid = n.consultationId ?? '';
     const kind = presentationOf(n, role).call?.kind;
     clearRing();
@@ -334,6 +347,11 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
     endCall();
   }, [clearRing, endCall, markRead, role, router, t]);
+  acceptRef.current = acceptFor;
+
+  const accept = useCallback(async () => {
+    if (callRef.current) await acceptFor(callRef.current);
+  }, [acceptFor]);
 
   const decline = useCallback(async () => {
     const n = callRef.current;

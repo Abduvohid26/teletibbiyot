@@ -20,7 +20,19 @@ import {
   writeActiveConsultationId,
 } from '@/lib/active-consultation-storage';
 import { DOCTOR_SELECT_EVENT } from '@/hooks/use-doctor-header-data';
+import { isInLiveCall, onMediaLeftFor } from '@/lib/video-socket-client';
+import { wasJoined } from '@/lib/video-room-session';
 import { useI18n } from '@/i18n';
+
+/**
+ * Mas'ulning o'zi "Yakunlash" ni bosdi — u keyingi bemorga o'tadi (xonada qolmaydi).
+ * Voqea API javobidan oldin kelishi mumkin, shuning uchun oldindan belgilanadi.
+ */
+const selfCompleting = new Set<string>();
+export function markSelfCompleting(consultationId: string) {
+  selfCompleting.add(consultationId);
+  setTimeout(() => selfCompleting.delete(consultationId), 60_000);
+}
 
 export function useDoctorDashboard() {
   const { t } = useI18n();
@@ -37,6 +49,8 @@ export function useDoctorDashboard() {
 
   const selectedConsultationIdRef = useRef(selectedConsultationId);
   selectedConsultationIdRef.current = selectedConsultationId;
+  /** Yakunlangan, lekin men ichida turgan xona — yuklash uni boshqa bemorga almashtirmasin */
+  const lingerIdRef = useRef<string | null>(null);
 
   const isDoctor = isMtDoctor(user?.role || '');
 
@@ -72,7 +86,8 @@ export function useDoctorDashboard() {
 
       if (preferredId !== undefined) {
         const resolved =
-          data.consultation?.id
+          (lingerIdRef.current && lingerIdRef.current === preferredId ? preferredId : null)
+          ?? data.consultation?.id
           ?? data.inProgressList.find((c) => c.id === preferredId)?.id
           ?? preferredId;
         setSelectedConsultationId(resolved);
@@ -118,6 +133,55 @@ export function useDoctorDashboard() {
   const consultation = snapshot?.consultation ?? null;
   const snapshotRef = useRef(snapshot);
   snapshotRef.current = snapshot;
+  /** Yakunlangan, lekin men hali ichida turgan konsilium xonasi */
+  const [lingerConsultation, setLingerConsultation] = useState<Consultation | null>(null);
+  lingerIdRef.current = lingerConsultation?.id ?? null;
+  /** F5 dan keyin "men yakunlangan xonada edimmi" tekshirilmoqda — shu vaqtda yo'naltirmaymiz */
+  const [lingerChecking, setLingerChecking] = useState(() => {
+    const stored = readActiveConsultationId();
+    return !!stored && wasJoined(stored);
+  });
+
+  // F5: men yakunlangan, lekin hali odam bor xonada edim — qayta o'sha xonaga.
+  // Xona allaqachon yopilgan bo'lsa server rad etadi va pastdagi effekt "Bemorlar"ga olib ketadi.
+  useEffect(() => {
+    if (!user || !isDoctor) return;
+    const stored = readActiveConsultationId();
+    if (!stored || !wasJoined(stored)) {
+      setLingerChecking(false);
+      return;
+    }
+    let cancelled = false;
+    api
+      .getConsultation(stored)
+      .then((c) => {
+        if (cancelled || c.status !== 'COMPLETED') return;
+        setLingerConsultation(c);
+        setSelectedConsultationId(stored);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!cancelled) setLingerChecking(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, isDoctor]);
+
+  // Yakunlangan xonadan chiqdim (yoki xona yopildi) — endi "Bemorlar"ga
+  useEffect(() => {
+    if (!lingerConsultation) return;
+    const cid = lingerConsultation.id;
+    return onMediaLeftFor(cid, () => {
+      setLingerConsultation(null);
+      // Shifokor o'zi boshqa bemorga o'tgan bo'lsa — o'sha joyida qoladi
+      if (selectedConsultationIdRef.current && selectedConsultationIdRef.current !== cid) return;
+      setSelectedConsultationId(null);
+      clearActiveConsultationId();
+      void executeReloadRef.current(null);
+      router.replace('/dashboard/patients');
+    });
+  }, [lingerConsultation, router]);
   const queuedPatients = useMemo(() => queue.filter((c) => c.status === 'QUEUED'), [queue]);
   const myInProgress = useMemo(
     () => snapshot?.inProgressList ?? [],
@@ -139,6 +203,23 @@ export function useDoctorDashboard() {
    * yakunlanish (masalan, shifokor maslahatchi bo'lgan boshqa bemor) ochiq
    * ekranni yopib, "Bemorlar"ga otib yuborardi.
    */
+  /**
+   * Meet qoidasi: mas'ul yakunladi, lekin men (konsilium shifokori) hali shu
+   * xonada gaplashyapman — ekranni yopmaymiz; o'zim chiqqanimda yopiladi.
+   */
+  const lingerOrLeave = (cid: string) => {
+    if (viewingId() === cid && isInLiveCall(cid) && !selfCompleting.has(cid)) {
+      const snap = snapshotRef.current;
+      const viewed = snap?.inProgressList.find((c) => c.id === cid)
+        ?? (snap?.consultation?.id === cid ? snap.consultation : null);
+      if (viewed) {
+        setLingerConsultation({ ...viewed, status: 'COMPLETED' });
+        return;
+      }
+    }
+    leaveIfViewing(cid);
+  };
+
   const leaveIfViewing = (cid: string) => {
     if (viewingId() !== cid) {
       refresh();
@@ -202,7 +283,7 @@ export function useDoctorDashboard() {
         void executeReload(payload.consultationId);
         router.push('/dashboard');
       },
-      onConsultationCompleted: ({ consultationId }) => leaveIfViewing(consultationId),
+      onConsultationCompleted: ({ consultationId }) => lingerOrLeave(consultationId),
       onConsultationCancelled: ({ consultationId }) => leaveIfViewing(consultationId),
       onTriageUpdated: () => refresh(),
       onPriorityUpdated: () => refresh(),
@@ -296,6 +377,8 @@ export function useDoctorDashboard() {
     queue,
     queuedPatients,
     myInProgress,
+    lingerConsultation,
+    lingerChecking,
     documentsConsultationId,
     inProgressList: snapshot?.inProgressList ?? [],
     stats: snapshot?.stats ?? null,

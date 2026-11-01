@@ -14,24 +14,26 @@ export default function DashboardPage() {
   const router = useRouter();
 
   useEffect(() => {
-    if (dash.loading || !dash.isDoctor || !dash.ready) return;
-    if (dash.myInProgress.length === 0) {
+    if (dash.loading || !dash.isDoctor || !dash.ready || dash.lingerChecking) return;
+    // Yakunlangan, lekin hali odam bor xonada turgan shifokorni chiqarib yubormaymiz (Meet)
+    if (dash.myInProgress.length === 0 && !dash.lingerConsultation) {
       router.replace('/dashboard/patients');
     }
-  }, [dash.loading, dash.isDoctor, dash.ready, dash.myInProgress.length, router]);
+  }, [dash.loading, dash.isDoctor, dash.ready, dash.lingerChecking, dash.lingerConsultation, dash.myInProgress.length, router]);
 
   return (
     <AuthGate loading={dash.loading} user={dash.user} error={dash.authError} onRetry={dash.retryAuth}>
       {!dash.user ? null : dash.isDoctor ? (
-        !dash.ready ? (
+        !dash.ready || dash.lingerChecking ? (
           <div className="page-shell flex items-center justify-center min-h-screen text-slate-400 gap-2">
             <span className="animate-pulse">{t('common.loading')}</span>
           </div>
-        ) : dash.myInProgress.length === 0 ? null : (
+        ) : dash.myInProgress.length === 0 && !dash.lingerConsultation ? null : (
           <DoctorDashboardView
             queue={dash.queue}
             consultation={dash.consultation}
             myInProgress={dash.myInProgress}
+            lingerConsultation={dash.lingerConsultation}
             selectedConsultationId={dash.selectedConsultationId}
             onSelectConsultation={dash.selectConsultation}
             attachmentCount={dash.attachmentCount}

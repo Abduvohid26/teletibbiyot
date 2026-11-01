@@ -6,6 +6,8 @@ import { UT_ACTIVE_CONSULTATION_KEY } from '@/lib/api/constants';
 import { fetchUtSessionConsultations } from '@/lib/ut-sessions-fetch';
 import { useConsultationRealtime } from '@/hooks/use-consultation-realtime';
 import { toast } from '@/lib/toast';
+import { isInLiveCall, onMediaLeftFor } from '@/lib/video-socket-client';
+import { wasJoined } from '@/lib/video-room-session';
 import { UT_SELECT_EVENT } from '@/hooks/use-ut-header-data';
 import { selfCancelledConsultations } from '@/hooks/use-cancel-consultation';
 import { useI18n } from '@/i18n';
@@ -23,6 +25,8 @@ export function useUtSessions(enabled = true) {
 
   // Realtime handler'lar eskirgan closure'dan emas, joriy ro'yxatdan o'qisin
   const sessionsRef = useRef<Consultation[]>([]);
+  /** Yakunlangan, lekin operator hali ichida turgan xona (Meet qoidasi) */
+  const lingerRef = useRef<string | null>(null);
   sessionsRef.current = sessions;
 
   /** Faqat shu operatorning bemori bo'lsa — yakun/bekor haqida xabar */
@@ -83,6 +87,32 @@ export function useUtSessions(enabled = true) {
           refreshSessions();
           return c;
         }
+        // Operator yakunlangan xonada gaplashib turibdi — faol bemorni almashtirmaymiz
+        if (lingerRef.current && isInLiveCall(lingerRef.current)) {
+          refreshSessions();
+          return c;
+        }
+        // F5: operator yakunlangan (lekin hali odam bor) xonada edi — o'sha xonaga qaytadi.
+        // Xona yopilgan bo'lsa server rad etadi va sessiya oddiy holatga qaytadi.
+        if (preferred && c?.id !== preferred && wasJoined(preferred) && lingerRef.current !== preferred) {
+          return api
+            .getConsultation(preferred)
+            .then((done) => {
+              if (done.status !== 'COMPLETED') throw new Error('not-completed');
+              lingerRef.current = preferred;
+              setLingerId(preferred);
+              setConsultation(done);
+              refreshSessions();
+              return done;
+            })
+            .catch(() => {
+              setConsultation(c);
+              if (c?.id) sessionStorage.setItem(UT_ACTIVE_CONSULTATION_KEY, c.id);
+              refreshSessions();
+              refreshPatientConsultations();
+              return c;
+            });
+        }
         setConsultation(c);
         if (c?.id && typeof window !== 'undefined') {
           sessionStorage.setItem(UT_ACTIVE_CONSULTATION_KEY, c.id);
@@ -125,6 +155,18 @@ export function useUtSessions(enabled = true) {
     () => sessions.map((c) => c.id).slice(0, 12),
     [sessions],
   );
+
+  // Yakunlangan xonadan operator chiqdi — endi ro'yxat/faol bemor yangilanadi
+  const [lingerId, setLingerId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!lingerId) return;
+    return onMediaLeftFor(lingerId, () => {
+      lingerRef.current = null;
+      setLingerId(null);
+      void load();
+      void refreshPatientConsultations();
+    });
+  }, [lingerId, load, refreshPatientConsultations]);
 
   useConsultationRealtime(
     enabled ? realtimeIds : [],
@@ -169,6 +211,15 @@ export function useUtSessions(enabled = true) {
       },
       onConsultationCompleted: ({ consultationId }) => {
         notifyFinished(consultationId, 'completed');
+        // Meet qoidasi: operator hali shu xonada gaplashayotgan bo'lsa — uni boshqa
+        // bemorga otib yubormaymiz; chiqqanida (MEDIA_PRESENCE_EVENT) yangilanadi
+        if (isInLiveCall(consultationId)) {
+          lingerRef.current = consultationId;
+          setLingerId(consultationId);
+          setConsultation((prev) => (prev?.id === consultationId ? { ...prev, status: 'COMPLETED' } : prev));
+          void refreshSessions();
+          return;
+        }
         void load();
         void refreshPatientConsultations();
       },

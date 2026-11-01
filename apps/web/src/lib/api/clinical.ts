@@ -72,6 +72,22 @@ export function defineConsultationsApi(client: HttpClient) {
       });
     },
 
+    /** Konsilium xonasiga taklif havolasi (token) — 6 soat amal qiladi */
+    createConsiliumInviteLink(consultationId: string) {
+      return client.request<{ token: string; expiresAt: string }>(
+        `/consultations/${consultationId}/invite-link`,
+        { method: 'POST' },
+      );
+    },
+
+    /** Havola orqali konsiliumga qo'shilish (shifokor o'z hisobi bilan) */
+    joinConsiliumByInvite(token: string) {
+      return client.request<{ consultationId: string; role: 'lead' | 'consultant' }>(
+        '/consultations/join-link',
+        { method: 'POST', body: JSON.stringify({ token }) },
+      );
+    },
+
     /** Maslahatchi shifokor o'z konsilium fikrini yozadi (bo'sh matn — o'chiradi) */
     saveConsiliumOpinion(consultationId: string, opinion: string) {
       return client.request<ConsultationParticipant[]>(

@@ -13,12 +13,16 @@ import { toast } from '@/lib/toast';
 import { useAuth } from '@/lib/auth-context';
 import { useCancelConsultation } from '@/hooks/use-cancel-consultation';
 import { DOCTOR_SELECT_EVENT, dispatchDoctorSelect } from '@/hooks/use-doctor-header-data';
+import { markSelfCompleting } from '@/hooks/use-doctor-dashboard';
+import { SessionEndedBanner } from '@/components/video/UtConsultationSession';
 import { useI18n } from '@/i18n';
 
 interface DoctorDashboardViewProps {
   queue: Consultation[];
   consultation: Consultation | null;
   myInProgress?: Consultation[];
+  /** Yakunlangan, lekin shifokor hali ichida turgan xona (Meet qoidasi) */
+  lingerConsultation?: Consultation | null;
   selectedConsultationId?: string | null;
   onSelectConsultation?: (id: string) => void;
   attachmentCount: number;
@@ -33,6 +37,7 @@ export function DoctorDashboardView({
   queue,
   consultation,
   myInProgress = [],
+  lingerConsultation = null,
   selectedConsultationId,
   attachmentCount,
   documentsConsultationId,
@@ -50,8 +55,10 @@ export function DoctorDashboardView({
   const queuedPatients = queue.filter((c) => c.status === 'QUEUED');
   const passiveRefresh = onRefresh ?? onReload;
   const activeConsultationId = selectedConsultationId ?? consultation?.id;
+  const lingering = !!lingerConsultation && lingerConsultation.id === activeConsultationId;
   const activeConsultation =
-    myInProgress.find((c) => c.id === activeConsultationId)
+    (lingering ? lingerConsultation : null)
+    ?? myInProgress.find((c) => c.id === activeConsultationId)
     ?? queuedPatients.find((c) => c.id === activeConsultationId)
     ?? consultation
     ?? null;
@@ -92,10 +99,12 @@ export function DoctorDashboardView({
     // AI tashxis bermagan (ishlamagan, hali tayyor emas yoki tashxis topmagan) —
     // yakunlash bloklanmaydi: shifokor tashxisni o'zi kiritadi
     if (!getAiAnalysisMeta(activeConsultation.aiAnalysis).hasDiagnosis) {
+      markSelfCompleting(activeConsultation.id);
       setManualCompleteId(activeConsultation.id);
       return;
     }
     setCompleting(true);
+    markSelfCompleting(activeConsultation.id);
     try {
       const { next } = await api.completeConsultation(activeConsultation.id, {});
       afterComplete(next);
@@ -103,6 +112,7 @@ export function DoctorDashboardView({
       const message = err instanceof Error ? err.message : undefined;
       // Server AI tashxisni topmadi — qo'lda kiritish oynasini ochamiz
       if (message && /AI tashxis bermadi/i.test(message)) {
+        markSelfCompleting(activeConsultation.id);
         setManualCompleteId(activeConsultation.id);
         return;
       }
@@ -151,6 +161,8 @@ export function DoctorDashboardView({
           </div>
         )}
 
+        {lingering && <SessionEndedBanner />}
+
         {activeConsultation && (
           <DoctorPatientBar
             consultation={activeConsultation}
@@ -169,8 +181,10 @@ export function DoctorDashboardView({
               <VideoConsultation
                 key={activeConsultationId ?? 'none'}
                 facilityCode={activeConsultation?.utFacility?.code ?? consultation?.utFacility?.code}
-                consultationId={activeConsultation?.status === 'IN_PROGRESS' ? activeConsultationId : undefined}
+                consultationId={activeConsultation?.status === 'IN_PROGRESS' || lingering ? activeConsultationId : undefined}
+                sessionEnded={lingering}
                 reconnectSignal={reconnectSignal}
+                leadDoctorId={activeConsultation?.mtDoctor?.id}
                 compact
               />
             </div>

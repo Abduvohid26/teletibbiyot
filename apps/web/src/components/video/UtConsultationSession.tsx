@@ -15,7 +15,10 @@ import {
   clearOtherJoined,
 } from '@/lib/video-room-session';
 import { fetchIceServers } from '@/lib/video-config';
+import { announceMediaPresence } from '@/lib/video-socket-client';
 import { useDoctorPresence } from '@/hooks/use-doctor-presence';
+import { AloneInRoomPrompt, useAloneInRoom } from '@/components/video/AloneInRoomPrompt';
+import { useI18n } from '@/i18n';
 
 interface UtConsultationSessionProps {
   consultation: Consultation;
@@ -42,7 +45,9 @@ export function UtConsultationSession({ consultation, patientName }: UtConsultat
   }, [consultation.id]);
 
   useEffect(() => {
-    if (consultation.status === 'COMPLETED' || consultation.status === 'CANCELLED') {
+    // Yakunlanish operatorni xonadan chiqarmaydi (Meet): ichkarida odam bor ekan
+    // suhbat davom etadi, oxirgisi chiqqanda server xonani yopadi
+    if (consultation.status === 'CANCELLED') {
       clearJoined(consultation.id);
       setJoined(false);
       setAutoRejoin(false);
@@ -53,6 +58,7 @@ export function UtConsultationSession({ consultation, patientName }: UtConsultat
     consultationId: consultation.id,
     role: 'ut',
     enabled: joined,
+    leadDoctorId: consultation.mtDoctor?.id,
     skipPreflight: consultation.status === 'QUEUED' || autoRejoin,
     autoRejoin,
   });
@@ -70,6 +76,13 @@ export function UtConsultationSession({ consultation, patientName }: UtConsultat
     setAutoRejoin(false);
     setJoined(true);
   };
+
+  // Shifokorlar ekranida "UT xonada" ko'rinishi uchun (konsilium paneli)
+  const inMedia = joined && video.roomPhase !== 'room_closed';
+  useEffect(() => {
+    if (!inMedia) return;
+    return announceMediaPresence(consultation.id);
+  }, [inMedia, consultation.id]);
 
   // "Shifokor sizni kutmoqda" qo'ng'irog'i qabul qilindi — lobby'siz ulanamiz
   useEffect(() => {
@@ -95,7 +108,15 @@ export function UtConsultationSession({ consultation, patientName }: UtConsultat
     setJoined(false);
   };
 
-  if (video.roomClosed || consultation.status === 'COMPLETED' || consultation.status === 'CANCELLED') {
+  const sessionEnded = consultation.status === 'COMPLETED';
+  const aloneState = useAloneInRoom(video.roomPhase, joined && !video.roomClosed);
+
+  if (
+    video.roomClosed
+    || consultation.status === 'CANCELLED'
+    // Yakunlangan va operator xonada emas — qayta kirish yo'q
+    || (sessionEnded && !joined)
+  ) {
     return (
       <div className="h-full min-h-0 flex flex-col relative rounded-xl overflow-hidden bg-brand-950">
         <VideoRoomPresence phase="room_closed" />
@@ -124,7 +145,17 @@ export function UtConsultationSession({ consultation, patientName }: UtConsultat
       {video.preflightPending && (
         <VideoPreflightModal role="ut" onConfirm={video.confirmPreflight} onCancel={video.cancelPreflight} />
       )}
+      <AloneInRoomPrompt
+        open={aloneState.alone}
+        sessionEnded={sessionEnded}
+        onStay={aloneState.keepWaiting}
+        onEnd={() => {
+          aloneState.keepWaiting();
+          handleLeave();
+        }}
+      />
       <div className="h-full min-h-0 flex flex-col">
+        {sessionEnded && <SessionEndedBanner />}
         <UtVideoPanelView
           video={video}
           doctorName={consultation.mtDoctor?.fullName}
@@ -136,5 +167,15 @@ export function UtConsultationSession({ consultation, patientName }: UtConsultat
         />
       </div>
     </>
+  );
+}
+
+/** Mas'ul yakunladi, lekin xonada odam bor — suhbat davom etishi mumkin */
+export function SessionEndedBanner() {
+  const { t } = useI18n();
+  return (
+    <div className="mb-2 shrink-0 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+      <span className="font-semibold">{t('video.sessionEndedTitle')}</span> {t('video.sessionEndedHint')}
+    </div>
   );
 }

@@ -190,6 +190,10 @@ export class VideoGateway
       }
       this.socketRooms.delete(client.id);
     }
+    // Tab yopildi / internet uzildi — "xonada" ro'yxatidan chiqadi
+    for (const roomId of (client.data.mediaRooms as string[] | undefined) ?? []) {
+      this.scheduleRoomPresence(roomId);
+    }
     if (userId && role && isMtDoctor(role)) {
       this.schedulePresenceBroadcast(userId);
     }
@@ -243,10 +247,7 @@ export class VideoGateway
       return { success: false, error };
     }
 
-    if (
-      consultation.status !== ConsultationStatus.QUEUED &&
-      consultation.status !== ConsultationStatus.IN_PROGRESS
-    ) {
+    if (!(await this.isVideoRoomOpen(consultation))) {
       const error = 'Konsultatsiya yakunlangan — video xona yopilgan';
       client.emit('join-failed', { roomId, error });
       return { success: false, error };
@@ -355,6 +356,7 @@ export class VideoGateway
     client.leave(roomId);
     this.socketRooms.get(client.id)?.delete(roomId);
     this.invalidateParticipants(roomId);
+    if (this.dropMediaRoom(client, roomId)) this.scheduleRoomPresence(roomId);
 
     if (userId && role && isMtDoctor(role)) {
       if (leavingVideo) {
@@ -615,13 +617,96 @@ export class VideoGateway
   ) {
     if (!data?.roomId || !this.isInRoom(client, data.roomId)) return;
     const self = client.data.participant as RoomParticipant | undefined;
-    if (!self || !isMtDoctor(self.role)) return;
+    if (!self) return;
+    // Barcha rollar: kim hozir video'da — konsilium paneli va UT shu bo'yicha ko'rsatadi
+    const rooms = (client.data.mediaRooms as string[] | undefined) ?? [];
+    if (!rooms.includes(data.roomId)) {
+      client.data.mediaRooms = [...rooms, data.roomId];
+      this.scheduleRoomPresence(data.roomId);
+    }
+    if (!isMtDoctor(self.role)) return;
     const consultation = await this.prisma.consultation.findUnique({
       where: { id: data.roomId },
       select: { id: true, utId: true, mtDoctorId: true, status: true },
     });
     if (!consultation || consultation.mtDoctorId === self.userId) return;
     await this.markConsultantJoined(consultation, self.userId);
+  }
+
+  /** Klient "Uzish" bosdi / video komponent yopildi */
+  @SubscribeMessage('media-left')
+  handleMediaLeft(@ConnectedSocket() client: Socket, @MessageBody() data: { roomId: string }) {
+    if (!data?.roomId) return;
+    if (this.dropMediaRoom(client, data.roomId)) this.scheduleRoomPresence(data.roomId);
+  }
+
+  /** Hozir video xonada turganlar (userId lar) — panel birinchi ochilganda */
+  @SubscribeMessage('get-room-presence')
+  async handleGetRoomPresence(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string },
+  ): Promise<{ userIds: string[] }> {
+    const roomId = data?.roomId;
+    const sub = client.data.user?.sub as string | undefined;
+    if (!roomId || !sub) return { userIds: [] };
+    const [dbUser, consultation] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: sub }, select: { id: true, role: true, facilityId: true } }),
+      this.prisma.consultation.findUnique({
+        where: { id: roomId },
+        select: { id: true, utId: true, mtDoctorId: true, status: true },
+      }),
+    ]);
+    if (!dbUser || !consultation) return { userIds: [] };
+    try {
+      await this.access.assertConsultationAccess(dbUser, consultation);
+    } catch {
+      return { userIds: [] };
+    }
+    return { userIds: await this.roomMediaUserIds(roomId) };
+  }
+
+  private dropMediaRoom(client: Socket, roomId: string): boolean {
+    const rooms = (client.data.mediaRooms as string[] | undefined) ?? [];
+    if (!rooms.includes(roomId)) return false;
+    client.data.mediaRooms = rooms.filter((r) => r !== roomId);
+    return true;
+  }
+
+  private async roomMediaUserIds(roomId: string): Promise<string[]> {
+    try {
+      const sockets = await this.server.in(roomId).fetchSockets();
+      const ids = new Set<string>();
+      for (const s of sockets) {
+        const rooms = (s.data?.mediaRooms as string[] | undefined) ?? [];
+        const uid = s.data?.user?.sub as string | undefined;
+        if (uid && rooms.includes(roomId)) ids.add(uid);
+      }
+      return [...ids];
+    } catch (err) {
+      this.logger.warn(`Xona presence o'qilmadi (${roomId}): ${err}`);
+      return [];
+    }
+  }
+
+  private readonly roomPresenceTimers = new Map<string, NodeJS.Timeout>();
+
+  /** Bir nechta o'zgarish ketma-ket kelsa — bitta xabar (socket chiqishini kutib) */
+  private scheduleRoomPresence(roomId: string) {
+    const prev = this.roomPresenceTimers.get(roomId);
+    if (prev) clearTimeout(prev);
+    this.roomPresenceTimers.set(
+      roomId,
+      setTimeout(() => {
+        this.roomPresenceTimers.delete(roomId);
+        void this.roomMediaUserIds(roomId).then(async (userIds) => {
+          await this.broadcastConsultationEvent(roomId, 'room-presence', { consultationId: roomId, userIds });
+          if (userIds.length) return;
+          // Yakunlangan konsultatsiya xonasidan oxirgi odam chiqdi — xona yopiladi
+          const c = await this.prisma.consultation.findUnique({ where: { id: roomId }, select: { status: true } });
+          if (c?.status === ConsultationStatus.COMPLETED) await this.closeVideoRoom(roomId, 'completed');
+        });
+      }, 300),
+    );
   }
 
   /** UT qayta ulanganda shifokorlarga aniq offer yuborish signal */
@@ -825,6 +910,47 @@ export class VideoGateway
   }
 
   /**
+   * Google Meet qoidasi: xonada kamida bitta odam bor ekan, u ochiq turadi.
+   *  - navbatda / jarayonda — har doim ochiq (kim xohlasa kiradi, chiqadi)
+   *  - mas'ul YAKUNLAGAN, lekin ichkarida hali odam bor — ular suhbatni davom
+   *    ettiradi, uzilib qolgani qayta kira oladi; oxirgi odam chiqqanda yopiladi
+   *  - bekor qilingan — yopiq (atayin to'xtatilgan)
+   */
+  async isVideoRoomOpen(consultation: { id: string; status: string; completedAt?: Date | null }) {
+    if (consultation.status === ConsultationStatus.QUEUED || consultation.status === ConsultationStatus.IN_PROGRESS) {
+      return true;
+    }
+    if (consultation.status !== ConsultationStatus.COMPLETED) return false;
+    if (consultation.completedAt && Date.now() - consultation.completedAt.getTime() > VideoGateway.AFTER_SESSION_MAX_MS) {
+      return false;
+    }
+    return (await this.roomMediaUserIds(consultation.id)).length > 0;
+  }
+
+  /** Yakunlangandan keyin xona ichidagilar uchun eng uzog'i shuncha ochiq turadi */
+  static readonly AFTER_SESSION_MAX_MS = 2 * 60 * 60 * 1000;
+
+  /**
+   * Konsultatsiya yakunlandi: xonada odam bo'lmasa — darhol yopiladi, bo'lsa —
+   * oxirgi odam chiqqanda (scheduleRoomPresence) yoki 2 soatdan keyin.
+   */
+  async closeVideoRoomWhenEmpty(roomId: string) {
+    const inside = await this.roomMediaUserIds(roomId);
+    if (!inside.length) {
+      await this.closeVideoRoom(roomId, 'completed');
+      return;
+    }
+    this.logger.debug(`Xona ${roomId}: yakunlandi, ichkarida ${inside.length} kishi — oxirgisi chiqqanda yopiladi`);
+    setTimeout(() => {
+      void this.prisma.consultation
+        .findUnique({ where: { id: roomId }, select: { status: true } })
+        .then((c) => {
+          if (c?.status === ConsultationStatus.COMPLETED) void this.closeVideoRoom(roomId, 'completed');
+        });
+    }, VideoGateway.AFTER_SESSION_MAX_MS).unref?.();
+  }
+
+  /**
    * Meet: konsultatsiya yakunlanganda video xonani yopish.
    * Ichkaridagilar `room-closed` oladi; yangi join rad etiladi (status check).
    */
@@ -887,6 +1013,8 @@ export class VideoGateway
         const p = s.data?.participant as RoomParticipant | undefined;
         if (p?.userId !== userId) continue;
         s.emit('room-closed', { roomId, consultationId: roomId, reason: 'removed' });
+        const rooms = (s.data?.mediaRooms as string[] | undefined) ?? [];
+        s.data.mediaRooms = rooms.filter((r) => r !== roomId);
         s.leave(roomId);
         this.socketRooms.get(s.id)?.delete(roomId);
         this.server.to(roomId).emit('participant-left', { socketId: s.id });
@@ -901,6 +1029,7 @@ export class VideoGateway
       this.logger.warn(`Ishtirokchini xonadan chiqarib bo'lmadi (${roomId}): ${err}`);
     }
     this.invalidateParticipants(roomId);
+    this.scheduleRoomPresence(roomId);
     // SFU xonasidan ham (identity = userId)
     await this.livekit.removeParticipant(roomId, userId);
   }

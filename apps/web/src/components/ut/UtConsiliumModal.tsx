@@ -2,11 +2,21 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Loader2, MessageSquareText, Stethoscope, Users, Video, X } from 'lucide-react';
+import { Link2, Loader2, MessageSquareText, Stethoscope, Users, Video, X } from 'lucide-react';
 import { Consultation } from '@/lib/api';
 import { doctorLabel, useConsilium } from '@/hooks/use-consilium';
 import { ConsiliumDoctorPicker } from '@/components/dashboard/ConsiliumDoctorPicker';
 import { cn } from '@/lib/utils';
+import { MemberStatus, memberStatusDot, useRoomPresence } from '@/hooks/use-room-presence';
+import { useInviteLink } from '@/hooks/use-invite-link';
+
+function statusText(status: MemberStatus, t: (k: string) => string) {
+  if (status === 'in_room') return t('consilium.statusInRoomLong');
+  if (status === 'online') return t('consilium.statusOnlineLong');
+  if (status === 'in_meet') return t('consilium.statusInMeetLong');
+  if (status === 'break') return t('consilium.statusBreakLong');
+  return t('consilium.statusOfflineLong');
+}
 import { useI18n } from '@/i18n';
 
 interface UtConsiliumModalProps {
@@ -31,6 +41,9 @@ export function UtConsiliumModal({ consultation, open, onClose, onChanged }: UtC
     canEdit: !!open && !!editable,
     onChanged,
   });
+
+  const { statusOf } = useRoomPresence(open ? consultation?.id : undefined);
+  const invite = useInviteLink(consultation?.id);
 
   useEffect(() => setMounted(true), []);
 
@@ -87,8 +100,16 @@ export function UtConsiliumModal({ consultation, open, onClose, onChanged }: UtC
             </p>
             <div className="flex items-center gap-2 px-2.5 py-2 rounded-xl bg-brand-50/80 ring-1 ring-brand-200/70">
               <Stethoscope size={14} className="text-brand-600 shrink-0" />
-              <span className="text-sm font-semibold text-brand-900 truncate">
-                {consultation.mtDoctor?.fullName ?? t('common.emptyDash')}
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-brand-900 truncate">
+                  {consultation.mtDoctor?.fullName ?? t('common.emptyDash')}
+                </span>
+                {consultation.mtDoctor?.id && (
+                  <span className="flex items-center gap-1 text-[11px] text-slate-500">
+                    <span className={cn('h-1.5 w-1.5 rounded-full', memberStatusDot(statusOf(consultation.mtDoctor.id)))} />
+                    {statusText(statusOf(consultation.mtDoctor.id), t)}
+                  </span>
+                )}
               </span>
             </div>
           </div>
@@ -107,12 +128,14 @@ export function UtConsiliumModal({ consultation, open, onClose, onChanged }: UtC
                     key={p.doctorId}
                     className={cn(
                       'flex items-center gap-2 px-2.5 py-2 rounded-xl ring-1',
-                      p.joinedAt
+                      statusOf(p.doctorId) === 'in_room'
                         ? 'bg-emerald-50/80 ring-emerald-200/70'
-                        : 'bg-amber-50/80 ring-amber-200/80',
+                        : p.joinedAt
+                          ? 'bg-slate-50 ring-slate-200'
+                          : 'bg-amber-50/80 ring-amber-200/80',
                     )}
                   >
-                    {p.joinedAt ? (
+                    {statusOf(p.doctorId) === 'in_room' ? (
                       <Video size={14} className="text-emerald-600 shrink-0" />
                     ) : (
                       <Stethoscope size={14} className="text-amber-600 shrink-0" />
@@ -121,8 +144,11 @@ export function UtConsiliumModal({ consultation, open, onClose, onChanged }: UtC
                       <span className="block text-sm font-medium text-slate-900 truncate">
                         {doctorLabel(p.doctor)}
                       </span>
-                      <span className="block text-[11px] text-slate-500">
-                        {p.joinedAt ? t('consilium.joinedHint') : t('consilium.invitedHint')}
+                      <span className="flex items-center gap-1 text-[11px] text-slate-500">
+                        <span className={cn('h-1.5 w-1.5 rounded-full', memberStatusDot(statusOf(p.doctorId)))} />
+                        {!p.joinedAt && statusOf(p.doctorId) !== 'in_room'
+                          ? `${t('consilium.invitedHint')} · ${statusText(statusOf(p.doctorId), t)}`
+                          : statusText(statusOf(p.doctorId), t)}
                       </span>
                     </span>
                     {p.opinion?.trim() && (
@@ -161,8 +187,20 @@ export function UtConsiliumModal({ consultation, open, onClose, onChanged }: UtC
           )}
         </div>
 
-        <div className="shrink-0 border-t border-slate-100 p-3 sm:p-4">
-          <button type="button" onClick={onClose} className="btn-secondary w-full">
+        <div className="shrink-0 flex gap-2 border-t border-slate-100 p-3 sm:p-4">
+          {editable && (
+            <button
+              type="button"
+              onClick={() => void invite.copy()}
+              disabled={invite.busy}
+              title={t('consilium.linkTitle')}
+              className="btn-secondary flex-1 inline-flex items-center justify-center gap-1.5"
+            >
+              {invite.busy ? <Loader2 size={14} className="animate-spin" /> : <Link2 size={14} />}
+              {t('consilium.linkCopy')}
+            </button>
+          )}
+          <button type="button" onClick={onClose} className="btn-secondary flex-1">
             {t('common.close')}
           </button>
         </div>

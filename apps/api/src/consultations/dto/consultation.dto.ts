@@ -323,3 +323,10 @@ export class ParticipantOpinionDto {
   @MaxLength(4000)
   opinion: string;
 }
+
+export class JoinByInviteDto {
+  @ApiProperty({ description: 'Konsilium taklif havolasidagi token' })
+  @IsString()
+  @MaxLength(2000)
+  token: string;
+}

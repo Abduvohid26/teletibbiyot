@@ -3,6 +3,8 @@ import type { NextRequest } from 'next/server';
 import { validateSession, getRoleHomePath, isPathAllowedForRole } from '@/lib/auth-utils';
 
 const PUBLIC_PATHS = ['/login', '/privacy', '/terms', '/open-data'];
+/** Konsilium xonasiga taklif havolasi */
+const JOIN_PATH = /^\/dashboard\/join\/[A-Za-z0-9._-]+$/;
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -18,7 +20,9 @@ export async function middleware(request: NextRequest) {
     if (token && pathname === '/login') {
       const session = await validateSession(token);
       if (session) {
-        return NextResponse.redirect(new URL(getRoleHomePath(session.role), request.url));
+        const next = request.nextUrl.searchParams.get('next');
+        const target = next && JOIN_PATH.test(next) ? next : getRoleHomePath(session.role);
+        return NextResponse.redirect(new URL(target, request.url));
       }
     }
     return NextResponse.next();
@@ -32,7 +36,10 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/admin');
 
   if (!token && isProtected) {
-    return NextResponse.redirect(new URL('/login', request.url));
+    const login = new URL('/login', request.url);
+    // Konsilium havolasi — kirgandan keyin o'sha xonaga qaytadi
+    if (JOIN_PATH.test(pathname)) login.searchParams.set('next', pathname);
+    return NextResponse.redirect(login);
   }
 
   if (token && isProtected) {

@@ -750,3 +750,73 @@ export function getSharedSocketState() {
     staffFeedRefs,
   };
 }
+
+/**
+ * "Men shu xonada video'daman" — boshqalarning konsilium panelida "xonada" belgisi.
+ * Socket uzilib qayta ulansa (yangi socket, server holati yo'qoladi) xonaga qayta
+ * kirgan zahoti yana e'lon qilinadi. Qaytgan funksiya — "chiqdim".
+ */
+/** Hozir ochiq turgan (media ulangan) video xonalar — "qo'ng'iroqdamanmi?" */
+const liveMediaRooms = new Set<string>();
+
+export function isInLiveCall(consultationId?: string): boolean {
+  return consultationId ? liveMediaRooms.has(consultationId) : liveMediaRooms.size > 0;
+}
+
+/** Video'ga kirildi / chiqildi — yakunlangan xonada qolganlar shu bilan "chiqdim" ni biladi */
+export const MEDIA_PRESENCE_EVENT = 'ishifo-media-presence';
+
+function emitMediaPresence(consultationId: string, live: boolean) {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(MEDIA_PRESENCE_EVENT, { detail: { consultationId, live } }));
+}
+
+export function announceMediaPresence(consultationId: string): () => void {
+  if (!consultationId) return () => {};
+  liveMediaRooms.add(consultationId);
+  emitMediaPresence(consultationId, true);
+  const socket = sharedSocket;
+  if (!socket) {
+    return () => {
+      liveMediaRooms.delete(consultationId);
+      emitMediaPresence(consultationId, false);
+    };
+  }
+  const announce = () => socket.emit('media-joined', { roomId: consultationId });
+  const onJoined = (payload: { roomId?: string }) => {
+    if (payload?.roomId === consultationId) announce();
+  };
+  announce();
+  socket.on('room-joined', onJoined);
+  return () => {
+    liveMediaRooms.delete(consultationId);
+    socket.off('room-joined', onJoined);
+    socket.emit('media-left', { roomId: consultationId });
+    emitMediaPresence(consultationId, false);
+  };
+}
+
+/**
+ * Shu xonadan HAQIQATAN chiqildi (video yopildi) — bir lahzalik "chiqdi → kirdi"
+ * (React effektining qayta ishga tushishi, qayta render) hisobga olinmaydi.
+ * Qaytgan funksiya — obunani bekor qilish.
+ */
+export function onMediaLeftFor(consultationId: string, cb: () => void, settleMs = 1500): () => void {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const onMedia = (e: Event) => {
+    const d = (e as CustomEvent<{ consultationId?: string; live?: boolean }>).detail;
+    if (!d || d.consultationId !== consultationId) return;
+    if (timer) clearTimeout(timer);
+    timer = null;
+    if (d.live) return;
+    timer = setTimeout(() => {
+      timer = null;
+      if (!liveMediaRooms.has(consultationId)) cb();
+    }, settleMs);
+  };
+  window.addEventListener(MEDIA_PRESENCE_EVENT, onMedia);
+  return () => {
+    if (timer) clearTimeout(timer);
+    window.removeEventListener(MEDIA_PRESENCE_EVENT, onMedia);
+  };
+}

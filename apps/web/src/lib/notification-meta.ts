@@ -61,6 +61,8 @@ export function presentationOf(n: Pick<AppNotification, 'type'>, role: string): 
       return { icon: AlertTriangle, tone: TONES.red, sound: 'alert', call: doctor ? { kind: 'emergency', ringtone: 'urgent' } : null };
     case 'consilium_invite':
       return { icon: Users, tone: TONES.brand, sound: 'chime', call: null };
+    case 'consilium_joined':
+      return { icon: UserPlus, tone: TONES.green, sound: 'chime', call: null };
     case 'consilium_opinion':
       return { icon: MessageSquareText, tone: TONES.gold, sound: 'chime', call: null };
     case 'consilium_left':
@@ -96,7 +98,13 @@ export function notificationHref(n: AppNotification, role: string): string | nul
   }
   if (isMtDoctor(role)) {
     if (type === 'appointment') return '/dashboard/appointments';
-    if (type === 'consilium_call' || type === 'consilium_invite' || type === 'consilium_opinion' || type === 'consilium_left') {
+    if (
+      type === 'consilium_call'
+      || type === 'consilium_invite'
+      || type === 'consilium_opinion'
+      || type === 'consilium_left'
+      || type === 'consilium_joined'
+    ) {
       return '/dashboard';
     }
     return '/dashboard/patients';

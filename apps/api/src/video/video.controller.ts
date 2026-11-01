@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guard';
 import { Roles } from '../auth/roles.decorator';
 import { ICE_SERVERS } from '../common/video-ice.config';
+import { VideoGateway } from './video.gateway';
 import { ROLES_CLINICAL, ROLES_ADMIN, isMtDoctor, isUtRole } from '../common/roles.constants';
 import { diagnoseTurnConfig, resolvePublicTurnUrl } from '../common/turn-url.util';
 import { createEphemeralTurnCredentials } from '../common/turn-credentials';
@@ -23,6 +24,7 @@ export class VideoController {
     private livekit: LivekitService,
     private prisma: PrismaService,
     private access: AccessControlService,
+    private gateway: VideoGateway,
   ) {}
 
   @Get('sfu-token/:consultationId')
@@ -39,12 +41,12 @@ export class VideoController {
 
     const consultation = await this.prisma.consultation.findUnique({
       where: { id: consultationId },
-      select: { id: true, utId: true, mtDoctorId: true, status: true },
+      select: { id: true, utId: true, mtDoctorId: true, status: true, completedAt: true },
     });
     if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
     await this.access.assertConsultationAccess(req.user, consultation);
-    // Socket xonasi bilan bir xil qoida: yakunlangan konsultatsiyaga video yo'q
-    if (consultation.status !== 'QUEUED' && consultation.status !== 'IN_PROGRESS') {
+    // Socket xonasi bilan bir xil qoida (Meet): ichkarida odam bor ekan — ochiq
+    if (!(await this.gateway.isVideoRoomOpen(consultation))) {
       throw new ForbiddenException('Konsultatsiya yakunlangan — video xona yopilgan');
     }
 

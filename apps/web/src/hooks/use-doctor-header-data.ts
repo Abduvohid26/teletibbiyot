@@ -11,6 +11,7 @@ import {
 } from '@/lib/active-consultation-storage';
 import { toast } from '@/lib/toast';
 import { useAuth } from '@/lib/auth-context';
+import { isInLiveCall } from '@/lib/video-socket-client';
 import { consumeSelfLeave } from '@/hooks/use-consilium';
 import { useI18n } from '@/i18n';
 
@@ -32,6 +33,8 @@ export function useDoctorHeaderData() {
   const [inProgress, setInProgress] = useState<Consultation[]>([]);
   const [queued, setQueued] = useState<Consultation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  /** Yakunlangan, lekin shifokor hali ichida turgan xona — header boshqa bemorni ko'rsatmaydi */
+  const [lingering, setLingering] = useState(false);
   const myId = user?.id;
   const activeIdRef = useRef(activeId);
   activeIdRef.current = activeId;
@@ -50,6 +53,14 @@ export function useDoctorHeaderData() {
       const stillValid =
         !!stored
         && (live.some((c) => c.id === stored) || waiting.some((c) => c.id === stored));
+      // Yakunlangan, lekin shifokor hali ichida turgan xona (Meet) — boshqa bemorni
+      // "faol" deb ko'rsatib chalg'itmaymiz
+      if (!stillValid && stored && isInLiveCall(stored)) {
+        setActiveId(null);
+        setLingering(true);
+        return;
+      }
+      setLingering(false);
       setActiveId(stillValid ? stored : (live[0]?.id ?? waiting[0]?.id ?? null));
     } catch {
       /* header yordamchi — asosiy sahifa xatosini ko'rsatadi */
@@ -132,7 +143,7 @@ export function useDoctorHeaderData() {
     }
   }, [inProgress, queued, requestCancel]);
 
-  const hasQueue = inProgress.length > 0 || queued.length > 0;
+  const hasQueue = !lingering && (inProgress.length > 0 || queued.length > 0);
 
   return useMemo(
     () => ({

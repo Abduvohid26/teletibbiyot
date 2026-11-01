@@ -25,8 +25,9 @@ import {
   clearJoined,
   clearOtherJoined,
 } from '@/lib/video-room-session';
-import { getPooledSocket } from '@/lib/video-socket-client';
+import { announceMediaPresence } from '@/lib/video-socket-client';
 import { useI18n } from '@/i18n';
+import { AloneInRoomPrompt, useAloneInRoom } from '@/components/video/AloneInRoomPrompt';
 
 interface VideoConsultationProps {
   facilityCode?: string;
@@ -35,6 +36,10 @@ interface VideoConsultationProps {
   observeMode?: boolean;
   compact?: boolean;
   reconnectSignal?: number;
+  /** Mas'ul shifokor — konsilium oynalarida birinchi va "mas'ul" yorlig'i bilan */
+  leadDoctorId?: string;
+  /** Konsultatsiya yakunlangan, lekin xonada odam bor (Meet qoidasi) */
+  sessionEnded?: boolean;
 }
 
 const ALL_CAMERAS_VIEW = 'all';
@@ -61,6 +66,8 @@ export function VideoConsultation({
   observeMode = false,
   compact = false,
   reconnectSignal = 0,
+  leadDoctorId,
+  sessionEnded = false,
 }: VideoConsultationProps) {
   const { t } = useI18n();
   const [activeCamera, setActiveCamera] = useState(compact ? 'equipment' : 'close');
@@ -106,6 +113,7 @@ export function VideoConsultation({
     consultationId,
     role,
     enabled: joined && !!consultationId,
+    leadDoctorId,
     onCallEnded: onEndCall,
     autoRejoin,
     skipPreflight: autoRejoin,
@@ -165,11 +173,17 @@ export function VideoConsultation({
 
   // Konsilium: video'ga haqiqatan kirildi — mas'ul shifokor va UT "taklif qilindi"
   // o'rniga "ulangan" ni ko'radi (server faqat maslahatchi uchun, bir marta yozadi)
-  const mediaJoined = joined && !observeMode && (roomPhase === 'waiting_peer' || roomPhase === 'connecting' || roomPhase === 'live');
+  // Qisqa "qayta ulanmoqda" ham xonada hisoblanadi — aks holda yakunlangan xona
+  // (Meet qoidasi) birovning interneti bir soniya uzilganda yopilib qolardi
+  const mediaJoined = joined && !observeMode && roomPhase !== 'room_closed';
   useEffect(() => {
     if (!mediaJoined || !consultationId) return;
-    getPooledSocket(consultationId)?.emit('media-joined', { roomId: consultationId });
+    // "Uzish" / boshqa bemorga o'tish — boshqalar ro'yxatida "xonada emas" bo'ladi
+    return announceMediaPresence(consultationId);
   }, [mediaJoined, consultationId]);
+
+  // Meet: boshqalar chiqib ketdi, men yolg'iz qoldim — "Tugatasizmi?"
+  const aloneState = useAloneInRoom(roomPhase, joined && !observeMode && !roomClosed);
 
   const uniqueCameraStreams = mapUniqueUtCameraStreams(remoteCameras);
 
@@ -267,6 +281,15 @@ export function VideoConsultation({
       {preflightPending && (
         <VideoPreflightModal role="mt" onConfirm={confirmPreflight} onCancel={cancelPreflight} />
       )}
+      <AloneInRoomPrompt
+        open={aloneState.alone}
+        sessionEnded={sessionEnded}
+        onStay={aloneState.keepWaiting}
+        onEnd={() => {
+          aloneState.keepWaiting();
+          handleLeave();
+        }}
+      />
     <div className="h-full flex flex-col p-0 overflow-hidden min-h-0 rounded-xl bg-brand-950 text-white">
       <div className={cn(
         'flex-1 min-h-0 flex flex-col',
@@ -338,6 +361,14 @@ export function VideoConsultation({
                 className="relative w-28 sm:w-32 aspect-video rounded-lg overflow-hidden ring-2 ring-gold-400/60 shadow-lg bg-slate-900"
               >
                 <VideoTile stream={d.stream} muted className="absolute inset-0 w-full h-full [&_video]:object-cover" />
+                <span
+                  className={cn(
+                    'absolute top-1 left-1 rounded px-1 py-px text-[8px] font-bold uppercase tracking-wide pointer-events-none',
+                    d.isLead ? 'bg-gold-400 text-brand-950' : 'bg-emerald-600 text-white',
+                  )}
+                >
+                  {d.isLead ? t('video.leadTag') : t('video.consiliumTag')}
+                </span>
                 <span className="absolute bottom-0 inset-x-0 bg-slate-950/75 text-white text-[9px] font-semibold px-1 py-0.5 truncate pointer-events-none">
                   {d.name || t('common.doctor')}
                 </span>

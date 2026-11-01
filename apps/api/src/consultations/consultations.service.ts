@@ -41,6 +41,12 @@ import { isAccessDeniedScope } from '../common/access-scope.constants';
 import { assertCanStartWhileAnotherActive } from './consultations.rules';
 import { AishifokorService } from '../integrations/aishifokor.service';
 import { ACTIVE_PARTICIPANTS, PARTICIPANT_SELECT } from './participant-select';
+import { createInviteToken, verifyInviteToken } from './invite-token';
+import { ConfigService } from '@nestjs/config';
+import { getJwtSecret } from '../common/jwt-config';
+
+/** Konsilium havolasi amal qilish muddati */
+const INVITE_TTL_SECONDS = 6 * 60 * 60;
 
 /** Konsultatsiyani yakunlashda ishlatiladigan AI tahlil shakli. */
 type AiAnalysisForCompletion = {
@@ -64,6 +70,7 @@ export class ConsultationsService {
     private reportsService: ReportsService,
     private crypto: FieldCryptoService,
     private aishifokor: AishifokorService,
+    private config: ConfigService,
   ) {}
 
   private buildChecklist(dto: CreateConsultationDto) {
@@ -612,7 +619,8 @@ export class ConsultationsService {
       mtDoctorId: doctorId,
       utId: consultation.utId,
     });
-    void this.videoGateway.closeVideoRoom(id, 'completed');
+    // Meet qoidasi: xonada odam qolgan bo'lsa (UT, konsilium) — ular chiqmaguncha yopilmaydi
+    void this.videoGateway.closeVideoRoomWhenEmpty(id);
     void this.presence.broadcast(doctorId);
 
     // UT operatorlar "Tashxis tayyor" ni persistAnalysisReport orqali oladi
@@ -1159,6 +1167,119 @@ export class ConsultationsService {
       select: PARTICIPANT_SELECT,
       orderBy: { createdAt: 'asc' },
     });
+  }
+
+  /**
+   * Konsilium xonasiga taklif havolasi. Mas'ul shifokor, konsiliumdagi shifokor
+   * yoki shu muassasaning UT operatori oladi; havolani ochgan shifokor O'Z hisobi
+   * bilan kiradi va konsilium a'zosi bo'ladi.
+   */
+  async createInviteLink(id: string, user: AuthUser) {
+    const consultation = await this.prisma.consultation.findUnique({
+      where: { id },
+      select: { id: true, utId: true, mtDoctorId: true, status: true },
+    });
+    if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
+    await this.access.assertConsultationAccess(user, consultation);
+    if (
+      consultation.status !== ConsultationStatus.QUEUED
+      && consultation.status !== ConsultationStatus.IN_PROGRESS
+    ) {
+      throw new BadRequestException('Yakunlangan konsultatsiyaga havola berib bo\'lmaydi');
+    }
+    const allowed =
+      consultation.mtDoctorId === user.id
+      || (isUtRole(user.role) && user.facilityId === consultation.utId)
+      || (isMtDoctor(user.role) && (await this.activeConsultantIds(id)).includes(user.id));
+    if (!allowed) throw new ForbiddenException('Havola olish huquqi yo\'q');
+
+    const now = Math.floor(Date.now() / 1000);
+    const token = createInviteToken(
+      { c: id, i: user.id, t: now, e: now + INVITE_TTL_SECONDS },
+      getJwtSecret(this.config),
+    );
+    await this.prisma.auditLog.create({
+      data: { userId: user.id, action: 'CONSILIUM_INVITE_LINK', entity: 'Consultation', entityId: id },
+    });
+    return { token, expiresAt: new Date((now + INVITE_TTL_SECONDS) * 1000).toISOString() };
+  }
+
+  /** Shifokor havolani ochdi — konsiliumga qo'shiladi (o'z hisobi bilan) */
+  async joinByInvite(token: string, user: AuthUser) {
+    const payload = verifyInviteToken(token, getJwtSecret(this.config));
+    if (!payload) throw new BadRequestException('Havola eskirgan yoki noto\'g\'ri — yangi havola so\'rang');
+    if (!isMtDoctor(user.role)) throw new ForbiddenException('Bu havola faqat shifokorlar uchun');
+
+    const consultation = await this.prisma.consultation.findUnique({
+      where: { id: payload.c },
+      select: { id: true, utId: true, mtDoctorId: true, status: true, patientId: true },
+    });
+    if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
+    if (
+      consultation.status !== ConsultationStatus.QUEUED
+      && consultation.status !== ConsultationStatus.IN_PROGRESS
+    ) {
+      throw new BadRequestException('Konsultatsiya yakunlangan — xona yopilgan');
+    }
+    if (consultation.mtDoctorId === user.id) return { consultationId: consultation.id, role: 'lead' as const };
+
+    // Havola berilgandan keyin mas'ul uni chiqargan bo'lsa — eski havola bilan qaytolmaydi
+    const removedAfter = await this.prisma.auditLog.findFirst({
+      where: {
+        action: 'CONSILIUM_REMOVE',
+        entityId: consultation.id,
+        createdAt: { gte: new Date(payload.t * 1000) },
+        details: { path: ['doctorId'], equals: user.id },
+      },
+      select: { id: true },
+    });
+    if (removedAfter) {
+      throw new ForbiddenException('Mas\'ul shifokor sizni konsiliumdan chiqargan — yangi havola so\'rang');
+    }
+
+    const existing = await this.prisma.consultationParticipant.findUnique({
+      where: { consultationId_doctorId: { consultationId: consultation.id, doctorId: user.id } },
+      select: { leftAt: true },
+    });
+    const alreadyIn = !!existing && !existing.leftAt;
+    if (!alreadyIn) {
+      await this.prisma.consultationParticipant.upsert({
+        where: { consultationId_doctorId: { consultationId: consultation.id, doctorId: user.id } },
+        create: { consultationId: consultation.id, doctorId: user.id, invitedById: payload.i },
+        update: { leftAt: null, invitedById: payload.i },
+      });
+      await this.prisma.auditLog.create({
+        data: {
+          userId: user.id,
+          action: 'CONSILIUM_JOIN_LINK',
+          entity: 'Consultation',
+          entityId: consultation.id,
+          details: { invitedById: payload.i },
+        },
+      });
+      const [me, patientName] = await Promise.all([
+        this.prisma.user.findUnique({ where: { id: user.id }, select: { fullName: true } }),
+        this.patientNameOf(consultation.patientId),
+      ]);
+      const recipients = [consultation.mtDoctorId, payload.i].filter(
+        (uid): uid is string => !!uid && uid !== user.id,
+      );
+      void this.notifications
+        .notifyUsers(recipients, 'Shifokor havola orqali qo\'shildi', `${me?.fullName ?? 'Shifokor'} — ${patientName}`, {
+          consultationId: consultation.id,
+          type: 'consilium_joined',
+          data: { patientName, callerName: me?.fullName },
+        })
+        .catch(() => undefined);
+      this.videoGateway.emitConsultationEvent(consultation.id, 'consultation-participants-updated', {
+        consultationId: consultation.id,
+        utId: consultation.utId,
+        mtDoctorId: consultation.mtDoctorId,
+        status: consultation.status,
+        joinedDoctorId: user.id,
+      });
+    }
+    return { consultationId: consultation.id, role: 'consultant' as const };
   }
 
   /**

@@ -56,7 +56,11 @@ export default function LoginPage() {
         return;
       }
 
-      window.location.href = getRoleHomePath(role);
+      // Konsilium havolasi orqali kelgan bo'lsa — o'sha xonaga qaytamiz (faqat ichki yo'l)
+      const next = new URLSearchParams(window.location.search).get('next');
+      window.location.href = next && /^\/dashboard\/join\/[A-Za-z0-9._-]+$/.test(next)
+        ? next
+        : getRoleHomePath(role);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('login.error'));
     } finally {

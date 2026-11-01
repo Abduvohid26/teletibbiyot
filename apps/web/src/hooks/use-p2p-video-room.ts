@@ -62,6 +62,11 @@ interface UseVideoRoomOptions {
   skipPreflight?: boolean;
   /** Refresh auto-rejoin: preflight o‘tkazib yuboriladi */
   autoRejoin?: boolean;
+  /**
+   * Mas'ul shifokor (consultation.mtDoctor.id). Konsiliumda UT ekranining
+   * asosiy oynasi va shifokorlar tartibi shunga qarab belgilanadi (use-video-room).
+   */
+  leadDoctorId?: string;
 }
 
 export function useP2PVideoRoom({
@@ -134,7 +139,7 @@ export function useP2PVideoRoom({
    * bosib ketardi — 3 kishilik qo'ng'iroqda faqat bitta shifokor ko'rinardi.
    */
   const remoteDoctorsRef = useRef<Map<string, { name: string; stream: MediaStream }>>(new Map());
-  const [remoteDoctors, setRemoteDoctors] = useState<Array<{ id: string; name: string; stream: MediaStream }>>([]);
+  const [remoteDoctors, setRemoteDoctors] = useState<Array<{ id: string; userId?: string; name: string; stream: MediaStream }>>([]);
   /**
    * BARCHA uzoq ishtirokchilar ovozi bitta barqaror MediaStream ichida
    * (LiveKit hook bilan bir xil model). Ilgari `setRemoteAudio(stream)` har
@@ -302,7 +307,12 @@ export function useP2PVideoRoom({
 
   const publishRemoteDoctors = useCallback(() => {
     setRemoteDoctors(
-      [...remoteDoctorsRef.current.entries()].map(([id, d]) => ({ id, name: d.name, stream: d.stream })),
+      [...remoteDoctorsRef.current.entries()].map(([id, d]) => ({
+        id,
+        userId: participantUserIdsRef.current.get(id),
+        name: d.name,
+        stream: d.stream,
+      })),
     );
   }, []);
 
@@ -1887,7 +1897,7 @@ export function useP2PVideoRoom({
     socket.on('offer-requested', onOfferRequested);
     socket.on('signal-error', onSignalError);
     socket.on('room-closed', onRoomClosed);
-    socket.on('consultation-completed', onConsultationTerminal);
+    // Yakunlanish xonani yopmaydi (Meet) — server oxirgi odam chiqqanda `room-closed` yuboradi
     socket.on('consultation-cancelled', onConsultationTerminal);
 
     if (isRoomActive(consultationId) && roomSyncDoneRef.current !== consultationId) {
@@ -1913,7 +1923,6 @@ export function useP2PVideoRoom({
       socket.off('offer-requested', onOfferRequested);
       socket.off('signal-error', onSignalError);
       socket.off('room-closed', onRoomClosed);
-      socket.off('consultation-completed', onConsultationTerminal);
       socket.off('consultation-cancelled', onConsultationTerminal);
     };
   }, [

@@ -95,6 +95,7 @@ export function UtVideoPanelView({
     mtDoctorStream,
     remoteAudio,
     remoteDoctorFeeds,
+    primaryDoctor,
     remoteAudioTrackCount,
     toggleMic,
     toggleCam,
@@ -116,6 +117,14 @@ export function UtVideoPanelView({
   const utLiveCount = utCameraStreams.filter((c) => c.active && isUtStreamLive(c.stream)).length;
   const isAllView = viewMode === 'all';
   const doctorLabel = t('common.doctor');
+  // Katta oynada kim: ism + mas'ul/konsilium. Ilgari faqat "Shifokor" yozilardi
+  const mainLabel = primaryDoctor
+    ? `${primaryDoctor.name || doctorLabel} · ${primaryDoctor.isLead ? t('video.leadTag') : t('video.consiliumTag')}`
+    : doctorName
+      ? `${doctorName} · ${t('video.leadTag')}`
+      : doctorLabel;
+  // Mas'ul chiqib ketgan, katta oynada konsilium shifokori — operator buni bilishi kerak
+  const leadAway = !!primaryDoctor && !primaryDoctor.isLead;
 
   // Kutishda 4 kamerani ko'rish/sozlash uchun "Hammasi" rejimiga o'tamiz
   useEffect(() => {
@@ -245,9 +254,9 @@ export function UtVideoPanelView({
                   placeholder={doctorLabel}
                   live={doctorLive}
                 />
-                <span className="absolute top-2 left-2 bg-gold-400 text-brand-950 text-xs font-semibold px-2 py-0.5 rounded pointer-events-none inline-flex items-center gap-1">
-                  <Stethoscope size={12} />
-                  {doctorLabel}
+                <span className="absolute top-2 left-2 bg-gold-400 text-brand-950 text-xs font-semibold px-2 py-0.5 rounded pointer-events-none inline-flex items-center gap-1 max-w-[calc(100%-1rem)] truncate">
+                  <Stethoscope size={12} className="shrink-0" />
+                  <span className="truncate">{mainLabel}</span>
                 </span>
                 {!doctorLive && (
                   <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-brand-950/60 pointer-events-none">
@@ -325,9 +334,9 @@ export function UtVideoPanelView({
                   </span>
                 </div>
               )}
-              <span className="absolute top-2 left-2 bg-gold-400 text-brand-950 text-xs font-bold px-2 py-0.5 rounded-md inline-flex items-center gap-1">
-                <Stethoscope size={12} />
-                {doctorLabel}
+              <span className="absolute top-2 left-2 bg-gold-400 text-brand-950 text-xs font-bold px-2 py-0.5 rounded-md inline-flex items-center gap-1 max-w-[calc(100%-1rem)]">
+                <Stethoscope size={12} className="shrink-0" />
+                <span className="truncate">{mainLabel}</span>
               </span>
             </>
           )}
@@ -362,6 +371,12 @@ export function UtVideoPanelView({
           {/* Barcha ishtirokchilar ovozi — bitta barqaror audio elementi */}
           <RemoteAudio stream={remoteAudio} enabled={speakerOn} trackCount={remoteAudioTrackCount} />
 
+          {leadAway && roomPhase === 'live' && (
+            <div className="absolute top-10 left-2 z-20 rounded-md bg-amber-500/95 px-2 py-1 text-[11px] font-semibold text-white shadow">
+              {t('video.leadNotInRoom')}
+            </div>
+          )}
+
           {/* Konsiliumdagi qolgan shifokorlar — kichik oynalar */}
           {extraDoctors.length > 0 && (
             <div className="absolute bottom-2 left-2 z-20 flex gap-1.5">
@@ -377,6 +392,14 @@ export function UtVideoPanelView({
                     placeholder={doctorLabel}
                     live={isUtStreamLive(d.stream)}
                   />
+                  <span
+                    className={cn(
+                      'absolute top-1 left-1 rounded px-1 py-px text-[8px] font-bold uppercase tracking-wide pointer-events-none',
+                      d.isLead ? 'bg-gold-400 text-brand-950' : 'bg-emerald-600 text-white',
+                    )}
+                  >
+                    {d.isLead ? t('video.leadTag') : t('video.consiliumTag')}
+                  </span>
                   <span className="absolute bottom-0 inset-x-0 bg-slate-950/75 text-white text-[9px] font-semibold px-1 py-0.5 truncate pointer-events-none">
                     {d.name || doctorLabel}
                   </span>

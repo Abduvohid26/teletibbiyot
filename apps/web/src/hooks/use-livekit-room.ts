@@ -1016,12 +1016,12 @@ export function useLivekitRoom({
       void teardownRoom();
       onCallEnded?.();
     };
+    // "Yakunlandi" — xonani YOPMAYDI (Meet qoidasi): ichkaridagilar suhbatni davom
+    // ettiradi, oxirgisi chiqqanda server `room-closed` yuboradi. Bekor qilish — darhol.
     socket.on('room-closed', onClosed);
-    socket.on('consultation-completed', onClosed);
     socket.on('consultation-cancelled', onClosed);
     return () => {
       socket.off('room-closed', onClosed);
-      socket.off('consultation-completed', onClosed);
       socket.off('consultation-cancelled', onClosed);
     };
   }, [clearReconnectTimer, consultationId, enabled, onCallEnded, socketRef, teardownRoom]);

@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, LogOut, MessageSquareText, Plus, Users, Video, X } from 'lucide-react';
+import { Link2, Loader2, LogOut, MessageSquareText, Plus, Users, Video, X } from 'lucide-react';
 import { Consultation, ConsultationParticipant } from '@/lib/api';
 import { doctorLabel, useConsilium } from '@/hooks/use-consilium';
 import { ConsiliumDoctorPicker } from '@/components/dashboard/ConsiliumDoctorPicker';
 import { ConsiliumOpinionsModal } from '@/components/dashboard/ConsiliumOpinionsModal';
+import { MemberStatus, memberStatusDot, useRoomPresence } from '@/hooks/use-room-presence';
+import { useInviteLink } from '@/hooks/use-invite-link';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/i18n';
 
@@ -43,8 +45,13 @@ export function ConsiliumPanel({ consultation, currentDoctorId, onChanged, embed
     onChanged,
   });
 
+  const { statusOf } = useRoomPresence(
+    participants.length > 0 || canEdit ? consultation?.id : undefined,
+  );
   const mine = participants.find((p) => p.doctorId === currentDoctorId);
   const isConsultant = !isOwner && !!mine;
+  const invite = useInviteLink(consultation?.id);
+  const roomOpen = consultation?.status === 'IN_PROGRESS' || consultation?.status === 'QUEUED';
   const opinionCount = participants.filter((p) => p.opinion?.trim()).length;
 
   useEffect(() => {
@@ -99,9 +106,15 @@ export function ConsiliumPanel({ consultation, currentDoctorId, onChanged, embed
       </span>
 
       {consultation.mtDoctor?.fullName && (
-        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-brand-50 text-brand-700 ring-1 ring-brand-200/70">
+        <span
+          title={t(statusKey(statusOf(ownerId)))}
+          className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-brand-50 text-brand-700 ring-1 ring-brand-200/70"
+        >
+          <StatusDot status={statusOf(ownerId)} />
           {consultation.mtDoctor.fullName}
           <span className="opacity-70">· {t('consilium.lead')}</span>
+          {ownerId === currentDoctorId && <span className="opacity-70">· {t('consilium.you')}</span>}
+          <StatusText status={statusOf(ownerId)} />
         </span>
       )}
 
@@ -110,6 +123,7 @@ export function ConsiliumPanel({ consultation, currentDoctorId, onChanged, embed
           key={p.doctorId}
           p={p}
           isMe={p.doctorId === currentDoctorId}
+          status={statusOf(p.doctorId)}
           canRemove={isOwner}
           busy={busy}
           onRemove={() => void remove(p.doctorId, p.doctorId === currentDoctorId)}
@@ -140,6 +154,19 @@ export function ConsiliumPanel({ consultation, currentDoctorId, onChanged, embed
               </div>
             )}
           </div>
+        )}
+
+        {roomOpen && (isOwner || isConsultant) && (
+          <button
+            type="button"
+            onClick={() => void invite.copy()}
+            disabled={invite.busy}
+            title={t('consilium.linkTitle')}
+            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[10px] font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+          >
+            {invite.busy ? <Loader2 size={11} className="animate-spin" /> : <Link2 size={11} />}
+            {t('consilium.link')}
+          </button>
         )}
 
         {participants.length > 0 && (isOwner || isConsultant) && (
@@ -188,36 +215,72 @@ export function ConsiliumPanel({ consultation, currentDoctorId, onChanged, embed
   );
 }
 
-/** Ishtirokchi: xonaga kirgan (yashil) yoki hali kirmagan — taklif qilingan (sariq) */
+function statusKey(status: MemberStatus) {
+  if (status === 'in_room') return 'consilium.statusInRoom';
+  if (status === 'online') return 'consilium.statusOnline';
+  if (status === 'in_meet') return 'consilium.statusInMeet';
+  if (status === 'break') return 'consilium.statusBreak';
+  return 'consilium.statusOffline';
+}
+
+function StatusDot({ status }: { status: MemberStatus }) {
+  return <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', memberStatusDot(status))} />;
+}
+
+/** Xonada bo'lsa yashil "xonada", aks holda — online / tanaffus / offline */
+function StatusText({ status }: { status: MemberStatus }) {
+  const { t } = useI18n();
+  return (
+    <span className={cn('font-medium', status === 'in_room' ? 'text-emerald-700' : 'opacity-60')}>
+      · {t(statusKey(status))}
+    </span>
+  );
+}
+
+/**
+ * Ishtirokchi: hozir xonada (yashil) / hali umuman kirmagan — taklif qilingan (sariq) /
+ * kirib chiqib ketgan (kulrang). Holat real vaqtda.
+ */
 function ParticipantChip({
   p,
   isMe,
+  status,
   canRemove,
   busy,
   onRemove,
 }: {
   p: ConsultationParticipant;
   isMe: boolean;
+  status: MemberStatus;
   canRemove: boolean;
   busy: boolean;
   onRemove: () => void;
 }) {
   const { t } = useI18n();
-  const joined = !!p.joinedAt;
+  const inRoom = status === 'in_room';
+  const neverJoined = !p.joinedAt && !inRoom;
   return (
     <span
-      title={joined ? t('consilium.joinedHint') : t('consilium.invitedHint')}
+      title={neverJoined ? t('consilium.invitedHint') : t(statusKey(status))}
       className={cn(
         'inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md ring-1',
-        joined
+        inRoom
           ? 'bg-emerald-50 text-emerald-800 ring-emerald-200/70'
-          : 'bg-amber-50 text-amber-800 ring-amber-200/80',
+          : neverJoined
+            ? 'bg-amber-50 text-amber-800 ring-amber-200/80'
+            : 'bg-slate-50 text-slate-600 ring-slate-200',
       )}
     >
-      {joined ? <Video size={10} className="shrink-0" /> : <Loader2 size={10} className="shrink-0 animate-spin [animation-duration:2.5s]" />}
+      {inRoom ? (
+        <Video size={10} className="shrink-0" />
+      ) : neverJoined ? (
+        <Loader2 size={10} className="shrink-0 animate-spin [animation-duration:2.5s]" />
+      ) : (
+        <StatusDot status={status} />
+      )}
       {doctorLabel(p.doctor)}
       {isMe && <span className="opacity-70">· {t('consilium.you')}</span>}
-      {!joined && <span className="opacity-70">· {t('consilium.invited')}</span>}
+      {neverJoined ? <span className="opacity-70">· {t('consilium.invited')}</span> : <StatusText status={status} />}
       {p.opinion?.trim() && <MessageSquareText size={10} className="shrink-0 opacity-70" aria-label={t('consilium.hasOpinion')} />}
       {canRemove && (
         <button

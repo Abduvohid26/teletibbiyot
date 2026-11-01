@@ -95,7 +95,8 @@ test.describe('Konsilium oqimi (shifokor UI)', () => {
       await clickLobbyJoin(ut.page, 'UT');
 
       // Mas'ul tomonda "taklif qilindi" yo'qoladi — ikkalasi ham xonada
-      await expect(lead.page.locator('[title="Video xonaga ulangan"]')).toHaveCount(2, { timeout: 30_000 });
+      // Ikkala konsilium shifokori ham hozir xonada (real vaqt presence)
+      await expect(lead.page.locator('[title="xonada"]')).toHaveCount(3, { timeout: 30_000 });
       await shot(lead.page, '03-lead-both-joined');
 
       // 4) Doctor2 fikr yozadi
@@ -128,6 +129,11 @@ test.describe('Konsilium oqimi (shifokor UI)', () => {
         recommendations: 'Kardiolog nazorati',
       });
       await expect(c2.page.getByText('Konsilium yakunlandi').first()).toBeVisible({ timeout: 15_000 });
+      // Meet qoidasi: xonada UT bor — konsilium shifokori chiqarib yuborilmaydi
+      await expect(c2.page.getByText('Konsultatsiya yakunlandi.')).toBeVisible({ timeout: 15_000 });
+      await expect(c2.page.getByRole('button', { name: /^Uzish$/ }).first()).toBeVisible();
+      // O'zi chiqqanda — "Bemorlar"ga
+      await c2.page.getByRole('button', { name: /^Uzish$/ }).first().click();
       await c2.page.waitForURL(/\/dashboard\/patients/, { timeout: 15_000 });
       await shot(c2.page, '06-consultant-after-complete');
 

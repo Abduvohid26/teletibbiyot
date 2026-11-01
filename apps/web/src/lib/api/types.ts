@@ -227,6 +227,7 @@ export type NotificationType =
   | 'consilium_call'
   | 'consilium_removed'
   | 'consilium_left'
+  | 'consilium_joined'
   | 'consilium_opinion'
   | 'second_opinion'
   | 'appointment'
