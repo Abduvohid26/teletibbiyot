@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { AlertTriangle, Loader2, Phone, PhoneOff, UserPlus, Users, Video } from 'lucide-react';
+import { AlertTriangle, Loader2, Phone, PhoneCall, PhoneOff, UserPlus, Users, Video } from 'lucide-react';
 import type { AppNotification } from '@/lib/api';
 import type { CallKind } from '@/lib/notification-meta';
 import { cn } from '@/lib/utils';
@@ -21,6 +21,7 @@ const KIND_ICON = {
   doctorReady: Video,
   newPatient: UserPlus,
   emergency: AlertTriangle,
+  roomCall: PhoneCall,
 } satisfies Record<CallKind, unknown>;
 
 /**

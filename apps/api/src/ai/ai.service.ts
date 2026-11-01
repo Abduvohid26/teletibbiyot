@@ -511,28 +511,35 @@ export class AiService {
 
   private async callOpenAiChat(
     messages: Array<{ role: 'user' | 'assistant'; content: string }>,
-    options?: { maxTokens?: number; json?: boolean; systemPrompt?: string },
+    options?: AiRequestOptions,
   ): Promise<string | null> {
     const res = await this.requestOpenAiChat(messages, options);
     return res.ok ? res.text : null;
   }
 
+  /**
+   * OpenAI so'rovi + vaqtinchalik xatolarda 3 martagacha qayta urinish
+   * (1.5s → 3s → 6s kutib). Kalit noto'g'ri / balans tugagan kabi doimiy
+   * xatolarda qayta urinish foydasiz — darhol qaytadi.
+   */
   private async requestOpenAiChat(
     messages: Array<{ role: 'user' | 'assistant'; content: string }>,
-    options?: { maxTokens?: number; json?: boolean; systemPrompt?: string },
+    options?: AiRequestOptions,
   ): Promise<{ ok: true; text: string } | { ok: false; reason: AiFailureReason }> {
-    const first = await this.requestOpenAiChatOnce(messages, options);
-    // Tarmoq uzilishi va provayder xatosi ko'pincha vaqtinchalik — bir marta qayta urinamiz
-    if (!first.ok && (first.reason === 'network' || first.reason === 'provider_error')) {
-      await this.delay(1500);
-      return this.requestOpenAiChatOnce(messages, options);
+    const retries = options?.retries ?? AI_MAX_RETRIES;
+    let res = await this.requestOpenAiChatOnce(messages, options);
+    for (let attempt = 1; attempt <= retries && !res.ok && isRetryableAiFailure(res.reason); attempt++) {
+      const wait = 1500 * 2 ** (attempt - 1);
+      this.logger.warn(`AI so'rovi muvaffaqiyatsiz (${res.reason}) — ${attempt}/${retries} qayta urinish ${wait}ms dan keyin`);
+      await this.delay(wait);
+      res = await this.requestOpenAiChatOnce(messages, options);
     }
-    return first;
+    return res;
   }
 
   private async requestOpenAiChatOnce(
     messages: Array<{ role: 'user' | 'assistant'; content: string }>,
-    options?: { maxTokens?: number; json?: boolean; systemPrompt?: string },
+    options?: AiRequestOptions,
   ): Promise<{ ok: true; text: string } | { ok: false; reason: AiFailureReason }> {
     const cfg = this.getOpenAiConfig();
     if (!cfg) return { ok: false, reason: 'not_configured' };
@@ -558,13 +565,17 @@ export class AiService {
           Authorization: `Bearer ${cfg.apiKey}`,
         },
         // Osilib qolgan so'rov shifokorni cheksiz kuttirmasin (frontend 120s kutadi)
-        signal: AbortSignal.timeout(100_000),
+        signal: AbortSignal.timeout(options?.timeoutMs ?? 100_000),
         body: JSON.stringify(body),
       });
 
       if (!response.ok) {
         const errText = await response.text();
         this.logger.warn(`OpenAI API xatoligi (${response.status}): ${errText.slice(0, 300)}`);
+        // 429: balans tugagan (qayta urinish foydasiz) yoki vaqtinchalik tezlik cheklovi
+        if (response.status === 429 && !/insufficient_quota/i.test(errText)) {
+          return { ok: false, reason: 'rate_limited' };
+        }
         return { ok: false, reason: classifyOpenAiStatus(response.status) };
       }
 
@@ -580,9 +591,33 @@ export class AiService {
     }
   }
 
+  /**
+   * Klinik tahlil. Tarmoq/provayder xatolari requestOpenAiChat ichida qayta
+   * uriniladi; bu yerda esa javob kelib, lekin JSON buzuq bo'lsa ham
+   * 3 martagacha qayta so'raladi — tahlil "ishlamadi" bo'lib qolmasin.
+   */
   private async callOpenAiAnalysis(
     clinicalData: Record<string, unknown>,
     locale: AiLocale = 'uz',
+  ): Promise<{ ok: true; result: OpenAiAnalysisResult } | { ok: false; reason: AiFailureReason }> {
+    let last: { ok: false; reason: AiFailureReason } = { ok: false, reason: 'error' };
+    for (let attempt = 0; attempt <= AI_MAX_RETRIES; attempt++) {
+      if (attempt > 0) {
+        this.logger.warn(`AI tahlil javobi yaroqsiz — ${attempt}/${AI_MAX_RETRIES} qayta so'rov`);
+        await this.delay(1500 * attempt);
+      }
+      const res = await this.callOpenAiAnalysisOnce(clinicalData, locale);
+      if (res.ok) return res;
+      last = res;
+      // Tarmoq xatolari ichkarida allaqachon qayta urinilgan; faqat buzuq javobni qayta so'raymiz
+      if (res.reason !== 'invalid_response') return res;
+    }
+    return last;
+  }
+
+  private async callOpenAiAnalysisOnce(
+    clinicalData: Record<string, unknown>,
+    locale: AiLocale,
   ): Promise<{ ok: true; result: OpenAiAnalysisResult } | { ok: false; reason: AiFailureReason }> {
     const res = await this.requestOpenAiChat(
       [
@@ -1087,7 +1122,8 @@ export class AiService {
           }), null, 2)}\n\nShifokor savoli: ${question}`,
         },
       ],
-      { maxTokens: 4096, systemPrompt: withLang(CHAT_SYSTEM_PROMPT, locale) },
+      // Shifokor javobni kutib turibdi: har urinish 40s, jami (3 qayta urinish bilan) ~3 daqiqadan oshmaydi
+      { maxTokens: 4096, systemPrompt: withLang(CHAT_SYSTEM_PROMPT, locale), timeoutMs: 40_000 },
     );
 
     if (!answer) {
@@ -1131,4 +1167,21 @@ export class AiService {
     if (!analyzed) return;
     this.scheduleReanalysis(consultationId);
   }
+}
+
+/** Vaqtinchalik xatolarda qayta urinishlar soni (birinchi so'rovdan tashqari) */
+const AI_MAX_RETRIES = 3;
+
+interface AiRequestOptions {
+  maxTokens?: number;
+  json?: boolean;
+  systemPrompt?: string;
+  /** Bitta urinish uchun vaqt chegarasi (ms) */
+  timeoutMs?: number;
+  retries?: number;
+}
+
+/** Qayta urinish foyda beradigan xatolar (kalit/balans muammosida — yo'q) */
+function isRetryableAiFailure(reason: AiFailureReason) {
+  return reason === 'network' || reason === 'provider_error' || reason === 'rate_limited';
 }

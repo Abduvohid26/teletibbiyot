@@ -1,13 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Link2, Loader2, LogOut, MessageSquareText, Plus, Users, Video, X } from 'lucide-react';
+import { Link2, Loader2, LogOut, MessageSquareText, PhoneCall, Plus, Users, Video, X } from 'lucide-react';
 import { Consultation, ConsultationParticipant } from '@/lib/api';
 import { doctorLabel, useConsilium } from '@/hooks/use-consilium';
 import { ConsiliumDoctorPicker } from '@/components/dashboard/ConsiliumDoctorPicker';
 import { ConsiliumOpinionsModal } from '@/components/dashboard/ConsiliumOpinionsModal';
 import { MemberStatus, memberStatusDot, useRoomPresence } from '@/hooks/use-room-presence';
 import { useInviteLink } from '@/hooks/use-invite-link';
+import { useRing } from '@/hooks/use-ring';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/i18n';
 
@@ -45,13 +46,17 @@ export function ConsiliumPanel({ consultation, currentDoctorId, onChanged, embed
     onChanged,
   });
 
-  const { statusOf } = useRoomPresence(
+  const { statusOf, inRoom } = useRoomPresence(
     participants.length > 0 || canEdit ? consultation?.id : undefined,
   );
   const mine = participants.find((p) => p.doctorId === currentDoctorId);
   const isConsultant = !isOwner && !!mine;
   const invite = useInviteLink(consultation?.id);
   const roomOpen = consultation?.status === 'IN_PROGRESS' || consultation?.status === 'QUEUED';
+  const ringer = useRing(consultation?.id, inRoom);
+  /** Xonada bo'lmagan hamkasbni chaqirish (konsilium a'zolari bir-birini) */
+  const ringable = (userId?: string | null) =>
+    !!userId && userId !== currentDoctorId && roomOpen && (isOwner || isConsultant) && statusOf(userId) !== 'in_room';
   const opinionCount = participants.filter((p) => p.opinion?.trim()).length;
 
   useEffect(() => {
@@ -115,6 +120,9 @@ export function ConsiliumPanel({ consultation, currentDoctorId, onChanged, embed
           <span className="opacity-70">· {t('consilium.lead')}</span>
           {ownerId === currentDoctorId && <span className="opacity-70">· {t('consilium.you')}</span>}
           <StatusText status={statusOf(ownerId)} />
+          {ringable(ownerId) && (
+            <RingButton ringing={ringer.ringingIds.includes(ownerId!)} onRing={() => void ringer.ring(ownerId!)} />
+          )}
         </span>
       )}
 
@@ -124,6 +132,9 @@ export function ConsiliumPanel({ consultation, currentDoctorId, onChanged, embed
           p={p}
           isMe={p.doctorId === currentDoctorId}
           status={statusOf(p.doctorId)}
+          ring={ringable(p.doctorId)
+            ? { ringing: ringer.ringingIds.includes(p.doctorId), onRing: () => void ringer.ring(p.doctorId) }
+            : undefined}
           canRemove={isOwner}
           busy={busy}
           onRemove={() => void remove(p.doctorId, p.doctorId === currentDoctorId)}
@@ -223,6 +234,23 @@ function statusKey(status: MemberStatus) {
   return 'consilium.statusOffline';
 }
 
+/** Xonada bo'lmagan a'zoni chaqirish — chip ichidagi kichik telefon */
+function RingButton({ ringing, onRing }: { ringing: boolean; onRing: () => void }) {
+  const { t } = useI18n();
+  return (
+    <button
+      type="button"
+      onClick={onRing}
+      disabled={ringing}
+      aria-label={ringing ? t('ring.calling') : t('ring.callMember')}
+      title={ringing ? t('ring.calling') : t('ring.callMember')}
+      className="rounded p-px text-emerald-700 hover:bg-emerald-100 disabled:opacity-70"
+    >
+      {ringing ? <Loader2 size={11} className="animate-spin" /> : <PhoneCall size={11} />}
+    </button>
+  );
+}
+
 function StatusDot({ status }: { status: MemberStatus }) {
   return <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', memberStatusDot(status))} />;
 }
@@ -245,6 +273,7 @@ function ParticipantChip({
   p,
   isMe,
   status,
+  ring,
   canRemove,
   busy,
   onRemove,
@@ -252,6 +281,7 @@ function ParticipantChip({
   p: ConsultationParticipant;
   isMe: boolean;
   status: MemberStatus;
+  ring?: { ringing: boolean; onRing: () => void };
   canRemove: boolean;
   busy: boolean;
   onRemove: () => void;
@@ -282,6 +312,7 @@ function ParticipantChip({
       {isMe && <span className="opacity-70">· {t('consilium.you')}</span>}
       {neverJoined ? <span className="opacity-70">· {t('consilium.invited')}</span> : <StatusText status={status} />}
       {p.opinion?.trim() && <MessageSquareText size={10} className="shrink-0 opacity-70" aria-label={t('consilium.hasOpinion')} />}
+      {ring && <RingButton ringing={ring.ringing} onRing={ring.onRing} />}
       {canRemove && (
         <button
           type="button"

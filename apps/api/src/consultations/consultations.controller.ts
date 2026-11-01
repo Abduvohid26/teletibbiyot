@@ -28,6 +28,8 @@ import {
   AddParticipantsDto,
   ParticipantOpinionDto,
   JoinByInviteDto,
+  RingRoomDto,
+  DeclineRingDto,
 } from './dto/consultation.dto';
 import { ConsultationQueryDto } from './dto/consultation-query.dto';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guard';
@@ -176,6 +178,20 @@ export class ConsultationsController {
     @Request() req: { user: AuthUser },
   ) {
     return this.consultationsService.addParticipants(id, req.user, dto.doctorIds);
+  }
+
+  @Post(':id/ring')
+  @Roles(...ROLES_MT_DOCTOR, ...ROLES_UT)
+  @ApiOperation({ summary: 'Xonaga qo\'ng\'iroq: UT → mas\'ul shifokor, shifokor → UT yoki konsilium a\'zosi' })
+  ringRoom(@Param('id') id: string, @Body() dto: RingRoomDto, @Request() req: { user: AuthUser }) {
+    return this.consultationsService.ringRoom(id, req.user, dto.targetUserId);
+  }
+
+  @Post(':id/ring/decline')
+  @Roles(...ROLES_MT_DOCTOR, ...ROLES_UT)
+  @ApiOperation({ summary: 'Kiruvchi qo\'ng\'iroqni rad etish (chaqiruvchiga xabar)' })
+  declineRing(@Param('id') id: string, @Body() dto: DeclineRingDto, @Request() req: { user: AuthUser }) {
+    return this.consultationsService.declineRing(id, req.user, dto.callerId);
   }
 
   @Post(':id/invite-link')

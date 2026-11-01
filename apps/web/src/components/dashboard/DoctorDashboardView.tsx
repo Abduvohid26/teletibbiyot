@@ -7,6 +7,7 @@ import { AiAnalysisPanel } from '@/components/dashboard/AiAnalysisPanel';
 import { PatientDocumentsPanel } from '@/components/dashboard/PatientDocumentsPanel';
 import { DoctorPatientBar } from '@/components/dashboard/DoctorPatientBar';
 import { CompleteDiagnosisModal } from '@/components/dashboard/CompleteDiagnosisModal';
+import { ConfirmCompleteModal } from '@/components/dashboard/ConfirmCompleteModal';
 import { getAiAnalysisMeta } from '@/lib/ai-analysis-meta';
 import { api, Consultation } from '@/lib/api';
 import { toast } from '@/lib/toast';
@@ -16,6 +17,7 @@ import { DOCTOR_SELECT_EVENT, dispatchDoctorSelect } from '@/hooks/use-doctor-he
 import { markSelfCompleting } from '@/hooks/use-doctor-dashboard';
 import { SessionEndedBanner } from '@/components/video/UtConsultationSession';
 import { useI18n } from '@/i18n';
+import { cn } from '@/lib/utils';
 
 interface DoctorDashboardViewProps {
   queue: Consultation[];
@@ -49,9 +51,21 @@ export function DoctorDashboardView({
   const { user } = useAuth();
   const router = useRouter();
   const [reconnectSignal, setReconnectSignal] = useState(0);
+  /** Video butun ish joyini egallaydi (hujjatlar va AI yashiriladi) — konsiliumda qulay */
+  const [videoExpanded, setVideoExpanded] = useState(false);
+  useEffect(() => {
+    if (!videoExpanded) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setVideoExpanded(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [videoExpanded]);
   const [completing, setCompleting] = useState(false);
   /** AI tashxis bermagan — shifokor tashxisni o'zi kiritadigan oyna */
   const [manualCompleteId, setManualCompleteId] = useState<string | null>(null);
+  /** AI tashxisi bilan yakunlashni tasdiqlash oynasi */
+  const [confirmCompleteId, setConfirmCompleteId] = useState<string | null>(null);
   const queuedPatients = queue.filter((c) => c.status === 'QUEUED');
   const passiveRefresh = onRefresh ?? onReload;
   const activeConsultationId = selectedConsultationId ?? consultation?.id;
@@ -103,16 +117,24 @@ export function DoctorDashboardView({
       setManualCompleteId(activeConsultation.id);
       return;
     }
+    // Avval tasdiqlash oynasi (Ha / Yo'q + ixtiyoriy izoh)
+    setConfirmCompleteId(activeConsultation.id);
+  }, [activeConsultation, completing]);
+
+  const confirmComplete = useCallback(async (notes: string) => {
+    if (!activeConsultation || completing) return;
     setCompleting(true);
     markSelfCompleting(activeConsultation.id);
     try {
-      const { next } = await api.completeConsultation(activeConsultation.id, {});
+      const { next } = await api.completeConsultation(activeConsultation.id, notes ? { notes } : {});
+      setConfirmCompleteId(null);
       afterComplete(next);
     } catch (err) {
       const message = err instanceof Error ? err.message : undefined;
       // Server AI tashxisni topmadi — qo'lda kiritish oynasini ochamiz
       if (message && /AI tashxis bermadi/i.test(message)) {
         markSelfCompleting(activeConsultation.id);
+        setConfirmCompleteId(null);
         setManualCompleteId(activeConsultation.id);
         return;
       }
@@ -177,7 +199,7 @@ export function DoctorDashboardView({
         )}
 
         <div className="flex-1 min-h-0 overflow-hidden doctor-main-grid">
-            <div className="doctor-video-col">
+            <div className={cn('doctor-video-col', videoExpanded && 'lg:col-span-12')}>
               <VideoConsultation
                 key={activeConsultationId ?? 'none'}
                 facilityCode={activeConsultation?.utFacility?.code ?? consultation?.utFacility?.code}
@@ -185,10 +207,12 @@ export function DoctorDashboardView({
                 sessionEnded={lingering}
                 reconnectSignal={reconnectSignal}
                 leadDoctorId={activeConsultation?.mtDoctor?.id}
-                compact
+                expanded={videoExpanded}
+                onToggleExpand={() => setVideoExpanded((v) => !v)}
+                compact={!videoExpanded}
               />
             </div>
-            <div className="doctor-docs-col overflow-hidden flex flex-col min-h-0 rounded-xl border border-slate-200 bg-white">
+            <div className={cn('doctor-docs-col overflow-hidden flex flex-col min-h-0 rounded-xl border border-slate-200 bg-white', videoExpanded && 'hidden')}>
               <div className="shrink-0 border-b border-slate-100 py-1.5 px-2.5 flex items-center justify-between gap-1">
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider truncate">
                   {t('dashboard.documents')}
@@ -218,7 +242,7 @@ export function DoctorDashboardView({
                 className="flex-1 min-h-0 px-1.5 pb-1 overflow-hidden"
               />
             </div>
-            <div className="doctor-ai-col">
+            <div className={cn('doctor-ai-col', videoExpanded && 'hidden')}>
               <AiAnalysisPanel
                 analysis={activeConsultation?.aiAnalysis ?? consultation?.aiAnalysis}
                 steps={activeConsultation?.aiAnalysisSteps ?? consultation?.aiAnalysisSteps}
@@ -229,6 +253,15 @@ export function DoctorDashboardView({
         </div>
       </div>
     {cancelModal}
+    {confirmCompleteId && activeConsultation?.id === confirmCompleteId && (
+      <ConfirmCompleteModal
+        consultation={activeConsultation}
+        busy={completing}
+        hasNext={myQueueRemaining > 0}
+        onConfirm={(notes) => void confirmComplete(notes)}
+        onClose={() => setConfirmCompleteId(null)}
+      />
+    )}
     {manualCompleteId && (
       <CompleteDiagnosisModal
         consultationId={manualCompleteId}

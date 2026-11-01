@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { PhoneOff, UserRound } from 'lucide-react';
+import { PhoneCall, PhoneOff, UserRound } from 'lucide-react';
 import type { VideoRoomPhase } from '@/hooks/use-video-room';
 import { useI18n } from '@/i18n';
 
@@ -51,9 +51,11 @@ interface AloneInRoomPromptProps {
   sessionEnded?: boolean;
   onEnd: () => void;
   onStay: () => void;
+  /** Chiqib ketganlarni qayta chaqirish (konsultatsiya hali davom etayotgan bo'lsa) */
+  onRing?: () => void;
 }
 
-export function AloneInRoomPrompt({ open, sessionEnded, onEnd, onStay }: AloneInRoomPromptProps) {
+export function AloneInRoomPrompt({ open, sessionEnded, onEnd, onStay, onRing }: AloneInRoomPromptProps) {
   const { t } = useI18n();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -78,6 +80,18 @@ export function AloneInRoomPrompt({ open, sessionEnded, onEnd, onStay }: AloneIn
             {sessionEnded ? t('video.aloneEndedHint') : t('video.aloneHint')}
           </p>
         </div>
+        {onRing && !sessionEnded && (
+          <div className="px-5 pb-3">
+            <button
+              type="button"
+              onClick={onRing}
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded-2xl bg-emerald-600 px-3 py-3 text-sm font-semibold text-white hover:bg-emerald-700"
+            >
+              <PhoneCall size={16} />
+              {t('ring.callBack')}
+            </button>
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-3 px-5 pb-5">
           <button
             type="button"

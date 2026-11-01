@@ -6,7 +6,8 @@
 export type AiFailureReason =
   | 'not_configured' // OPENAI_API_KEY berilmagan
   | 'auth' // kalit noto'g'ri yoki bekor qilingan (401/403)
-  | 'quota' // limit/balans tugagan yoki juda ko'p so'rov (429)
+  | 'quota' // limit/balans tugagan (429 insufficient_quota)
+  | 'rate_limited' // vaqtincha juda ko'p so'rov (429) — qayta uriniladi
   | 'provider_error' // OpenAI tomonida xato (5xx)
   | 'network' // ulanib bo'lmadi / vaqt tugadi
   | 'invalid_response' // javob keldi, lekin yaroqsiz JSON

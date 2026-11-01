@@ -16,7 +16,7 @@ import { isMtDoctor, isUtRole } from '@ishifo/shared';
 import { api, AppNotification, UT_ACTIVE_CONSULTATION_KEY } from '@/lib/api';
 import { useAuth } from '@/lib/auth-context';
 import { toast } from '@/lib/toast';
-import { acquireUserSocket, isInLiveCall, releaseUserSocket } from '@/lib/video-socket-client';
+import { acquireUserSocket, isInLiveCall, MEDIA_PRESENCE_EVENT, releaseUserSocket } from '@/lib/video-socket-client';
 import {
   installAudioUnlock,
   isSoundEnabled,
@@ -32,6 +32,9 @@ import { dispatchDoctorSelect } from '@/hooks/use-doctor-header-data';
 import { markSelfLeave } from '@/hooks/use-consilium';
 import { IncomingCallOverlay } from '@/components/notifications/IncomingCallOverlay';
 import { useI18n } from '@/i18n';
+
+/** Har bir yangi bildirishnoma (sahifa qismlari o'zi kuzatishi uchun, masalan "rad etildi") */
+export const NOTIFICATION_EVENT = 'ishifo-notification';
 
 /** Javob berilmasa qo'ng'iroq shuncha vaqtdan keyin "o'tkazib yuborilgan" bo'ladi */
 const RING_TIMEOUT_MS = 45_000;
@@ -120,9 +123,14 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         // Kechikkan qo'ng'iroq eskirgan bo'lishi mumkin (bemor allaqachon qabul qilingan
         // yoki bekor qilingan) — holat hali mos bo'lsagina jiringlaydi
         const kind = presentationOf(missedCall, roleRef.current).call?.kind;
-        const wanted = kind === 'newPatient' || kind === 'emergency' ? 'QUEUED' : 'IN_PROGRESS';
+        const wanted =
+          kind === 'roomCall'
+            ? ['QUEUED', 'IN_PROGRESS']
+            : kind === 'newPatient' || kind === 'emergency'
+              ? ['QUEUED']
+              : ['IN_PROGRESS'];
         const current = await api.getConsultation(missedCall.consultationId).catch(() => null);
-        if (current?.status === wanted) presentRef.current(missedCall);
+        if (current && wanted.includes(current.status)) presentRef.current(missedCall);
       }
     } catch {
       /* qo'ng'iroqcha yordamchi — sahifa ishlashiga xalaqit bermaydi */
@@ -160,6 +168,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const open = useCallback(
     (n: AppNotification) => {
       markRead(n.id);
+      // Shu bemorning video xonasida turibman — hech qayoqqa o'tmaymiz (ilgari bu
+      // qayta tanlash bo'lib, ishlab turgan videoni qayta ulab yuborardi)
+      if (n.consultationId && isInLiveCall(n.consultationId)) return;
       const href = notificationHref(n, role);
       if (n.consultationId) {
         if (isMtDoctor(role) && href === '/dashboard') dispatchDoctorSelect(n.consultationId);
@@ -234,12 +245,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         ringTimeout.current = setTimeout(() => {
           const missed = callRef.current;
           endCall();
-          if (missed) {
+          // Boshqa yo'l bilan (lobby, havola) o'sha xonaga kirib bo'lgan bo'lsa — o'tkazib yuborilmagan
+          if (missed && !(missed.consultationId && isInLiveCall(missed.consultationId))) {
+            // "Ochish" yo'q: xabar qo'ng'iroqchada qoladi, kerak bo'lsa o'sha yerdan ochiladi
             toast.warning(t('notify.missedCall'), {
               id: `missed-${missed.id}`,
               description: missed.body,
-              duration: Infinity,
-              action: { label: t('notify.open'), onClick: () => open(missed) },
+              duration: 30_000,
             });
           }
         }, RING_TIMEOUT_MS);
@@ -247,16 +259,15 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       }
 
       playSound(meta.sound ?? 'chime');
-      const href = notificationHref(n, role);
+      // Faqat ma'lumot: "Ochish" tugmasi yo'q — u ishlab turgan ekranni almashtirib yuborardi
       const show = n.type === 'emergency' || n.type === 'device_offline' ? toast.error : toast.info;
       show(n.title, {
         id: `notif-${n.id}`,
         description: n.body,
         duration: n.type === 'emergency' ? Infinity : 8000,
-        action: href ? { label: t('notify.open'), onClick: () => open(n) } : undefined,
       });
     },
-    [endCall, open, role, showBrowserNotification, t],
+    [endCall, role, showBrowserNotification, t],
   );
 
   presentRef.current = present;
@@ -271,6 +282,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       setItems((prev) => [n, ...prev].slice(0, 50));
       setUnread((u) => u + 1);
       presentRef.current(n);
+      window.dispatchEvent(new CustomEvent(NOTIFICATION_EVENT, { detail: n }));
     };
     // Uzilib qayta ulangan bo'lsa — o'tkazib yuborilganlarni olamiz
     const onAuthenticated = () => void load();
@@ -282,6 +294,20 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       releaseUserSocket();
     };
   }, [userId, load]);
+
+  // Jiringlab turgan qo'ng'iroqning xonasiga boshqa yo'l bilan (lobby, havola) kirildi —
+  // qo'ng'iroq to'xtaydi va "javob berildi" hisoblanadi
+  useEffect(() => {
+    const onMedia = (e: Event) => {
+      const d = (e as CustomEvent<{ consultationId?: string; live?: boolean }>).detail;
+      const current = callRef.current;
+      if (!d?.live || !current || current.consultationId !== d.consultationId) return;
+      markRead(current.id);
+      endCall();
+    };
+    window.addEventListener(MEDIA_PRESENCE_EVENT, onMedia);
+    return () => window.removeEventListener(MEDIA_PRESENCE_EVENT, onMedia);
+  }, [endCall, markRead]);
 
   // Jiringlayotgan qabul yakunlansa/bekor qilinsa — qo'ng'iroq to'xtaydi
   useEffect(() => {
@@ -306,7 +332,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     clearRing();
     markRead(n.id);
 
-    if (kind === 'doctorReady' && cid) {
+    // Xonaga qo'ng'iroq: UT tomonida — "shifokor kutmoqda" bilan bir xil;
+    // shifokorda — navbatdagi bemor bo'lsa qabulni boshlaydi, aks holda xonaga kiradi
+    const ringKind = kind === 'roomCall'
+      ? (isUtRole(role) ? 'doctorReady' : n.data?.status === 'QUEUED' ? 'newPatient' : 'consilium')
+      : kind;
+
+    if (ringKind === 'doctorReady' && cid) {
       try {
         sessionStorage.setItem(UT_ACTIVE_CONSULTATION_KEY, cid);
       } catch {
@@ -319,7 +351,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    if (kind === 'consilium' && cid) {
+    if (ringKind === 'consilium' && cid) {
       markJoined(cid, 'mt');
       endCall();
       dispatchDoctorSelect(cid);
@@ -358,6 +390,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     if (!n) return;
     const kind = presentationOf(n, role).call?.kind;
     markRead(n.id);
+    // Xonaga qo'ng'iroq rad etildi — chaqiruvchi "hozir ulana olmaydi" ni ko'radi
+    if (kind === 'roomCall' && n.consultationId) {
+      const callerId = n.data?.callerId;
+      if (callerId) void api.declineConsultationRing(n.consultationId, callerId).catch(() => undefined);
+      endCall();
+      return;
+    }
     // Konsiliumni rad etish = konsiliumdan chiqish (mas'ul shifokor buni ko'radi)
     if (kind === 'consilium' && n.consultationId && userId) {
       setCallBusy(true);

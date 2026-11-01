@@ -672,7 +672,7 @@ export class VideoGateway
     return true;
   }
 
-  private async roomMediaUserIds(roomId: string): Promise<string[]> {
+  async roomMediaUserIds(roomId: string): Promise<string[]> {
     try {
       const sockets = await this.server.in(roomId).fetchSockets();
       const ids = new Set<string>();

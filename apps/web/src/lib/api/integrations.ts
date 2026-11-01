@@ -23,7 +23,8 @@ export function defineIntegrationsApi(client: HttpClient) {
       return client.request<{ answer: string; disclaimer: string; aiUnavailable?: boolean }>(`/ai/consultations/${consultationId}/chat`, {
         method: 'POST',
         body: JSON.stringify({ question }),
-        timeoutMs: AI_TIMEOUT_MS,
+        // Server vaqtinchalik xatolarda 3 martagacha qayta urinadi — shuni kutamiz
+        timeoutMs: 190_000,
       });
     },
 

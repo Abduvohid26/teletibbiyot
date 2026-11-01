@@ -18,6 +18,8 @@ import { fetchIceServers } from '@/lib/video-config';
 import { announceMediaPresence } from '@/lib/video-socket-client';
 import { useDoctorPresence } from '@/hooks/use-doctor-presence';
 import { AloneInRoomPrompt, useAloneInRoom } from '@/components/video/AloneInRoomPrompt';
+import { useRoomPresence } from '@/hooks/use-room-presence';
+import { useRing } from '@/hooks/use-ring';
 import { useI18n } from '@/i18n';
 
 interface UtConsultationSessionProps {
@@ -110,6 +112,13 @@ export function UtConsultationSession({ consultation, patientName }: UtConsultat
 
   const sessionEnded = consultation.status === 'COMPLETED';
   const aloneState = useAloneInRoom(video.roomPhase, joined && !video.roomClosed);
+  // Mas'ul xonada yo'q — operator uni chaqira oladi
+  const { inRoom } = useRoomPresence(consultation.id, false);
+  const ringer = useRing(consultation.id, inRoom);
+  const leadId = consultation.mtDoctor?.id;
+  const canRingLead =
+    joined && !sessionEnded && !!leadId && !inRoom.has(leadId)
+    && (consultation.status === 'IN_PROGRESS' || consultation.status === 'QUEUED');
 
   if (
     video.roomClosed
@@ -149,6 +158,10 @@ export function UtConsultationSession({ consultation, patientName }: UtConsultat
         open={aloneState.alone}
         sessionEnded={sessionEnded}
         onStay={aloneState.keepWaiting}
+        onRing={leadId && !sessionEnded ? () => {
+          aloneState.keepWaiting();
+          void ringer.ring();
+        } : undefined}
         onEnd={() => {
           aloneState.keepWaiting();
           handleLeave();
@@ -164,6 +177,7 @@ export function UtConsultationSession({ consultation, patientName }: UtConsultat
           onLeave={handleLeave}
           onApplyCameraMapping={handleReconnect}
           consultationStatus={consultation.status}
+          ring={{ show: canRingLead, ringing: ringer.ringing, onRing: () => void ringer.ring() }}
         />
       </div>
     </>

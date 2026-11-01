@@ -40,6 +40,8 @@ export function AttachmentManager({
   const [uploading, setUploading] = useState(false);
   const [viewer, setViewer] = useState<{ attachment?: Attachment; previewUrl?: string; file?: File } | null>(null);
   const [localFiles, setLocalFiles] = useState<LocalPreview[]>([]);
+  /** Meet paytida kelgan, hali ochilmagan fayllar */
+  const [freshIds, setFreshIds] = useState<Set<string>>(new Set());
 
   const load = useCallback(() => {
     if (!consultationId) {
@@ -77,7 +79,14 @@ export function AttachmentManager({
       });
     };
 
-    const onUploaded = (e: Event) => mergeAttachment((e as CustomEvent).detail);
+    const onUploaded = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { consultationId?: string; attachment?: Attachment };
+      mergeAttachment(detail);
+      // Real vaqtda kelgan fayl — "Yangi" belgisi bilan ajralib turadi (ochilguncha)
+      if (detail.consultationId === consultationId && detail.attachment?.id) {
+        setFreshIds((prev) => new Set(prev).add(detail.attachment!.id));
+      }
+    };
     const onAnalyzed = (e: Event) => mergeAttachment((e as CustomEvent).detail);
 
     window.addEventListener('attachment-uploaded', onUploaded);
@@ -206,7 +215,16 @@ export function AttachmentManager({
               isImage={isImageFile(a.fileName, a.fileType)}
               status={a.aiAnalysisStatus}
               mockAi={a.aiFindings?.source === 'mock'}
-              onView={() => setViewer({ attachment: a })}
+              onView={() => {
+                setFreshIds((prev) => {
+                  if (!prev.has(a.id)) return prev;
+                  const next = new Set(prev);
+                  next.delete(a.id);
+                  return next;
+                });
+                setViewer({ attachment: a });
+              }}
+              fresh={freshIds.has(a.id)}
               onDownload={() => handleDownload(a)}
             />
             {a.aiSummary && (
@@ -250,6 +268,7 @@ function AttachmentRow({
   onDownload,
   onRemove,
   local,
+  fresh,
 }: {
   name: string;
   size: number;
@@ -260,6 +279,8 @@ function AttachmentRow({
   onDownload?: () => void;
   onRemove?: () => void;
   local?: boolean;
+  /** Hozirgina kelgan (meet paytida) — hali ochilmagan */
+  fresh?: boolean;
 }) {
   const { t } = useI18n();
   const formatSize = (bytes: number) => {
@@ -269,7 +290,12 @@ function AttachmentRow({
   };
 
   return (
-    <div className="flex items-center gap-2 p-2 rounded-xl hover:bg-slate-50 transition-colors group">
+    <div
+      className={cn(
+        'flex items-center gap-2 p-2 rounded-xl transition-colors group',
+        fresh ? 'bg-amber-50 ring-1 ring-amber-200 hover:bg-amber-100/70' : 'hover:bg-slate-50',
+      )}
+    >
       <div className="p-1.5 rounded-lg bg-slate-100 group-hover:bg-brand-50 shrink-0">
         {isImage ? (
           <ImageIcon size={14} className="text-brand-600" />
@@ -288,6 +314,11 @@ function AttachmentRow({
           <p className="text-[10px] text-slate-400">{formatSize(size)}</p>
           {status && <AiStatusBadge status={status} mock={mockAi} />}
           {local && <span className="text-[10px] text-amber-600 font-medium">{t('attachments.pendingSend')}</span>}
+          {fresh && (
+            <span className="rounded bg-amber-500 px-1 py-px text-[9px] font-bold uppercase text-white">
+              {t('attachments.fresh')}
+            </span>
+          )}
         </div>
       </button>
       <button

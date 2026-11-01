@@ -1,5 +1,5 @@
 import { UT_CAMERA_FEEDS, UT_CAMERA_ORDER } from './video-config';
-import type { MediaPreferences } from './media-preferences';
+import { saveMediaPreferences, type MediaPreferences } from './media-preferences';
 import { getAudioConstraints, getUtVideoConstraints, acquireUserMedia } from './webrtc-quality';
 
 import { dedupeVideoInputs } from './video-input-devices';
@@ -117,6 +117,7 @@ export async function captureUtCameraStreams(prefs: MediaPreferences): Promise<C
   // navbatdagi bo'sh kamera beriladi — tartib UT_CAMERA_ORDER bo'yicha.
   if (!hasExplicitMapping) {
     let nextDevice = 0;
+    const autoMapping: Record<string, string> = {};
     for (const feedId of UT_CAMERA_ORDER) {
       const device = videoInputs[nextDevice];
       if (!device?.deviceId) break;
@@ -126,9 +127,16 @@ export async function captureUtCameraStreams(prefs: MediaPreferences): Promise<C
       if (stream) {
         streams.set(feedId, stream);
         markUsed(device);
+        autoMapping[feedId] = device.deviceId;
       } else {
         busyDeviceIds.push(device.deviceId);
       }
+    }
+    // Avtomatik taqsimotni SAQLAYMIZ. Ilgari u faqat xotirada edi: operator bitta
+    // katakni qo'lda o'zgartirsa, xaritada faqat o'sha katak qolib, qolgan 3 ta
+    // kamera o'chib qolardi. Sozlamalar sahifasi ham endi haqiqiy holatni ko'rsatadi.
+    if (Object.keys(autoMapping).length) {
+      saveMediaPreferences({ utCameraMapping: { ...prefs.utCameraMapping, ...autoMapping } });
     }
   }
 

@@ -1169,6 +1169,106 @@ export class ConsultationsService {
     });
   }
 
+  /** Bir odamni qisqa vaqtda qayta-qayta jiringlatib bezovta qilmaslik uchun */
+  private readonly ringThrottle = new Map<string, number>();
+  private static readonly RING_COOLDOWN_MS = 30_000;
+
+  /**
+   * Xonaga qo'ng'iroq: UT operator — mas'ul shifokorni, shifokor — UT operator(lar)ni
+   * yoki konsilium a'zosini chaqiradi. Chaqirilgan odamning ekranida jiringlaydi
+   * va "Qabul qilish" bossa video o'zi ulanadi. Xonada turganlar chaqirilmaydi.
+   */
+  async ringRoom(id: string, user: AuthUser, targetUserId?: string) {
+    const consultation = await this.prisma.consultation.findUnique({
+      where: { id },
+      select: { id: true, utId: true, mtDoctorId: true, status: true, patientId: true },
+    });
+    if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
+    await this.access.assertConsultationAccess(user, consultation);
+    if (
+      consultation.status !== ConsultationStatus.QUEUED
+      && consultation.status !== ConsultationStatus.IN_PROGRESS
+    ) {
+      throw new BadRequestException('Konsultatsiya yakunlangan — qo\'ng\'iroq qilib bo\'lmaydi');
+    }
+
+    const consultants = await this.activeConsultantIds(id);
+    const operators = await this.facilityOperatorIds(consultation.utId);
+    const members = new Set<string>([
+      ...(consultation.mtDoctorId ? [consultation.mtDoctorId] : []),
+      ...consultants,
+      ...operators,
+    ]);
+
+    let targets: string[];
+    if (targetUserId) {
+      if (!members.has(targetUserId)) throw new BadRequestException('Bu odam ushbu konsultatsiya a\'zosi emas');
+      targets = [targetUserId];
+    } else if (isUtRole(user.role)) {
+      if (!consultation.mtDoctorId) throw new BadRequestException('Mas\'ul shifokor biriktirilmagan');
+      targets = [consultation.mtDoctorId];
+    } else {
+      targets = operators;
+    }
+    targets = targets.filter((t) => t !== user.id);
+
+    const inRoom = new Set(await this.videoGateway.roomMediaUserIds(id));
+    const now = Date.now();
+    const toRing = targets.filter((t) => {
+      if (inRoom.has(t)) return false;
+      const last = this.ringThrottle.get(`${id}:${t}`) ?? 0;
+      return now - last >= ConsultationsService.RING_COOLDOWN_MS;
+    });
+    if (!toRing.length) {
+      return { rung: [] as string[], alreadyInRoom: targets.filter((t) => inRoom.has(t)) };
+    }
+    toRing.forEach((t) => this.ringThrottle.set(`${id}:${t}`, now));
+
+    const [me, patientName] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: user.id }, select: { fullName: true } }),
+      this.patientNameOf(consultation.patientId),
+    ]);
+    await this.notifications.notifyUsers(
+      toRing,
+      'Kiruvchi qo\'ng\'iroq',
+      `${me?.fullName ?? 'Hamkasb'} ${patientName} bo'yicha sizni video xonaga chaqirmoqda`,
+      {
+        consultationId: id,
+        type: 'room_call',
+        data: {
+          callerName: me?.fullName,
+          callerId: user.id,
+          callerRole: user.role,
+          patientName,
+          status: consultation.status,
+        },
+      },
+    );
+    await this.prisma.auditLog.create({
+      data: { userId: user.id, action: 'ROOM_CALL', entity: 'Consultation', entityId: id, details: { targets: toRing } },
+    });
+    return { rung: toRing, alreadyInRoom: targets.filter((t) => inRoom.has(t)) };
+  }
+
+  /** Chaqirilgan odam "Hozir emas" dedi — chaqiruvchi bilsin */
+  async declineRing(id: string, user: AuthUser, callerId: string) {
+    const consultation = await this.prisma.consultation.findUnique({
+      where: { id },
+      select: { id: true, utId: true, mtDoctorId: true, status: true },
+    });
+    if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
+    await this.access.assertConsultationAccess(user, consultation);
+    if (!callerId || callerId === user.id) return { ok: true };
+    const me = await this.prisma.user.findUnique({ where: { id: user.id }, select: { fullName: true } });
+    await this.notifications.notifyUsers(
+      [callerId],
+      'Hozir ulana olmaydi',
+      `${me?.fullName ?? 'Hamkasb'} qo'ng'iroqni qabul qilmadi — keyinroq qayta urinib ko'ring`,
+      { consultationId: id, type: 'room_call_declined', data: { callerName: me?.fullName } },
+    );
+    return { ok: true };
+  }
+
   /**
    * Konsilium xonasiga taklif havolasi. Mas'ul shifokor, konsiliumdagi shifokor
    * yoki shu muassasaning UT operatori oladi; havolani ochgan shifokor O'Z hisobi

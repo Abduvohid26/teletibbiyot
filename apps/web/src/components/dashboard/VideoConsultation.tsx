@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Mic, MicOff, Video, VideoOff, PhoneOff, Phone, MoreHorizontal,
   ChevronUp, ChevronDown, ChevronLeft, ChevronRight, ZoomIn, ZoomOut, Eye, Volume2, VolumeX, AlertTriangle,
-  LayoutGrid,
+  LayoutGrid, PhoneCall, Loader2, Maximize2, Minimize2,
 } from 'lucide-react';
+import { SpeakingIndicator, speakingIds } from '@/components/video/SpeakingIndicator';
 import { cn } from '@/lib/utils';
 import { useVideoRoom, VideoRole } from '@/hooks/use-video-room';
 import { useSessionRecording } from '@/hooks/use-session-recording';
@@ -28,6 +29,8 @@ import {
 import { announceMediaPresence } from '@/lib/video-socket-client';
 import { useI18n } from '@/i18n';
 import { AloneInRoomPrompt, useAloneInRoom } from '@/components/video/AloneInRoomPrompt';
+import { useRoomPresence } from '@/hooks/use-room-presence';
+import { useRing } from '@/hooks/use-ring';
 
 interface VideoConsultationProps {
   facilityCode?: string;
@@ -40,6 +43,9 @@ interface VideoConsultationProps {
   leadDoctorId?: string;
   /** Konsultatsiya yakunlangan, lekin xonada odam bor (Meet qoidasi) */
   sessionEnded?: boolean;
+  /** Video butun ish joyini egallagan (bitta tugma bilan kattalashtirish) */
+  expanded?: boolean;
+  onToggleExpand?: () => void;
 }
 
 const ALL_CAMERAS_VIEW = 'all';
@@ -68,6 +74,8 @@ export function VideoConsultation({
   reconnectSignal = 0,
   leadDoctorId,
   sessionEnded = false,
+  expanded = false,
+  onToggleExpand,
 }: VideoConsultationProps) {
   const { t } = useI18n();
   const [activeCamera, setActiveCamera] = useState(compact ? 'equipment' : 'close');
@@ -91,6 +99,7 @@ export function VideoConsultation({
     remoteCameras,
     remoteAudio,
     remoteDoctorFeeds,
+    activeSpeakers,
     remoteAudioTrackCount,
     toggleMic,
     toggleCam,
@@ -152,8 +161,13 @@ export function VideoConsultation({
     }
   }, [sessionKicked, consultationId]);
 
+  // Header'dan shu bemorni qayta tanlash — faqat aloqa BUZILGAN bo'lsa qayta ulaydi.
+  // Ilgari ishlab turgan qo'ng'iroq ham qayta ulanardi: mas'ulning kamerasi uzilib,
+  // UT ekranida konsilium shifokori asosiyga o'tib qolardi.
+  const roomPhaseRef = useRef(roomPhase);
+  roomPhaseRef.current = roomPhase;
   useEffect(() => {
-    if (reconnectSignal > 0) {
+    if (reconnectSignal > 0 && roomPhaseRef.current !== 'live') {
       reconnectCall();
     }
   }, [reconnectSignal, reconnectCall]);
@@ -184,6 +198,21 @@ export function VideoConsultation({
 
   // Meet: boshqalar chiqib ketdi, men yolg'iz qoldim — "Tugatasizmi?"
   const aloneState = useAloneInRoom(roomPhase, joined && !observeMode && !roomClosed);
+  // UT xonada yo'q (shifokor kutyapti) — operatorni chaqirish
+  const { inRoom } = useRoomPresence(joined ? consultationId : undefined, false);
+  const ringer = useRing(consultationId, inRoom);
+  const canRingUt = joined && !observeMode && !sessionEnded && roomPhase === 'waiting_peer';
+
+  // Konsilium shifokorini kattalashtirish (kichik oynasini bosib); UT kamerasi kichikka o'tadi
+  const [pinnedDoctorId, setPinnedDoctorId] = useState<string | null>(null);
+  const doctorFeeds = remoteDoctorFeeds ?? [];
+  const pinnedDoctor = pinnedDoctorId ? doctorFeeds.find((d) => d.id === pinnedDoctorId) ?? null : null;
+  useEffect(() => {
+    if (pinnedDoctorId && !doctorFeeds.some((d) => d.id === pinnedDoctorId)) setPinnedDoctorId(null);
+  }, [pinnedDoctorId, doctorFeeds]);
+  const speaking = speakingIds(activeSpeakers);
+  const utSpeaking = (activeSpeakers ?? []).some((sp) => sp.role === 'ut');
+  const pinnedSpeaking = !!pinnedDoctor?.userId && speaking.has(pinnedDoctor.userId);
 
   const uniqueCameraStreams = mapUniqueUtCameraStreams(remoteCameras);
 
@@ -285,6 +314,10 @@ export function VideoConsultation({
         open={aloneState.alone}
         sessionEnded={sessionEnded}
         onStay={aloneState.keepWaiting}
+        onRing={() => {
+          aloneState.keepWaiting();
+          void ringer.ring();
+        }}
         onEnd={() => {
           aloneState.keepWaiting();
           handleLeave();
@@ -300,7 +333,29 @@ export function VideoConsultation({
           compact ? 'w-[94%] max-w-full mb-0' : 'w-full m-3 mb-0',
           !compact && 'min-h-[260px]',
         )}>
-        {isAllView ? (
+        {pinnedDoctor ? (
+          <>
+            <VideoTile
+              stream={pinnedDoctor.stream}
+              muted
+              className="absolute inset-0 w-full h-full [&_video]:object-cover"
+              placeholder={t('common.doctor')}
+              live={isStreamLive(pinnedDoctor.stream)}
+            />
+            <span className="absolute top-2 left-2 z-20 inline-flex max-w-[60%] items-center gap-1 rounded-md bg-gold-400 px-2 py-0.5 text-xs font-bold text-brand-950">
+              <span className="truncate">
+                {pinnedDoctor.name || t('common.doctor')} · {pinnedDoctor.isLead ? t('video.leadTag') : t('video.consiliumTag')}
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setPinnedDoctorId(null)}
+              className="absolute top-2 right-2 z-20 rounded-md bg-white/90 px-2 py-1 text-[11px] font-bold text-brand-950 shadow hover:bg-white"
+            >
+              {t('video.backToPatient')}
+            </button>
+          </>
+        ) : isAllView ? (
           <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-0.5 p-0.5 bg-slate-950">
             {UT_CAMERA_FEEDS.map((feed) => {
               const stream = uniqueCameraStreams[feed.id] ?? null;
@@ -352,13 +407,46 @@ export function VideoConsultation({
         {/* Konsilium: barcha ishtirokchilar ovozi bitta barqaror elementda */}
         <RemoteAudio stream={remoteAudio} enabled={speakerOn} trackCount={remoteAudioTrackCount} />
 
-        {/* Konsiliumdagi boshqa shifokorlar — kichik oynalar */}
-        {(remoteDoctorFeeds?.length ?? 0) > 0 && (
-          <div className="absolute bottom-3 left-3 z-10 flex gap-1.5">
-            {remoteDoctorFeeds.map((d) => (
-              <div
+        {/* Kim gapiryapti — ism va roli bilan; gapirayotgan oyna yashil hoshiyada */}
+        <div className="absolute top-2 inset-x-0 z-20 flex justify-center px-2 pointer-events-none">
+          <SpeakingIndicator speakers={activeSpeakers} leadDoctorId={leadDoctorId} />
+        </div>
+        {((pinnedDoctor && pinnedSpeaking) || (!pinnedDoctor && utSpeaking)) && (
+          <div className="pointer-events-none absolute inset-0 z-10 rounded-xl ring-4 ring-inset ring-emerald-400/90" />
+        )}
+
+        {/* Konsiliumdagi boshqa shifokorlar — kichik oynalar (bosilsa kattalashadi) */}
+        {(doctorFeeds.length > 0 || pinnedDoctor) && (
+          <div className={cn('absolute bottom-3 left-3 z-10 flex gap-1.5', expanded && 'gap-2')}>
+            {pinnedDoctor && (
+              <button
+                type="button"
+                onClick={() => setPinnedDoctorId(null)}
+                title={t('video.backToPatient')}
+                className={cn(
+                  'relative aspect-video rounded-lg overflow-hidden shadow-lg bg-slate-900 cursor-pointer transition-transform hover:scale-105',
+                  expanded ? 'w-44 sm:w-56' : 'w-28 sm:w-32',
+                  utSpeaking ? 'ring-4 ring-emerald-400' : 'ring-2 ring-white/40',
+                )}
+              >
+                <VideoTile stream={mainStream} muted className="absolute inset-0 w-full h-full [&_video]:object-cover" />
+                <span className="absolute bottom-0 inset-x-0 bg-slate-950/75 text-white text-[9px] font-semibold px-1 py-0.5 truncate pointer-events-none">
+                  {facilityCode} · {t('video.roleUt')}
+                </span>
+              </button>
+            )}
+            {doctorFeeds.filter((d) => d !== pinnedDoctor).map((d) => (
+              <button
+                type="button"
                 key={d.id}
-                className="relative w-28 sm:w-32 aspect-video rounded-lg overflow-hidden ring-2 ring-gold-400/60 shadow-lg bg-slate-900"
+                onClick={() => setPinnedDoctorId(d.id)}
+                title={t('video.enlarge')}
+                aria-label={`${d.name || t('common.doctor')} — ${t('video.enlarge')}`}
+                className={cn(
+                  'relative aspect-video rounded-lg overflow-hidden shadow-lg bg-slate-900 cursor-pointer transition-transform hover:scale-105',
+                  expanded ? 'w-44 sm:w-56' : 'w-28 sm:w-32',
+                  d.userId && speaking.has(d.userId) ? 'ring-4 ring-emerald-400' : 'ring-2 ring-gold-400/60',
+                )}
               >
                 <VideoTile stream={d.stream} muted className="absolute inset-0 w-full h-full [&_video]:object-cover" />
                 <span
@@ -372,7 +460,7 @@ export function VideoConsultation({
                 <span className="absolute bottom-0 inset-x-0 bg-slate-950/75 text-white text-[9px] font-semibold px-1 py-0.5 truncate pointer-events-none">
                   {d.name || t('common.doctor')}
                 </span>
-              </div>
+              </button>
             ))}
           </div>
         )}
@@ -486,6 +574,23 @@ export function VideoConsultation({
             peerLabel={peerDisplayName || t('common.operator')}
             onRetry={roomPhase === 'error' ? handleReconnect : undefined}
           />
+        )}
+
+        {canRingUt && (
+          <div className="absolute inset-x-0 bottom-20 z-30 flex justify-center px-3 pointer-events-none">
+            <button
+              type="button"
+              onClick={() => void ringer.ring()}
+              disabled={ringer.ringing}
+              className={cn(
+                'pointer-events-auto inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold shadow-xl transition-colors',
+                ringer.ringing ? 'bg-white/15 text-white ring-1 ring-white/30' : 'bg-emerald-600 text-white hover:bg-emerald-500',
+              )}
+            >
+              {ringer.ringing ? <Loader2 size={14} className="animate-spin" /> : <PhoneCall size={14} />}
+              {ringer.ringing ? t('ring.calling') : t('ring.callUt')}
+            </button>
+          </div>
         )}
 
         {videoPaused && !observeMode && roomPhase === 'live' && (
@@ -609,6 +714,15 @@ export function VideoConsultation({
               <ControlBtn active={speakerOn} onClick={toggleSpeaker} icon={speakerOn ? Volume2 : VolumeX} compact={compact} label={t('video.speaker')} />
               <ControlBtn active={camOn} onClick={toggleCam} icon={camOn ? Video : VideoOff} compact={compact} label={t('video.cam')} />
               <ControlBtn active={showPtz} onClick={() => setShowPtz(!showPtz)} icon={MoreHorizontal} compact={compact} label="PTZ" />
+              {onToggleExpand && (
+                <ControlBtn
+                  active={expanded}
+                  onClick={onToggleExpand}
+                  icon={expanded ? Minimize2 : Maximize2}
+                  compact={compact}
+                  label={expanded ? t('video.collapse') : t('video.expand')}
+                />
+              )}
             </div>
             <button
               type="button"

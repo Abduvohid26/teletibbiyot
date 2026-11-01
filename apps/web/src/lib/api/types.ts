@@ -228,6 +228,8 @@ export type NotificationType =
   | 'consilium_removed'
   | 'consilium_left'
   | 'consilium_joined'
+  | 'room_call'
+  | 'room_call_declined'
   | 'consilium_opinion'
   | 'second_opinion'
   | 'appointment'
@@ -241,7 +243,14 @@ export interface AppNotification {
   read: boolean;
   type?: NotificationType;
   /** Qo'ng'iroq oynasi uchun: callerName, patientName, status ... */
-  data?: { callerName?: string; patientName?: string; status?: string; [key: string]: unknown } | null;
+  data?: {
+    callerName?: string;
+    callerId?: string;
+    callerRole?: string;
+    patientName?: string;
+    status?: string;
+    [key: string]: unknown;
+  } | null;
   consultationId?: string | null;
   entityType?: string | null;
   entityId?: string | null;

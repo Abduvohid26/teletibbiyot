@@ -1,5 +1,6 @@
 'use client';
 
+import { useVoiceActivity, type VoiceSource } from '@/hooks/use-voice-activity';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ConnectionQuality as LivekitConnectionQuality,
@@ -52,6 +53,16 @@ function mapLivekitQuality(q: LivekitConnectionQuality): ConnectionQuality {
   if (q === LivekitConnectionQuality.Poor) return 'poor';
   if (q === LivekitConnectionQuality.Lost) return 'poor';
   return 'unknown';
+}
+
+/** Hozir gapirayotgan ishtirokchi — UI'da "kim gapiryapti" ko'rsatish uchun */
+export interface ActiveSpeaker {
+  /** userId (LiveKit identity) */
+  id: string;
+  name: string;
+  /** 'mt' | 'ut' | 'observe' */
+  role: string;
+  isLocal: boolean;
 }
 
 function parseRole(metadata?: string): string {
@@ -169,6 +180,8 @@ export function useLivekitRoom({
    * Endi har bir ishtirokchi o'z identity si bo'yicha saqlanadi.
    */
   const [remoteDoctors, setRemoteDoctors] = useState<Record<string, { name: string; stream: MediaStream }>>({});
+  /** Hozir gapirayotganlar (LiveKit ovoz darajasi bo'yicha), eng balandi birinchi */
+  const [activeSpeakers, setActiveSpeakers] = useState<ActiveSpeaker[]>([]);
   /**
    * BARCHA uzoq ishtirokchilarning ovozi BITTA MediaStream ichida.
    *
@@ -218,6 +231,21 @@ export function useLivekitRoom({
   const [roomClosed, setRoomClosed] = useState(false);
   const [sessionKicked, setSessionKicked] = useState(false);
   const [sfuConnected, setSfuConnected] = useState(false);
+
+  // Kim gapiryapti — brauzerning o'zida ovoz darajasi bo'yicha (server signali bo'lmasa ham ishlaydi)
+  const voiceSpeakers = useVoiceActivity(() => {
+    const room = roomRef.current;
+    if (!room) return [];
+    const list: VoiceSource[] = [];
+    for (const [identity, track] of remoteAudioTracksRef.current) {
+      const p = room.remoteParticipants.get(identity);
+      list.push({ id: identity, name: p?.name || '', role: parseRole(p?.metadata), isLocal: false, track });
+    }
+    const local = room.localParticipant;
+    const mic = local.getTrackPublication(Track.Source.Microphone)?.track?.mediaStreamTrack;
+    if (mic) list.push({ id: local.identity, name: local.name || '', role: parseRole(local.metadata), isLocal: true, track: mic });
+    return list;
+  }, sfuConnected);
   const [connectionStats, setConnectionStats] = useState<WebRtcStatsSnapshot>(EMPTY_STATS);
 
   micOnRef.current = micOn;
@@ -343,7 +371,7 @@ export function useLivekitRoom({
     }
   }, [attachRemoteTrack]);
 
-  const publishLocalTracks = useCallback(async (room: Room, gen: number, repairAttempt = 0) => {
+  const publishLocalTracksNow = useCallback(async (room: Room, gen: number, repairAttempt = 0) => {
     if (!isPublisher) return;
     // Har publish oldidan tekshiramiz: xona hali tirikmi va bu urinish eskirmaganmi.
     // `publishTrack` uzilgan xonada `pcManager is undefined` bilan yiqiladi.
@@ -354,10 +382,6 @@ export function useLivekitRoom({
     if (!stillValid()) return;
     const preset = qualityPresetRef.current;
     const encoding = preset === 'low' ? VideoPresets.h360.encoding : VideoPresets.h720.encoding;
-    const layers =
-      preset === 'low'
-        ? [VideoPresets.h90, VideoPresets.h180, VideoPresets.h360]
-        : [VideoPresets.h180, VideoPresets.h360, VideoPresets.h720];
 
     /**
      * Kodek tanlovi — trafik EMAS, CPU bo'yicha.
@@ -384,9 +408,16 @@ export function useLivekitRoom({
         }
       : {
           videoCodec: 'vp8' as const,
-          simulcast: true,
+          /**
+           * UT: simulcast O'CHIQ. 4 ta kamera × 3 qatlam = 12 ta enkoder — brauzer
+           * bittasini ishga tushira olmay qolardi va server o'sha kamerani
+           * "publish time out" bilan tashlab yuborardi (shifokor "Asosiy"ni umuman
+           * ko'rmasdi). Simulcast yuklash trafigini ham oshiradi — UT aynan sekin
+           * internet tomoni. Endi har kamera bitta sifatda ketadi, server uni
+           * barcha shifokorlarga bir xil uzatadi.
+           */
+          simulcast: false,
           videoEncoding: encoding,
-          videoSimulcastLayers: layers,
         };
 
     if (role === 'mt') {
@@ -466,6 +497,24 @@ export function useLivekitRoom({
   }, [hasPublishedName, isPublisher, role]);
 
   /**
+   * Publish NAVBATI: bir vaqtda faqat bitta publish jarayoni.
+   *
+   * Ilgari ulanish effekti, `Reconnected` hodisasi, tiklash taymeri va kamera
+   * almashtirish publish'ni bir vaqtda boshlab yuborardi. LiveKit'da parallel
+   * muzokaralar bir-biriga xalaqit beradi: server bitta kamerani ("Asosiy")
+   * "publish time out" bilan tashlab yuborardi, UT esa uni e'lon qilingan deb
+   * hisoblab qayta yubormasdi — shifokor o'sha kamerani umuman ko'rmasdi.
+   */
+  const publishQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const publishLocalTracks = useCallback((room: Room, gen: number, repairAttempt = 0) => {
+    const run = publishQueueRef.current
+      .catch(() => undefined)
+      .then(() => publishLocalTracksNow(room, gen, repairAttempt));
+    publishQueueRef.current = run.catch(() => undefined);
+    return run;
+  }, [publishLocalTracksNow]);
+
+  /**
    * Publish qilinmay qolgan UT kameralarini qayta e'lon qiladi.
    * 3s → 6s → 12s ... maksimum 5 urinish; hammasi joyida bo'lsa to'xtaydi.
    */
@@ -533,6 +582,7 @@ export function useLivekitRoom({
     setRemoteCameras({});
     setRemoteAudio(null);
     setRemoteDoctors({});
+    setActiveSpeakers([]);
     remoteAudioStreamRef.current?.getAudioTracks().forEach((t) => {
       remoteAudioStreamRef.current?.removeTrack(t);
     });
@@ -655,8 +705,21 @@ export function useLivekitRoom({
       },
     });
     roomRef.current = room;
+    // Faqat dev: e2e testlar SFU holatini (obunalar, treklar) tekshira olishi uchun
+    if (process.env.NODE_ENV !== 'production') (window as unknown as { __lkRoom?: Room }).__lkRoom = room;
 
     room.on(RoomEvent.TrackSubscribed, attachRemoteTrack);
+    room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
+      const localId = room.localParticipant.identity;
+      setActiveSpeakers(
+        speakers.map((p) => ({
+          id: p.identity,
+          name: p.name || '',
+          role: parseRole(p.metadata),
+          isLocal: p.identity === localId,
+        })),
+      );
+    });
     room.on(RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
       detachRemoteTrack(publication, participant);
     });
@@ -1271,6 +1334,7 @@ export function useLivekitRoom({
     remoteAudio,
     mtDoctorStream: remoteCameras[MT_DOCTOR_STREAM_ID] ?? null,
     /** Konsiliumdagi barcha uzoq shifokorlar (o'zidan tashqari) */
+    activeSpeakers: voiceSpeakers.length ? voiceSpeakers : activeSpeakers,
     remoteDoctorFeeds: Object.entries(remoteDoctors).map(([identity, d]) => ({
       id: identity,
       name: d.name,

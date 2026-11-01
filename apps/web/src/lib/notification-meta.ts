@@ -8,6 +8,7 @@ import {
   FileText,
   MessageSquareText,
   PhoneCall,
+  PhoneOff,
   PlugZap,
   UserMinus,
   UserPlus,
@@ -26,7 +27,7 @@ import type { RingtoneKind, SoundKind } from '@/lib/sounds';
  *  - newPatient  — UT shifokorga bemor yubordi
  *  - emergency   — favqulodda bemor
  */
-export type CallKind = 'consilium' | 'doctorReady' | 'newPatient' | 'emergency';
+export type CallKind = 'consilium' | 'doctorReady' | 'newPatient' | 'emergency' | 'roomCall';
 
 export interface NotificationPresentation {
   icon: LucideIcon;
@@ -61,6 +62,10 @@ export function presentationOf(n: Pick<AppNotification, 'type'>, role: string): 
       return { icon: AlertTriangle, tone: TONES.red, sound: 'alert', call: doctor ? { kind: 'emergency', ringtone: 'urgent' } : null };
     case 'consilium_invite':
       return { icon: Users, tone: TONES.brand, sound: 'chime', call: null };
+    case 'room_call':
+      return { icon: PhoneCall, tone: TONES.green, sound: null, call: doctor || ut ? { kind: 'roomCall', ringtone: 'call' } : null };
+    case 'room_call_declined':
+      return { icon: PhoneOff, tone: TONES.amber, sound: 'chime', call: null };
     case 'consilium_joined':
       return { icon: UserPlus, tone: TONES.green, sound: 'chime', call: null };
     case 'consilium_opinion':
@@ -91,7 +96,7 @@ export function notificationHref(n: AppNotification, role: string): string | nul
   const type = n.type ?? 'info';
   if (isAdminRole(role)) return '/admin';
   if (isUtRole(role)) {
-    if (type === 'consultation_started') return '/ut/vitals';
+    if (type === 'consultation_started' || type === 'room_call') return '/ut/vitals';
     if (type === 'report_ready' || type === 'consultation_completed') return '/ut/patients?filter=tashxis';
     if (type === 'consultation_cancelled') return '/ut/patients';
     return n.consultationId ? '/ut/patients' : null;
@@ -104,6 +109,7 @@ export function notificationHref(n: AppNotification, role: string): string | nul
       || type === 'consilium_opinion'
       || type === 'consilium_left'
       || type === 'consilium_joined'
+      || type === 'room_call'
     ) {
       return '/dashboard';
     }

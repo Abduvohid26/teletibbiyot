@@ -22,6 +22,8 @@ export type NotificationType =
   | 'consilium_removed'
   | 'consilium_left'
   | 'consilium_joined'
+  | 'room_call'
+  | 'room_call_declined'
   | 'consilium_opinion'
   | 'second_opinion'
   | 'appointment'

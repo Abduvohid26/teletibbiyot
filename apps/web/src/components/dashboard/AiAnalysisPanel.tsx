@@ -16,6 +16,8 @@ import { useI18n } from '@/i18n';
 interface ChatMessage {
   role: 'user' | 'assistant';
   text: string;
+  /** Javob olinmadi — shu savolni qayta so'rash mumkin */
+  retryQuestion?: string;
 }
 
 interface AiAnalysisPanelProps {
@@ -84,19 +86,27 @@ export function AiAnalysisPanel({ analysis, consultationId, steps, onRefresh, co
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages, loading]);
 
-  const handleAsk = async (q?: string) => {
+  const handleAsk = async (q?: string, retry = false) => {
     const text = (q ?? question).trim();
     if (!text || !consultationId || loading) return;
     setQuestion('');
-    setChatMessages((prev) => [...prev, { role: 'user', text }]);
+    // Qayta so'rashda savol takrorlanmaydi — faqat muvaffaqiyatsiz javob o'rniga yangisi keladi
+    setChatMessages((prev) =>
+      retry ? prev.filter((m) => m.retryQuestion !== text) : [...prev, { role: 'user', text }],
+    );
     setLoading(true);
     setChatOpen(true);
     try {
       const res = await api.aiChat(consultationId, text);
-      const answer = res.aiUnavailable || !res.answer ? t('clinical.chatUnavailable') : res.answer;
-      setChatMessages((prev) => [...prev, { role: 'assistant', text: answer }]);
+      const failed = res.aiUnavailable || !res.answer;
+      setChatMessages((prev) => [
+        ...prev,
+        failed
+          ? { role: 'assistant', text: t('clinical.chatUnavailable'), retryQuestion: text }
+          : { role: 'assistant', text: res.answer },
+      ]);
     } catch {
-      setChatMessages((prev) => [...prev, { role: 'assistant', text: t('clinical.chatError') }]);
+      setChatMessages((prev) => [...prev, { role: 'assistant', text: t('clinical.chatError'), retryQuestion: text }]);
     } finally {
       setLoading(false);
     }
@@ -339,6 +349,16 @@ export function AiAnalysisPanel({ analysis, consultationId, steps, onRefresh, co
                 )}
               >
                 <AiChatMessage text={msg.text} role={msg.role} />
+                {msg.retryQuestion && (
+                  <button
+                    type="button"
+                    onClick={() => void handleAsk(msg.retryQuestion, true)}
+                    disabled={loading}
+                    className="mt-2 inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-[11px] font-semibold text-brand-700 hover:bg-brand-50 disabled:opacity-50"
+                  >
+                    <RefreshCw size={11} /> {t('clinical.chatRetry')}
+                  </button>
+                )}
               </div>
             ))}
             {loading && (

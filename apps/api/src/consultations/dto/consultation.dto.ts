@@ -330,3 +330,16 @@ export class JoinByInviteDto {
   @MaxLength(2000)
   token: string;
 }
+
+export class RingRoomDto {
+  @ApiProperty({ required: false, description: 'Kimni chaqirish (bo\'sh — UT uchun mas\'ul shifokor, shifokor uchun UT)' })
+  @IsOptional()
+  @IsUUID('4')
+  targetUserId?: string;
+}
+
+export class DeclineRingDto {
+  @ApiProperty({ description: 'Qo\'ng\'iroq qilgan foydalanuvchi' })
+  @IsUUID('4')
+  callerId: string;
+}

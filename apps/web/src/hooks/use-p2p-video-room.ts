@@ -5,6 +5,8 @@ import { captureUtCameraStreams, stopAllStreams } from '@/lib/ut-camera-capture'
 import { isUtStreamLive, mapUniqueUtCameraStreams } from '@/lib/ut-camera-streams';
 import { useSharedVideoSocket } from '@/hooks/use-shared-video-socket';
 import { isRoomActive, subscribeJoinResults, leaveConsultationRoom, rejoinConsultationRoom } from '@/lib/video-socket-client';
+import type { ActiveSpeaker } from '@/hooks/use-livekit-room';
+import { useVoiceActivity, type VoiceSource } from '@/hooks/use-voice-activity';
 import { useWebRtcStats } from '@/hooks/use-webrtc-stats';
 import { checkTurnReachable } from '@/lib/turn-preflight';
 import {
@@ -192,6 +194,31 @@ export function useP2PVideoRoom({
   const [cameraPermissionNeeded, setCameraPermissionNeeded] = useState(false);
   /** Xonadagi boshqa ishtirokchilar soni (presence UI) */
   const [peerCount, setPeerCount] = useState(0);
+
+  // Kim gapiryapti — ovoz darajasi bo'yicha (ism/rol socket ma'lumotidan)
+  const voiceSpeakers = useVoiceActivity(() => {
+    const list: VoiceSource[] = [];
+    for (const [socketId, track] of remoteAudioTracksRef.current) {
+      const meta = participantMetaRef.current.get(socketId);
+      const userId = participantUserIdsRef.current.get(socketId) ?? socketId;
+      const r = meta?.role ?? '';
+      list.push({
+        id: userId,
+        name: meta?.userName ?? '',
+        role: r === 'UT_OPERATOR' ? 'ut' : r === 'MT_DOCTOR' ? 'mt' : r,
+        isLocal: false,
+        track,
+      });
+    }
+    for (const stream of localStreamsRef.current.values()) {
+      const mic = stream.getAudioTracks()[0];
+      if (mic) {
+        list.push({ id: 'local', name: '', role: role === 'ut' ? 'ut' : 'mt', isLocal: true, track: mic });
+        break;
+      }
+    }
+    return list;
+  }, Boolean(enabled && consultationId));
   /** Asosiy sherik ismi (UT↔MT) — overlay da ko'rsatiladi */
   const [peerDisplayName, setPeerDisplayName] = useState('');
   /** Oxirgi ko'rilgan sherik ismi — chiqib ketganda ham "X kutilmoqda" uchun */
@@ -2202,6 +2229,7 @@ export function useP2PVideoRoom({
     mtDoctorStream: remoteCameras[MT_DOCTOR_STREAM_ID] ?? null,
     /** Konsiliumdagi barcha uzoq shifokorlar (o'zidan tashqari), har biri alohida */
     remoteDoctorFeeds: remoteDoctors,
+    activeSpeakers: voiceSpeakers as ActiveSpeaker[],
     /** Umumiy audio oqimdagi trek soni — <audio> ni qayta ishga tushirish uchun */
     remoteAudioTrackCount,
     utCameraStreams,

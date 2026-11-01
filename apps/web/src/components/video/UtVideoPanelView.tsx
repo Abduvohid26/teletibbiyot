@@ -16,8 +16,10 @@ import {
   PhoneOff,
   Stethoscope,
   Loader2,
+  PhoneCall,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { SpeakingIndicator, speakingIds } from '@/components/video/SpeakingIndicator';
 import { useVideoRoom } from '@/hooks/use-video-room';
 import { VideoTile } from '@/components/video/VideoTile';
 import { RemoteAudio } from '@/components/video/RemoteAudio';
@@ -42,6 +44,8 @@ interface UtVideoPanelViewProps {
   onApplyCameraMapping?: () => Promise<void> | void;
   /** Kutish paytida operatorga bosqichni ko'rsatish uchun */
   consultationStatus?: string;
+  /** Mas'ul shifokor xonada yo'q — "Shifokorga qo'ng'iroq qilish" tugmasi */
+  ring?: { show: boolean; ringing: boolean; onRing: () => void };
 }
 
 type ViewMode = 'doctor' | 'all';
@@ -59,6 +63,7 @@ export function UtVideoPanelView({
   onLeave,
   onApplyCameraMapping,
   consultationStatus,
+  ring,
 }: UtVideoPanelViewProps) {
   const { t } = useI18n();
   const [viewMode, setViewMode] = useState<ViewMode>(defaultView === 'all' ? 'all' : 'doctor');
@@ -96,6 +101,7 @@ export function UtVideoPanelView({
     remoteAudio,
     remoteDoctorFeeds,
     primaryDoctor,
+    activeSpeakers,
     remoteAudioTrackCount,
     toggleMic,
     toggleCam,
@@ -111,20 +117,34 @@ export function UtVideoPanelView({
     networkAudioOnly,
   } = video;
 
-  const doctorLive = !!mtDoctorStream && isUtStreamLive(mtDoctorStream);
-  // Konsilium: asosiy oynadagidan tashqari qolgan shifokorlar
-  const extraDoctors = (remoteDoctorFeeds ?? []).filter((d) => d.stream !== mtDoctorStream);
+  // Operator kichik oynani bosib istalgan shifokorni kattalashtira oladi
+  const [pinnedId, setPinnedId] = useState<string | null>(null);
+  const feeds = remoteDoctorFeeds ?? [];
+  const pinned = pinnedId ? feeds.find((d) => d.id === pinnedId) ?? null : null;
+  useEffect(() => {
+    if (pinnedId && !feeds.some((d) => d.id === pinnedId)) setPinnedId(null);
+  }, [pinnedId, feeds]);
+  const mainFeed = pinned ?? feeds[0] ?? null;
+  const mainStream = mainFeed?.stream ?? mtDoctorStream;
+  const doctorLive = !!mainStream && isUtStreamLive(mainStream);
+  // Konsilium: asosiy oynadagidan tashqari qolgan shifokorlar (mas'ul ham, agar boshqasi kattalashtirilgan bo'lsa)
+  const extraDoctors = feeds.filter((d) => d !== mainFeed);
+  const leadFeed = feeds.find((d) => d.isLead);
+  const speaking = speakingIds(activeSpeakers);
+  const mainSpeaking = !!mainFeed?.userId && speaking.has(mainFeed.userId);
   const utLiveCount = utCameraStreams.filter((c) => c.active && isUtStreamLive(c.stream)).length;
   const isAllView = viewMode === 'all';
   const doctorLabel = t('common.doctor');
   // Katta oynada kim: ism + mas'ul/konsilium. Ilgari faqat "Shifokor" yozilardi
-  const mainLabel = primaryDoctor
-    ? `${primaryDoctor.name || doctorLabel} · ${primaryDoctor.isLead ? t('video.leadTag') : t('video.consiliumTag')}`
-    : doctorName
+  const mainLabel = mainFeed
+    ? `${mainFeed.name || doctorLabel} · ${mainFeed.isLead ? t('video.leadTag') : t('video.consiliumTag')}`
+    : primaryDoctor
+      ? `${primaryDoctor.name || doctorLabel} · ${primaryDoctor.isLead ? t('video.leadTag') : t('video.consiliumTag')}`
+      : doctorName
       ? `${doctorName} · ${t('video.leadTag')}`
       : doctorLabel;
   // Mas'ul chiqib ketgan, katta oynada konsilium shifokori — operator buni bilishi kerak
-  const leadAway = !!primaryDoctor && !primaryDoctor.isLead;
+  const leadAway = feeds.length > 0 && !leadFeed;
 
   // Kutishda 4 kamerani ko'rish/sozlash uchun "Hammasi" rejimiga o'tamiz
   useEffect(() => {
@@ -248,7 +268,7 @@ export function UtVideoPanelView({
                 className="relative min-h-0 min-w-0 rounded-lg overflow-hidden ring-1 ring-gold-400/40 hover:ring-gold-300/80 transition-shadow bg-brand-900"
               >
                 <VideoTile
-                  stream={mtDoctorStream}
+                  stream={mainStream}
                   muted
                   className="absolute inset-0 w-full h-full [&_video]:object-cover"
                   placeholder={doctorLabel}
@@ -320,7 +340,7 @@ export function UtVideoPanelView({
           ) : (
             <>
               <VideoTile
-                stream={mtDoctorStream}
+                stream={mainStream}
                 muted
                 className="absolute inset-0 w-full h-full [&_video]:object-cover"
                 placeholder={t('video.doctorWaiting')}
@@ -350,6 +370,25 @@ export function UtVideoPanelView({
             />
           )}
 
+          {ring?.show && (
+            <div className="absolute inset-x-0 bottom-24 z-30 flex justify-center px-3 pointer-events-none">
+              <button
+                type="button"
+                onClick={ring.onRing}
+                disabled={ring.ringing}
+                className={cn(
+                  'pointer-events-auto inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold shadow-xl transition-colors',
+                  ring.ringing
+                    ? 'bg-white/15 text-white ring-1 ring-white/30'
+                    : 'bg-emerald-600 text-white hover:bg-emerald-500',
+                )}
+              >
+                {ring.ringing ? <Loader2 size={16} className="animate-spin" /> : <PhoneCall size={16} />}
+                {ring.ringing ? t('ring.calling') : t('ring.callDoctor')}
+              </button>
+            </div>
+          )}
+
           {videoPaused && roomPhase === 'live' && (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-sm px-4">
               <VideoOff className="w-10 h-10 text-slate-400 mb-2" />
@@ -371,6 +410,26 @@ export function UtVideoPanelView({
           {/* Barcha ishtirokchilar ovozi — bitta barqaror audio elementi */}
           <RemoteAudio stream={remoteAudio} enabled={speakerOn} trackCount={remoteAudioTrackCount} />
 
+          {/* Kim gapiryapti — ism va roli bilan */}
+          <div className="absolute top-2 inset-x-0 z-30 flex justify-center px-2">
+            <SpeakingIndicator speakers={activeSpeakers} leadDoctorId={leadFeed?.userId} />
+          </div>
+
+          {/* Boshqa shifokor kattalashtirilgan — bir bosishda mas'ulga qaytish */}
+          {pinned && leadFeed && pinned !== leadFeed && (
+            <button
+              type="button"
+              onClick={() => setPinnedId(null)}
+              className="absolute top-9 left-2 z-30 rounded-md bg-white/90 px-2 py-1 text-[11px] font-bold text-brand-950 shadow hover:bg-white"
+            >
+              {t('video.backToLead')}
+            </button>
+          )}
+
+          {mainSpeaking && (
+            <div className="pointer-events-none absolute inset-0 z-10 rounded-lg ring-4 ring-inset ring-emerald-400/90" />
+          )}
+
           {leadAway && roomPhase === 'live' && (
             <div className="absolute top-10 left-2 z-20 rounded-md bg-amber-500/95 px-2 py-1 text-[11px] font-semibold text-white shadow">
               {t('video.leadNotInRoom')}
@@ -381,9 +440,17 @@ export function UtVideoPanelView({
           {extraDoctors.length > 0 && (
             <div className="absolute bottom-2 left-2 z-20 flex gap-1.5">
               {extraDoctors.map((d) => (
-                <div
+                <button
+                  type="button"
                   key={d.id}
-                  className="relative w-24 h-16 sm:w-28 sm:h-20 rounded-lg overflow-hidden ring-1 ring-gold-400/60 bg-brand-900 shadow-lg"
+                  // Bosilsa — shu shifokor katta oynaga chiqadi
+                  onClick={() => setPinnedId(d === feeds[0] && !pinned ? null : d.id)}
+                  title={t('video.enlarge')}
+                  aria-label={`${d.name || doctorLabel} — ${t('video.enlarge')}`}
+                  className={cn(
+                    'relative w-28 h-20 sm:w-36 sm:h-24 rounded-lg overflow-hidden bg-brand-900 shadow-lg transition-transform hover:scale-105 cursor-pointer',
+                    d.userId && speaking.has(d.userId) ? 'ring-4 ring-emerald-400' : 'ring-1 ring-gold-400/60',
+                  )}
                 >
                   <VideoTile
                     stream={d.stream}
@@ -403,7 +470,7 @@ export function UtVideoPanelView({
                   <span className="absolute bottom-0 inset-x-0 bg-slate-950/75 text-white text-[9px] font-semibold px-1 py-0.5 truncate pointer-events-none">
                     {d.name || doctorLabel}
                   </span>
-                </div>
+                </button>
               ))}
             </div>
           )}

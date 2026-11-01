@@ -72,6 +72,22 @@ export function defineConsultationsApi(client: HttpClient) {
       });
     },
 
+    /** Xonaga qo'ng'iroq: UT → mas'ul, shifokor → UT (yoki aniq a'zo) */
+    ringConsultationRoom(consultationId: string, targetUserId?: string) {
+      return client.request<{ rung: string[]; alreadyInRoom: string[] }>(
+        `/consultations/${consultationId}/ring`,
+        { method: 'POST', body: JSON.stringify(targetUserId ? { targetUserId } : {}) },
+      );
+    },
+
+    /** Kiruvchi qo'ng'iroqni rad etish — chaqiruvchiga "hozir ulana olmaydi" boradi */
+    declineConsultationRing(consultationId: string, callerId: string) {
+      return client.request<{ ok: boolean }>(`/consultations/${consultationId}/ring/decline`, {
+        method: 'POST',
+        body: JSON.stringify({ callerId }),
+      });
+    },
+
     /** Konsilium xonasiga taklif havolasi (token) — 6 soat amal qiladi */
     createConsiliumInviteLink(consultationId: string) {
       return client.request<{ token: string; expiresAt: string }>(

@@ -80,6 +80,10 @@ function matchesSubscription(cid: string, ids: string[], staffFeed: boolean): bo
   return ids.includes(cid);
 }
 
+/** Bir paytda kelgan fayllar bitta toastga yig'iladi */
+const pendingUploads = new Map<string, string[]>();
+const uploadBatchTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
 /** Bir umumiy socket orqali bir nechta konsultatsiyani yoki staff feed orqali kuzatish */
 export function useConsultationRealtime(
   consultationIds: string[],
@@ -106,7 +110,16 @@ export function useConsultationRealtime(
       const attachment = payload as Attachment;
       handlersRef.current.onAttachmentUploaded?.(attachment, cid);
       if (options?.notifyToasts && attachment.fileName) {
-        toast.info(t('realtime.newAttachmentTitle'), { description: attachment.fileName });
+        // Bir paytda bir nechta fayl kelsa — bitta toast (har fayl uchun alohida emas)
+        const batch = pendingUploads.get(cid) ?? [];
+        batch.push(attachment.fileName);
+        pendingUploads.set(cid, batch);
+        toast.info(
+          batch.length > 1 ? t('realtime.newAttachmentsTitle', { count: batch.length }) : t('realtime.newAttachmentTitle'),
+          { id: `rt-files-${cid}`, description: batch.join(', ') },
+        );
+        clearTimeout(uploadBatchTimers.get(cid));
+        uploadBatchTimers.set(cid, setTimeout(() => pendingUploads.delete(cid), 6000));
       }
       window.dispatchEvent(
         new CustomEvent('attachment-uploaded', { detail: { consultationId: cid, attachment } }),
@@ -118,9 +131,8 @@ export function useConsultationRealtime(
       if (!matchesSubscription(cid, ids, staffFeed)) return;
       const attachment = payload as Attachment;
       handlersRef.current.onAttachmentAnalyzed?.(attachment, cid);
-      if (options?.notifyToasts && attachment.aiSummary) {
-        toast.success(t('realtime.aiAnalyzedTitle'), { description: attachment.fileName });
-      }
+      // "AI tahlil qildi" — alohida toast yo'q: ro'yxatdagi "AI tahlil ✓" belgisi yetarli
+      // (meet paytida har fayl uchun 2 ta toast AI panelini to'sib qo'yardi)
       window.dispatchEvent(
         new CustomEvent('attachment-analyzed', { detail: { consultationId: cid, attachment } }),
       );
