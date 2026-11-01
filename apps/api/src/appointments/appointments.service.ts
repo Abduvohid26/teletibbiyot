@@ -98,8 +98,8 @@ export class AppointmentsService {
       await this.notifications.notifyUsers(
         [doctorId],
         'Yangi qayta ko\'rik',
-        `${patient.fullName} — ${scheduledAt.toLocaleString('uz-UZ')}`,
-        { entityType: 'Appointment', entityId: appointment.id },
+        `${(this.crypto.unprotectPatient(patient as Record<string, unknown>) as { fullName: string }).fullName} — ${scheduledAt.toLocaleString('uz-UZ')}`,
+        { entityType: 'Appointment', entityId: appointment.id, type: 'appointment' },
       );
     }
 

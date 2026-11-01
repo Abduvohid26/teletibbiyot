@@ -4,6 +4,7 @@ import { AuthProvider } from '@/lib/auth-context';
 import { OfflineBootstrap } from '@/components/OfflineBootstrap';
 import { ToastProvider } from '@/components/ui/ToastProvider';
 import { I18nProvider } from '@/i18n';
+import { NotificationProvider } from '@/components/notifications/NotificationProvider';
 import { BRAND } from '@ishifo/shared';
 
 export const metadata: Metadata = {
@@ -26,7 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <OfflineBootstrap />
           <ToastProvider>
             <AuthProvider>
-              {children}
+              <NotificationProvider>{children}</NotificationProvider>
             </AuthProvider>
           </ToastProvider>
         </I18nProvider>

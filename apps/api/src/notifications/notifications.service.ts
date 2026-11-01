@@ -1,16 +1,43 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
-import { NotificationChannel } from '@prisma/client';
+import { Notification, NotificationChannel, Prisma, UserRole } from '@prisma/client';
 import * as nodemailer from 'nodemailer';
 import { BRAND } from '@ishifo/shared';
+
+/**
+ * Bildirishnoma turi — klient shundan ikonka, ovoz, "qo'ng'iroq" oynasi va
+ * bosilganda qayerga o'tishni aniqlaydi.
+ */
+export type NotificationType =
+  | 'info'
+  | 'consultation_queued'
+  | 'consultation_started'
+  | 'consultation_completed'
+  | 'consultation_cancelled'
+  | 'emergency'
+  | 'report_ready'
+  | 'consilium_invite'
+  | 'consilium_call'
+  | 'consilium_removed'
+  | 'consilium_left'
+  | 'consilium_opinion'
+  | 'second_opinion'
+  | 'appointment'
+  | 'device_offline'
+  | 'ai_unavailable';
 
 export interface NotifyOptions {
   consultationId?: string;
   entityType?: string;
   entityId?: string;
   channels?: NotificationChannel[];
+  type?: NotificationType;
+  /** Qo'ng'iroq oynasi uchun: callerName, patientName, status ... */
+  data?: Record<string, unknown>;
 }
+
+type NotificationPublisher = (userId: string, notification: Notification) => void;
 
 @Injectable()
 export class NotificationsService {
@@ -18,6 +45,10 @@ export class NotificationsService {
   private transporter: nodemailer.Transporter | null = null;
   private eskizToken: string | null = null;
   private eskizTokenExpiresAt = 0;
+  /** Socket orqali real vaqtda yetkazish (VideoGateway ulaydi) */
+  private publisher: NotificationPublisher | null = null;
+  /** Admin ogohlantirishlari takrorlanib ketmasligi uchun: kalit → oxirgi vaqt */
+  private readonly adminThrottle = new Map<string, number>();
 
   constructor(
     private config: ConfigService,
@@ -137,9 +168,12 @@ export class NotificationsService {
     }
   }
 
-  async sendPush(userId: string, title: string, body: string) {
-    await this.createInApp(userId, title, body).catch(() => undefined);
+  setPublisher(publisher: NotificationPublisher) {
+    this.publisher = publisher;
+  }
 
+  /** Tashqi push provayder (hozircha log). In-app yozuvni notifyUsers yaratadi. */
+  async sendPush(userId: string, title: string, body: string) {
     const provider = this.config.get('PUSH_PROVIDER') || 'mock';
     if (provider === 'mock') {
       this.logger.debug(`[PUSH] In-app yuborildi: ${userId} | ${title}`);
@@ -156,17 +190,25 @@ export class NotificationsService {
     body: string,
     options: NotifyOptions = {},
   ) {
-    return this.prisma.notification.create({
+    const row = await this.prisma.notification.create({
       data: {
         userId,
         channel: NotificationChannel.IN_APP,
         title,
         body,
+        type: options.type ?? 'info',
+        data: (options.data ?? undefined) as Prisma.InputJsonValue | undefined,
         consultationId: options.consultationId,
-        entityType: options.entityType,
-        entityId: options.entityId,
+        entityType: options.entityType ?? (options.consultationId ? 'Consultation' : undefined),
+        entityId: options.entityId ?? options.consultationId,
       },
     });
+    try {
+      this.publisher?.(userId, row);
+    } catch (err) {
+      this.logger.warn(`Bildirishnomani real vaqtda yuborib bo'lmadi: ${err}`);
+    }
+    return row;
   }
 
   async notifyUsers(
@@ -178,8 +220,10 @@ export class NotificationsService {
     const channels = options.channels ?? [NotificationChannel.IN_APP];
     const results = [];
 
-    for (const userId of userIds) {
-      if (channels.includes(NotificationChannel.IN_APP)) {
+    // Bir xil foydalanuvchiga bitta voqea ikki marta bormasin
+    for (const userId of [...new Set(userIds.filter(Boolean))]) {
+      // Ilgari PUSH kanali ham in-app yozardi — FAVQULODDA xabar ikki marta chiqardi
+      if (channels.includes(NotificationChannel.IN_APP) || channels.includes(NotificationChannel.PUSH)) {
         results.push(await this.createInApp(userId, title, body, options));
       }
       if (channels.includes(NotificationChannel.PUSH)) {
@@ -212,6 +256,28 @@ export class NotificationsService {
     });
   }
 
+  /**
+   * Administratorlarga tizim ogohlantirishi — bemor ma'lumotisiz (admin klinik
+   * ma'lumotni ko'rmaydi). `throttleKey` bir xil bo'lsa `throttleMs` ichida qayta yuborilmaydi.
+   */
+  async notifyAdmins(
+    title: string,
+    body: string,
+    options: NotifyOptions & { throttleKey?: string; throttleMs?: number } = {},
+  ) {
+    const { throttleKey, throttleMs = 30 * 60_000, ...rest } = options;
+    if (throttleKey) {
+      const last = this.adminThrottle.get(throttleKey) ?? 0;
+      if (Date.now() - last < throttleMs) return [];
+      this.adminThrottle.set(throttleKey, Date.now());
+    }
+    const admins = await this.prisma.user.findMany({
+      where: { role: UserRole.ADMIN, isActive: true },
+      select: { id: true },
+    });
+    return this.notifyUsers(admins.map((a) => a.id), title, body, rest);
+  }
+
   async getUnreadCount(userId: string) {
     const count = await this.prisma.notification.count({
       where: { userId, read: false },
@@ -230,10 +296,10 @@ export class NotificationsService {
       ),
     );
     if (doctorIds.length) {
-      await this.notifyUsers(doctorIds, 'Yangi konsultatsiya navbatda', `${patientName} (${utCode}) — boshlash kerak`, {
+      await this.notifyUsers(doctorIds, 'Yangi bemor yuborildi', `${patientName} (${utCode}) — «Qabul qilish» ni bosing`, {
         consultationId,
-        entityType: 'Consultation',
-        entityId: consultationId,
+        type: 'consultation_queued',
+        data: { patientName, utCode },
       });
     }
   }
@@ -241,9 +307,13 @@ export class NotificationsService {
   async notifyConsultationStarted(utOperatorIds: string[], patientName: string, doctorName: string, consultationId: string) {
     await this.notifyUsers(
       utOperatorIds,
-      'Shifokor konsultatsiyani boshladi',
-      `${doctorName} ${patientName} bilan video aloqaga tayyor. /ut/vitals sahifasida kuting.`,
-      { consultationId, entityType: 'Consultation', entityId: consultationId },
+      'Shifokor sizni kutmoqda',
+      `${doctorName} ${patientName} bo'yicha qabulni boshladi — video aloqaga ulaning`,
+      {
+        consultationId,
+        type: 'consultation_started',
+        data: { callerName: doctorName, patientName },
+      },
     );
   }
 
@@ -259,22 +329,29 @@ export class NotificationsService {
       ),
     );
     if (userIds.length) {
-      await this.notifyUsers(userIds, 'FAVQULODDA triage', `${patientName} (${utCode}) — zudlik bilan boshlang`, {
+      await this.notifyUsers(userIds, 'FAVQULODDA holat', `${patientName} (${utCode}) — zudlik bilan qabul qiling`, {
         consultationId,
         channels: [NotificationChannel.IN_APP, NotificationChannel.PUSH],
+        type: 'emergency',
+        data: { patientName, utCode },
       });
       await this.sendSmsToUsers(userIds, smsText);
     }
   }
 
   async notifyReportReady(userIds: string[], patientName: string, consultationId: string) {
-    await this.notifyUsers(userIds, 'Konsultatsiya hisoboti tayyor', `${patientName} uchun yakuniy hisobot yuklab olish mumkin`, {
+    await this.notifyUsers(userIds, 'Tashxis tayyor', `${patientName} — yakuniy xulosa (PDF) yuklab olish mumkin`, {
       consultationId,
+      type: 'report_ready',
+      data: { patientName },
     });
   }
 
   async notifySecondOpinionRequested(doctorId: string, patientName: string, consultationId: string) {
-    await this.notifyUsers([doctorId], 'Ikkinchi fikr so\'rovi', `${patientName} bo'yicha ikkinchi fikr kerak`, { consultationId });
+    await this.notifyUsers([doctorId], 'Ikkinchi fikr so\'rovi', `${patientName} bo'yicha ikkinchi fikr kerak`, {
+      consultationId,
+      type: 'second_opinion',
+    });
   }
 
   async notifySecondOpinionPool(doctorIds: string[], patientName: string, consultationId: string) {
@@ -282,7 +359,7 @@ export class NotificationsService {
       doctorIds,
       'Ochiq ikkinchi fikr so\'rovi',
       `${patientName} bo'yicha ikkinchi fikr kerak — javob berish uchun konsultatsiyani oching`,
-      { consultationId },
+      { consultationId, type: 'second_opinion' },
     );
   }
 }

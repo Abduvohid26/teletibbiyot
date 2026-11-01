@@ -74,6 +74,8 @@ export interface AiAnalysisPdfInput {
     prescription?: string | null;
     notes?: string | null;
   } | null;
+  /** Konsiliumga chaqirilgan maslahatchi shifokorlar va ularning fikri */
+  consilium?: Array<{ doctorName: string; specialty?: string | null; opinion?: string | null }>;
 }
 
 const CONTENT_WIDTH = 495;
@@ -303,6 +305,21 @@ export function buildAiAnalysisPdfBuffer(data: AiAnalysisPdfInput, localeRaw?: P
         ...(fd.prescription?.trim() ? [[L.finalDxPrescription, fd.prescription] as [string, string]] : []),
         ...(fd.notes?.trim() ? [[L.finalDxNotes, fd.notes] as [string, string]] : []),
       ]);
+      doc.moveDown(0.3);
+    }
+
+    if (data.consilium?.length) {
+      ensureSpace(doc, 60);
+      doc.moveDown(0.4);
+      doc.font(FONT_BOLD).fontSize(13).fillColor(BRAND_NAVY).text(L.consiliumTitle);
+      doc.font(FONT_REGULAR).fontSize(10).fillColor(SLATE_900);
+      labelValueTable(
+        doc,
+        data.consilium.map((m) => [
+          m.specialty ? `${m.doctorName}\n${m.specialty}` : m.doctorName,
+          m.opinion?.trim() || L.consiliumNoOpinion,
+        ]),
+      );
       doc.moveDown(0.3);
     }
 

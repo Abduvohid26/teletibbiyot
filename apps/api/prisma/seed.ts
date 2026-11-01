@@ -127,6 +127,22 @@ async function main() {
     },
   });
 
+  // Bir nechta shifokorli konsilium sinovi uchun uchinchi shifokor
+  const nevrolog = await prisma.specialty.findFirst({ where: { name: 'Nevrolog' } });
+  await prisma.user.upsert({
+    where: { email: 'doctor3@ishifo.uz' },
+    update: { role: UserRole.MT_DOCTOR, facilityId: mtFacility.id },
+    create: {
+      email: 'doctor3@ishifo.uz',
+      passwordHash,
+      fullName: 'Dr. Sardor Toshmatov',
+      role: UserRole.MT_DOCTOR,
+      facilityId: mtFacility.id,
+      specialtyId: nevrolog?.id ?? null,
+      specialty: 'Nevrolog',
+    },
+  });
+
   await prisma.user.upsert({
     where: { email: 'operator@ishifo.uz' },
     update: { role: UserRole.UT_OPERATOR, facilityId: utFacilities[0].id },

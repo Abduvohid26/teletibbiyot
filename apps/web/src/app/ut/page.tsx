@@ -33,61 +33,17 @@ import { SearchableSelect } from '@/components/ut/SearchableSelect';
 import type { DoctorOption } from '@/lib/api/types';
 import { useI18n } from '@/i18n';
 import { LOCALE_BCP47 } from '@/i18n/locales';
+import {
+  loadLabel,
+  presenceDotClass,
+  presenceHint,
+  presenceLabel,
+  sortDoctorsByPresence,
+} from '@/lib/doctor-presence';
 
 const IN = 'input ut-glass-input !py-2 !px-3 !text-sm !min-h-[2.5rem] leading-snug placeholder:text-slate-400 placeholder:font-normal';
 const TA = 'input ut-glass-input !py-2 !px-3 !text-sm !min-h-0 !h-[2.875rem] resize-none leading-snug placeholder:text-slate-400 placeholder:font-normal';
 const TA_SM = 'input ut-glass-input !py-2 !px-3 !text-sm !min-h-0 !h-[2.5rem] resize-none leading-snug placeholder:text-slate-400 placeholder:font-normal';
-
-type DoctorPresence = NonNullable<DoctorOption['presence']>;
-
-const PRESENCE_RANK: Record<DoctorPresence, number> = {
-  online: 0,
-  in_meet: 1,
-  break: 2,
-  offline: 3,
-};
-
-function presenceLabel(
-  status: DoctorPresence | undefined,
-  t: (key: string) => string,
-) {
-  if (status === 'online') return t('presence.online');
-  if (status === 'in_meet') return t('presence.inMeet');
-  if (status === 'break') return t('presence.break');
-  return t('presence.offline');
-}
-
-function presenceDotClass(status: DoctorPresence | undefined) {
-  if (status === 'online') return 'bg-emerald-500';
-  if (status === 'in_meet') return 'bg-amber-500';
-  if (status === 'break') return 'bg-orange-400';
-  return 'bg-slate-400';
-}
-
-function presenceHint(status: DoctorPresence | undefined, t: (key: string) => string) {
-  if (status === 'in_meet') return t('presence.doctorInMeet');
-  if (status === 'break') return t('presence.doctorBreak');
-  if (status === 'online') return t('presence.doctorOnline');
-  return t('presence.doctorOffline');
-}
-
-/** Bir xil holatdagilar ichida yuklamasi kamrog'i tepada — operator bo'shini tanlasin */
-function loadLabel(doctor: DoctorOption, t: (key: string, vars?: Record<string, string | number>) => string) {
-  const count = doctor.activeCount ?? 0;
-  return count === 0 ? t('presence.free') : t('presence.loadCount', { count });
-}
-
-function sortDoctorsByPresence(list: DoctorOption[], localeTag = 'uz-UZ') {
-  return [...list].sort((a, b) => {
-    const ra = PRESENCE_RANK[a.presence || 'offline'];
-    const rb = PRESENCE_RANK[b.presence || 'offline'];
-    if (ra !== rb) return ra - rb;
-    const la = a.activeCount ?? 0;
-    const lb = b.activeCount ?? 0;
-    if (la !== lb) return la - lb;
-    return a.fullName.localeCompare(b.fullName, localeTag);
-  });
-}
 
 function doctorById(list: DoctorOption[], id: string) {
   return list.find((d) => d.id === id);

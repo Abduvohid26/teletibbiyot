@@ -316,3 +316,10 @@ export class AddParticipantsDto {
   @IsUUID('4', { each: true })
   doctorIds: string[];
 }
+
+export class ParticipantOpinionDto {
+  @ApiProperty({ description: 'Maslahatchi shifokorning konsilium fikri (bo\'sh — o\'chirish)' })
+  @IsString()
+  @MaxLength(4000)
+  opinion: string;
+}

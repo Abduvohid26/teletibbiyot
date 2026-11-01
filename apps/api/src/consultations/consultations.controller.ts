@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Patch,
+  Put,
   Body,
   Param,
   UseGuards,
@@ -25,6 +26,7 @@ import {
   SecondOpinionResponseDto,
   EscalateConsultationDto,
   AddParticipantsDto,
+  ParticipantOpinionDto,
 } from './dto/consultation.dto';
 import { ConsultationQueryDto } from './dto/consultation-query.dto';
 import { JwtAuthGuard, RolesGuard } from '../auth/guards/auth.guard';
@@ -166,6 +168,17 @@ export class ConsultationsController {
     @Request() req: { user: AuthUser },
   ) {
     return this.consultationsService.addParticipants(id, req.user, dto.doctorIds);
+  }
+
+  @Put(':id/participants/me/opinion')
+  @Roles(...ROLES_MT_DOCTOR)
+  @ApiOperation({ summary: 'Maslahatchi shifokor konsilium fikrini yozadi' })
+  saveParticipantOpinion(
+    @Param('id') id: string,
+    @Body() dto: ParticipantOpinionDto,
+    @Request() req: { user: AuthUser },
+  ) {
+    return this.consultationsService.saveParticipantOpinion(id, req.user, dto.opinion);
   }
 
   @Delete(':id/participants/:doctorId')

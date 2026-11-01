@@ -470,6 +470,11 @@ model ConsultationParticipant {
 
   leftAt         DateTime?
 
+  /// Maslahatchi shifokorning konsilium fikri (mas'ul shifokor yakunlashdan oldin ko'radi, PDF ga kiradi)
+  opinion        String?
+
+  opinionAt      DateTime?
+
   createdAt      DateTime     @default(now())
 
   updatedAt      DateTime     @updatedAt
@@ -778,9 +783,18 @@ model Notification {
 
   consultation   Consultation?       @relation(fields: [consultationId], references: [id], onDelete: SetNull)
 
+  /// Voqea turi: ikonka, ovoz, "qo'ng'iroq" oynasi va bosilganda qayerga borish shundan aniqlanadi
+  type           String              @default("info")
+
+  /// Qo'ng'iroq oynasi uchun qo'shimcha: kim chaqirdi, bemor, holat
+  data           Json?
+
   read           Boolean             @default(false)
 
   createdAt      DateTime            @default(now())
+
+
+  @@index([userId, read, createdAt])
 
 }
 

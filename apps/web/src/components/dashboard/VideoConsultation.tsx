@@ -21,9 +21,11 @@ import { MediaSettingsLink } from '@/components/video/MediaDevicePanel';
 import {
   wasJoined,
   markJoined,
+  CALL_ACCEPTED_EVENT,
   clearJoined,
   clearOtherJoined,
 } from '@/lib/video-room-session';
+import { getPooledSocket } from '@/lib/video-socket-client';
 import { useI18n } from '@/i18n';
 
 interface VideoConsultationProps {
@@ -147,6 +149,27 @@ export function VideoConsultation({
       reconnectCall();
     }
   }, [reconnectSignal, reconnectCall]);
+
+  // Kiruvchi qo'ng'iroq "Qabul qilish" bosildi — shu bemor ochiq bo'lsa lobby'siz ulanamiz
+  useEffect(() => {
+    if (!consultationId || observeMode) return;
+    const onAccepted = (e: Event) => {
+      if ((e as CustomEvent<{ consultationId?: string }>).detail?.consultationId !== consultationId) return;
+      markJoined(consultationId, 'mt');
+      setAutoRejoin(false);
+      setJoined(true);
+    };
+    window.addEventListener(CALL_ACCEPTED_EVENT, onAccepted);
+    return () => window.removeEventListener(CALL_ACCEPTED_EVENT, onAccepted);
+  }, [consultationId, observeMode]);
+
+  // Konsilium: video'ga haqiqatan kirildi — mas'ul shifokor va UT "taklif qilindi"
+  // o'rniga "ulangan" ni ko'radi (server faqat maslahatchi uchun, bir marta yozadi)
+  const mediaJoined = joined && !observeMode && (roomPhase === 'waiting_peer' || roomPhase === 'connecting' || roomPhase === 'live');
+  useEffect(() => {
+    if (!mediaJoined || !consultationId) return;
+    getPooledSocket(consultationId)?.emit('media-joined', { roomId: consultationId });
+  }, [mediaJoined, consultationId]);
 
   const uniqueCameraStreams = mapUniqueUtCameraStreams(remoteCameras);
 

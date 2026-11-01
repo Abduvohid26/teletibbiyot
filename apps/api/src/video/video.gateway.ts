@@ -17,6 +17,7 @@ import { canPerformClinicalMtActions, isMtDoctor } from '../common/roles.constan
 import { ConsultationStatus } from '@prisma/client';
 import { DoctorPresenceService } from './doctor-presence.service';
 import { LivekitService } from './livekit.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 interface RoomParticipant {
   socketId: string;
@@ -64,6 +65,11 @@ export class VideoGateway
     return `staff-feed:ut:${utId}`;
   }
 
+  /** Har bir foydalanuvchining shaxsiy xonasi — bildirishnomalar shu yerga keladi */
+  static userRoom(userId: string) {
+    return `user:${userId}`;
+  }
+
   static staffFeedMtDoctorRoom(doctorId: string) {
     return `staff-feed:mt:doctor:${doctorId}`;
   }
@@ -94,10 +100,15 @@ export class VideoGateway
     private access: AccessControlService,
     private presence: DoctorPresenceService,
     private livekit: LivekitService,
+    private notifications: NotificationsService,
   ) {}
 
   afterInit(server: Server) {
     this.presence.setServer(server);
+    // Bazaga yozilgan har bir bildirishnoma egasining barcha ochiq tablariga darhol boradi
+    this.notifications.setPublisher((userId, notification) => {
+      server.to(VideoGateway.userRoom(userId)).emit('notification', notification);
+    });
   }
 
   private isStaffOrPresenceRoom(roomId: string) {
@@ -159,6 +170,8 @@ export class VideoGateway
       }
       client.data.user = { ...payload, role: payload.role || dbUser.role };
       this.socketRooms.set(client.id, new Set());
+      // Shaxsiy xona: barcha rollar (admin ham) bildirishnomani real vaqtda oladi
+      client.join(VideoGateway.userRoom(payload.sub));
       client.emit('ws-authenticated', { userId: payload.sub });
       this.logger.log(`WS ulandi: ${client.id} (${dbUser.email})`);
     } catch {
@@ -591,6 +604,26 @@ export class VideoGateway
     await this.notifyOfferersToReconnect(data.roomId, client.id);
   }
 
+  /**
+   * Klient lobby'dan o'tib video'ga HAQIQATAN ulandi (P2P ham, SFU ham).
+   * `join-room` bunga yaramaydi — u realtime obuna uchun ham chaqiriladi.
+   */
+  @SubscribeMessage('media-joined')
+  async handleMediaJoined(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: string },
+  ) {
+    if (!data?.roomId || !this.isInRoom(client, data.roomId)) return;
+    const self = client.data.participant as RoomParticipant | undefined;
+    if (!self || !isMtDoctor(self.role)) return;
+    const consultation = await this.prisma.consultation.findUnique({
+      where: { id: data.roomId },
+      select: { id: true, utId: true, mtDoctorId: true, status: true },
+    });
+    if (!consultation || consultation.mtDoctorId === self.userId) return;
+    await this.markConsultantJoined(consultation, self.userId);
+  }
+
   /** UT qayta ulanganda shifokorlarga aniq offer yuborish signal */
   @SubscribeMessage('request-offers')
   async handleRequestOffers(
@@ -818,6 +851,32 @@ export class VideoGateway
   }
 
   /**
+   * Konsilium shifokori video xonaga BIRINCHI marta kirganda — mas'ul shifokor va
+   * UT operator "taklif qilindi" o'rniga "qo'shildi" ni ko'radi.
+   */
+  private async markConsultantJoined(
+    consultation: { id: string; utId: string; mtDoctorId: string | null; status: string },
+    doctorId: string,
+  ) {
+    try {
+      const updated = await this.prisma.consultationParticipant.updateMany({
+        where: { consultationId: consultation.id, doctorId, leftAt: null, joinedAt: null },
+        data: { joinedAt: new Date() },
+      });
+      if (!updated.count) return;
+      await this.broadcastConsultationEvent(consultation.id, 'consultation-participants-updated', {
+        consultationId: consultation.id,
+        utId: consultation.utId,
+        mtDoctorId: consultation.mtDoctorId,
+        status: consultation.status,
+        joinedDoctorId: doctorId,
+      });
+    } catch (err) {
+      this.logger.warn(`Konsilium joinedAt yozilmadi (${consultation.id}): ${err}`);
+    }
+  }
+
+  /**
    * Konsiliumdan chiqarilgan shifokorni video xonadan ham chiqarish.
    * Ilgari u ro'yxatdan o'chirilsa ham qo'ng'iroqda qolaverardi.
    */
@@ -903,6 +962,10 @@ export class VideoGateway
     // Assigned doctor model: personal room; open-pool yo'q
     const doctorTargets = new Set<string>(consultantIds);
     if (typeof mtDoctorId === 'string') doctorTargets.add(mtDoctorId);
+    // Konsiliumdan chiqarilgan shifokor endi ro'yxatda yo'q — lekin u o'zi
+    // chiqarilganini bilishi (ekranini yopishi) kerak
+    const removedDoctorId = payload.removedDoctorId;
+    if (typeof removedDoctorId === 'string') doctorTargets.add(removedDoctorId);
     for (const doctorId of doctorTargets) {
       this.server.to(VideoGateway.staffFeedMtDoctorRoom(doctorId)).emit(event, data);
     }

@@ -16,6 +16,7 @@ import { PlatformFooter } from '@/components/layout/PlatformFooter';
 import { AdminSpecialtiesPanel } from '@/components/admin/AdminSpecialtiesPanel';
 import { AdminOverviewPanel } from '@/components/admin/AdminOverviewPanel';
 import { LanguageSwitcher, useI18n } from '@/i18n';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 
 function roleKey(role: string): string {
   if (role === UserRole.UT_OPERATOR) return 'roles.utOperator';
@@ -269,6 +270,7 @@ export default function AdminPage() {
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <LanguageSwitcher compact tone="dark" className="hidden sm:inline-flex" />
+            <NotificationBell />
             <button
               type="button"
               onClick={logout}

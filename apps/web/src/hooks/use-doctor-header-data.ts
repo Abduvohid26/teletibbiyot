@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { api, Consultation } from '@/lib/api';
 import { useConsultationRealtime } from '@/hooks/use-consultation-realtime';
@@ -10,6 +10,8 @@ import {
   writeActiveConsultationId,
 } from '@/lib/active-consultation-storage';
 import { toast } from '@/lib/toast';
+import { useAuth } from '@/lib/auth-context';
+import { consumeSelfLeave } from '@/hooks/use-consilium';
 import { useI18n } from '@/i18n';
 
 export const DOCTOR_SELECT_EVENT = 'ishifo-doctor-select';
@@ -24,11 +26,15 @@ export function dispatchDoctorSelect(id: string) {
  */
 export function useDoctorHeaderData() {
   const { t } = useI18n();
+  const { user } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [inProgress, setInProgress] = useState<Consultation[]>([]);
   const [queued, setQueued] = useState<Consultation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const myId = user?.id;
+  const activeIdRef = useRef(activeId);
+  activeIdRef.current = activeId;
 
   const reload = useCallback(async () => {
     try {
@@ -56,12 +62,24 @@ export function useDoctorHeaderData() {
 
   useConsultationRealtime([], {
     onConsultationQueued: () => void reload(),
+    // Konsiliumga chaqiruv / mas'ul boshladi — server bildirishnomasi qo'ng'iroq bo'lib keladi
     onConsultationStarted: () => void reload(),
     onConsultationCompleted: () => void reload(),
     onConsultationCancelled: () => void reload(),
     onTriageUpdated: () => void reload(),
     onPriorityUpdated: () => void reload(),
-    onParticipantsUpdated: () => void reload(),
+    onParticipantsUpdated: (cid, change) => {
+      void reload();
+      if (!myId) return;
+      if (change.removedDoctorId === myId) {
+        // "Siz chiqarildingiz" xabari server bildirishnomasi sifatida keladi
+        consumeSelfLeave(cid);
+        if (activeIdRef.current === cid) {
+          setActiveId(null);
+          if (pathname === '/dashboard') router.replace('/dashboard/patients');
+        }
+      }
+    },
   }, { staffFeed: true });
 
   useEffect(() => {

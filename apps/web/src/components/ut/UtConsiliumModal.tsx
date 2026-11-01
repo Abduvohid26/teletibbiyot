@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Loader2, Plus, Stethoscope, Users, X } from 'lucide-react';
+import { Loader2, MessageSquareText, Stethoscope, Users, Video, X } from 'lucide-react';
 import { Consultation } from '@/lib/api';
 import { doctorLabel, useConsilium } from '@/hooks/use-consilium';
+import { ConsiliumDoctorPicker } from '@/components/dashboard/ConsiliumDoctorPicker';
+import { cn } from '@/lib/utils';
 import { useI18n } from '@/i18n';
 
 interface UtConsiliumModalProps {
@@ -22,10 +24,9 @@ interface UtConsiliumModalProps {
 export function UtConsiliumModal({ consultation, open, onClose, onChanged }: UtConsiliumModalProps) {
   const { t } = useI18n();
   const [mounted, setMounted] = useState(false);
-  const [selected, setSelected] = useState('');
 
   const editable = consultation?.status === 'QUEUED' || consultation?.status === 'IN_PROGRESS';
-  const { participants, options, add, remove, busy, loading } = useConsilium({
+  const { participants, options, add, remove, loadDoctors, busy, loading } = useConsilium({
     consultation,
     canEdit: !!open && !!editable,
     onChanged,
@@ -35,7 +36,8 @@ export function UtConsiliumModal({ consultation, open, onClose, onChanged }: UtC
 
   useEffect(() => {
     if (!open) return;
-    setSelected('');
+    // Shifokorlar holati (online / Meetda) har ochilganda yangilanadi
+    void loadDoctors();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
@@ -46,15 +48,9 @@ export function UtConsiliumModal({ consultation, open, onClose, onChanged }: UtC
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = prev;
     };
-  }, [open, onClose, consultation?.id]);
+  }, [open, onClose, consultation?.id, loadDoctors]);
 
   if (!mounted || !open || !consultation) return null;
-
-  const handleAdd = async () => {
-    if (!selected) return;
-    await add([selected]);
-    setSelected('');
-  };
 
   return createPortal(
     <div
@@ -109,12 +105,33 @@ export function UtConsiliumModal({ consultation, open, onClose, onChanged }: UtC
                 {participants.map((p) => (
                   <li
                     key={p.doctorId}
-                    className="flex items-center gap-2 px-2.5 py-2 rounded-xl bg-emerald-50/80 ring-1 ring-emerald-200/70"
+                    className={cn(
+                      'flex items-center gap-2 px-2.5 py-2 rounded-xl ring-1',
+                      p.joinedAt
+                        ? 'bg-emerald-50/80 ring-emerald-200/70'
+                        : 'bg-amber-50/80 ring-amber-200/80',
+                    )}
                   >
-                    <Stethoscope size={14} className="text-emerald-600 shrink-0" />
-                    <span className="text-sm font-medium text-emerald-900 truncate flex-1">
-                      {doctorLabel(p.doctor)}
+                    {p.joinedAt ? (
+                      <Video size={14} className="text-emerald-600 shrink-0" />
+                    ) : (
+                      <Stethoscope size={14} className="text-amber-600 shrink-0" />
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-medium text-slate-900 truncate">
+                        {doctorLabel(p.doctor)}
+                      </span>
+                      <span className="block text-[11px] text-slate-500">
+                        {p.joinedAt ? t('consilium.joinedHint') : t('consilium.invitedHint')}
+                      </span>
                     </span>
+                    {p.opinion?.trim() && (
+                      <MessageSquareText
+                        size={14}
+                        className="text-slate-400 shrink-0"
+                        aria-label={t('consilium.hasOpinion')}
+                      />
+                    )}
                     {editable && (
                       <button
                         type="button"
@@ -133,31 +150,11 @@ export function UtConsiliumModal({ consultation, open, onClose, onChanged }: UtC
           </div>
 
           {editable ? (
-            <div className="flex items-center gap-2 pt-1">
-              <select
-                value={selected}
-                onChange={(e) => setSelected(e.target.value)}
-                disabled={busy || options.length === 0}
-                className="form-input ut-glass-input !py-2 !text-sm flex-1 min-w-0"
-              >
-                <option value="">
-                  {options.length ? t('consilium.selectDoctor') : t('consilium.noDoctors')}
-                </option>
-                {options.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {doctorLabel(d)}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={() => void handleAdd()}
-                disabled={!selected || busy}
-                className="gradient-btn !text-xs !py-2 !px-3 inline-flex items-center gap-1 shrink-0 disabled:opacity-50"
-              >
-                {busy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
-                {t('consilium.add')}
-              </button>
+            <div className="pt-1">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                {t('consilium.inviteDoctors')}
+              </p>
+              <ConsiliumDoctorPicker options={options} busy={busy} onAdd={add} />
             </div>
           ) : (
             <p className="text-xs text-slate-400">{t('consilium.closedHint')}</p>

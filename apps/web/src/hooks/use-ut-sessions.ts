@@ -7,13 +7,11 @@ import { fetchUtSessionConsultations } from '@/lib/ut-sessions-fetch';
 import { useConsultationRealtime } from '@/hooks/use-consultation-realtime';
 import { toast } from '@/lib/toast';
 import { UT_SELECT_EVENT } from '@/hooks/use-ut-header-data';
-import { useRouter } from 'next/navigation';
 import { selfCancelledConsultations } from '@/hooks/use-cancel-consultation';
 import { useI18n } from '@/i18n';
 
 export function useUtSessions(enabled = true) {
   const { t } = useI18n();
-  const router = useRouter();
   const [consultation, setConsultation] = useState<Consultation | null>(null);
   const [sessions, setSessions] = useState<Consultation[]>([]);
   const [patientConsultations, setPatientConsultations] = useState<Consultation[]>([]);
@@ -33,23 +31,10 @@ export function useUtSessions(enabled = true) {
     if (!mine) return;
     // "Shifokor qabul qildi — jonli efir boshlandi" banneri endi eskirgan
     setLiveBanner(null);
-    // Operatorning o'zi bekor qilgan bo'lsa — u allaqachon toast ko'rdi
-    if (kind === 'cancelled' && selfCancelledConsultations.delete(consultationId)) return;
-    const name = mine.patient.fullName;
-    if (kind === 'completed') {
-      toast.success(t('utToast.completedTitle', { name }), {
-        id: `ut-done-${consultationId}`,
-        description: t('utToast.completedBody'),
-        duration: 12000,
-        action: { label: t('utToast.viewDiagnosis'), onClick: () => router.push('/ut/patients?filter=tashxis') },
-      });
-    } else {
-      toast.warning(t('utToast.cancelledTitle', { name }), {
-        id: `ut-cancel-${consultationId}`,
-        description: t('utToast.cancelledBody'),
-      });
-    }
-  }, [router, t]);
+    if (kind === 'cancelled') selfCancelledConsultations.delete(consultationId);
+    // "Tashxis tayyor" / "Bekor qilindi" xabari server bildirishnomasi sifatida
+    // keladi (ovoz + qo'ng'iroqchada saqlanadi) — bu yerda takrorlanmaydi
+  }, []);
 
   const inProgressList = useMemo(
     () => sessions.filter((c) => c.status === 'IN_PROGRESS'),
@@ -148,22 +133,7 @@ export function useUtSessions(enabled = true) {
       onConsultationStarted: (payload) => {
         const name = payload.doctorName || payload.mtDoctorName || t('common.doctor');
         setLiveBanner({ doctorName: name });
-        // Yagona xabar — "qabul boshlandi" uchun boshqa joylarda toast yo'q
-        const onLivePage = typeof window !== 'undefined' && window.location.pathname === '/ut/vitals';
-        toast.success(t('utToast.doctorStartedTitle', { name }), {
-          id: `ut-started-${payload.consultationId ?? ''}`,
-          description: t('utToast.doctorStartedBody'),
-          duration: 12000,
-          action: onLivePage
-            ? undefined
-            : {
-                label: t('utToast.goLive'),
-                onClick: () => {
-                  if (payload.consultationId) switchToConsultation(payload.consultationId);
-                  router.push('/ut/vitals');
-                },
-              },
-        });
+        // "Shifokor sizni kutmoqda" — server bildirishnomasi kiruvchi qo'ng'iroq bo'lib jiringlaydi
         if (payload.consultationId) {
           // Optimistic status — API round-tripdan oldin UI yangilansin
           setSessions((prev) =>

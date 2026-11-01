@@ -5,6 +5,7 @@ import { AuthUser } from '../common/access-control.service';
 import { isAdmin, isMtDoctor, isUtRole } from '../common/roles.constants';
 import { createDeviceAdapter, DeviceAdapter } from './device.adapter';
 import { VideoGateway } from '../video/video.gateway';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class DevicesService implements OnModuleInit, OnModuleDestroy {
@@ -16,6 +17,7 @@ export class DevicesService implements OnModuleInit, OnModuleDestroy {
     private prisma: PrismaService,
     private config: ConfigService,
     private videoGateway: VideoGateway,
+    private notifications: NotificationsService,
   ) {
     this.adapter = createDeviceAdapter(config);
   }
@@ -35,6 +37,30 @@ export class DevicesService implements OnModuleInit, OnModuleDestroy {
 
   onModuleDestroy() {
     if (this.gatewayTimer) clearInterval(this.gatewayTimer);
+  }
+
+  /** Administratorga: qaysi muassasada qaysi qurilma uzildi (bemor ma'lumotisiz) */
+  private async alertDeviceOffline(facilityId: string, deviceName: string, deviceId: string) {
+    try {
+      const facility = await this.prisma.facility.findUnique({
+        where: { id: facilityId },
+        select: { code: true, name: true },
+      });
+      await this.notifications.notifyAdmins(
+        'Qurilma uzildi',
+        `${facility?.code ?? 'UT'} (${facility?.name ?? ''}) — ${deviceName}`,
+        {
+          type: 'device_offline',
+          entityType: 'DeviceStatus',
+          entityId: deviceId,
+          data: { facilityCode: facility?.code, deviceName },
+          throttleKey: `device:${deviceId}`,
+          throttleMs: 10 * 60_000,
+        },
+      );
+    } catch (err) {
+      this.logger.warn(`Qurilma ogohlantirishi yuborilmadi: ${err}`);
+    }
   }
 
   private notifyDeviceChange(facilityId: string, deviceId?: string) {
@@ -78,6 +104,9 @@ export class DevicesService implements OnModuleInit, OnModuleDestroy {
               status: remote.status || (remote.connected === true ? 'good' : 'offline'),
             },
           });
+      if (existing?.connected && remote.connected !== true) {
+        void this.alertDeviceOffline(facilityId, remote.name, device.id);
+      }
       changed = true;
 
       if (remote.telemetry) {
@@ -170,6 +199,7 @@ export class DevicesService implements OnModuleInit, OnModuleDestroy {
       data: { connected, status, lastCheck: new Date() },
     });
     this.notifyDeviceChange(device.facilityId, id);
+    if (device.connected && !connected) void this.alertDeviceOffline(device.facilityId, device.name, id);
     return updated;
   }
 

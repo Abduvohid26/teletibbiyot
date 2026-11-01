@@ -9,7 +9,6 @@ import {
   releaseVideoSocketRooms,
 } from '@/lib/video-socket-client';
 import { toast } from '@/lib/toast';
-import { useRouter } from 'next/navigation';
 import { useI18n } from '@/i18n';
 
 export interface ConsultationRealtimeHandlers {
@@ -35,8 +34,8 @@ export interface ConsultationRealtimeHandlers {
   onAiUpdated?: (consultationId: string) => void;
   onChatMessagePersisted?: (consultationId: string) => void;
   onTriageUpdated?: (consultationId: string) => void;
-  /** Konsilium tarkibi o'zgardi (shifokor qo'shildi/chiqarildi) */
-  onParticipantsUpdated?: (consultationId: string) => void;
+  /** Konsilium tarkibi o'zgardi (shifokor qo'shildi/chiqarildi/xonaga kirdi/fikr yozdi) */
+  onParticipantsUpdated?: (consultationId: string, change: ParticipantsChange) => void;
   onPriorityUpdated?: (consultationId: string) => void;
   onDeviceStatusUpdated?: (facilityId: string) => void;
   onDoctorPresenceUpdated?: (payload: {
@@ -44,6 +43,18 @@ export interface ConsultationRealtimeHandlers {
     status: 'online' | 'in_meet' | 'break' | 'offline';
     activeCount?: number;
   }) => void;
+}
+
+/** `consultation-participants-updated` voqeasida nima o'zgargani */
+export interface ParticipantsChange {
+  addedDoctorIds?: string[];
+  removedDoctorId?: string;
+  joinedDoctorId?: string;
+  opinionByDoctorId?: string;
+  invitedByName?: string;
+  patientName?: string;
+  mtDoctorId?: string;
+  status?: string;
 }
 
 type RealtimePayload = {
@@ -76,7 +87,6 @@ export function useConsultationRealtime(
   options?: { notifyToasts?: boolean; staffFeed?: boolean; enabled?: boolean },
 ) {
   const { t } = useI18n();
-  const router = useRouter();
   const handlersRef = useRef(handlers);
   handlersRef.current = handlers;
   const idsKey = consultationIds.filter(Boolean).join(',');
@@ -128,17 +138,7 @@ export function useConsultationRealtime(
         mtDoctorId: payload.mtDoctorId,
         mtDoctorName: payload.mtDoctorName,
       });
-      if (options?.notifyToasts && payload.patientName) {
-        const onQueuePage = window.location.pathname === '/dashboard/patients';
-        toast.info(t('realtime.queuedTitle'), {
-          id: `rt-queued-${cid}`,
-          description: payload.utCode ? `${payload.patientName} · ${payload.utCode}` : payload.patientName,
-          duration: 10000,
-          action: onQueuePage
-            ? undefined
-            : { label: t('realtime.openQueue'), onClick: () => router.push('/dashboard/patients') },
-        });
-      }
+      // "Yangi bemor" xabari endi server bildirishnomasi (qo'ng'iroq) sifatida keladi
     };
 
     const onStarted = (payload: RealtimePayload) => {
@@ -186,10 +186,19 @@ export function useConsultationRealtime(
       handlersRef.current.onTriageUpdated?.(cid);
     };
 
-    const onParticipantsUpdated = (payload: RealtimePayload) => {
+    const onParticipantsUpdated = (payload: RealtimePayload & ParticipantsChange) => {
       const cid = resolveConsultationId(payload, '');
       if (!matchesSubscription(cid, ids, staffFeed)) return;
-      handlersRef.current.onParticipantsUpdated?.(cid);
+      handlersRef.current.onParticipantsUpdated?.(cid, {
+        addedDoctorIds: payload.addedDoctorIds,
+        removedDoctorId: payload.removedDoctorId,
+        joinedDoctorId: payload.joinedDoctorId,
+        opinionByDoctorId: payload.opinionByDoctorId,
+        invitedByName: payload.invitedByName,
+        patientName: payload.patientName,
+        mtDoctorId: payload.mtDoctorId,
+        status: payload.status,
+      });
     };
 
     const onPriorityUpdated = (payload: RealtimePayload) => {

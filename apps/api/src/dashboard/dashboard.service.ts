@@ -11,6 +11,7 @@ import { AccessControlService } from "../common/access-control.service";
 import { FieldCryptoService } from "../common/field-crypto.service";
 import { DoctorPresenceService } from "../video/doctor-presence.service";
 import { StorageService } from "../storage/storage.service";
+import { ACTIVE_PARTICIPANTS } from '../consultations/participant-select';
 
 const TRIAGE_ORDER: Record<string, number> = { EMERGENCY: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
 /** groupBy natijasini { kalit: soni } ga yig'adi; kalit null bo'lsa — tashlanadi */
@@ -265,22 +266,7 @@ export class DashboardService {
       utFacility: true,
       aiAnalysisSteps: { orderBy: { order: 'asc' as const } },
       mtDoctor: { select: { id: true, fullName: true } },
-      participants: {
-        where: { leftAt: null },
-        select: {
-          doctorId: true,
-          joinedAt: true,
-          doctor: {
-            select: {
-              id: true,
-              fullName: true,
-              specialty: true,
-              specialtyRef: { select: { name: true } },
-            },
-          },
-        },
-        orderBy: { createdAt: 'asc' as const },
-      },
+      participants: ACTIVE_PARTICIPANTS,
     };
 
     if (preferredId) {
@@ -361,14 +347,7 @@ export class DashboardService {
         patient: true,
         utFacility: true,
         mtDoctor: { select: { id: true, fullName: true } },
-        participants: {
-          where: { leftAt: null },
-          select: {
-            doctorId: true,
-            doctor: { select: { id: true, fullName: true, specialty: true, specialtyRef: { select: { name: true } } } },
-          },
-          orderBy: { createdAt: 'asc' as const },
-        },
+        participants: ACTIVE_PARTICIPANTS,
       },
       orderBy: { startedAt: 'desc' },
     });
@@ -391,14 +370,7 @@ export class DashboardService {
         clinicalRecord: true,
         utFacility: true,
         mtDoctor: { select: { id: true, fullName: true } },
-        participants: {
-          where: { leftAt: null },
-          select: {
-            doctorId: true,
-            doctor: { select: { id: true, fullName: true, specialty: true, specialtyRef: { select: { name: true } } } },
-          },
-          orderBy: { createdAt: 'asc' as const },
-        },
+        participants: ACTIVE_PARTICIPANTS,
       },
       orderBy: [
         { status: 'desc' },
@@ -435,14 +407,7 @@ export class DashboardService {
         aiAnalysis: true,
         finalDiagnosis: { select: { diagnosis: true, icd10Code: true, recommendations: true } },
         consultationReport: { select: { fileName: true, generatedAt: true } },
-        participants: {
-          where: { leftAt: null },
-          select: {
-            doctorId: true,
-            doctor: { select: { id: true, fullName: true, specialty: true, specialtyRef: { select: { name: true } } } },
-          },
-          orderBy: { createdAt: 'asc' as const },
-        },
+        participants: ACTIVE_PARTICIPANTS,
       },
       orderBy: [
         { status: 'asc' },
@@ -469,13 +434,7 @@ export class DashboardService {
 
         aiAnalysis: true,
 
-        participants: {
-          where: { leftAt: null },
-          select: {
-            doctorId: true,
-            doctor: { select: { id: true, fullName: true } },
-          },
-        },
+        participants: ACTIVE_PARTICIPANTS,
       },
 
       orderBy: { startedAt: "desc" },

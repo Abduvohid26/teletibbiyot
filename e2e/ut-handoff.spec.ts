@@ -63,7 +63,8 @@ test.describe('UT topshirish', () => {
       // Lobby yangi bemorning shifokorini ko'rsatishi va shu holatda qolishi kerak
       // (kechikkan realtime yuklash uni keyinroq almashtirib qo'ymasin)
       await page.waitForTimeout(4000);
-      await expect(page.getByText(new RegExp(`Shifokor:\\s*${leadName}`))).toBeVisible();
+      // UT dizaynida "Shifokor" yorlig'i va ism alohida qatorda
+      await expect(page.getByText(leadName, { exact: true }).first()).toBeVisible();
       const active = await page.evaluate(() => sessionStorage.getItem('ishifo_ut_active_consultation'));
       expect(active, 'faol konsultatsiya eski bemorga qaytib ketdi').not.toBe(oldConsultation.id);
     } finally {

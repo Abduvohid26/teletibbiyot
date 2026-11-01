@@ -10,6 +10,7 @@ import { Consultation } from '@/lib/api';
 import {
   wasJoined,
   markJoined,
+  CALL_ACCEPTED_EVENT,
   clearJoined,
   clearOtherJoined,
 } from '@/lib/video-room-session';
@@ -69,6 +70,18 @@ export function UtConsultationSession({ consultation, patientName }: UtConsultat
     setAutoRejoin(false);
     setJoined(true);
   };
+
+  // "Shifokor sizni kutmoqda" qo'ng'irog'i qabul qilindi — lobby'siz ulanamiz
+  useEffect(() => {
+    const onAccepted = (e: Event) => {
+      if ((e as CustomEvent<{ consultationId?: string }>).detail?.consultationId !== consultation.id) return;
+      markJoined(consultation.id, 'ut');
+      setAutoRejoin(false);
+      setJoined(true);
+    };
+    window.addEventListener(CALL_ACCEPTED_EVENT, onAccepted);
+    return () => window.removeEventListener(CALL_ACCEPTED_EVENT, onAccepted);
+  }, [consultation.id]);
 
   /**
    * Kamera biriktiruvi o'zgargach FAQAT o'sha katak almashtiriladi.

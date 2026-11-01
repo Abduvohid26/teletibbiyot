@@ -72,6 +72,14 @@ export function defineConsultationsApi(client: HttpClient) {
       });
     },
 
+    /** Maslahatchi shifokor o'z konsilium fikrini yozadi (bo'sh matn — o'chiradi) */
+    saveConsiliumOpinion(consultationId: string, opinion: string) {
+      return client.request<ConsultationParticipant[]>(
+        `/consultations/${consultationId}/participants/me/opinion`,
+        { method: 'PUT', body: JSON.stringify({ opinion }) },
+      );
+    },
+
     /** Konsiliumdan chiqarish (mas'ul shifokor — istalganini, maslahatchi — o'zini) */
     removeConsultationParticipant(consultationId: string, doctorId: string) {
       return client.request<ConsultationParticipant[]>(

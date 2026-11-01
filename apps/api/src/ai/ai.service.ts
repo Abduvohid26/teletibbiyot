@@ -466,15 +466,28 @@ export class AiService {
         include: { patient: true, utFacility: true },
       });
       if (updatedConsultation && triageLevel === 'EMERGENCY') {
+        // Faqat shu bemorga kirish huquqi bor shifokorlar: mas'ul + konsilium.
+        // Ilgari bemor ismi bilan xabar BARCHA shifokorlarga ketardi.
+        const consultants = await this.prisma.consultationParticipant.findMany({
+          where: { consultationId, leftAt: null },
+          select: { doctorId: true },
+        });
+        const doctorIds = [
+          ...(updatedConsultation.mtDoctorId ? [updatedConsultation.mtDoctorId] : []),
+          ...consultants.map((c) => c.doctorId),
+        ];
         const doctors = await this.prisma.user.findMany({
-          where: { role: { in: MT_NOTIFY_ROLES }, isActive: true },
+          where: { id: { in: doctorIds }, role: { in: MT_NOTIFY_ROLES }, isActive: true },
           select: { email: true, id: true },
         });
+        const patient = this.crypto.unprotectPatient(
+          updatedConsultation.patient as Record<string, unknown>,
+        ) as typeof updatedConsultation.patient;
         if (doctors.length) {
           this.notifications
             .notifyEmergencyTriage(
               doctors.map((d) => d.email),
-              updatedConsultation.patient.fullName,
+              patient.fullName,
               updatedConsultation.utFacility.code,
               doctors.map((d) => d.id),
               consultationId,
@@ -598,6 +611,14 @@ export class AiService {
 
   private async saveUnavailableAnalysis(consultationId: string, reason: AiFailureReason) {
     this.logger.error(`AI tahlil ishlamadi (${consultationId}): ${reason}`);
+    // Administrator AI kalitini/provayderni tuzatishi kerak — bir xil sabab 30 daqiqada bir marta
+    void this.notifications
+      .notifyAdmins('AI tahlil ishlamayapti', `Sabab: ${reason}. Shifokorlar tashxisni qo'lda kiritmoqda.`, {
+        type: 'ai_unavailable',
+        data: { reason },
+        throttleKey: `ai:${reason}`,
+      })
+      .catch(() => undefined);
     await this.prisma.auditLog
       .create({
         data: {
@@ -948,6 +969,14 @@ export class AiService {
       where: { consultationId: consultation.id },
       select: { diagnosis: true, icd10Code: true, recommendations: true, prescription: true, notes: true },
     });
+    const consilium = await this.prisma.consultationParticipant.findMany({
+      where: { consultationId: consultation.id, leftAt: null },
+      select: {
+        opinion: true,
+        doctor: { select: { fullName: true, specialty: true, specialtyRef: { select: { name: true } } } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
 
     return buildAiAnalysisPdfBuffer({
       patientName: p.fullName,
@@ -973,6 +1002,11 @@ export class AiService {
       bmi: cr?.bmi,
       vitalSigns: (cr?.vitalSigns as Record<string, number>) ?? {},
       finalDiagnosis,
+      consilium: consilium.map((m) => ({
+        doctorName: m.doctor.fullName,
+        specialty: m.doctor.specialtyRef?.name ?? m.doctor.specialty,
+        opinion: m.opinion,
+      })),
     }, locale);
   }
 

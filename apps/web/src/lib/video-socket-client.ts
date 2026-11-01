@@ -614,6 +614,25 @@ export function releaseVideoSocket(consultationId: string) {
   scheduleTeardown();
 }
 
+/**
+ * Faqat ulanish (xonasiz): server har bir foydalanuvchini o'zining shaxsiy
+ * xonasiga avtomatik qo'shadi — bildirishnomalar shu orqali keladi (admin ham).
+ */
+export function acquireUserSocket(): Socket {
+  cancelTeardown();
+  const socket = ensureSharedSocket();
+  sharedSocketRefs += 1;
+  if (!socket.connected && !socket.active) {
+    socket.connect();
+  }
+  return socket;
+}
+
+export function releaseUserSocket() {
+  sharedSocketRefs = Math.max(0, sharedSocketRefs - 1);
+  scheduleTeardown();
+}
+
 export function releaseStaffFeedSocket() {
   staffFeedRefs = Math.max(0, staffFeedRefs - 1);
 

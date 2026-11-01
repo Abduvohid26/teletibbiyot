@@ -53,6 +53,17 @@ export class ApiTestClient {
     return res.json() as Promise<T>;
   }
 
+  async patch<T>(path: string, body?: unknown): Promise<T> {
+    const res = await fetch(`${this.baseUrl}${path}`, {
+      method: 'PATCH',
+      headers: this.headers(),
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (!res.ok) throw new Error(`PATCH ${path}: ${res.status} ${await res.text()}`);
+    const text = await res.text();
+    return (text.trim() ? JSON.parse(text) : null) as T;
+  }
+
   async createPatient(payload: Record<string, unknown>) {
     return this.post<{ id: string }>('/patients', payload);
   }

@@ -5,6 +5,7 @@ import { LogOut, UserPlus } from 'lucide-react';
 import { BrandLogo } from '@/components/brand/BrandLogo';
 import { UtNavTabs } from '@/components/ut/UtNavTabs';
 import { LanguageSwitcher, useI18n } from '@/i18n';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 
 export interface UtHeaderProps {
   facilityName?: string;
@@ -56,6 +57,7 @@ export function UtHeader({
 
         <div className="ut-shell-actions shrink-0 min-w-0 max-w-[55vw] sm:max-w-none justify-self-end">
           <LanguageSwitcher compact tone="dark" />
+          <NotificationBell />
           {headerQueue}
           {pageAction}
           {headerExtra}

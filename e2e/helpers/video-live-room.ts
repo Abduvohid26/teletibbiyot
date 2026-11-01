@@ -106,13 +106,16 @@ export async function waitForBothRemoteVideo(
   await waitForRemoteVideo(utPage, timeoutMs, `${labelPrefix}bemor`.trim());
 }
 
+/** Lobby tugmasi: shifokorda "Jonli efirga qo'shilish", UT operatorda "Shifokorga ulanish" */
+export const LOBBY_JOIN_NAME = /Jonli efirga qo'shilish|Shifokorga ulanish/i;
+
 export async function expectLobbyVisible(page: Page, who: string) {
-  const btn = page.getByRole('button', { name: /Jonli efirga qo'shilish/i });
+  const btn = page.getByRole('button', { name: LOBBY_JOIN_NAME });
   await expect(btn, `${who}: lobby ko'rinishi kerak`).toBeVisible({ timeout: 15_000 });
 }
 
 export async function clickLobbyJoin(page: Page, label = 'efir') {
-  const btn = page.getByRole('button', { name: /Jonli efirga qo'shilish/i });
+  const btn = page.getByRole('button', { name: LOBBY_JOIN_NAME });
   await btn.waitFor({ state: 'visible', timeout: 20_000 }).catch(() => {
     throw new Error(`${label}: "Jonli efirga qo'shilish" tugmasi chiqmadi`);
   });
@@ -124,7 +127,7 @@ export async function clickLobbyJoin(page: Page, label = 'efir') {
  * Lobby ko'rinsa (Leave dan keyin) — Join bosiladi.
  */
 export async function joinOrAutoRejoin(page: Page, label = 'efir') {
-  const btn = page.getByRole('button', { name: /Jonli efirga qo'shilish/i });
+  const btn = page.getByRole('button', { name: LOBBY_JOIN_NAME });
   const visible = await btn.isVisible({ timeout: 4_000 }).catch(() => false);
   if (visible) {
     await btn.click();

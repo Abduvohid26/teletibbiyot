@@ -40,6 +40,7 @@ import { buildPatientSearchOr } from '../common/patient-search.util';
 import { isAccessDeniedScope } from '../common/access-scope.constants';
 import { assertCanStartWhileAnotherActive } from './consultations.rules';
 import { AishifokorService } from '../integrations/aishifokor.service';
+import { ACTIVE_PARTICIPANTS, PARTICIPANT_SELECT } from './participant-select';
 
 /** Konsultatsiyani yakunlashda ishlatiladigan AI tahlil shakli. */
 type AiAnalysisForCompletion = {
@@ -205,6 +206,11 @@ export class ConsultationsService {
       ],
     });
 
+    // Bazada ism shifrlangan bo'lishi mumkin — bildirishnoma va voqealarda ochiq ism
+    const createdPatientName = (
+      this.crypto.unprotectPatient(consultation.patient as Record<string, unknown>) as { fullName: string }
+    ).fullName;
+
     // Qabulda tanlangan qo'shimcha shifokorlar — darhol konsiliumga biriktiriladi
     const consultantIds = [...new Set((dto.consultantDoctorIds ?? []).filter(Boolean))]
       .filter((id) => id !== assignedDoctorId);
@@ -226,8 +232,12 @@ export class ConsultationsService {
           .notifyUsers(
             consultants.map((d) => d.id),
             'Konsiliumga chaqiruv',
-            `${consultation.patient.fullName} bo'yicha konsiliumga qo'shildingiz`,
-            { consultationId: consultation.id },
+            `${createdPatientName} bo'yicha konsiliumga qo'shildingiz — mas'ul shifokor boshlaganda qo'ng'iroq keladi`,
+            {
+              consultationId: consultation.id,
+              type: 'consilium_invite',
+              data: { patientName: createdPatientName, status: consultation.status },
+            },
           )
           .catch((err) => this.logger.warn(`Konsilium bildirishnomasi xatosi: ${err}`));
       }
@@ -240,7 +250,7 @@ export class ConsultationsService {
     this.videoGateway.emitConsultationEvent(consultation.id, 'consultation-queued', {
       consultationId: consultation.id,
       status: ConsultationStatus.QUEUED,
-      patientName: consultation.patient.fullName,
+      patientName: createdPatientName,
       utCode: consultation.utFacility.code,
       utId: consultation.utId,
       mtDoctorId: assignedDoctorId,
@@ -258,7 +268,7 @@ export class ConsultationsService {
       this.notifications
         .notifyConsultationQueued(
           doctors.map((d) => d.email),
-          consultation.patient.fullName,
+          createdPatientName,
           consultation.utFacility.code,
           doctors.map((d) => d.id),
           consultation.id,
@@ -287,13 +297,7 @@ export class ConsultationsService {
         aiAnalysis: true,
         clinicalRecord: true,
         mtDoctor: { select: { id: true, fullName: true } },
-        participants: {
-          where: { leftAt: null },
-          select: {
-            doctorId: true,
-            doctor: { select: { id: true, fullName: true } },
-          },
-        },
+        participants: ACTIVE_PARTICIPANTS,
       },
       orderBy: [{ priority: 'desc' }, { triageLevel: 'desc' }, { createdAt: 'asc' }],
     }),
@@ -402,26 +406,7 @@ export class ConsultationsService {
         },
         sessionRecording: true,
         consultationReport: true,
-        participants: {
-          where: { leftAt: null },
-          select: {
-            id: true,
-            doctorId: true,
-            joinedAt: true,
-            leftAt: true,
-            createdAt: true,
-            doctor: {
-              select: {
-                id: true,
-                fullName: true,
-                specialty: true,
-                specialtyRef: { select: { name: true } },
-              },
-            },
-            invitedBy: { select: { id: true, fullName: true } },
-          },
-          orderBy: { createdAt: 'asc' },
-        },
+        participants: ACTIVE_PARTICIPANTS,
       },
     });
     if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
@@ -502,12 +487,31 @@ export class ConsultationsService {
       select: { id: true },
     });
 
+    const startPatientName = (
+      this.crypto.unprotectPatient(existing.patient as Record<string, unknown>) as { fullName: string }
+    ).fullName;
     await this.notifications.notifyConsultationStarted(
       utOperators.map((u) => u.id),
-      existing.patient.fullName,
+      startPatientName,
       doctor?.fullName || 'Shifokor',
       id,
     );
+    // UT qabulda oldindan tanlagan konsilium shifokorlariga — "qo'ng'iroq"
+    const preInvited = await this.activeConsultantIds(id);
+    if (preInvited.length) {
+      await this.notifications
+        .notifyUsers(
+          preInvited,
+          'Konsiliumga qo\'ng\'iroq',
+          `${doctor?.fullName || 'Shifokor'} ${startPatientName} bo'yicha qabulni boshladi — ulaning`,
+          {
+            consultationId: id,
+            type: 'consilium_call',
+            data: { callerName: doctor?.fullName, patientName: startPatientName },
+          },
+        )
+        .catch((err) => this.logger.warn(`Konsilium qo'ng'irog'i xatosi: ${err}`));
+    }
 
     if (existing.utFacility?.phone) {
       await this.notifications.sendSms(
@@ -611,6 +615,20 @@ export class ConsultationsService {
     void this.videoGateway.closeVideoRoom(id, 'completed');
     void this.presence.broadcast(doctorId);
 
+    // UT operatorlar "Tashxis tayyor" ni persistAnalysisReport orqali oladi
+    const completedConsultants = await this.activeConsultantIds(id);
+    if (completedConsultants.length) {
+      const patientName = await this.patientNameOf(consultation.patientId);
+      void this.notifications
+        .notifyUsers(
+          completedConsultants,
+          'Konsilium yakunlandi',
+          `${patientName} — yakuniy tashxis: ${resolved.diagnosis}`,
+          { consultationId: id, type: 'consultation_completed', data: { patientName } },
+        )
+        .catch((err) => this.logger.warn(`Yakunlash bildirishnomasi xatosi: ${err}`));
+    }
+
     void this.aishifokor.notifyConsultationCompleted(
       id,
       resolved.diagnosis,
@@ -663,9 +681,12 @@ export class ConsultationsService {
         where: { role: { in: MT_NOTIFY_ROLES }, isActive: true },
         select: { id: true, email: true },
       });
+      const patient = this.crypto.unprotectPatient(
+        updated.patient as Record<string, unknown>,
+      ) as typeof updated.patient;
       await this.notifications.notifyEmergencyTriage(
         staff.map((s) => s.email),
-        updated.patient.fullName,
+        patient.fullName,
         updated.utFacility.code,
         staff.map((s) => s.id),
         id,
@@ -734,14 +755,13 @@ export class ConsultationsService {
     });
 
     if (dto.assignedDoctorId) {
-      const patient = await this.prisma.patient.findUnique({ where: { id: consultation.patientId } });
       await this.notifications.notifySecondOpinionRequested(
         dto.assignedDoctorId,
-        patient?.fullName || 'Bemor',
+        await this.patientNameOf(consultation.patientId),
         id,
       );
     } else {
-      const patient = await this.prisma.patient.findUnique({ where: { id: consultation.patientId } });
+      const poolPatientName = await this.patientNameOf(consultation.patientId);
       const pool = await this.prisma.user.findMany({
         where: {
           role: UserRole.MT_DOCTOR,
@@ -753,7 +773,7 @@ export class ConsultationsService {
       if (pool.length) {
         await this.notifications.notifySecondOpinionPool(
           pool.map((d) => d.id),
-          patient?.fullName || 'Bemor',
+          poolPatientName,
           id,
         );
       }
@@ -871,6 +891,24 @@ export class ConsultationsService {
     void this.videoGateway.closeVideoRoom(id, 'cancelled');
     if (consultation.mtDoctorId) void this.presence.broadcast(consultation.mtDoctorId);
 
+    // Bekor qilinganini qarama-qarshi tomon biladi (o'zi bekor qilgan odamga emas)
+    const cancelRecipients = [
+      ...(await this.facilityOperatorIds(consultation.utId)),
+      ...(consultation.mtDoctorId ? [consultation.mtDoctorId] : []),
+      ...(await this.activeConsultantIds(id)),
+    ].filter((uid) => uid !== user.id);
+    if (cancelRecipients.length) {
+      const patientName = await this.patientNameOf(consultation.patientId);
+      void this.notifications
+        .notifyUsers(
+          cancelRecipients,
+          'Konsultatsiya bekor qilindi',
+          `${patientName} — ${updated.cancelledBy?.fullName ?? ''}: ${trimmedReason}`,
+          { consultationId: id, type: 'consultation_cancelled', data: { patientName } },
+        )
+        .catch((err) => this.logger.warn(`Bekor qilish bildirishnomasi xatosi: ${err}`));
+    }
+
     return updated;
   }
 
@@ -904,23 +942,6 @@ export class ConsultationsService {
   // Konsilium: bitta bemorga bir vaqtda bir nechta shifokor
   // ─────────────────────────────────────────────────────────────
 
-  private readonly participantSelect = {
-    id: true,
-    doctorId: true,
-    joinedAt: true,
-    leftAt: true,
-    createdAt: true,
-    doctor: {
-      select: {
-        id: true,
-        fullName: true,
-        specialty: true,
-        specialtyRef: { select: { name: true } },
-      },
-    },
-    invitedBy: { select: { id: true, fullName: true } },
-  } satisfies Prisma.ConsultationParticipantSelect;
-
   /** Konsiliumga qo'shilgan (hali chiqmagan) shifokorlar ro'yxati */
   async listParticipants(id: string, user: AuthUser) {
     const consultation = await this.prisma.consultation.findUnique({
@@ -932,7 +953,7 @@ export class ConsultationsService {
 
     return this.prisma.consultationParticipant.findMany({
       where: { consultationId: id, leftAt: null },
-      select: this.participantSelect,
+      select: PARTICIPANT_SELECT,
       orderBy: { createdAt: 'asc' },
     });
   }
@@ -978,6 +999,17 @@ export class ConsultationsService {
       throw new BadRequestException('Ba\'zi shifokorlar topilmadi yoki faol emas');
     }
 
+    // Allaqachon konsiliumda turganlarga qayta bildirishnoma yubormaymiz
+    const alreadyActive = new Set(
+      (
+        await this.prisma.consultationParticipant.findMany({
+          where: { consultationId: id, doctorId: { in: wanted }, leftAt: null },
+          select: { doctorId: true },
+        })
+      ).map((p) => p.doctorId),
+    );
+    const newcomers = doctors.filter((d) => !alreadyActive.has(d.id));
+
     // Takroriy qo'shish xato bermasin: avval chiqib ketgan bo'lsa qayta faollashadi
     await this.prisma.$transaction(
       doctors.map((d) =>
@@ -997,20 +1029,49 @@ export class ConsultationsService {
       ? (this.crypto.unprotectPatient(patient as Record<string, unknown>) as { fullName: string }).fullName
       : 'Bemor';
 
-    await this.notifications
-      .notifyUsers(
-        doctors.map((d) => d.id),
-        'Konsiliumga chaqiruv',
-        `${patientName} bo'yicha konsiliumga qo'shildingiz`,
-        { consultationId: id },
-      )
-      .catch((err) => this.logger.warn(`Konsilium bildirishnomasi xatosi: ${err}`));
+    const inviter = await this.prisma.user.findUnique({
+      where: { id: user.id },
+      select: { fullName: true },
+    });
 
+    if (newcomers.length) {
+      // Qabul jarayonda bo'lsa — bu "qo'ng'iroq" (shifokor ekranida jiringlaydi)
+      const live = consultation.status === ConsultationStatus.IN_PROGRESS;
+      await this.notifications
+        .notifyUsers(
+          newcomers.map((d) => d.id),
+          live ? 'Konsiliumga qo\'ng\'iroq' : 'Konsiliumga chaqiruv',
+          live
+            ? `${inviter?.fullName ?? 'Shifokor'} ${patientName} bo'yicha sizni chaqirmoqda`
+            : `${patientName} bo'yicha konsiliumga qo'shildingiz — qabul boshlanganda qo'ng'iroq keladi`,
+          {
+            consultationId: id,
+            type: live ? 'consilium_call' : 'consilium_invite',
+            data: { callerName: inviter?.fullName, patientName, status: consultation.status },
+          },
+        )
+        .catch((err) => this.logger.warn(`Konsilium bildirishnomasi xatosi: ${err}`));
+    }
+    await this.prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: 'CONSILIUM_ADD',
+        entity: 'Consultation',
+        entityId: id,
+        details: { doctorIds: doctors.map((d) => d.id) },
+      },
+    });
+
+    // Chaqirilgan shifokorga darhol "Sizni konsiliumga chaqirishdi" chiqishi uchun
+    // kim qo'shilgani va kim chaqirgani voqeada keladi
     this.videoGateway.emitConsultationEvent(id, 'consultation-participants-updated', {
       consultationId: id,
       utId: consultation.utId,
       mtDoctorId: consultation.mtDoctorId,
       status: consultation.status,
+      addedDoctorIds: newcomers.map((d) => d.id),
+      invitedByName: inviter?.fullName,
+      patientName,
     });
 
     return this.listParticipants(id, user);
@@ -1046,6 +1107,41 @@ export class ConsultationsService {
         where: { id: participant.id },
         data: { leftAt: new Date() },
       });
+      await this.prisma.auditLog.create({
+        data: {
+          userId: user.id,
+          action: doctorId === user.id ? 'CONSILIUM_LEAVE' : 'CONSILIUM_REMOVE',
+          entity: 'Consultation',
+          entityId: id,
+          details: { doctorId },
+        },
+      });
+
+      const patientName = await this.patientNameOf(
+        (await this.prisma.consultation.findUnique({ where: { id }, select: { patientId: true } }))!.patientId,
+      );
+      if (doctorId === user.id) {
+        // Maslahatchi o'zi chiqdi yoki qo'ng'iroqni rad etdi — mas'ul shifokor bilsin
+        const me = await this.prisma.user.findUnique({ where: { id: user.id }, select: { fullName: true } });
+        if (consultation.mtDoctorId) {
+          void this.notifications
+            .notifyUsers(
+              [consultation.mtDoctorId],
+              'Shifokor konsiliumdan chiqdi',
+              `${me?.fullName ?? 'Shifokor'} — ${patientName}`,
+              { consultationId: id, type: 'consilium_left', data: { patientName, callerName: me?.fullName } },
+            )
+            .catch(() => undefined);
+        }
+      } else {
+        void this.notifications
+          .notifyUsers([doctorId], 'Siz konsiliumdan chiqarildingiz', patientName, {
+            consultationId: id,
+            type: 'consilium_removed',
+            data: { patientName },
+          })
+          .catch(() => undefined);
+      }
     }
 
     this.videoGateway.emitConsultationEvent(id, 'consultation-participants-updated', {
@@ -1060,9 +1156,99 @@ export class ConsultationsService {
     // Chiqarilgan shifokor endi kira olmaydi — ro'yxatni mas'ul shifokor ko'zi bilan qaytaramiz
     return this.prisma.consultationParticipant.findMany({
       where: { consultationId: id, leftAt: null },
-      select: this.participantSelect,
+      select: PARTICIPANT_SELECT,
       orderBy: { createdAt: 'asc' },
     });
+  }
+
+  /**
+   * Maslahatchi shifokor o'z konsilium fikrini yozadi/yangilaydi.
+   * Mas'ul shifokor uni yakunlashdan oldin ko'radi; yakuniy PDF ga ham kiradi.
+   */
+  async saveParticipantOpinion(id: string, user: AuthUser, opinion: string) {
+    const consultation = await this.prisma.consultation.findUnique({
+      where: { id },
+      select: { id: true, utId: true, mtDoctorId: true, status: true },
+    });
+    if (!consultation) throw new NotFoundException('Konsultatsiya topilmadi');
+    if (consultation.status !== ConsultationStatus.IN_PROGRESS) {
+      throw new BadRequestException('Fikrni faqat jarayondagi konsultatsiyada yozish mumkin');
+    }
+
+    const participant = await this.prisma.consultationParticipant.findUnique({
+      where: { consultationId_doctorId: { consultationId: id, doctorId: user.id } },
+      select: { id: true, leftAt: true },
+    });
+    if (!participant || participant.leftAt) {
+      throw new ForbiddenException('Fikrni faqat konsiliumga chaqirilgan shifokor yoza oladi');
+    }
+
+    const text = opinion.trim();
+    await this.prisma.consultationParticipant.update({
+      where: { id: participant.id },
+      data: { opinion: text || null, opinionAt: text ? new Date() : null },
+    });
+    await this.prisma.auditLog.create({
+      data: {
+        userId: user.id,
+        action: 'CONSILIUM_OPINION',
+        entity: 'Consultation',
+        entityId: id,
+        details: { length: text.length },
+      },
+    });
+
+    this.videoGateway.emitConsultationEvent(id, 'consultation-participants-updated', {
+      consultationId: id,
+      utId: consultation.utId,
+      mtDoctorId: consultation.mtDoctorId,
+      status: consultation.status,
+      opinionByDoctorId: user.id,
+    });
+    if (text && consultation.mtDoctorId) {
+      const [me, patientName] = await Promise.all([
+        this.prisma.user.findUnique({ where: { id: user.id }, select: { fullName: true } }),
+        this.prisma.consultation
+          .findUnique({ where: { id }, select: { patientId: true } })
+          .then((c) => (c ? this.patientNameOf(c.patientId) : 'Bemor')),
+      ]);
+      void this.notifications
+        .notifyUsers(
+          [consultation.mtDoctorId],
+          'Konsilium fikri yozildi',
+          `${me?.fullName ?? 'Shifokor'} — ${patientName}: ${text.length > 120 ? `${text.slice(0, 117)}...` : text}`,
+          { consultationId: id, type: 'consilium_opinion', data: { patientName, callerName: me?.fullName } },
+        )
+        .catch(() => undefined);
+    }
+
+    return this.listParticipants(id, user);
+  }
+
+  /** Bildirishnomalar uchun bemor ismi (bazada shifrlangan) */
+  private async patientNameOf(patientId: string): Promise<string> {
+    const patient = await this.prisma.patient.findUnique({
+      where: { id: patientId },
+      select: { fullName: true },
+    });
+    if (!patient) return 'Bemor';
+    return (this.crypto.unprotectPatient(patient as Record<string, unknown>) as { fullName: string }).fullName;
+  }
+
+  private async activeConsultantIds(consultationId: string): Promise<string[]> {
+    const rows = await this.prisma.consultationParticipant.findMany({
+      where: { consultationId, leftAt: null },
+      select: { doctorId: true },
+    });
+    return rows.map((r) => r.doctorId);
+  }
+
+  private async facilityOperatorIds(utId: string): Promise<string[]> {
+    const rows = await this.prisma.user.findMany({
+      where: { role: UserRole.UT_OPERATOR, facilityId: utId, isActive: true },
+      select: { id: true },
+    });
+    return rows.map((r) => r.id);
   }
 
   async updateTriage(id: string, user: AuthUser, triageLevel: TriageLevel, triageNotes?: string) {

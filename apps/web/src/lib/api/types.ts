@@ -214,12 +214,36 @@ export interface SecondOpinion {
   createdAt: string;
 }
 
+/** Server bilan bir xil ro'yxat (apps/api/src/notifications/notifications.service.ts) */
+export type NotificationType =
+  | 'info'
+  | 'consultation_queued'
+  | 'consultation_started'
+  | 'consultation_completed'
+  | 'consultation_cancelled'
+  | 'emergency'
+  | 'report_ready'
+  | 'consilium_invite'
+  | 'consilium_call'
+  | 'consilium_removed'
+  | 'consilium_left'
+  | 'consilium_opinion'
+  | 'second_opinion'
+  | 'appointment'
+  | 'device_offline'
+  | 'ai_unavailable';
+
 export interface AppNotification {
   id: string;
   title: string;
   body: string;
   read: boolean;
-  consultationId?: string;
+  type?: NotificationType;
+  /** Qo'ng'iroq oynasi uchun: callerName, patientName, status ... */
+  data?: { callerName?: string; patientName?: string; status?: string; [key: string]: unknown } | null;
+  consultationId?: string | null;
+  entityType?: string | null;
+  entityId?: string | null;
   createdAt: string;
 }
 
@@ -254,8 +278,12 @@ export interface PatientDetail extends Patient {
 export interface ConsultationParticipant {
   id?: string;
   doctorId: string;
+  /** Video xonaga birinchi marta kirgan vaqti; null — taklif qilingan, hali kirmagan */
   joinedAt?: string | null;
   leftAt?: string | null;
+  /** Maslahatchi shifokorning konsilium fikri */
+  opinion?: string | null;
+  opinionAt?: string | null;
   createdAt?: string;
   doctor: {
     id: string;

@@ -33,6 +33,8 @@ export type PdfLabels = {
   finalDxRecommendations: string;
   finalDxPrescription: string;
   finalDxNotes: string;
+  consiliumTitle: string;
+  consiliumNoOpinion: string;
   aiNotPerformed: string;
   sectionDiagnoses: string;
   icd10: string;
@@ -116,6 +118,8 @@ const UZ: PdfLabels = {
   finalDxRecommendations: "Tavsiyalar:",
   finalDxPrescription: "Retsept:",
   finalDxNotes: "Izoh:",
+  consiliumTitle: "Konsilium a'zolari fikri",
+  consiliumNoOpinion: "Fikr yozilmagan",
   aiNotPerformed: "AI tahlil o'tkazilmadi (xizmat vaqtincha ishlamagan). Yuqoridagi tashxis shifokor ko'rigi asosida qo'yilgan.",
   sectionDiagnoses: 'Tashxislar',
   icd10: 'MKB-10:',
@@ -199,6 +203,8 @@ const RU: PdfLabels = {
   finalDxRecommendations: "Рекомендации:",
   finalDxPrescription: "Рецепт:",
   finalDxNotes: "Примечание:",
+  consiliumTitle: "Мнения участников консилиума",
+  consiliumNoOpinion: "Мнение не указано",
   aiNotPerformed: "ИИ-анализ не проводился (сервис был временно недоступен). Диагноз выше поставлен врачом по результатам осмотра.",
   sectionDiagnoses: 'Диагнозы',
   icd10: 'МКБ-10:',
@@ -282,6 +288,8 @@ const EN: PdfLabels = {
   finalDxRecommendations: "Recommendations:",
   finalDxPrescription: "Prescription:",
   finalDxNotes: "Notes:",
+  consiliumTitle: "Consilium members' opinions",
+  consiliumNoOpinion: "No opinion provided",
   aiNotPerformed: "AI analysis was not performed (service temporarily unavailable). The diagnosis above was made by the doctor based on the examination.",
   sectionDiagnoses: 'Diagnoses',
   icd10: 'ICD-10:',

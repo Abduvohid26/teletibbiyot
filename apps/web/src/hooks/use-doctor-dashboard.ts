@@ -116,6 +116,8 @@ export function useDoctorDashboard() {
 
   const queue = snapshot?.queue ?? [];
   const consultation = snapshot?.consultation ?? null;
+  const snapshotRef = useRef(snapshot);
+  snapshotRef.current = snapshot;
   const queuedPatients = useMemo(() => queue.filter((c) => c.status === 'QUEUED'), [queue]);
   const myInProgress = useMemo(
     () => snapshot?.inProgressList ?? [],
@@ -129,6 +131,25 @@ export function useDoctorDashboard() {
     () => collectRealtimeConsultationIds(consultation, queue),
     [consultation, queue],
   );
+
+  const viewingId = () => selectedConsultationIdRef.current ?? snapshotRef.current?.consultation?.id ?? null;
+
+  /**
+   * Konsultatsiya yakunlandi/bekor qilindi/men chiqarildim. Ilgari HAR QANDAY
+   * yakunlanish (masalan, shifokor maslahatchi bo'lgan boshqa bemor) ochiq
+   * ekranni yopib, "Bemorlar"ga otib yuborardi.
+   */
+  const leaveIfViewing = (cid: string) => {
+    if (viewingId() !== cid) {
+      refresh();
+      return;
+    }
+    // Maslahatchiga "Konsilium yakunlandi / bekor qilindi" server bildirishnomasi bo'lib keladi
+    setSelectedConsultationId(null);
+    clearActiveConsultationId();
+    void executeReload(null);
+    router.replace('/dashboard/patients');
+  };
 
   useConsultationRealtime(
     realtimeIds,
@@ -147,6 +168,13 @@ export function useDoctorDashboard() {
       onAttachmentAnalyzed: () => refresh(),
       onAiUpdated: () => refresh(),
       onConsultationStarted: (payload) => {
+        // Konsiliumga chaqirilgan maslahatchining ekranini (u o'z bemori bilan
+        // ishlayotgan bo'lishi mumkin) majburan almashtirmaymiz — shell'dagi
+        // "Ulanish" toasti orqali o'zi o'tadi
+        if (payload.mtDoctorId && user?.id && payload.mtDoctorId !== user.id) {
+          refresh();
+          return;
+        }
         if (payload.consultationId) {
           setSelectedConsultationId(payload.consultationId);
           // Optimistic: QUEUED → IN_PROGRESS navbatdan olib, faolga qo'yish
@@ -174,22 +202,18 @@ export function useDoctorDashboard() {
         void executeReload(payload.consultationId);
         router.push('/dashboard');
       },
-      onConsultationCompleted: () => {
-        setSelectedConsultationId(null);
-        clearActiveConsultationId();
-        void executeReload(null);
-        router.replace('/dashboard/patients');
-      },
-      onConsultationCancelled: () => {
-        setSelectedConsultationId(null);
-        clearActiveConsultationId();
-        void executeReload(null);
-        router.replace('/dashboard/patients');
-      },
+      onConsultationCompleted: ({ consultationId }) => leaveIfViewing(consultationId),
+      onConsultationCancelled: ({ consultationId }) => leaveIfViewing(consultationId),
       onTriageUpdated: () => refresh(),
       onPriorityUpdated: () => refresh(),
       // Konsiliumga qo'shilgan/chiqarilgan zahoti ro'yxat yangilansin
-      onParticipantsUpdated: () => refresh(),
+      onParticipantsUpdated: (cid, change) => {
+        if (user?.id && change.removedDoctorId === user.id && viewingId() === cid) {
+          leaveIfViewing(cid);
+          return;
+        }
+        refresh();
+      },
     },
     {
       notifyToasts: isMtStaff(user?.role || ''),

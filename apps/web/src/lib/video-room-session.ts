@@ -78,3 +78,20 @@ export function clearOtherJoined(keepConsultationId?: string) {
     /* ignore */
   }
 }
+
+/** Hozir biror video xonada (qo'ng'iroqda) turibmizmi */
+export function hasAnyJoined(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key?.startsWith(KEY_PREFIX) && readSession(key.slice(KEY_PREFIX.length))) return true;
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
+/** Qo'ng'iroq qabul qilindi — ochiq turgan video komponent darhol ulanadi */
+export const CALL_ACCEPTED_EVENT = 'ishifo-call-accepted';
