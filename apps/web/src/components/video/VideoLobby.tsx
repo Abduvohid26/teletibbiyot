@@ -1,6 +1,6 @@
 'use client';
 
-import { Clock, Radio, Stethoscope, User, Video } from 'lucide-react';
+import { Clock, LogIn, Radio, Stethoscope, User, Video } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { MediaSettingsLink } from './MediaDevicePanel';
 import { useI18n } from '@/i18n';
@@ -176,13 +176,9 @@ function UtLobby({
   patientName,
 }: Omit<VideoLobbyProps, 'role' | 'compact'>) {
   const { t } = useI18n();
-  const doctorStarted = consultationStatus === 'IN_PROGRESS';
   const doctorAway = peerPresence === 'offline' || peerPresence === 'break';
-  const nowText = doctorStarted
-    ? t('utConnect.nowLive')
-    : doctorAway
-      ? t('utConnect.nowQueuedAway')
-      : t('utConnect.nowQueued');
+  // Operator shifokorni KUTMAYDI: har holatda — xonaga kiring, kerak bo'lsa ichkaridan qo'ng'iroq qiling
+  const nowText = doctorAway ? t('utConnect.nowAway') : t('utConnect.nowEnter');
 
   return (
     <div className="relative h-full min-h-0 w-full overflow-y-auto rounded-xl bg-gradient-to-b from-brand-900 to-brand-950 text-white">
@@ -221,13 +217,13 @@ function UtLobby({
           </div>
         </div>
 
-        <UtConnectSteps consultationStatus={consultationStatus} className="px-2" />
+        <UtConnectSteps className="px-2" />
 
         {/* Hozir nima qilish kerak */}
         <div
           className={cn(
             'rounded-xl border-l-4 bg-white/[0.06] p-4',
-            doctorStarted ? 'border-emerald-400' : doctorAway ? 'border-amber-400' : 'border-gold-400',
+            doctorAway ? 'border-amber-400' : 'border-emerald-400',
           )}
         >
           <p className="text-xs font-bold uppercase tracking-wide text-gold-300">{t('utConnect.nowTitle')}</p>
@@ -238,18 +234,11 @@ function UtLobby({
           <button
             type="button"
             onClick={onJoin}
-            className={cn(
-              'relative inline-flex w-full items-center justify-center gap-2 rounded-xl px-7 py-3.5 text-base font-bold transition-colors sm:w-auto sm:min-w-[18rem]',
-              doctorStarted
-                ? 'bg-emerald-500 text-white hover:bg-emerald-400'
-                : 'bg-gold-400 text-brand-950 hover:bg-gold-300',
-            )}
+            className="relative inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-7 py-3.5 text-base font-bold text-white transition-colors hover:bg-emerald-400 sm:w-auto sm:min-w-[18rem]"
           >
-            {doctorStarted && (
-              <span className="absolute -inset-1 animate-pulse-soft rounded-[0.9rem] ring-2 ring-emerald-400/70" aria-hidden />
-            )}
-            {doctorStarted ? <Radio size={18} /> : <Clock size={18} />}
-            {doctorStarted ? t('utConnect.joinNow') : t('utConnect.joinWait')}
+            <span className="absolute -inset-1 animate-pulse-soft rounded-[0.9rem] ring-2 ring-emerald-400/70" aria-hidden />
+            <LogIn size={18} />
+            {t('utConnect.enterRoom')}
           </button>
           <MediaSettingsLink className="text-slate-300 hover:text-white" />
         </div>

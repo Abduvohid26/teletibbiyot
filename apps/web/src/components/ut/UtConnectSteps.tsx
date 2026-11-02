@@ -7,25 +7,25 @@ import { useI18n } from '@/i18n';
 type StepState = 'done' | 'current' | 'todo';
 
 interface UtConnectStepsProps {
-  /** QUEUED — shifokor hali qabul qilmagan; IN_PROGRESS — qabul boshlangan */
-  consultationStatus?: string;
+  /** Operator video xonaga kirgan */
+  inRoom?: boolean;
   /** Shifokor videosi ulandi */
   videoLive?: boolean;
   className?: string;
 }
 
 /**
- * Operator uchun "shifokorga ulanish" jarayoni: 3 qadam.
- * Qaysi bosqichda turganini bir qarashda ko'rsatadi.
+ * Operator jarayoni: 3 qadam — Bemor yuborildi → Xonaga kirish → Shifokor bilan video.
+ * Operator shifokor qabul qilishini KUTMAYDI: bemorni yuborgach darhol xonaga
+ * kiradi, kerak bo'lsa ichkaridan shifokorga qo'ng'iroq qiladi.
  */
-export function UtConnectSteps({ consultationStatus, videoLive, className }: UtConnectStepsProps) {
+export function UtConnectSteps({ inRoom, videoLive, className }: UtConnectStepsProps) {
   const { t } = useI18n();
-  const accepted = consultationStatus === 'IN_PROGRESS' || videoLive;
 
   const steps: { label: string; state: StepState }[] = [
     { label: t('utConnect.step1'), state: 'done' },
-    { label: t('utConnect.step2'), state: accepted ? 'done' : 'current' },
-    { label: t('utConnect.step3'), state: videoLive ? 'done' : accepted ? 'current' : 'todo' },
+    { label: t('utConnect.step2'), state: inRoom || videoLive ? 'done' : 'current' },
+    { label: t('utConnect.step3'), state: videoLive ? 'done' : inRoom ? 'current' : 'todo' },
   ];
 
   return (

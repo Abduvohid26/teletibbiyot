@@ -118,7 +118,7 @@ async function waitForRelayVideo(page: Page, timeoutMs: number, label: string) {
 }
 
 async function clickJoin(page: Page, label: string) {
-  const btn = page.getByRole('button', { name: /Jonli efirga qo'shilish/i });
+  const btn = page.getByRole('button', { name: /Xonaga kirish|Jonli efirga qo'shilish/i });
   await btn.waitFor({ state: 'visible', timeout: 20000 }).catch(() => {
     throw new Error(`${label}: "Jonli efirga qo'shilish" tugmasi chiqmadi`);
   });

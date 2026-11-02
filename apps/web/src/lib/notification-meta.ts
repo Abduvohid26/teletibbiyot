@@ -54,12 +54,16 @@ export function presentationOf(n: Pick<AppNotification, 'type'>, role: string): 
   switch (type) {
     case 'consilium_call':
       return { icon: PhoneCall, tone: TONES.green, sound: null, call: doctor ? { kind: 'consilium', ringtone: 'call' } : null };
+    // Avtomatik qo'ng'iroq YO'Q: bular faqat ovozli xabar. Qo'ng'iroq faqat odam
+    // "Qo'ng'iroq qilish" ni bosganda (room_call) yoki konsiliumga taklif qilinganda.
+    // Ilgari bemor yuborilganda shifokorda, shifokor qabul qilganda UT'da avtomatik
+    // jiringlardi — bir tomon javob bersa ikkinchisiga "qarshi qo'ng'iroq" ketardi.
     case 'consultation_started':
-      return { icon: Video, tone: TONES.green, sound: ut ? null : 'chime', call: ut ? { kind: 'doctorReady', ringtone: 'call' } : null };
+      return { icon: Video, tone: TONES.green, sound: 'chime', call: null };
     case 'consultation_queued':
-      return { icon: UserPlus, tone: TONES.brand, sound: null, call: doctor ? { kind: 'newPatient', ringtone: 'call' } : null };
+      return { icon: UserPlus, tone: TONES.brand, sound: 'chime', call: null };
     case 'emergency':
-      return { icon: AlertTriangle, tone: TONES.red, sound: 'alert', call: doctor ? { kind: 'emergency', ringtone: 'urgent' } : null };
+      return { icon: AlertTriangle, tone: TONES.red, sound: 'alert', call: null };
     case 'consilium_invite':
       return { icon: Users, tone: TONES.brand, sound: 'chime', call: null };
     case 'room_call':

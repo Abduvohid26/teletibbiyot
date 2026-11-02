@@ -1,5 +1,7 @@
 'use client';
 
+import { markJoined } from '@/lib/video-room-session';
+import { dispatchDoctorSelect } from '@/hooks/use-doctor-header-data';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -105,6 +107,9 @@ export default function ConsultationsPage() {
     setError('');
     try {
       await api.startConsultation(id);
+      // "Qabul qilish" = qabulni boshlash + xonaga kirish
+      markJoined(id, 'mt');
+      dispatchDoctorSelect(id);
       router.push('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : t('errors.generic'));

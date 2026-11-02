@@ -106,8 +106,8 @@ export async function waitForBothRemoteVideo(
   await waitForRemoteVideo(utPage, timeoutMs, `${labelPrefix}bemor`.trim());
 }
 
-/** Lobby tugmasi: shifokorda "Jonli efirga qo'shilish", UT operatorda "Shifokorga ulanish" */
-export const LOBBY_JOIN_NAME = /Jonli efirga qo'shilish|Shifokorga ulanish/i;
+/** Lobby tugmasi — ikkala tomonda "Xonaga kirish" (eski nomlar ham, eski sinovlar uchun) */
+export const LOBBY_JOIN_NAME = /Xonaga kirish|Jonli efirga qo'shilish|Shifokorga ulanish/i;
 
 export async function expectLobbyVisible(page: Page, who: string) {
   const btn = page.getByRole('button', { name: LOBBY_JOIN_NAME });

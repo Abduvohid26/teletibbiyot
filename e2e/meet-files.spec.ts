@@ -19,7 +19,6 @@ test('Meet paytida UT hujjatlari shifokorlarga real vaqtda', async ({ browser })
   const d2id = (await d2.login('doctor2@ishifo.uz', PASSWORD)).user!.id;
   await d2.completeActiveConsultationIfAny().catch(() => undefined);
   await mt.startConsultation(consultation.id);
-  await mt.post(`/consultations/${consultation.id}/participants`, { doctorIds: [d2id] });
 
   const mk = async () => (await browser.newContext({ viewport: { width: 1440, height: 860 } })).newPage();
   const ut = await mk();
@@ -36,6 +35,8 @@ test('Meet paytida UT hujjatlari shifokorlarga real vaqtda', async ({ browser })
     await lead.goto('/dashboard');
     await clickLobbyJoin(lead, "mas'ul");
     await c2.goto('/dashboard/patients');
+    // Konsiliumga taklif — shifokor ilovada turganda (qo'ng'iroq darhol jiringlaydi)
+    await mt.post(`/consultations/${consultation.id}/participants`, { doctorIds: [d2id] });
     await c2.getByRole('alertdialog').getByRole('button', { name: 'Qabul qilish' }).click({ timeout: 20_000 });
     await ut.goto('/ut/vitals');
     const ring = ut.getByRole('alertdialog');

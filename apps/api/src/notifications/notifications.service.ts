@@ -291,7 +291,9 @@ export class NotificationsService {
   async notifyConsultationQueued(doctorEmails: string[], patientName: string, utCode: string, doctorIds: string[] = [], consultationId?: string) {
     const subject = `[${BRAND.name}] Yangi konsultatsiya navbatda — ${utCode}`;
     const text = `Yangi bemor konsultatsiyasi navbatga qo'shildi.\n\nBemor: ${patientName}\nUT: ${utCode}\n\n${BRAND.name} tizimiga kiring va "Boshlash" tugmasini bosing.`;
-    await Promise.all(
+    // Email FONDA: ilgari avval SMTP javobi kutilardi va shifokor ekranidagi
+    // "Yangi bemor" xabari 6–10 soniya kechikib kelardi
+    void Promise.all(
       doctorEmails.map((email) =>
         this.sendEmail(email, subject, text).catch((err) => {
           this.logger.warn(`Email yuborilmadi (${email}): ${err instanceof Error ? err.message : 'xatolik'}`);
@@ -324,7 +326,8 @@ export class NotificationsService {
     const subject = `[${BRAND.name}] FAVQULODDA — ${patientName} (${utCode})`;
     const text = `FAVQULODDA xavf darajasi aniqlangan!\n\nBemor: ${patientName}\nUT: ${utCode}\n\nZudlik bilan konsultatsiyani boshlang.`;
     const smsText = `${BRAND.name} FAVQULODDA: ${patientName} (${utCode}). Zudlik bilan konsultatsiyani boshlang.`;
-    await Promise.all(
+    // Email fonda — ilovadagi xabar kutib qolmasin
+    void Promise.all(
       emails.map((email) =>
         this.sendEmail(email, subject, text).catch((err) => {
           this.logger.warn(`Email yuborilmadi (${email}): ${err instanceof Error ? err.message : 'xatolik'}`);

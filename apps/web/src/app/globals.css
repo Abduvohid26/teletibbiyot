@@ -299,7 +299,7 @@ body {
   }
 
   .doctor-main-grid {
-    @apply min-h-0 h-full overflow-hidden grid grid-cols-12 gap-1.5;
+    @apply flex-1 min-h-0 h-full overflow-hidden grid grid-cols-12 gap-1.5;
   }
 
   .doctor-video-col {
@@ -312,6 +312,40 @@ body {
 
   .doctor-ai-col {
     @apply col-span-12 lg:col-span-4 min-h-[320px] lg:min-h-0 lg:h-full overflow-hidden;
+  }
+
+  /* <1024px (planshet, telefon "desktop rejimi" ~980px): ustunlar ustma-ust.
+     Ilgari hammasi bitta ekran balandligiga siqilardi — uzun AI xulosa video va
+     hujjatlarni 0 px gacha ezib yuborardi. Endi har blok o'z balandligiga ega,
+     sahifa esa vertikal scroll qilinadi. */
+  @media (max-width: 1023px) {
+    .ut-shell-main:has(.doctor-workspace) {
+      @apply overflow-y-auto overflow-x-hidden;
+    }
+
+    .ut-page.doctor-workspace {
+      @apply h-auto min-h-full overflow-visible;
+    }
+
+    .doctor-workspace .doctor-main-grid {
+      @apply flex-none h-auto overflow-visible gap-2;
+    }
+
+    .doctor-workspace .doctor-video-col {
+      height: clamp(260px, 45dvh, 720px);
+    }
+
+    .doctor-workspace .doctor-video-col.doctor-video-expanded {
+      height: max(260px, calc(100dvh - 5rem));
+    }
+
+    .doctor-workspace .doctor-docs-col {
+      height: clamp(220px, 30dvh, 460px);
+    }
+
+    .doctor-workspace .doctor-ai-col {
+      height: clamp(360px, calc(100dvh - 5rem), 1000px);
+    }
   }
 
   .doctor-bottom-row {

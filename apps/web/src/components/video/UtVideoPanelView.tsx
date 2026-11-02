@@ -227,13 +227,9 @@ export function UtVideoPanelView({
 
       {(roomPhase === 'waiting_peer' || roomPhase === 'joining') && (
         <div className="flex shrink-0 flex-col items-center gap-3 border-b border-white/10 bg-white/[0.03] px-3 py-3 sm:flex-row sm:gap-5">
-          <UtConnectSteps
-            consultationStatus={consultationStatus}
-            videoLive={doctorLive}
-            className="max-w-sm"
-          />
+          <UtConnectSteps inRoom videoLive={doctorLive} className="max-w-sm" />
           <p className="text-center text-xs leading-relaxed text-slate-300 sm:text-left">
-            {consultationStatus === 'IN_PROGRESS' ? t('utConnect.waitingDoctorJoin') : t('utConnect.waitingInRoom')}
+            {t('utConnect.waitingInRoom')}
           </p>
         </div>
       )}

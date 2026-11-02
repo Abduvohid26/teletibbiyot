@@ -40,7 +40,7 @@ test.describe('Meet video room TZ', () => {
       ).toHaveCount(0);
       // Qora ekran o'rniga aniq matn — "Jonli efir" tugmasi doctor tomonda yo'q (u xonada)
       await expect(
-        room.mtPage.getByRole('button', { name: /Jonli efirga qo'shilish/i }),
+        room.mtPage.getByRole('button', { name: /Xonaga kirish|Jonli efirga qo'shilish/i }),
       ).toHaveCount(0);
     } finally {
       await room.cleanup();
@@ -55,7 +55,7 @@ test.describe('Meet video room TZ', () => {
       // Auto-rejoin: lobby yo'q yoki juda qisqa
       await room.utPage.waitForTimeout(2000);
       const lobbyVisible = await room.utPage
-        .getByRole('button', { name: /Jonli efirga qo'shilish/i })
+        .getByRole('button', { name: /Xonaga kirish|Jonli efirga qo'shilish/i })
         .isVisible()
         .catch(() => false);
       expect(lobbyVisible, 'Refreshdan keyin lobby chiqmasligi kerak (auto-rejoin)').toBe(false);
@@ -104,7 +104,7 @@ test.describe('Meet video room TZ', () => {
         // funksiyaning o'zi to'g'ri ishlaydi.
         await expect(
           room.utPage
-            .getByRole('button', { name: /Jonli efirga qo'shilish/i })
+            .getByRole('button', { name: /Xonaga kirish|Jonli efirga qo'shilish/i })
             .or(room.utPage.getByText(/boshqa oyna|qurilmada ochildi|to'xtatildi/i))
             .first(),
         ).toBeVisible({ timeout: 20_000 });

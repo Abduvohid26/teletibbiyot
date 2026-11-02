@@ -1,5 +1,6 @@
 'use client';
 
+import { markJoined } from '@/lib/video-room-session';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDebouncedCallback } from '@/hooks/use-debounce';
 import { useRouter } from 'next/navigation';
@@ -330,6 +331,8 @@ export function useDoctorDashboard() {
     setError('');
     try {
       await api.startConsultation(id);
+      // "Qabul qilish" = qabulni boshlash + xonaga kirish (lobby'da ikkinchi bosish yo'q)
+      markJoined(id, 'mt');
       setSelectedConsultationId(id);
       writeActiveConsultationId(id);
       await executeReload(id);

@@ -5,8 +5,10 @@ import { PASSWORD, patchIceConfigFetch, seedDoctorMediaPrefs, seedUtSession } fr
 
 /**
  * Bildirishnomalar tizimi (barcha rollar) va kiruvchi qo'ng'iroq:
- *  N1) Shifokor qabulni boshlaydi → UT operatorda jiringlaydi → "Ulanish" → video lobby'siz ulanadi
- *  N2) UT bemor yuboradi → shifokorda "Yangi bemor" jiringlaydi → "Qabul qilish" qabulni boshlaydi
+ *  N1) UT bemorni yuboradi → darhol xonaga kiradi → shifokorga qo'ng'iroq → shifokor qabul qiladi → video;
+ *      UT'ga qarshi qo'ng'iroq KELMAYDI
+ *  N2) Yangi bemor shifokorga faqat xabar (jiringlamaydi) → "Qabul qilish" — qabul boshlanadi va
+ *      shifokor darhol xonada → UT'ga ham faqat xabar → UT "Xonaga kirish"
  *  N3) Konsiliumga chaqiruv → "Rad etish" → mas'ul shifokor qo'ng'iroqchasida "konsiliumdan chiqdi"
  *  N4) Admin: qurilma uzilsa qo'ng'iroqchada ogohlantirish (bemor ma'lumotisiz)
  */
@@ -51,74 +53,105 @@ async function freshDoctor(email: string) {
 test.describe('Bildirishnomalar va qo\'ng\'iroq', () => {
   test.setTimeout(180_000);
 
-  test('N1) shifokor boshlaydi → UT da qo\'ng\'iroq → Ulanish → video ulanadi', async ({ browser }) => {
+  test('N1) UT yuboradi → darhol xonaga kiradi → shifokorga qo\'ng\'iroq → qabul → video, qarshi qo\'ng\'iroq yo\'q', async ({ browser }) => {
     const ut = new ApiTestClient();
     await ut.login('operator@ishifo.uz', PASSWORD);
     const doc = await freshDoctor('doctor@ishifo.uz');
     const patient = await ut.createPatient(buildTestPatient());
     const consultation = await ut.createConsultation(buildTestConsultation(patient.id, doc.id));
 
-    const p = await newPage(browser);
-    await seedUtSession(p.page, consultation.id);
-    await patchIceConfigFetch(p.page);
+    const u = await newPage(browser);
+    const d = await newPage(browser);
+    await seedUtSession(u.page, consultation.id);
+    await seedDoctorMediaPrefs(d.page);
+    await patchIceConfigFetch(u.page, d.page);
     try {
-      await loginAs(p.page, 'operator@ishifo.uz', PASSWORD, /\/ut/);
-      await p.page.goto('/ut/patients');
-      await unlockAudio(p.page);
-      const before = await oscillators(p.page);
+      await loginAs(d.page, 'doctor@ishifo.uz', PASSWORD, /\/dashboard/);
+      await d.page.goto('/dashboard/patients');
+      await unlockAudio(d.page);
+      // Shifokorda "Yangi bemor" — faqat xabar, jiringlamaydi
+      await expect(d.page.getByRole('alertdialog')).toHaveCount(0);
 
-      await doc.client.startConsultation(consultation.id);
+      await loginAs(u.page, 'operator@ishifo.uz', PASSWORD, /\/ut/);
+      await u.page.goto('/ut/vitals');
+      // Operator shifokor qabul qilishini kutmaydi — darhol kiradi
+      await expect(u.page.getByRole('button', { name: 'Xonaga kirish' })).toBeVisible({ timeout: 20_000 });
+      await shot(u.page, 'n1-ut-lobby');
+      await u.page.getByRole('button', { name: 'Xonaga kirish' }).click();
+      const callDoctor = u.page.getByRole('button', { name: "Shifokorga qo'ng'iroq qilish" });
+      await expect(callDoctor).toBeVisible({ timeout: 30_000 });
+      await shot(u.page, 'n1-ut-in-room');
+      await callDoctor.click();
 
-      await expect(callDialog(p.page)).toBeVisible({ timeout: 15_000 });
-      await expect(callDialog(p.page)).toContainText('sizni kutmoqda');
-      await shot(p.page, 'n1-ut-incoming-call');
-      await p.page.waitForTimeout(800);
-      expect(await oscillators(p.page), 'qo\'ng\'iroq ovozi chalinishi kerak').toBeGreaterThan(before);
+      await expect(callDialog(d.page)).toContainText('sizni video xonaga chaqirmoqda', { timeout: 15_000 });
+      await shot(d.page, 'n1-doctor-ring');
+      await callDialog(d.page).getByRole('button', { name: 'Qabul qilish' }).click();
+      await d.page.waitForURL(/\/dashboard$/);
+      await expect(d.page.getByRole('button', { name: /Uzish/ })).toBeVisible({ timeout: 30_000 });
+      const row = await doc.client.get<{ status: string }>(`/consultations/${consultation.id}`);
+      expect(row.status).toBe('IN_PROGRESS');
 
-      await callDialog(p.page).getByRole('button', { name: 'Ulanish' }).click();
-      await p.page.waitForURL(/\/ut\/vitals/);
-      await expect(callDialog(p.page)).toHaveCount(0);
-      // Lobby ko'rinmaydi — to'g'ridan-to'g'ri xonaga kiradi
-      await expect(p.page.getByRole('button', { name: /Uzish/ })).toBeVisible({ timeout: 30_000 });
-      await shot(p.page, 'n1-ut-joined');
-
-      // Qo'ng'iroqchada ham saqlangan
-      await p.page.getByRole('button', { name: /^Bildirishnomalar/ }).click();
-      await expect(p.page.getByRole('dialog', { name: 'Bildirishnomalar' })).toContainText('Shifokor sizni kutmoqda');
+      // UT'da qarshi qo'ng'iroq YO'Q, shifokor videoda
+      await expect(u.page.getByRole('button', { name: /Shifokorga qo'ng'iroq qilish|Chaqirilmoqda/ })).toHaveCount(0, { timeout: 30_000 });
+      await u.page.waitForTimeout(4000);
+      await expect(callDialog(u.page)).toHaveCount(0);
+      await shot(u.page, 'n1-ut-connected');
     } finally {
-      await p.ctx.close();
+      await u.ctx.close();
+      await d.ctx.close();
       await doc.client.completeActiveConsultationIfAny().catch(() => undefined);
     }
   });
 
-  test('N2) UT bemor yuboradi → shifokorda "Yangi bemor" → Qabul qilish', async ({ browser }) => {
+  test('N2) yangi bemor faqat xabar → "Qabul qilish" xonaga kiritadi → UT ga ham faqat xabar', async ({ browser }) => {
     const ut = new ApiTestClient();
     await ut.login('operator@ishifo.uz', PASSWORD);
     const doc = await freshDoctor('doctor@ishifo.uz');
 
-    const p = await newPage(browser);
-    await seedDoctorMediaPrefs(p.page);
-    await patchIceConfigFetch(p.page);
+    const d = await newPage(browser);
+    const u = await newPage(browser);
+    await seedDoctorMediaPrefs(d.page);
+    await patchIceConfigFetch(d.page, u.page);
     try {
-      await loginAs(p.page, 'doctor@ishifo.uz', PASSWORD, /\/dashboard/);
-      await p.page.goto('/dashboard/settings');
-      await unlockAudio(p.page);
+      await loginAs(d.page, 'doctor@ishifo.uz', PASSWORD, /\/dashboard/);
+      await d.page.goto('/dashboard/patients');
+      await unlockAudio(d.page);
+      const before = await oscillators(d.page);
 
-      const patient = await ut.createPatient(buildTestPatient());
+      const patientData = buildTestPatient();
+      const patient = await ut.createPatient(patientData);
       const consultation = await ut.createConsultation(buildTestConsultation(patient.id, doc.id));
 
-      await expect(callDialog(p.page)).toBeVisible({ timeout: 15_000 });
-      await expect(callDialog(p.page)).toContainText('Sizga yangi bemor yuborildi');
-      await shot(p.page, 'n2-doctor-new-patient-call');
-      await callDialog(p.page).getByRole('button', { name: 'Qabul qilish' }).click();
-      await p.page.waitForURL(/\/dashboard$/);
+      // Ovozli xabar (+ qisqa toast), lekin ekranni to'sadigan qo'ng'iroq yo'q.
+      // Toast 8s da yopiladi — sekin mashinada ham ishonchli bo'lishi uchun ovoz va qo'ng'iroqchani tekshiramiz
+      await expect.poll(() => oscillators(d.page), { timeout: 30_000, message: 'xabar ovozi' }).toBeGreaterThan(before);
+      await expect(callDialog(d.page)).toHaveCount(0);
+      await d.page.getByRole('button', { name: /^Bildirishnomalar/ }).click();
+      await expect(d.page.getByRole('dialog', { name: 'Bildirishnomalar' }).getByText('Yangi bemor yuborildi').first()).toBeVisible();
+      await d.page.keyboard.press('Escape');
 
-      const row = await doc.client.get<{ status: string }>(`/consultations/${consultation.id}`);
-      expect(row.status).toBe('IN_PROGRESS');
-      await expect(p.page.getByRole('button', { name: /Uzish/ })).toBeVisible({ timeout: 30_000 });
-      await shot(p.page, 'n2-doctor-started');
+      await seedUtSession(u.page, consultation.id);
+      await loginAs(u.page, 'operator@ishifo.uz', PASSWORD, /\/ut/);
+      await u.page.goto('/ut/patients');
+
+      // "Qabul qilish" — qabul boshlanadi va shifokor darhol xonada (lobby'siz)
+      await d.page.reload();
+      const card = d.page.locator('div', { hasText: patientData.fullName }).filter({ has: d.page.getByRole('button', { name: /Qabul qilish/ }) }).last();
+      await card.getByRole('button', { name: /Qabul qilish/ }).click();
+      await d.page.waitForURL(/\/dashboard$/);
+      await expect(d.page.getByRole('button', { name: /Uzish/ })).toBeVisible({ timeout: 30_000 });
+      await shot(d.page, 'n2-doctor-in-room');
+
+      // UT'ga "shifokor kutmoqda" — faqat xabar, jiringlamaydi
+      await expect(u.page.getByText('Shifokor sizni kutmoqda').first()).toBeVisible({ timeout: 15_000 });
+      await expect(callDialog(u.page)).toHaveCount(0);
+      await u.page.goto('/ut/vitals');
+      await u.page.getByRole('button', { name: 'Xonaga kirish' }).click();
+      await expect(u.page.getByRole('button', { name: /Uzish/ })).toBeVisible({ timeout: 30_000 });
+      await expect(u.page.getByRole('button', { name: "Shifokorga qo'ng'iroq qilish" })).toHaveCount(0, { timeout: 30_000 });
     } finally {
-      await p.ctx.close();
+      await d.ctx.close();
+      await u.ctx.close();
       await doc.client.completeActiveConsultationIfAny().catch(() => undefined);
     }
   });

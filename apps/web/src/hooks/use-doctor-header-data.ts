@@ -1,5 +1,6 @@
 'use client';
 
+import { markJoined } from '@/lib/video-room-session';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { api, Consultation } from '@/lib/api';
@@ -127,6 +128,8 @@ export function useDoctorHeaderData() {
   const onStart = useCallback(async (id: string) => {
     try {
       await api.startConsultation(id);
+      // "Qabul qilish" = qabulni boshlash + xonaga kirish
+      markJoined(id, 'mt');
       goLive(id);
       void reload();
     } catch (err) {

@@ -18,7 +18,7 @@ import {
  *   R3) Mas'ul chiqsa — UT "mas'ul xonada emas" ni ko'radi; qaytsa yana asosiyda
  *   R4) Konsilium paneli: kim xonada / kim yo'q real vaqtda
  *   R5) Chiqarilgan shifokor ESKI havola bilan qaytolmaydi, YANGI havola bilan kiradi
- *   R6) Qo'ng'iroqda turgan shifokorga yangi qo'ng'iroq ekranni to'smaydi
+ *   R6) Qo'ng'iroqda turgan shifokorga yangi bemor — faqat xabar, ekran to'silmaydi
  *
  * Har bir rol o'z nomi yozilgan kamerani ko'rsatsin desangiz (skrinshotlarda kim
  * qayerdaligi ko'rinadi): E2E_FAKE_CAM_DIR=<papka> (ut.y4m, lead.y4m, c2.y4m, c3.y4m).
@@ -175,7 +175,11 @@ test.describe('Konsilium: rollar bir-birini qanday ko\'radi', () => {
       const leadId = (await mt.get<{ id: string }>('/auth/me')).id;
       const p2 = await ut2.createPatient(buildTestPatient());
       const queued = await ut2.createConsultation(buildTestConsultation(p2.id, leadId));
-      await expect(lead.page.getByText('Siz hozir video qo\'ng\'iroqdasiz', { exact: false })).toBeVisible({ timeout: 15_000 });
+      // Yangi bemor — qo'ng'iroq emas, faqat xabar (qo'ng'iroqchada saqlanadi); video to'silmaydi
+      await lead.page.getByRole('button', { name: /^Bildirishnomalar/ }).click();
+      await expect(lead.page.getByRole('dialog', { name: 'Bildirishnomalar' }).getByText('Yangi bemor yuborildi').first())
+        .toBeVisible({ timeout: 30_000 });
+      await lead.page.keyboard.press('Escape');
       await expect(lead.page.getByRole('alertdialog')).toHaveCount(0);
       await expect(lead.page.getByRole('button', { name: /^Uzish$/ }).first()).toBeVisible();
       await shot({ lead: lead.page }, 'R6-in-call');

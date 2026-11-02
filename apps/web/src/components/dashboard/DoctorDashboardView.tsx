@@ -173,7 +173,7 @@ export function DoctorDashboardView({
 
   return (
     <>
-      <div className="ut-page">
+      <div className="ut-page doctor-workspace">
         {error && (
           <div className="shrink-0 mb-2 ut-glass-banner border-red-200/70 bg-red-50/75 text-red-700 text-xs px-3 py-1.5 flex items-center justify-between">
             <span className="truncate">{error}</span>
@@ -198,8 +198,8 @@ export function DoctorDashboardView({
           />
         )}
 
-        <div className="flex-1 min-h-0 overflow-hidden doctor-main-grid">
-            <div className={cn('doctor-video-col', videoExpanded && 'lg:col-span-12')}>
+        <div className="doctor-main-grid">
+            <div className={cn('doctor-video-col', videoExpanded && 'doctor-video-expanded lg:col-span-12')}>
               <VideoConsultation
                 key={activeConsultationId ?? 'none'}
                 facilityCode={activeConsultation?.utFacility?.code ?? consultation?.utFacility?.code}
