@@ -95,6 +95,8 @@ mainConclusion ning oxirida ham shu cheklovni ochiq aytib o'ting.
 SOXTA MA'LUMOT TAQIQLANADI:
 Faqat bemorning haqiqiy shikoyatlari, anamnezi, vital belgilari va biriktirilgan hujjat tahlillari asosida yozing.
 Hujjat/attachment findings bo'lsa — ularni asoslash va mantiqiy zanjirga aniq bog'lang.
+Hujjat nomi yoki turi (masalan "Qon tahlili.pdf") — DALIL EMAS: faqat findings/abnormalities dagi aniq qiymatlar dalil.
+attachmentAnalyses da findings va abnormalities bo'sh bo'lsa — o'sha tekshiruv natijasini o'ylab topmang.
 Klinik asos bo'lmagan bo'limni to'qib to'ldirmang (bo'sh massiv yoki o'tkazib yuboring).
 Lekin asosiy bo'limlar (summary, mainConclusion, consensusDiagnoses, treatmentSteps, additionalTests,
 recommendations, riskFactors, prognosis*, qualityScore, recordedFindings) — MAVJUD ma'lumotlar
@@ -373,7 +375,19 @@ export class AiService {
         findings?: string[];
         abnormalities?: string[];
         impression?: string;
+        hasResults?: boolean;
       } | null;
+      // Natijasi yo'q hujjat (faqat sarlavha/bo'sh forma) — dalil emas, faqat "tekshiruv yo'q" belgisi
+      if (findings?.hasResults === false) {
+        return {
+          fileName: a.fileName,
+          fileType: a.fileType,
+          documentType: findings.documentType,
+          note: "Hujjatda natija qiymatlari yo'q — bu tekshiruv natijasi MAVJUD EMAS deb hisoblang",
+          findings: [],
+          abnormalities: [],
+        };
+      }
       return {
         fileName: a.fileName,
         fileType: a.fileType,
