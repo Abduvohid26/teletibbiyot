@@ -11,6 +11,7 @@ import { useInviteLink } from '@/hooks/use-invite-link';
 import { useRing } from '@/hooks/use-ring';
 import { cn } from '@/lib/utils';
 import { useI18n } from '@/i18n';
+import { isInLiveCall, MEDIA_PRESENCE_EVENT } from '@/lib/video-socket-client';
 
 interface ConsiliumPanelProps {
   consultation: Consultation | null;
@@ -46,9 +47,18 @@ export function ConsiliumPanel({ consultation, currentDoctorId, onChanged, embed
     onChanged,
   });
 
-  const { statusOf, inRoom } = useRoomPresence(
+  const { statusOf: serverStatusOf, inRoom } = useRoomPresence(
     participants.length > 0 || canEdit ? consultation?.id : undefined,
   );
+  // O'zim haqimda server emas, shu tab biladi: lobby'da turganimda eski (toza yopilmagan)
+  // sessiyam sabab "xonada" deb ko'rinmasin
+  const selfLive = useSelfInCall(consultation?.id);
+  const statusOf = (userId?: string | null): MemberStatus => {
+    const status = serverStatusOf(userId);
+    if (!userId || userId !== currentDoctorId) return status;
+    if (selfLive) return 'in_room';
+    return status === 'in_room' ? 'online' : status;
+  };
   const mine = participants.find((p) => p.doctorId === currentDoctorId);
   const isConsultant = !isOwner && !!mine;
   const invite = useInviteLink(consultation?.id);
@@ -224,6 +234,22 @@ export function ConsiliumPanel({ consultation, currentDoctorId, onChanged, embed
       />
     </div>
   );
+}
+
+/** Shu tabda video'ga haqiqatan ulanganmi (VideoConsultation announceMediaPresence) */
+function useSelfInCall(consultationId?: string) {
+  const [live, setLive] = useState(() => isInLiveCall(consultationId));
+  useEffect(() => {
+    setLive(isInLiveCall(consultationId));
+    if (!consultationId) return;
+    const onChange = (e: Event) => {
+      const detail = (e as CustomEvent<{ consultationId?: string; live?: boolean }>).detail;
+      if (detail?.consultationId === consultationId) setLive(!!detail.live);
+    };
+    window.addEventListener(MEDIA_PRESENCE_EVENT, onChange);
+    return () => window.removeEventListener(MEDIA_PRESENCE_EVENT, onChange);
+  }, [consultationId]);
+  return live;
 }
 
 function statusKey(status: MemberStatus) {

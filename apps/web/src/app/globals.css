@@ -336,7 +336,8 @@ body {
     }
 
     .doctor-workspace .doctor-video-col.doctor-video-expanded {
-      height: max(260px, calc(100dvh - 5rem));
+      /* Bemor kartasi ostida boshqaruv tugmalari ham ekranga sig'sin */
+      height: max(260px, calc(100dvh - 10rem));
     }
 
     .doctor-workspace .doctor-docs-col {

@@ -6,6 +6,7 @@ import {
   clickLobbyJoin,
   installPcProbe,
   joinOrAutoRejoin,
+  LOBBY_JOIN_NAME,
   FIRST_CONNECT_BUDGET_MS,
   RECONNECT_BUDGET_MS,
 } from './helpers/video-live-room';
@@ -475,6 +476,58 @@ test.describe('Konsilium video (3 tomon)', () => {
     } finally {
       await ctx.close().catch(() => undefined);
       await mt.completeActiveConsultationIfAny().catch(() => undefined);
+    }
+  });
+
+  test('K9) konsilium shifokori boshqa sahifaga o\'tib qaytadi — hamma yana ko\'radi va eshitadi', async ({ browser }) => {
+    const k = await prepareKonsilium(browser);
+    try {
+      await k.join('lead');
+      await k.join('ut');
+      await k.join('consultant');
+      await expectMesh(k, 'K9 boshida');
+      const c = k.pages.consultant;
+      // Ilova ichida "Bemorlar" ga o'tib qaytish
+      await c.getByRole('link', { name: /Bemorlar/ }).first().click();
+      await c.waitForTimeout(3000);
+      await c.getByRole('button', { name: /^Ulash$/ }).first().click();
+      await joinOrAutoRejoin(c, 'K9 spa');
+      await expectMesh(k, 'K9 ilova ichida qaytish', ALL, RECONNECT_BUDGET_MS);
+      // To'liq sahifa almashishi va darhol qaytish
+      await c.goto('/dashboard/patients');
+      await c.waitForTimeout(1500);
+      await c.getByRole('button', { name: /^Ulash$/ }).first().click();
+      await joinOrAutoRejoin(c, 'K9 goto');
+      await expectMesh(k, 'K9 sahifa almashib qaytish', ALL, RECONNECT_BUDGET_MS);
+    } finally {
+      await k.cleanup();
+    }
+  });
+
+  test('K10) eski sessiya toza yopilmagan ("arvoh") — yangi oynada qaytgan shifokorni hamma ko\'radi', async ({ browser }) => {
+    const k = await prepareKonsilium(browser);
+    let fresh: Awaited<ReturnType<typeof newPage>> | null = null;
+    try {
+      await k.join('lead');
+      await k.join('ut');
+      await k.join('consultant');
+      await expectMesh(k, 'K10 boshida');
+      // Eski oyna aloqasiz qoladi (leave yuborilmaydi), shifokor yangi oynada qaytadi
+      await k.pages.consultant.context().setOffline(true);
+      fresh = await newPage(browser);
+      await seedDoctorMediaPrefs(fresh.page);
+      await loginAs(fresh.page, CONSULTANT_EMAIL, PASSWORD, /\/dashboard/);
+      await fresh.page.goto('/dashboard/patients');
+      await fresh.page.getByRole('button', { name: /^Ulash$/ }).first().click();
+      // Lobby'da turibman — o'zim "xonada" deb ko'rinmasligim kerak (eski sessiya hisobga olinmaydi)
+      await expect(fresh.page.getByRole('button', { name: LOBBY_JOIN_NAME }).first()).toBeVisible({ timeout: 20_000 });
+      await expect(fresh.page.locator('main')).not.toContainText(/siz · xonada/);
+      await clickLobbyJoin(fresh.page, 'K10');
+      k.pages.consultant = fresh.page;
+      await expectMesh(k, 'K10 qaytgandan keyin', ALL, 60_000);
+    } finally {
+      await fresh?.ctx.close().catch(() => undefined);
+      await k.cleanup();
     }
   });
 });

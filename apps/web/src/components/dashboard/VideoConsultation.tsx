@@ -292,6 +292,9 @@ export function VideoConsultation({
     ? null
     : (uniqueCameraStreams[activeCamera] ?? uniqueCameraStreams.close ?? uniqueCameraStreams.main ?? null);
   const connectedCount = utCameraStreams.filter((c) => c.active).length;
+  // "Hammasi": faqat ishlayotgan kameralar — 1 ta jonli kamera uchun 3 ta bo'sh katak ko'rsatilmaydi
+  const liveFeeds = UT_CAMERA_FEEDS.filter((feed) => isStreamLive(uniqueCameraStreams[feed.id]));
+  const allViewFeeds = liveFeeds.length ? liveFeeds : UT_CAMERA_FEEDS;
   const liveCount = countLiveUtCameraStreams(remoteCameras);
 
   const handleLeave = () => {
@@ -330,7 +333,8 @@ export function VideoConsultation({
       )}>
         <div className={cn(
           'relative flex-1 glass-video-bg rounded-xl overflow-hidden ring-1 ring-white/10 min-h-0 min-w-0 mx-auto',
-          compact ? 'w-[94%] max-w-full mb-0' : 'w-full m-3 mb-0',
+          // w-full + m-3 kenglikdan 24px oshib ketib, "Siz" oynasi o'ngda kesilardi
+          compact ? 'w-[94%] max-w-full mb-0' : 'self-stretch mx-3 mt-3',
           !compact && 'min-h-[260px]',
         )}>
         {pinnedDoctor ? (
@@ -356,8 +360,14 @@ export function VideoConsultation({
             </button>
           </>
         ) : isAllView ? (
-          <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-0.5 p-0.5 bg-slate-950">
-            {UT_CAMERA_FEEDS.map((feed) => {
+          <div
+            className={cn(
+              'absolute inset-0 grid gap-0.5 p-0.5 bg-slate-950',
+              allViewFeeds.length <= 1 ? 'grid-cols-1' : 'grid-cols-2',
+              allViewFeeds.length > 2 && 'grid-rows-2',
+            )}
+          >
+            {allViewFeeds.map((feed) => {
               const stream = uniqueCameraStreams[feed.id] ?? null;
               const live = isStreamLive(stream);
               return (
@@ -377,7 +387,7 @@ export function VideoConsultation({
                     placeholder={feed.label}
                     live={live}
                   />
-                  <span className="absolute top-1 left-1 bg-black/60 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded pointer-events-none">
+                  <span className="absolute bottom-1 left-1 bg-black/60 text-white text-[10px] font-semibold px-1.5 py-0.5 rounded pointer-events-none">
                     {shortFeedLabel(feed, t)}
                   </span>
                   {!live && (
@@ -638,7 +648,7 @@ export function VideoConsultation({
       </div>
 
       {!compact && (
-      <div className="grid grid-cols-5 gap-1.5 px-3 pt-3 shrink-0">
+      <div className="flex justify-center gap-1.5 px-3 pt-2 shrink-0 overflow-x-auto">
         {UT_CAMERA_FEEDS.map((feed) => {
           const stream = uniqueCameraStreams[feed.id] ?? null;
           return (
@@ -647,7 +657,7 @@ export function VideoConsultation({
               type="button"
               onClick={() => { setActiveCamera(feed.id); if (feed.ptz && !observeMode) setShowPtz(true); }}
               className={cn(
-                'relative aspect-video rounded-lg overflow-hidden border-2 transition-all',
+                'relative shrink-0 w-32 xl:w-40 aspect-video rounded-lg overflow-hidden border-2 transition-all',
                 activeCamera === feed.id ? 'border-gold-400' : 'border-transparent hover:border-white/25',
               )}
             >
@@ -706,7 +716,7 @@ export function VideoConsultation({
         </div>
       )}
 
-      <div className={cn('flex items-center justify-center gap-2 shrink-0', compact ? 'px-2 py-1.5' : 'px-3 py-4')}>
+      <div className={cn('flex items-center justify-center gap-2 shrink-0', compact ? 'px-2 py-1.5' : 'px-3 py-2.5')}>
         {!observeMode && (
           <>
             <div className="flex items-center gap-1 rounded-full bg-white/[0.06] px-1.5 py-1 ring-1 ring-white/10">
@@ -806,7 +816,7 @@ function AllCamerasButton({
       title={hint}
       onClick={onClick}
       className={cn(
-        'relative aspect-video rounded-lg overflow-hidden border-2 transition-all bg-brand-900',
+        'relative shrink-0 w-32 xl:w-40 aspect-video rounded-lg overflow-hidden border-2 transition-all bg-brand-900',
         active ? 'border-gold-400' : 'border-transparent hover:border-white/25',
       )}
     >

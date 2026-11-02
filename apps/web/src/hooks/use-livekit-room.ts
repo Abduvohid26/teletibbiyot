@@ -140,6 +140,13 @@ export function useLivekitRoom({
    * bo'ladigan "Qurilmalar") shifokorda bo'sh qolardi.
    */
   const cameraTrackSidRef = useRef<Map<string, string>>(new Map());
+  /**
+   * Shifokor oynasi: `identity → { participantSid, trackSid }`.
+   * Xuddi UT kameralaridagi kabi himoya: konsilium shifokori qayta kirganda (identity
+   * o'sha userId) eski sessiyaning kechikkan hodisalari YANGI oynani o'chirmasin —
+   * aks holda UT va mas'ul uni ko'rmay, eshitmay qolardi.
+   */
+  const doctorOwnerRef = useRef<Map<string, { participantSid: string; trackSid: string }>>(new Map());
   /** Publish qilinmay qolgan UT kameralarini qaytadan urinish taymeri */
   const republishTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Avtomatik qayta ulanish holati */
@@ -195,6 +202,13 @@ export function useLivekitRoom({
   const remoteAudioTracksRef = useRef<Map<string, MediaStreamTrack>>(new Map());
   const [remoteAudioTrackCount, setRemoteAudioTrackCount] = useState(0);
 
+  /**
+   * `remoteAudioTrackCount` — aslida o'zgarishlar hisoblagichi: RemoteAudio ro'yxatni
+   * shu qiymat o'zgarganda qayta quradi. Oddiy son bo'lsa, shifokor qayta kirganda
+   * eski trek yangisiga ALMASHGANDA son o'zgarmas va yangi ovoz ijro etilmas edi.
+   */
+  const bumpRemoteAudio = useCallback(() => setRemoteAudioTrackCount((n) => n + 1), []);
+
   /** Ishtirokchining audio trekini umumiy oqimga qo'shadi */
   const addRemoteAudioTrack = useCallback((identity: string, track: MediaStreamTrack) => {
     if (!remoteAudioStreamRef.current) remoteAudioStreamRef.current = new MediaStream();
@@ -206,18 +220,24 @@ export function useLivekitRoom({
     remoteAudioTracksRef.current.set(identity, track);
     if (!stream.getAudioTracks().includes(track)) stream.addTrack(track);
     setRemoteAudio(stream);
-    setRemoteAudioTrackCount(stream.getAudioTracks().length);
-  }, []);
+    bumpRemoteAudio();
+  }, [bumpRemoteAudio]);
 
-  /** Ishtirokchi chiqib ketganda uning ovozini oqimdan chiqaradi */
-  const removeRemoteAudioTrack = useCallback((identity: string) => {
+  /**
+   * Ishtirokchi chiqib ketganda uning ovozini oqimdan chiqaradi.
+   * `only` berilsa — faqat AYNAN shu trek hali o'rnida bo'lsa: shifokor qayta
+   * kirganda eski sessiyaning kechikkan "unsubscribed" hodisasi yangi ovozni
+   * o'chirib yubormasin (identity ikkala sessiyada bir xil — userId).
+   */
+  const removeRemoteAudioTrack = useCallback((identity: string, only?: MediaStreamTrack) => {
     const stream = remoteAudioStreamRef.current;
     const track = remoteAudioTracksRef.current.get(identity);
     if (!stream || !track) return;
+    if (only && only !== track) return;
     try { stream.removeTrack(track); } catch { /* ignore */ }
     remoteAudioTracksRef.current.delete(identity);
-    setRemoteAudioTrackCount(stream.getAudioTracks().length);
-  }, []);
+    bumpRemoteAudio();
+  }, [bumpRemoteAudio]);
   const [localCameraFeeds, setLocalCameraFeeds] = useState<Record<string, MediaStream>>({});
   const [audioMissing, setAudioMissing] = useState(false);
   const [virtualCameraWarning, setVirtualCameraWarning] = useState<string[]>([]);
@@ -273,6 +293,10 @@ export function useLivekitRoom({
 
     const stream = new MediaStream([media]);
     if (cameraId === MT_DOCTOR_STREAM_ID) {
+      doctorOwnerRef.current.set(participant.identity, {
+        participantSid: participant.sid,
+        trackSid: publication.trackSid,
+      });
       setRemoteDoctors((prev) => ({
         ...prev,
         [participant.identity]: { name: participant.name || '', stream },
@@ -287,17 +311,25 @@ export function useLivekitRoom({
     });
   }, [addRemoteAudioTrack]);
 
-  const detachRemoteTrack = useCallback((publication: RemoteTrackPublication, participant: RemoteParticipant) => {
+  const detachRemoteTrack = useCallback((
+    publication: RemoteTrackPublication,
+    participant: RemoteParticipant,
+    track?: RemoteTrack,
+  ) => {
     const name = publication.trackName || publication.source;
     const participantRole = parseRole(participant.metadata);
     if (publication.kind === Track.Kind.Audio) {
-      removeRemoteAudioTrack(participant.identity);
+      // Qaysi trek ketayotganini bilsak — faqat o'shani olib tashlaymiz
+      removeRemoteAudioTrack(participant.identity, track?.mediaStreamTrack);
       return;
     }
     let cameraId = name.startsWith('cam-') ? name.slice(4) : '';
     if (cameraId === 'doctor' || participantRole === 'mt') cameraId = MT_DOCTOR_STREAM_ID;
     if (!cameraId) return;
     if (cameraId === MT_DOCTOR_STREAM_ID) {
+      const owner = doctorOwnerRef.current.get(participant.identity);
+      if (owner && owner.trackSid !== publication.trackSid) return;
+      doctorOwnerRef.current.delete(participant.identity);
       setRemoteDoctors((prev) => {
         const next = { ...prev };
         delete next[participant.identity];
@@ -550,6 +582,7 @@ export function useLivekitRoom({
       republishTimerRef.current = null;
     }
     cameraTrackSidRef.current.clear();
+    doctorOwnerRef.current.clear();
     const room = roomRef.current;
     roomRef.current = null;
     setSfuConnected(false);
@@ -682,7 +715,15 @@ export function useLivekitRoom({
        */
       adaptiveStream: false,
       dynacast: true,
-      disconnectOnPageLeave: false,
+      /**
+       * Sahifa yopilganda / boshqa saytga o'tilganda xonadan TOZA chiqamiz.
+       * Ilgari `false` edi: brauzer yopilsa ham ishtirokchi serverda 15–20 s
+       * "arvoh" bo'lib qolardi — boshqalarda muzlagan kadr ("Tasvir tiklanmoqda"),
+       * sarlavhada esa u hali "xonada" ko'rinardi; shu payt qayta kirsa, bir xil
+       * identity bilan ikki sessiya to'qnashardi. F5 da ham toza chiqib, auto-rejoin
+       * bilan qaytadan kiriladi.
+       */
+      disconnectOnPageLeave: true,
       publishDefaults: {
         // VP9 + SVC. Bir xil sifatda VP8 dan ~30-50% kam trafik — uzoq
         // hududlardagi zaif kanallar uchun eng katta amaliy foyda.
@@ -721,7 +762,7 @@ export function useLivekitRoom({
       );
     });
     room.on(RoomEvent.TrackUnsubscribed, (track, publication, participant) => {
-      detachRemoteTrack(publication, participant);
+      detachRemoteTrack(publication, participant, track);
     });
     room.on(RoomEvent.ParticipantConnected, () => {
       refreshPeers(room);
@@ -734,6 +775,15 @@ export function useLivekitRoom({
       resyncSubscriptions(room);
     });
     room.on(RoomEvent.ParticipantDisconnected, (participant) => {
+      // Eski sessiyaning kechikkan "chiqdi" hodisasi: shu identity bilan yangi sessiya
+      // allaqachon ulangan — uning oynasi va ovoziga tegmaymiz
+      const current = room.remoteParticipants.get(participant.identity);
+      const owner = doctorOwnerRef.current.get(participant.identity);
+      if ((current && current.sid !== participant.sid) || (owner && owner.participantSid !== participant.sid)) {
+        resyncSubscriptions(room);
+        return;
+      }
+      doctorOwnerRef.current.delete(participant.identity);
       // Chiqib ketgan ishtirokchining oynasi va ovozi osilib qolmasin
       setRemoteDoctors((prev) => {
         const next = { ...prev };
@@ -749,6 +799,11 @@ export function useLivekitRoom({
       });
       removeRemoteAudioTrack(participant.identity);
       refreshPeers(room);
+      // O'z-o'zini tiklash: hodisalar tartibi buzilgan bo'lsa ham, xonada haqiqatan
+      // turgan ishtirokchilarning treklari qayta biriktiriladi
+      setTimeout(() => {
+        if (roomRef.current === room) resyncSubscriptions(room);
+      }, 1500);
     });
     room.on(RoomEvent.Reconnecting, () => setReconnecting(true));
     room.on(RoomEvent.Reconnected, () => {
