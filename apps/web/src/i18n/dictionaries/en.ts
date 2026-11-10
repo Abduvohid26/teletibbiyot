@@ -1665,14 +1665,6 @@ const en: MessageTree = {
       liveSub: "Cardiology · 12 min",
       queue: "In queue",
     },
-    liveStats: {
-      title: "Live statistics",
-      note: "Based on real consultations held through the platform",
-      doctors: "active doctors",
-      patients: "patients seen",
-      consultations: "consultations held",
-      facilities: "connected facilities",
-    },
     facts: {
       title: "The platform at a glance",
       languages: {
