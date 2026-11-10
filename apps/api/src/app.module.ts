@@ -29,6 +29,7 @@ import { SpecialtiesModule } from './specialties/specialties.module';
 import { MetricsModule } from './metrics/metrics.module';
 import { ComplianceModule } from './compliance/compliance.module';
 import { IntegrationsModule } from './integrations/integrations.module';
+import { PublicStatsModule } from './public-stats/public-stats.module';
 import { resolveRootEnvPath } from './env.config';
 
 const throttleLimit =
@@ -48,6 +49,7 @@ const throttleLimit =
     MetricsModule,
     ComplianceModule,
     IntegrationsModule,
+    PublicStatsModule,
     StorageModule,
     AuthModule,
     UsersModule,

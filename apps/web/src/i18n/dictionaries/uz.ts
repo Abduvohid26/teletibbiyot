@@ -1666,6 +1666,14 @@ const uz: MessageTree = {
       liveSub: "Kardiologiya · 12 daqiqa",
       queue: "Navbatda",
     },
+    liveStats: {
+      title: "Jonli statistika",
+      note: "Tizim orqali o‘tgan haqiqiy konsultatsiyalar asosida",
+      doctors: "faol shifokor",
+      patients: "qabul qilingan bemor",
+      consultations: "o‘tkazilgan konsultatsiya",
+      facilities: "ulangan muassasa",
+    },
     facts: {
       title: "Platforma qisqacha",
       languages: {

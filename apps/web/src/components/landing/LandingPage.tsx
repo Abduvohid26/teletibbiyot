@@ -20,6 +20,7 @@ import { FjstiEmblem } from '@/components/brand/FjstiEmblem';
 import { BrandLogo } from '@/components/brand/BrandLogo';
 import { LanguageSwitcher, useI18n } from '@/i18n';
 import { cn } from '@/lib/utils';
+import { LiveStats } from './LiveStats';
 
 const FACTS = ['languages', 'intake', 'vitals', 'roles'] as const;
 
@@ -139,6 +140,8 @@ export function LandingPage() {
               ))}
             </dl>
           </div>
+
+          <LiveStats />
         </section>
 
         {/* Imkoniyatlar — raqamlangan ro'yxat */}
